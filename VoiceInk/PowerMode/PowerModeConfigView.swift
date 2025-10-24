@@ -48,7 +48,7 @@ struct ConfigurationView: View {
         else {
             return false
         }
-        return model.provider == .parakeet || model.provider == .gemini
+        return model.provider == .parakeet
     }
     
     // Whisper state for model selection
