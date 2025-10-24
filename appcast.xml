@@ -1,0 +1,26 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>VoiceInk Releases</title>
+        <item>
+            <title>1.58</title>
+            <pubDate>Sun, 05 Oct 2025 12:00:00 +0545</pubDate>
+            <sparkle:version>158</sparkle:version>
+            <sparkle:shortVersionString>1.58</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+
+                <h3>What's New in Version 1.58</h3>
+                <ul>
+                    <li>Full control over the Enhancement Prompt</li>
+                    <li>Immediately save the recording in history</li>
+                    <li>Fixed issues with large text in transcript history</li>
+                    <li>Display Power Mode in Transcript History by @wobondar</li>
+                    <li>Minor Improvements & Fixes</li>
+                </ul>
+
+            ]]></description>
+            <enclosure url="https://github.com/Beingpax/VoiceInk/releases/download/v1.58/VoiceInk.dmg" length="9597815" type="application/octet-stream" sparkle:edSignature="wmFixc2Cot4Lk6iCbU0Cv5mdBVXHeAqLPVJ1tyjKENZSkeoxJzZjOGtYq32Vri3l0pGt35tKlWqXNDTKW35SBQ=="/>
+        </item>
+    </channel>
+</rss>
