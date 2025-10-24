@@ -35,7 +35,7 @@ Drop `build-apple/whisper.xcframework` into the Xcode project (or update the exi
 
 1. Clone the VoiceInk repository:
 ```bash
-git clone https://github.com/Beingpax/VoiceInk.git
+git clone https://github.com/tmm22/VoiceInk.git
 cd VoiceInk
 ```
 
@@ -75,4 +75,4 @@ If you encounter any build issues:
 4. Verify all dependencies are properly installed
 5. Make sure whisper.xcframework is properly built and linked
 
-For more help, please check the [issues](https://github.com/Beingpax/VoiceInk/issues) section or create a new issue. 
+For more help, please check the [issues](https://github.com/tmm22/VoiceInk/issues) section or create a new issue. 

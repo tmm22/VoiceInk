@@ -22,7 +22,7 @@ class LicenseViewModel: ObservableObject {
     let contributionNote = "Consider supporting continued development or sharing improvements with the community."
 
     private func makeURL(_ string: String) -> URL {
-        URL(string: string) ?? URL(string: "https://github.com/voiceink-community/voiceink")!
+        URL(string: string) ?? URL(string: "https://github.com/tmm22/VoiceInk")!
     }
 
     var communityResources: [CommunityResource] {
@@ -31,13 +31,13 @@ class LicenseViewModel: ObservableObject {
                 title: "Star the Repository",
                 systemImage: "star.fill",
                 description: "Help others discover the project by starring the GitHub repo.",
-                url: makeURL("https://github.com/voiceink-community/voiceink")
+                url: makeURL("https://github.com/tmm22/VoiceInk")
             ),
             CommunityResource(
                 title: "Report an Issue",
                 systemImage: "exclamationmark.bubble.fill",
                 description: "Found a bug or have an idea? Open an issue and start a conversation.",
-                url: makeURL("https://github.com/voiceink-community/voiceink/issues")
+                url: makeURL("https://github.com/tmm22/VoiceInk/issues")
             ),
             CommunityResource(
                 title: "Join the Discussion",
@@ -54,7 +54,7 @@ class LicenseViewModel: ObservableObject {
                 title: "Sponsor Development",
                 systemImage: "hands.clap.fill",
                 description: "Fund ongoing work via GitHub Sponsors or a one-time contribution.",
-                url: makeURL("https://github.com/sponsors/voiceink-community")
+                url: makeURL("https://github.com/sponsors/tmm22")
             ),
             CommunityResource(
                 title: "Read the Documentation",
