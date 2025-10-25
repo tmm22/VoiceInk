@@ -6,6 +6,7 @@ struct EnhancementSettingsView: View {
     @State private var isEditingPrompt = false
     @State private var isSettingsExpanded = true
     @State private var selectedPromptForEdit: CustomPrompt?
+    @AppStorage("enableAIEnhancementFeatures") private var enableAIEnhancementFeatures = false
     
     var body: some View {
         ScrollView {
@@ -63,18 +64,32 @@ struct EnhancementSettingsView: View {
                     .padding()
                     .background(CardBackground(isSelected: false))
                     
-                    // Informational note about provider setup
-                    VStack(alignment: .leading, spacing: 12) {
-                        Label("Local-Only Enhancement", systemImage: "lock.shield")
-                            .font(.headline)
+                    if enableAIEnhancementFeatures {
+                        // AI provider configuration when cloud features are enabled
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("AI Provider Integration")
+                                .font(.headline)
 
-                        Text("The community build keeps enhancement providers on-device by default. Cloud API configuration has been removed to keep things privacy-friendly out of the box.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                            APIKeyManagementView()
+                                .background(CardBackground(isSelected: false))
+                        }
+                        .padding()
+                        .background(Color(.windowBackgroundColor).opacity(0.4))
+                        .cornerRadius(10)
+                    } else {
+                        // Informational note about provider setup when running locally
+                        VStack(alignment: .leading, spacing: 12) {
+                            Label("Local-Only Enhancement", systemImage: "lock.shield")
+                                .font(.headline)
+
+                            Text("The community build keeps enhancement providers on-device by default. Enable AI enhancements in Settings to configure cloud providers like OpenAI or Google.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding()
+                        .background(CardBackground(isSelected: false))
                     }
-                    .padding()
-                    .background(CardBackground(isSelected: false))
 
                     // Enhancement prompt selection
                     VStack(alignment: .leading, spacing: 16) {
