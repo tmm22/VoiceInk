@@ -6,6 +6,7 @@ struct EnhancementSettingsView: View {
     @State private var isEditingPrompt = false
     @State private var isSettingsExpanded = true
     @State private var selectedPromptForEdit: CustomPrompt?
+    @AppStorage("enableAIEnhancementFeatures") private var enableAIEnhancementFeatures = false
     
     var body: some View {
         ScrollView {
@@ -63,17 +64,29 @@ struct EnhancementSettingsView: View {
                     .padding()
                     .background(CardBackground(isSelected: false))
                     
-                    // 1. AI Provider Integration Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("AI Provider Integration")
-                            .font(.headline)
-                        
-                        APIKeyManagementView()
+                    if enableAIEnhancementFeatures {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("AI Provider Integration")
+                                .font(.headline)
+                            
+                            APIKeyManagementView()
+                        }
+                        .padding()
+                        .background(CardBackground(isSelected: false))
+                    } else {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Label("Local-Only Enhancement", systemImage: "lock.shield")
+                                .font(.headline)
+                            
+                            Text("The community build keeps enhancement providers on-device by default. Enable AI enhancements in Settings to configure cloud providers like OpenAI or Google.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding()
+                        .background(CardBackground(isSelected: false))
                     }
-                    .padding()
-                    .background(CardBackground(isSelected: false))
                     
-                    // 3. Enhancement Modes & Assistant Section
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Enhancement Prompt")
                             .font(.headline)
