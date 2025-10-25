@@ -166,7 +166,7 @@ struct ContentView: View {
 
     private var availableViews: [ViewType] {
         ViewType.allCases.filter { viewType in
-            if !enableAIEnhancementFeatures && (viewType == .models || viewType == .enhancement) {
+            if !enableAIEnhancementFeatures && (viewType == .models || viewType == .enhancement || viewType == .textToSpeech) {
                 return false
             }
             return true
@@ -239,6 +239,10 @@ struct ContentView: View {
                     print("ContentView: Navigating to Transcribe Audio")
                     selectedView = .transcribeAudio
                 case "Text to Speech":
+                    guard enableAIEnhancementFeatures else {
+                        print("ContentView: AI features disabled; ignoring Text to Speech navigation")
+                        return
+                    }
                     print("ContentView: Navigating to Text to Speech")
                     selectedView = .textToSpeech
                 default:
@@ -279,7 +283,11 @@ struct ContentView: View {
         case .transcribeAudio:
             AudioTranscribeView()
         case .textToSpeech:
-            TextToSpeechView(viewModel: ttsViewModel)
+            if enableAIEnhancementFeatures {
+                TextToSpeechView(viewModel: ttsViewModel)
+            } else {
+                FeatureUnavailablePlaceholder()
+            }
         case .history:
             TranscriptionHistoryView()
         case .audioInput:
