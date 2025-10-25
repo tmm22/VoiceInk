@@ -705,13 +705,13 @@ private struct MainComposerColumn: View {
     @State private var showingTranslationDetail = false
 
     var body: some View {
-        ViewThatFits(in: .vertical) {
-            composerStack()
-
-            ScrollView {
+        GeometryReader { geometry in
+            ScrollView(.vertical, showsIndicators: true) {
                 composerStack()
                     .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .frame(minHeight: geometry.size.height, alignment: .top)
             }
+            .scrollIndicators(.hidden)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color(NSColor.windowBackgroundColor))
