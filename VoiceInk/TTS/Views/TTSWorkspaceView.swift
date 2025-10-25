@@ -279,6 +279,12 @@ private struct CommandStripView: View {
                     horizontalLayout
                         .fixedSize(horizontal: true, vertical: false)
                     wrappedLayout
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        horizontalLayout
+                            .padding(.vertical, 4)
+                    }
+                    .scrollIndicators(.hidden)
+                    .scrollClipDisabled()
                 }
             }
         }

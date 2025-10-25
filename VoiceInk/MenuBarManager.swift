@@ -62,7 +62,7 @@ class MenuBarManager: ObservableObject {
         print("MenuBarManager: Navigating to \(destination)")
 
         let aiFeaturesEnabled = UserDefaults.standard.bool(forKey: "enableAIEnhancementFeatures")
-        if !aiFeaturesEnabled && (destination == "AI Models" || destination == "Enhancement") {
+        if !aiFeaturesEnabled && (destination == "AI Models" || destination == "Enhancement" || destination == "Text to Speech") {
             print("MenuBarManager: AI features disabled; navigation to \(destination) blocked")
             DispatchQueue.main.async {
                 let alert = NSAlert()
