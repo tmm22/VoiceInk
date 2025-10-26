@@ -806,8 +806,7 @@ private struct ContextShelfView: View {
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(NSColor.controlBackgroundColor))
+                    CardBackground(isSelected: false, cornerRadius: 12)
                 )
             }
 
@@ -845,8 +844,7 @@ private struct ContextShelfView: View {
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(NSColor.controlBackgroundColor))
+                CardBackground(isSelected: false, cornerRadius: 12)
             )
         }
         .frame(maxWidth: .infinity)
@@ -927,8 +925,7 @@ private struct ArticleSummaryCard: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(NSColor.controlBackgroundColor))
+            CardBackground(isSelected: false, cornerRadius: 12)
         )
         .animation(.easeInOut(duration: 0.2), value: viewModel.isSummarizingArticle)
         .animation(.easeInOut(duration: 0.2), value: viewModel.articleSummary)
@@ -985,8 +982,7 @@ private struct ContextPanelCard: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(NSColor.controlBackgroundColor))
+            CardBackground(isSelected: false, cornerRadius: 12)
         )
     }
 }
@@ -1073,8 +1069,7 @@ private struct TranslationComparisonView: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(NSColor.controlBackgroundColor))
+            CardBackground(isSelected: false, cornerRadius: 12)
         )
     }
 
@@ -1420,8 +1415,7 @@ private struct UtilityDetailView: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(NSColor.controlBackgroundColor))
+            CardBackground(isSelected: false, cornerRadius: 12)
         )
     }
 }
@@ -1569,7 +1563,12 @@ private struct GenerationStatusFooter: View {
                 .padding(.horizontal, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(NSColor.controlBackgroundColor))
+                        .fill(StyleConstants.cardGradient)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(StyleConstants.cardBorder, lineWidth: 1)
+                        )
+                        .shadow(color: StyleConstants.shadowDefault, radius: 6, x: 0, y: 3)
                 )
             }
             .buttonStyle(.plain)
