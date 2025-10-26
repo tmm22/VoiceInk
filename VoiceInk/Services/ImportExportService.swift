@@ -26,7 +26,7 @@ struct GeneralSettings: Codable {
     let isExperimentalFeaturesEnabled: Bool?
 }
 
-struct VoiceInkExportedSettings: Codable {
+struct VoiceLinkCommunityExportedSettings: Codable {
     let version: String
     let customPrompts: [CustomPrompt]
     let powerModeConfigs: [PowerModeConfig]
@@ -106,7 +106,7 @@ class ImportExportService {
             isExperimentalFeaturesEnabled: UserDefaults.standard.bool(forKey: "isExperimentalFeaturesEnabled")
         )
 
-        let exportedSettings = VoiceInkExportedSettings(
+        let exportedSettings = VoiceLinkCommunityExportedSettings(
             version: currentSettingsVersion,
             customPrompts: exportablePrompts,
             powerModeConfigs: powerConfigs,
@@ -125,8 +125,8 @@ class ImportExportService {
 
             let savePanel = NSSavePanel()
             savePanel.allowedContentTypes = [UTType.json]
-            savePanel.nameFieldStringValue = "VoiceInk_Settings_Backup.json"
-            savePanel.title = "Export VoiceInk Settings"
+            savePanel.nameFieldStringValue = "VoiceLinkCommunity_Settings_Backup.json"
+            savePanel.title = "Export VoiceLink Community Settings"
             savePanel.message = "Choose a location to save your settings."
 
             DispatchQueue.main.async {
@@ -155,7 +155,7 @@ class ImportExportService {
         openPanel.canChooseFiles = true
         openPanel.canChooseDirectories = false
         openPanel.allowsMultipleSelection = false
-        openPanel.title = "Import VoiceInk Settings"
+        openPanel.title = "Import VoiceLink Community Settings"
         openPanel.message = "Choose a settings file to import. This will overwrite ALL settings (prompts, power modes, dictionary, general app settings)."
 
         DispatchQueue.main.async {
@@ -168,7 +168,7 @@ class ImportExportService {
                 do {
                     let jsonData = try Data(contentsOf: url)
                     let decoder = JSONDecoder()
-                    let importedSettings = try decoder.decode(VoiceInkExportedSettings.self, from: jsonData)
+                    let importedSettings = try decoder.decode(VoiceLinkCommunityExportedSettings.self, from: jsonData)
                     
                     if importedSettings.version != self.currentSettingsVersion {
                         self.showAlert(title: "Version Mismatch", message: "The imported settings file (version \(importedSettings.version)) is from a different version than your application (version \(self.currentSettingsVersion)). Proceeding with import, but be aware of potential incompatibilities.")
@@ -303,7 +303,7 @@ class ImportExportService {
         DispatchQueue.main.async {
             let alert = NSAlert()
             alert.messageText = "Import Successful"
-            alert.informativeText = message + "\n\nIMPORTANT: If you were using AI enhancement features, please make sure to reconfigure your API keys in the Enhancement section.\n\nIt is recommended to restart VoiceInk for all changes to take full effect."
+            alert.informativeText = message + "\n\nIMPORTANT: If you were using AI enhancement features, please make sure to reconfigure your API keys in the Enhancement section.\n\nIt is recommended to restart VoiceLink Community for all changes to take full effect."
             alert.alertStyle = .informational
             alert.addButton(withTitle: "OK")
             alert.addButton(withTitle: "Configure API Keys")

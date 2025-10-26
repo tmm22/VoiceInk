@@ -9,7 +9,7 @@ class SystemInfoService {
 
     func getSystemInfoString() -> String {
         let info = """
-        === VOICEINK SYSTEM INFORMATION ===
+        === VOICELINK COMMUNITY SYSTEM INFORMATION ===
         Generated: \(Date().formatted(date: .long, time: .standard))
 
         APP INFORMATION:
@@ -197,13 +197,11 @@ class SystemInfoService {
         let userDefaults = UserDefaults.standard
 
         // Check for existing license key and activation
-        if let _ = userDefaults.licenseKey {
-            if userDefaults.activationId != nil || !userDefaults.bool(forKey: "VoiceInkLicenseRequiresActivation") {
-                return "Licensed (Pro)"
-            }
+        if userDefaults.licenseKey != nil {
+            return "Licensed (Pro)"
         }
 
-        return "Not Licensed"
+        return "Community Edition"
     }
 
     private func getCurrentLanguage() -> String {

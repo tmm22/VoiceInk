@@ -9,7 +9,7 @@
 ## Community & Licensing Philosophy
 - **Current VoiceInk**: Ships with a gated “VoiceInk Pro” experience and paywall UI, and contributions are tightly stewarded by maintainers.  
 - **Fork Angle**: Reposition as a community-driven distribution—fully free tier, community plugin marketplace, transparent governance, and looser contribution policy.  
-- **Why It Differentiates**: Appeals to open-source purists and organizations wary of licensing toggles, while inviting broader contributor energy. **Status: Shipped in VoiceInk Community.**
+- **Why It Differentiates**: Appeals to open-source purists and organizations wary of licensing toggles, while inviting broader contributor energy. **Status: Shipped in VoiceLink Community.**
 - **References**: `VoiceInk/Views/ContentView.swift:17`, `VoiceInk/Views/LicenseManagementView.swift:16`, `CONTRIBUTING.md:9`
 
 ## Live Overlay & Accessibility Workflows
@@ -39,5 +39,5 @@
 ## Model Onboarding & Ops
 - **Current VoiceInk**: Users must juggle API keys and external model choices; only Ollama offers a turnkey local story.  
 - **Fork Angle**: Provide curated, auto-updating on-device model bundles, streaming while-downloading, and policy presets (privacy tiers, cost controls) plus self-hosted inference adapters.  
-- **Why It Differentiates**: Reduces setup friction, attracts privacy-conscious teams, and positions the fork as the quickest path to productive transcription. **Status: Shipped in VoiceInk Community.**
+- **Why It Differentiates**: Reduces setup friction, attracts privacy-conscious teams, and positions the fork as the quickest path to productive transcription. **Status: Shipped in VoiceLink Community.**
 - **References**: `VoiceInk/Services/AIService.swift:149`

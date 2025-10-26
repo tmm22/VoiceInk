@@ -4,7 +4,7 @@ import AppKit
 
 struct EmailSupport {
     static func generateSupportEmailURL() -> URL? {
-        let subject = "VoiceInk Support Request"
+        let subject = "VoiceLink Community Support Request"
         let systemInfo = SystemInfoService.shared.getSystemInfoString()
 
         let body = """
@@ -41,6 +41,4 @@ struct EmailSupport {
             NSWorkspace.shared.open(emailURL)
         }
     }
-    
-    
 }

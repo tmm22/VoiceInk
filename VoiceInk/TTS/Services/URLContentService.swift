@@ -8,7 +8,7 @@ protocol URLContentLoading {
 @MainActor
 struct URLContentService: URLContentLoading {
     private let session: URLSession
-    private static let redditUserAgent = "VoiceInkTTS/1.0 (+https://github.com/Beingpax/VoiceInk)"
+    private static let redditUserAgent = "VoiceLinkCommunityTTS/1.0 (+https://github.com/Beingpax/VoiceInk)"
 
     init(session: URLSession = SecureURLSession.makeEphemeral()) {
         self.session = session

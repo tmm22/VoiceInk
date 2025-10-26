@@ -1,6 +1,6 @@
-# Building VoiceInk
+# Building VoiceLink Community
 
-This guide provides detailed instructions for building VoiceInk Community from source. The fork bundles the default Whisper and Parakeet models, so a fresh build is ready to transcribe offline immediately.
+This guide provides detailed instructions for building VoiceLink Community from source. The fork bundles the default Whisper and Parakeet models, so a fresh build is ready to transcribe offline immediately.
 
 ## Prerequisites
 
@@ -21,7 +21,7 @@ This script downloads `ggml-base.en.bin` and the quantized large turbo model int
 
 ## Building whisper.cpp Framework
 
-VoiceInk relies on [whisper.cpp](https://github.com/ggerganov/whisper.cpp) for on-device transcription. If you have not built the XCFramework yet:
+VoiceLink Community relies on [whisper.cpp](https://github.com/ggerganov/whisper.cpp) for on-device transcription. If you have not built the XCFramework yet:
 
 ```bash
 git clone https://github.com/ggerganov/whisper.cpp.git
@@ -31,9 +31,9 @@ cd whisper.cpp
 
 Drop `build-apple/whisper.xcframework` into the Xcode project (or update the existing reference) before building.
 
-## Building VoiceInk
+## Building VoiceLink Community
 
-1. Clone the VoiceInk repository:
+1. Clone the VoiceLink Community repository:
 ```bash
 git clone https://github.com/tmm22/VoiceInk.git
 cd VoiceInk

@@ -62,7 +62,7 @@ struct TimeEfficiencyView: View {
                     .font(.system(size: 32, weight: .bold))
                     .foregroundStyle(efficiencyGradient)
                 
-                Text("with VoiceInk")
+                Text("with VoiceLink Community")
                     .font(.system(size: 32, weight: .bold))
             }
             .lineLimit(1)

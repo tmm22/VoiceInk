@@ -387,7 +387,7 @@ struct AddReplacementSheet: View {
                                 Text("Replacement:")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-                                Text("VoiceInk")
+                                Text("VoiceLink Community")
                                     .font(.callout)
                             }
                         }

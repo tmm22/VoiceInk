@@ -1,6 +1,6 @@
 <div align="center">
   <img src="VoiceInk/Assets.xcassets/AppIcon.appiconset/256-mac.png" width="180" height="180" />
-  <h1>VoiceInk Community</h1>
+  <h1>VoiceLink Community</h1>
   <p>macOS voice-to-text without paywalls, trials, or API key juggling</p>
 
   [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
@@ -9,7 +9,7 @@
 
 ---
 
-VoiceInk Community is a maintained fork of the original VoiceInk project. It keeps the same fast, privacy-first transcription experience but removes the paywall, bundles offline models, and relaxes the contribution process so anyone can help shape the app.
+VoiceLink Community is a maintained fork of the original VoiceInk project. It keeps the same fast, privacy-first transcription experience but removes the paywall, bundles offline models, and relaxes the contribution process so anyone can help shape the app.
 
 Highlights of this fork:
 
@@ -17,7 +17,7 @@ Highlights of this fork:
 - 📦 **Models included** – Whisper (multiple sizes) and Parakeet ship in the app, ready to use offline.
 - 🔧 **Hackable by default** – a friendlier contributing policy and cleaner onboarding for builders.
 
-![VoiceInk Mac App](https://github.com/user-attachments/assets/12367379-83e7-48a6-b52c-4488a6a04bba)
+![VoiceLink Community Mac App](https://github.com/user-attachments/assets/12367379-83e7-48a6-b52c-4488a6a04bba)
 
 ## Features
 
@@ -44,7 +44,7 @@ Highlights of this fork:
 ## Documentation
 
 - [Building from Source](BUILDING.md) - Detailed instructions for building the project
-- [Contributing Guidelines](CONTRIBUTING.md) - How to contribute to VoiceInk
+- [Contributing Guidelines](CONTRIBUTING.md) - How to contribute to VoiceLink Community
 - [Code of Conduct](CODE_OF_CONDUCT.md) - Our community standards
 
 ## Contributing
@@ -69,7 +69,7 @@ If you run into trouble:
 - [FluidAudio](https://github.com/FluidInference/FluidAudio) - Used for Parakeet model implementation
 
 ### Essential Dependencies
-- [Sparkle](https://github.com/sparkle-project/Sparkle) - Keeping VoiceInk up to date
+- [Sparkle](https://github.com/sparkle-project/Sparkle) - Keeping VoiceLink Community up to date
 - [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) - User-customizable keyboard shortcuts
 - [LaunchAtLogin](https://github.com/sindresorhus/LaunchAtLogin) - Launch at login functionality
 - [MediaRemoteAdapter](https://github.com/ejbills/mediaremote-adapter) - Media playback control during recording
@@ -77,4 +77,4 @@ If you run into trouble:
 
 ---
 
-Maintained with ❤️ by the VoiceInk Community
+Maintained with ❤️ by the VoiceLink Community
