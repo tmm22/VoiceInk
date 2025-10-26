@@ -2,7 +2,7 @@ import Foundation
 import AppKit
 class SelectedTextService {
     // Private pasteboard type to avoid clipboard history pollution
-    private static let privatePasteboardType = NSPasteboard.PasteboardType("com.prakashjoshipax.VoiceInk.transient")
+    private static let privatePasteboardType = NSPasteboard.PasteboardType("com.tmm22.VoiceLinkCommunity.transient")
 
     static func fetchSelectedText() -> String? {
 

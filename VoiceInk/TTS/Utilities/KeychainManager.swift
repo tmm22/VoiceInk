@@ -7,7 +7,7 @@ class KeychainManager {
     private let accessGroup: String?
 
     // MARK: - Initialization
-    init(service: String = Bundle.main.bundleIdentifier ?? "com.prakashjoshipax.VoiceInk",
+    init(service: String = Bundle.main.bundleIdentifier ?? "com.tmm22.VoiceLinkCommunity",
          accessGroup: String? = nil) {
         self.service = service
         self.accessGroup = accessGroup

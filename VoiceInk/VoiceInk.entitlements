@@ -23,7 +23,7 @@
 	</array>
 	<key>keychain-access-groups</key>
 	<array>
-		<string>$(AppIdentifierPrefix)com.prakashjoshipax.VoiceInk</string>
+		<string>$(AppIdentifierPrefix)com.tmm22.VoiceLinkCommunity</string>
 	</array>
 </dict>
 </plist>

@@ -8,7 +8,7 @@ class ParakeetTranscriptionService: TranscriptionService {
     private var asrManager: AsrManager?
     private var vadManager: VadManager?
     private var activeVersion: AsrModelVersion?
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink.parakeet", category: "ParakeetTranscriptionService")
+    private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity.parakeet", category: "ParakeetTranscriptionService")
 
     private func version(for model: any TranscriptionModel) -> AsrModelVersion {
         model.name.lowercased().contains("v2") ? .v2 : .v3

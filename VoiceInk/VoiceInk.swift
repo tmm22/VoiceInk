@@ -29,7 +29,7 @@ struct VoiceInkApp: App {
     
     init() {
         // Configure FluidAudio logging subsystem
-        AppLogger.defaultSubsystem = "com.prakashjoshipax.voiceink.parakeet"
+        AppLogger.defaultSubsystem = "com.tmm22.voicelinkcommunity.parakeet"
 
         if UserDefaults.standard.object(forKey: "powerModeUIFlag") == nil {
             let hasEnabledPowerModes = PowerModeManager.shared.configurations.contains { $0.isEnabled }
@@ -43,7 +43,7 @@ struct VoiceInkApp: App {
             
             // Create app-specific Application Support directory URL
             let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("com.prakashjoshipax.VoiceInk", isDirectory: true)
+                .appendingPathComponent("com.tmm22.VoiceLinkCommunity", isDirectory: true)
             
             // Create the directory if it doesn't exist
             try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)

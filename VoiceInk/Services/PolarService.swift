@@ -6,7 +6,7 @@ class PolarService {
     private let organizationId = "Org"
     private let apiToken = "Token"
     private let baseURL = "https://api.polar.sh"
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "PolarService")
+    private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "PolarService")
     
     // Create an authenticated URLRequest for the given endpoint
     private func createAuthenticatedRequest(endpoint: String, method: String = "POST") -> URLRequest {

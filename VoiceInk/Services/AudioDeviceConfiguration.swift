@@ -4,7 +4,7 @@ import CoreAudio
 import os
 
 class AudioDeviceConfiguration {
-    private static let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "AudioDeviceConfiguration")
+    private static let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "AudioDeviceConfiguration")
     
 
 
