@@ -1,6 +1,6 @@
-# Contributing to VoiceInk Community
+# Contributing to VoiceLink Community
 
-First off, thank you for your interest in shaping this fork! VoiceInk Community aims to remove friction—no license checks, no nag screens, and local models that just work. The same philosophy applies to contributions: if you have an improvement, we want to see it.
+First off, thank you for your interest in shaping this fork! VoiceLink Community aims to remove friction—no license checks, no nag screens, and local models that just work. The same philosophy applies to contributions: if you have an improvement, we want to see it.
 
 ## Quick Start
 
@@ -34,4 +34,4 @@ Be kind, inclusive, and collaborative. We follow the short-and-sweet community r
 - Hop into Discord (`Community` tab inside the app) for real-time chats.
 - Tag maintainers in a PR if you are blocked—we’d rather unblock you than watch code go stale.
 
-Thanks again for helping make an open, frictionless VoiceInk for everyone!
+Thanks again for helping make an open, frictionless VoiceLink Community for everyone!

@@ -519,7 +519,7 @@ struct AboutView: View {
                 .font(.system(size: 80))
                 .foregroundColor(.accentColor)
             
-            Text("VoiceInk Text-to-Speech")
+            Text("VoiceLink Community Text-to-Speech")
                 .font(.title)
                 .fontWeight(.bold)
             
@@ -527,7 +527,7 @@ struct AboutView: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
             
-            Text("Integrated text-to-speech workspace for the VoiceInk Community build.")
+            Text("Integrated text-to-speech workspace for the VoiceLink Community build.")
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 400)
             
@@ -548,7 +548,7 @@ struct AboutView: View {
             
             Spacer()
             
-            Text("© 2025 VoiceInk Community contributors.")
+            Text("© 2025 VoiceLink Community contributors.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }

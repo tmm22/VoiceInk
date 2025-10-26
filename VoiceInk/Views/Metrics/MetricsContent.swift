@@ -45,7 +45,7 @@ struct MetricsContent: View {
                 color: .blue
             )
             MetricCard(
-                title: "VoiceInk Sessions",
+                title: "VoiceLink Community Sessions",
                 value: "\(transcriptions.count)",
                 icon: "mic.circle.fill",
                 color: .green
@@ -67,7 +67,7 @@ struct MetricsContent: View {
     
     private var voiceInkTrendChart: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("30-Day VoiceInk Trend")
+            Text("30-Day VoiceLink Community Trend")
                 .font(.headline)
             
             Chart {

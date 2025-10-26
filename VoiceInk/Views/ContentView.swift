@@ -72,7 +72,7 @@ struct DynamicSidebar: View {
                         .cornerRadius(8)
                 }
                 
-                Text("VoiceInk")
+                Text("VoiceLink")
                     .font(.system(size: 14, weight: .semibold))
                 Text("Community")
                     .font(.system(size: 9, weight: .heavy))

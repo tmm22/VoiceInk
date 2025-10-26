@@ -11,7 +11,7 @@ struct DictionarySettingsView: View {
         var description: String {
             switch self {
             case .spellings:
-                return "Add words to help VoiceInk recognize them properly"
+                return "Add words to help VoiceLink Community recognize them properly"
             case .replacements:
                 return "Automatically replace specific words/phrases with custom formatted text "
             }
@@ -51,7 +51,7 @@ struct DictionarySettingsView: View {
             VStack(spacing: 8) {
                 Text("Dictionary Settings")
                     .font(.system(size: 28, weight: .bold))
-                Text("Enhance VoiceInk's transcription accuracy by teaching it your vocabulary")
+                Text("Enhance VoiceLink Community's transcription accuracy by teaching it your vocabulary")
                     .font(.system(size: 15))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

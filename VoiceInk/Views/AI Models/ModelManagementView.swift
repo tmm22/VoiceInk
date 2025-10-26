@@ -185,7 +185,7 @@ struct ModelManagementView: View {
 
                             InfoTip(
                                 title: "Import local Whisper models",
-                                message: "Add a custom fine-tuned whisper model to use with VoiceInk. Select the downloaded .bin file.",
+                                message: "Add a custom fine-tuned whisper model to use with VoiceLink Community. Select the downloaded .bin file.",
                                 learnMoreURL: "https://tryvoiceink.com/docs/custom-local-whisper-models"
                             )
                             .help("Read more about custom local models")

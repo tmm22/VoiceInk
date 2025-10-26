@@ -18,7 +18,7 @@ struct AudioCleanupSettingsView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Control how VoiceInk handles your transcription data and audio recordings for privacy and storage management.")
+            Text("Control how VoiceLink Community handles your transcription data and audio recordings for privacy and storage management.")
                 .font(.system(size: 13))
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
