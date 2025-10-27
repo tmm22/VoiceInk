@@ -56,6 +56,9 @@ struct PowerModePopover: View {
         .onAppear {
             selectedConfig = powerModeManager.activeConfiguration
         }
+        .onChange(of: powerModeManager.activeConfiguration) { newValue in
+            selectedConfig = newValue
+        }
     }
     
     private func applySelectedConfiguration() {
