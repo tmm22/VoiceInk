@@ -265,6 +265,17 @@ import Foundation
             isMultilingual: true,
             supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .gemini)
         )
+        ,
+        CloudModel(
+            name: "stt-async-v3",
+            displayName: "Soniox (stt-async-v3)",
+            description: "Soniox asynchronous transcription model v3.",
+            provider: .soniox,
+            speed: 0.8,
+            accuracy: 0.96,
+            isMultilingual: true,
+            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .soniox)
+        )
      ]
  
      static let allLanguages = [
