@@ -29,6 +29,9 @@ extension WhisperState {
             case .gemini:
                 let key = UserDefaults.standard.string(forKey: "GeminiAPIKey")
                 return key != nil && !key!.isEmpty
+            case .soniox:
+                let key = UserDefaults.standard.string(forKey: "SonioxAPIKey")
+                return key != nil && !key!.isEmpty
             case .custom:
                 // Custom models are always usable since they contain their own API keys
                 return true

@@ -1,13 +1,22 @@
 {
-  "originHash" : "0b9379abd19d2f53581c233273d09235e935a8d2b1180cf253dd69baa2784b39",
+  "originHash" : "36502e57860420412ca5daf60b11dcbd3e4e5d73ad1d9e17ec8ab3d5bc16fa4c",
   "pins" : [
+    {
+      "identity" : "axswift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/clavierorg/AXSwift.git",
+      "state" : {
+        "revision" : "2efa201fa18184de98674165592fd1ecb0c00a6d",
+        "version" : "0.3.5"
+      }
+    },
     {
       "identity" : "fluidaudio",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/FluidInference/FluidAudio",
       "state" : {
         "branch" : "main",
-        "revision" : "f47209a44e26c8d930983358e497c581bfb9442d"
+        "revision" : "2dd0bd1849147f772167bc2f28535e614ca6dd53"
       }
     },
     {
@@ -17,6 +26,15 @@
       "state" : {
         "revision" : "1aef85578fdd4f9eaeeb8d53b7b4fc31bf08fe27",
         "version" : "2.4.0"
+      }
+    },
+    {
+      "identity" : "keysender",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/jordanbaird/KeySender",
+      "state" : {
+        "revision" : "99584bf1a03ab600cc44be89a2dcd98b2dbeb9de",
+        "version" : "0.0.5"
       }
     },
     {
@@ -35,6 +53,14 @@
       "state" : {
         "branch" : "master",
         "revision" : "3529aa25023082a2ceadebcd2c9c4a9430ee96b9"
+      }
+    },
+    {
+      "identity" : "selectedtextkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/tisfeng/SelectedTextKit",
+      "state" : {
+        "revision" : "f6c1574ad6f747e1110b544c35e6ec64ed6f52f1"
       }
     },
     {

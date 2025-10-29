@@ -139,8 +139,8 @@ class AIEnhancementService: ObservableObject {
         lastRequestTime = Date()
     }
 
-    private func getSystemMessage(for mode: EnhancementPrompt) -> String {
-        let selectedText = SelectedTextService.fetchSelectedText()
+    private func getSystemMessage(for mode: EnhancementPrompt) async -> String {
+        let selectedText = await SelectedTextService.fetchSelectedText()
 
         let selectedTextContext = if let selectedText = selectedText, !selectedText.isEmpty {
             "\n\n<CURRENTLY_SELECTED_TEXT>\n\(selectedText)\n</CURRENTLY_SELECTED_TEXT>"
@@ -198,7 +198,7 @@ class AIEnhancementService: ObservableObject {
         }
 
         let formattedText = "\n<TRANSCRIPT>\n\(text)\n</TRANSCRIPT>"
-        let systemMessage = getSystemMessage(for: mode)
+        let systemMessage = await getSystemMessage(for: mode)
         
         // Persist the exact payload being sent (also used for UI)
         await MainActor.run {

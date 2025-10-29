@@ -8,6 +8,7 @@ struct MetricsView: View {
     @Query(sort: \Transcription.timestamp) private var transcriptions: [Transcription]
     @EnvironmentObject private var whisperState: WhisperState
     @EnvironmentObject private var hotkeyManager: HotkeyManager
+    @StateObject private var licenseViewModel = LicenseViewModel()
     @State private var hasLoadedData = false
     let skipSetupCheck: Bool
     
@@ -19,9 +20,15 @@ struct MetricsView: View {
         VStack {
             Group {
                 if skipSetupCheck {
-                    MetricsContent(transcriptions: Array(transcriptions))
+                    MetricsContent(
+                        transcriptions: Array(transcriptions),
+                        licenseViewModel: licenseViewModel
+                    )
                 } else if isSetupComplete {
-                    MetricsContent(transcriptions: Array(transcriptions))
+                    MetricsContent(
+                        transcriptions: Array(transcriptions),
+                        licenseViewModel: licenseViewModel
+                    )
                 } else {
                     MetricsSetupView()
                 }
