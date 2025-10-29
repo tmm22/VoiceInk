@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MetricsContent: View {
     let transcriptions: [Transcription]
+    let licenseState: LicenseViewModel.LicenseState
     
     var body: some View {
         Group {
@@ -12,7 +13,7 @@ struct MetricsContent: View {
                     VStack(spacing: 24) {
                         heroSection
                         metricsSection
-                        DashboardPromotionsSection()
+                        DashboardPromotionsSection(licenseState: licenseState)
                     }
                     .padding(.vertical, 28)
                     .padding(.horizontal, 32)
@@ -241,7 +242,7 @@ private enum Formatters {
     static func formattedDuration(_ interval: TimeInterval, style: DateComponentsFormatter.UnitsStyle, fallback: String = "–") -> String {
         guard interval > 0 else { return fallback }
         durationFormatter.unitsStyle = style
-        durationFormatter.allowedUnits = interval >= 3600 ? [.hour, .minute] : [.second]
+        durationFormatter.allowedUnits = interval >= 3600 ? [.hour, .minute] : [.minute, .second]
         return durationFormatter.string(from: interval) ?? fallback
     }
 }

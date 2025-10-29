@@ -51,9 +51,15 @@ struct MetricsView: View {
             
             Group {
                 if skipSetupCheck {
-                    MetricsContent(transcriptions: Array(transcriptions))
+                    MetricsContent(
+                        transcriptions: Array(transcriptions),
+                        licenseState: licenseViewModel.licenseState
+                    )
                 } else if isSetupComplete {
-                    MetricsContent(transcriptions: Array(transcriptions))
+                    MetricsContent(
+                        transcriptions: Array(transcriptions),
+                        licenseState: licenseViewModel.licenseState
+                    )
                 } else {
                     MetricsSetupView()
                 }

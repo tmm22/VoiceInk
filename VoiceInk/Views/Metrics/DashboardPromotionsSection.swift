@@ -5,8 +5,14 @@ struct DashboardPromotionsSection: View {
     let licenseState: LicenseViewModel.LicenseState
     
     private var shouldShowUpgradePromotion: Bool {
-        guard case .trial(let daysRemaining) = licenseState else { return false }
-        return daysRemaining <= 9
+        switch licenseState {
+        case .trial(let daysRemaining):
+            return daysRemaining <= 2
+        case .trialExpired:
+            return true
+        case .licensed:
+            return false
+        }
     }
     
     private var shouldShowAffiliatePromotion: Bool {
@@ -26,16 +32,8 @@ struct DashboardPromotionsSection: View {
                 if shouldShowUpgradePromotion {
                     DashboardPromotionCard(
                         badge: "30% OFF",
-                        title: "Share VoiceInk, Save 30%",
-                        message: "Tell your audience about VoiceInk on social and unlock a 30% discount on VoiceInk Pro when they upgrade.",
-                        gradient: LinearGradient(
-                            colors: [
-                                Color(red: 0.08, green: 0.48, blue: 0.85),
-                                Color(red: 0.05, green: 0.18, blue: 0.42)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
+                        title: "Unlock VoiceInk Pro For Less",
+                        message: "Share VoiceInk on your socials, and instantly unlock a 30% discount on VoiceInk Pro.",
                         accentSymbol: "megaphone.fill",
                         glowColor: Color(red: 0.08, green: 0.48, blue: 0.85),
                         actionTitle: "Share & Unlock",
@@ -50,14 +48,6 @@ struct DashboardPromotionsSection: View {
                         badge: "AFFILIATE 30%",
                         title: "Earn With The VoiceInk Affiliate Program",
                         message: "Share VoiceInk with friends or your audience and receive 30% on every referral that upgrades.",
-                        gradient: LinearGradient(
-                            colors: [
-                                Color(red: 0.08, green: 0.48, blue: 0.85),
-                                Color(red: 0.05, green: 0.18, blue: 0.42)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
                         accentSymbol: "link.badge.plus",
                         glowColor: Color(red: 0.08, green: 0.48, blue: 0.85),
                         actionTitle: "Explore Affiliate",
@@ -90,12 +80,20 @@ private struct DashboardPromotionCard: View {
     let badge: String
     let title: String
     let message: String
-    let gradient: LinearGradient
     let accentSymbol: String
     let glowColor: Color
     let actionTitle: String
     let actionIcon: String
     let action: () -> Void
+
+    private static let defaultGradient: LinearGradient = LinearGradient(
+        colors: [
+            Color(red: 0.08, green: 0.48, blue: 0.85),
+            Color(red: 0.05, green: 0.18, blue: 0.42)
+        ],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
     
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -147,26 +145,13 @@ private struct DashboardPromotionCard: View {
         .frame(maxWidth: .infinity, minHeight: 200, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(gradient)
-                .overlay {
-                    ZStack {
-                        Circle()
-                            .fill(.white.opacity(0.12))
-                            .frame(width: 140, height: 140)
-                            .offset(x: 60, y: -60)
-                        Circle()
-                            .strokeBorder(.white.opacity(0.15), lineWidth: 1)
-                            .frame(width: 170, height: 170)
-                            .offset(x: -40, y: 70)
-                    }
-                    .clipped()
-                }
+                .fill(Self.defaultGradient)
         )
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .stroke(.white.opacity(0.08), lineWidth: 1)
         )
-        .shadow(color: glowColor.opacity(0.28), radius: 24, x: 0, y: 14)
+        .shadow(color: glowColor.opacity(0.15), radius: 12, x: 0, y: 8)
     }
 }
