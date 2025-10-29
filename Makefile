@@ -1,3 +1,8 @@
+# Define a directory for dependencies in the user's home folder
+DEPS_DIR := $(HOME)/VoiceInk-Dependencies
+WHISPER_CPP_DIR := $(DEPS_DIR)/whisper.cpp
+FRAMEWORK_PATH := $(WHISPER_CPP_DIR)/build-apple/whisper.xcframework
+
 .PHONY: all clean whisper setup build check healthcheck help dev run
 
 # Default target
@@ -18,21 +23,24 @@ healthcheck: check
 
 # Build process
 whisper:
-	@if [ ! -d "whisper.cpp/build-apple/whisper.xcframework" ]; then \
-		echo "Building whisper.xcframework..."; \
-		git clone https://github.com/ggerganov/whisper.cpp.git || (cd whisper.cpp && git pull); \
-		cd whisper.cpp && ./build-xcframework.sh; \
+	@mkdir -p $(DEPS_DIR)
+	@if [ ! -d "$(FRAMEWORK_PATH)" ]; then \
+		echo "Building whisper.xcframework in $(DEPS_DIR)..."; \
+		if [ ! -d "$(WHISPER_CPP_DIR)" ]; then \
+			git clone https://github.com/ggerganov/whisper.cpp.git $(WHISPER_CPP_DIR); \
+		else \
+			(cd $(WHISPER_CPP_DIR) && git pull); \
+		fi; \
+		cd $(WHISPER_CPP_DIR) && ./build-xcframework.sh; \
 	else \
-		echo "whisper.xcframework already built, skipping build"; \
+		echo "whisper.xcframework already built in $(DEPS_DIR), skipping build"; \
 	fi
 
 setup: whisper
-	@if [ ! -d "VoiceInk/whisper.xcframework" ]; then \
-		echo "Copying whisper.xcframework to VoiceInk..."; \
-		cp -r whisper.cpp/build-apple/whisper.xcframework VoiceInk/; \
-	else \
-		echo "whisper.xcframework already in VoiceInk, skipping copy"; \
-	fi
+	@echo "Whisper framework is ready at $(FRAMEWORK_PATH)"
+	@echo "Please ensure your Xcode project references the framework from this new location."
+	@echo "Removing old framework copy from the project directory (if it exists)..."
+	@rm -rf VoiceInk/whisper.xcframework
 
 build: setup
 	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug CODE_SIGN_IDENTITY="" build
@@ -52,7 +60,8 @@ run:
 # Cleanup
 clean:
 	@echo "Cleaning build artifacts..."
-	@rm -rf whisper.cpp VoiceInk/whisper.xcframework
+	@rm -rf $(DEPS_DIR)
+	@rm -rf VoiceInk/whisper.xcframework
 	@echo "Clean complete"
 
 # Help
