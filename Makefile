@@ -39,8 +39,6 @@ whisper:
 setup: whisper
 	@echo "Whisper framework is ready at $(FRAMEWORK_PATH)"
 	@echo "Please ensure your Xcode project references the framework from this new location."
-	@echo "Removing old framework copy from the project directory (if it exists)..."
-	@rm -rf VoiceInk/whisper.xcframework
 
 build: setup
 	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug CODE_SIGN_IDENTITY="" build
@@ -61,7 +59,6 @@ run:
 clean:
 	@echo "Cleaning build artifacts..."
 	@rm -rf $(DEPS_DIR)
-	@rm -rf VoiceInk/whisper.xcframework
 	@echo "Clean complete"
 
 # Help
