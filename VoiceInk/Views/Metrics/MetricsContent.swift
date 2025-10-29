@@ -13,7 +13,10 @@ struct MetricsContent: View {
                     VStack(spacing: 24) {
                         heroSection
                         metricsSection
-                        DashboardPromotionsSection(licenseState: licenseState)
+                        HStack(alignment: .top, spacing: 18) {
+                            HelpAndResourcesSection()
+                            DashboardPromotionsSection(licenseState: licenseState)
+                        }
                     }
                     .padding(.vertical, 28)
                     .padding(.horizontal, 32)
