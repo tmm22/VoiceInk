@@ -12,6 +12,7 @@ struct MetricsContent: View {
                     VStack(spacing: 24) {
                         heroSection
                         metricsSection
+                        DashboardPromotionsSection()
                     }
                     .padding(.vertical, 28)
                     .padding(.horizontal, 32)
