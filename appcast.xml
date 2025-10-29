@@ -3,24 +3,29 @@
     <channel>
         <title>VoiceInk Releases</title>
         <item>
-            <title>1.59</title>
-            <pubDate>Fri, 10 Oct 2025 12:00:00 +0545</pubDate>
-            <sparkle:version>159</sparkle:version>
-            <sparkle:shortVersionString>1.59</sparkle:shortVersionString>
+            <title>1.60</title>
+            <pubDate>Fri, 30 Oct 2025 12:00:00 +0545</pubDate>
+            <sparkle:version>160</sparkle:version>
+            <sparkle:shortVersionString>1.60</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 
-                <h3>What's New in Version 1.59</h3>
+                <h3>What's New in Version 1.60</h3>
                 <ul>
-                    <li>Added Multi-language support for Context Awareness</li>
-                    <li>Improved Context handling</li>
-                    <li>Added context awareness toggle in Power Mode</li>
-                    <li>Better logging for parakeet model</li>
-                    <li>Minor improvements and bug fixes</li>
+                    <li>Added support for Parakeet v2 and v3 models (requires re-download)</li>
+                    <li>Added support for Soniox v3 model</li>
+                    <li>Added claude 4.5 haiku model</li>
+                    <li>Toggleable Command + E functionality</li>
+                    <li>Redesigned the dashboard</li>
+                    <li>Removed the power mode UI by default (turn it on from settings)</li>
+                    <li>Removed activated power mode persistence</li>
+                    <li>Improved support for getting selected text</li>
+                    <li>Rewrote the default prompts</li>
+                    <li>Minor Improvements and fixes</li>
                 </ul>
 
             ]]></description>
-            <enclosure url="https://github.com/Beingpax/VoiceInk/releases/download/v1.59/VoiceInk.dmg" length="9611533" type="application/octet-stream" sparkle:edSignature="Sw5RdQkpfIRVHFIBF/x8+M+A4azzAZvmWy/oJwSSd0tN0riZ+gNh7O/mBQm1PK0LOVnlGNmhAunK3o30Od3mDQ=="/>
+            <enclosure url="https://github.com/Beingpax/VoiceInk/releases/download/v1.60/VoiceInk.dmg" length="24386593" type="application/octet-stream" sparkle:edSignature="ELX+JL8i6XTQWlsKHodDayIKvHEzaDa9Ff/RNW3RFaC1hFR9aAMCP+6I+QZDBtEU8RQl389pGAcrke8PAaDaCw=="/>
         </item>
     </channel>
 </rss>
