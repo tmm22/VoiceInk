@@ -1,10 +1,18 @@
 import SwiftUI
 import AppKit
 
-class WindowManager {
+class WindowManager: NSObject {
     static let shared = WindowManager()
     
-    private init() {}
+    private static let mainWindowIdentifier = NSUserInterfaceItemIdentifier("com.prakashjoshipax.voiceink.mainWindow")
+    private static let mainWindowAutosaveName = NSWindow.FrameAutosaveName("VoiceInkMainWindowFrame")
+    
+    private weak var mainWindow: NSWindow?
+    private var didApplyInitialPlacement = false
+    
+    private override init() {
+        super.init()
+    }
     
     func configureWindow(_ window: NSWindow) {
         let requiredStyleMask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
@@ -19,6 +27,9 @@ class WindowManager {
         window.isOpaque = true
         window.isMovableByWindowBackground = false
         window.minSize = NSSize(width: 0, height: 0)
+        window.setFrameAutosaveName(Self.mainWindowAutosaveName)
+        applyInitialPlacementIfNeeded(to: window)
+        registerMainWindowIfNeeded(window)
         window.orderFrontRegardless()
     }
     
@@ -37,38 +48,76 @@ class WindowManager {
         window.minSize = NSSize(width: 900, height: 780)
         window.makeKeyAndOrderFront(nil)
     }
+
+    func registerMainWindow(_ window: NSWindow) {
+        mainWindow = window
+        window.identifier = Self.mainWindowIdentifier
+        window.delegate = self
+    }
     
-    func createMainWindow(contentView: NSView) -> NSWindow {
-        let defaultSize = NSSize(width: 940, height: 780)
-        let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1200, height: 800)
-        let xPosition = (screenFrame.width - defaultSize.width) / 2 + screenFrame.minX
-        let yPosition = (screenFrame.height - defaultSize.height) / 2 + screenFrame.minY
+    func showMainWindow() -> NSWindow? {
+        guard let window = resolveMainWindow() else {
+            return nil
+        }
         
-        let window = NSWindow(
-            contentRect: NSRect(x: xPosition, y: yPosition, width: defaultSize.width, height: defaultSize.height),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
-        
-        configureWindow(window)
-        window.contentView = contentView
-        
-        let delegate = WindowStateDelegate()
-        window.delegate = delegate
-        
+        window.makeKeyAndOrderFront(nil)
+        NSApplication.shared.activate(ignoringOtherApps: true)
         return window
     }
-}
-
-class WindowStateDelegate: NSObject, NSWindowDelegate {
-    func windowWillClose(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow else { return }
+    
+    func hideMainWindow() {
+        guard let window = resolveMainWindow() else {
+            return
+        }
         window.orderOut(nil)
     }
     
+    func currentMainWindow() -> NSWindow? {
+        resolveMainWindow()
+    }
+    
+    private func registerMainWindowIfNeeded(_ window: NSWindow) {
+        // Only register the primary content window, identified by the hidden title bar style
+        if window.identifier == nil || window.identifier != Self.mainWindowIdentifier {
+            registerMainWindow(window)
+        }
+    }
+    
+    private func applyInitialPlacementIfNeeded(to window: NSWindow) {
+        guard !didApplyInitialPlacement else { return }
+        // Attempt to restore previous frame if one exists; otherwise fall back to a centered placement
+        if !window.setFrameUsingName(Self.mainWindowAutosaveName) {
+            window.center()
+        }
+        didApplyInitialPlacement = true
+    }
+    
+    private func resolveMainWindow() -> NSWindow? {
+        if let window = mainWindow {
+            return window
+        }
+        
+        if let window = NSApplication.shared.windows.first(where: { $0.identifier == Self.mainWindowIdentifier }) {
+            mainWindow = window
+            window.delegate = self
+            return window
+        }
+        
+        return nil
+    }
+}
+
+extension WindowManager: NSWindowDelegate {
+    func windowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        if window.identifier == Self.mainWindowIdentifier {
+            window.orderOut(nil)
+        }
+    }
+    
     func windowDidBecomeKey(_ notification: Notification) {
-        guard let _ = notification.object as? NSWindow else { return }
-        NSApp.activate(ignoringOtherApps: true)
+        guard let window = notification.object as? NSWindow,
+              window.identifier == Self.mainWindowIdentifier else { return }
+        NSApplication.shared.activate(ignoringOtherApps: true)
     }
 } 

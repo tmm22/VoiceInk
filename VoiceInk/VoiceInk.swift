@@ -79,15 +79,9 @@ struct VoiceInkApp: App {
         let hotkeyManager = HotkeyManager(whisperState: whisperState)
         _hotkeyManager = StateObject(wrappedValue: hotkeyManager)
         
-        let menuBarManager = MenuBarManager(
-            updaterViewModel: updaterViewModel,
-            whisperState: whisperState,
-            container: container,
-            enhancementService: enhancementService,
-            aiService: aiService,
-            hotkeyManager: hotkeyManager
-        )
+        let menuBarManager = MenuBarManager()
         _menuBarManager = StateObject(wrappedValue: menuBarManager)
+        appDelegate.menuBarManager = menuBarManager
         
         let activeWindowService = ActiveWindowService.shared
         activeWindowService.configure(with: enhancementService)
