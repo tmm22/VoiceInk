@@ -5,6 +5,7 @@ class WindowManager: NSObject {
     static let shared = WindowManager()
     
     private static let mainWindowIdentifier = NSUserInterfaceItemIdentifier("com.prakashjoshipax.voiceink.mainWindow")
+    private static let onboardingWindowIdentifier = NSUserInterfaceItemIdentifier("com.prakashjoshipax.voiceink.onboardingWindow")
     private static let mainWindowAutosaveName = NSWindow.FrameAutosaveName("VoiceInkMainWindowFrame")
     
     private weak var mainWindow: NSWindow?
@@ -15,6 +16,12 @@ class WindowManager: NSObject {
     }
     
     func configureWindow(_ window: NSWindow) {
+        if let existingWindow = NSApplication.shared.windows.first(where: { $0.identifier == Self.mainWindowIdentifier && $0 != window }) {
+            window.close()
+            existingWindow.makeKeyAndOrderFront(nil)
+            return
+        }
+        
         let requiredStyleMask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.styleMask.formUnion(requiredStyleMask)
         window.titlebarAppearsTransparent = true
@@ -34,6 +41,10 @@ class WindowManager: NSObject {
     }
     
     func configureOnboardingPanel(_ window: NSWindow) {
+        if window.identifier == nil || window.identifier != Self.onboardingWindowIdentifier {
+            window.identifier = Self.onboardingWindowIdentifier
+        }
+        
         let requiredStyleMask: NSWindow.StyleMask = [.titled, .fullSizeContentView, .resizable]
         window.styleMask.formUnion(requiredStyleMask)
         window.titlebarAppearsTransparent = true
@@ -112,6 +123,8 @@ extension WindowManager: NSWindowDelegate {
         guard let window = notification.object as? NSWindow else { return }
         if window.identifier == Self.mainWindowIdentifier {
             window.orderOut(nil)
+            mainWindow = nil
+            didApplyInitialPlacement = false
         }
     }
     

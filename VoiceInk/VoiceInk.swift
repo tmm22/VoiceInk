@@ -151,8 +151,7 @@ struct VoiceInkApp: App {
                     .environmentObject(enhancementService)
                     .frame(minWidth: 880, minHeight: 780)
                     .background(WindowAccessor { window in
-                        // Ensure this is called only once or is idempotent
-                        if window.title != "VoiceInk Onboarding" { // Prevent re-configuration
+                        if window.identifier == nil || window.identifier != NSUserInterfaceItemIdentifier("com.prakashjoshipax.voiceink.onboardingWindow") {
                             WindowManager.shared.configureOnboardingPanel(window)
                         }
                     })
