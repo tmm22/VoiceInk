@@ -53,7 +53,7 @@ struct MenuBarView: View {
                         enhancementService.setActivePrompt(prompt)
                     } label: {
                         HStack {
-                            Image(systemName: prompt.icon.rawValue)
+                            Image(systemName: prompt.icon)
                                 .foregroundColor(.accentColor)
                             Text(prompt.title)
                             if enhancementService.selectedPromptId == prompt.id {

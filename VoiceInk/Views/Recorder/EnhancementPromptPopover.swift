@@ -70,7 +70,7 @@ struct EnhancementPromptRow: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 // Use the icon from the prompt
-                Image(systemName: prompt.icon.rawValue)
+                Image(systemName: prompt.icon)
                     .font(.system(size: 14))
                     .foregroundColor(isDisabled ? .white.opacity(0.4) : .white.opacity(0.7))
 
