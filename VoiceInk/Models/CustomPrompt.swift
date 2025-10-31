@@ -1,78 +1,78 @@
 import Foundation
 import SwiftUI
 
-enum PromptIcon: String, Codable, CaseIterable {
-    // Document & Text
-    case documentFill = "doc.text.fill"
-    case textbox = "textbox"
-    case sealedFill = "checkmark.seal.fill"
-    
-    // Communication
-    case chatFill = "bubble.left.and.bubble.right.fill"
-    case messageFill = "message.fill"
-    case emailFill = "envelope.fill"
-    
-    // Professional
-    case meetingFill = "person.2.fill"
-    case presentationFill = "person.wave.2.fill"
-    case briefcaseFill = "briefcase.fill"
-    
-    // Technical
-    case codeFill = "curlybraces"
-    case terminalFill = "terminal.fill"
-    case gearFill = "gearshape.fill"
-    
-    // Content
-    case blogFill = "doc.text.image.fill"
-    case notesFill = "note"
-    case bookFill = "book.fill"
-    case bookmarkFill = "bookmark.fill"
-    case pencilFill = "pencil.circle.fill"
-    
-    // Media & Creative
-    case videoFill = "video.fill"
-    case micFill = "mic.fill"
-    case musicFill = "music.note"
-    case photoFill = "photo.fill"
-    case brushFill = "paintbrush.fill"
-    
-    var title: String {
-        switch self {
+typealias PromptIcon = String
+
+extension PromptIcon {
+    static let allCases: [PromptIcon] = [
         // Document & Text
-        case .documentFill: return "Document"
-        case .textbox: return "Textbox"
-        case .sealedFill: return "Sealed"
-            
+        "doc.text.fill",
+        "textbox",
+        "checkmark.seal.fill",
+        
         // Communication
-        case .chatFill: return "Chat"
-        case .messageFill: return "Message"
-        case .emailFill: return "Email"
-            
+        "bubble.left.and.bubble.right.fill",
+        "message.fill",
+        "envelope.fill",
+        
         // Professional
-        case .meetingFill: return "Meeting"
-        case .presentationFill: return "Presentation"
-        case .briefcaseFill: return "Briefcase"
-            
+        "person.2.fill",
+        "person.wave.2.fill",
+        "briefcase.fill",
+        
         // Technical
-        case .codeFill: return "Code"
-        case .terminalFill: return "Terminal"
-        case .gearFill: return "Settings"
-            
+        "curlybraces",
+        "terminal.fill",
+        "gearshape.fill",
+        
         // Content
-        case .blogFill: return "Blog"
-        case .notesFill: return "Notes"
-        case .bookFill: return "Book"
-        case .bookmarkFill: return "Bookmark"
-        case .pencilFill: return "Edit"
-            
+        "doc.text.image.fill",
+        "note",
+        "book.fill",
+        "bookmark.fill",
+        "pencil.circle.fill",
+        
         // Media & Creative
-        case .videoFill: return "Video"
-        case .micFill: return "Audio"
-        case .musicFill: return "Music"
-        case .photoFill: return "Photo"
-        case .brushFill: return "Design"
-        }
-    }
+        "video.fill",
+        "mic.fill",
+        "music.note",
+        "photo.fill",
+        "paintbrush.fill",
+        
+        // Productivity & Time
+        "clock.fill",
+        "calendar",
+        "list.bullet",
+        "checkmark.circle.fill",
+        "timer",
+        "hourglass",
+        "star.fill",
+        "flag.fill",
+        "tag.fill",
+        "folder.fill",
+        "paperclip",
+        "tray.fill",
+        "chart.bar.fill",
+        "flame.fill",
+        "target",
+        "list.clipboard.fill",
+        "brain.head.profile",
+        "lightbulb.fill",
+        "megaphone.fill",
+        "heart.fill",
+        "map.fill",
+        "house.fill",
+        "camera.fill",
+        "figure.walk",
+        "dumbbell.fill",
+        "cart.fill",
+        "creditcard.fill",
+        "graduationcap.fill",
+        "airplane",
+        "leaf.fill",
+        "hand.raised.fill",
+        "hand.thumbsup.fill"
+    ]
 }
 
 struct CustomPrompt: Identifiable, Codable, Equatable {
@@ -91,7 +91,7 @@ struct CustomPrompt: Identifiable, Codable, Equatable {
         title: String,
         promptText: String,
         isActive: Bool = false,
-        icon: PromptIcon = .documentFill,
+        icon: PromptIcon = "doc.text.fill",
         description: String? = nil,
         isPredefined: Bool = false,
         triggerWords: [String] = [],
@@ -199,7 +199,7 @@ extension CustomPrompt {
                     .blur(radius: 2)
                 
                 // Icon with enhanced effects
-                Image(systemName: icon.rawValue)
+                Image(systemName: icon)
                     .font(.system(size: 20, weight: .medium))
                     .foregroundStyle(
                         LinearGradient(
