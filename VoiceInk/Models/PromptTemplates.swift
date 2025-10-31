@@ -43,7 +43,7 @@ enum PromptTemplates {
                     - Don't add any information not available in the <TRANSCRIPT> text ever.
                     """,
                 icon: "checkmark.seal.fill",
-                description: "Default system prompt for improving clarity and accuracy of transcriptions"
+                description: "Default system prompt"
             ),
             TemplatePrompt(
                 id: UUID(),
@@ -77,7 +77,7 @@ enum PromptTemplates {
                     - Don't add any information not available in the <TRANSCRIPT> text ever.
                     """,
                 icon: "envelope.fill",
-                description: "Template for converting casual messages into professional email format"
+                description: "Professional email formatting"
             ),
             TemplatePrompt(
                 id: UUID(),
@@ -96,7 +96,7 @@ enum PromptTemplates {
                     - Don't add any information not available in the <TRANSCRIPT> text ever.
                     """,
                 icon: "pencil.circle.fill",
-                description: "Rewrites transcriptions with enhanced clarity, improved sentence structure, and rhythmic flow while preserving original meaning."
+                description: "Rewrites with better clarity."
             )
         ]
     }

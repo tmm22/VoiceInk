@@ -215,36 +215,32 @@ struct PromptEditorView: View {
                             .padding(.horizontal)
                         
                         if case .add = mode {
-                            // Templates Section with modern styling
-                            VStack(alignment: .leading, spacing: 16) {
-                                Text("Start with a Predefined Template")
-                                    .font(.title2)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.primary)
-                                
-                                let columns = [
-                                    GridItem(.flexible(), spacing: 16),
-                                    GridItem(.flexible(), spacing: 16)
-                                ]
-                                
-                                LazyVGrid(columns: columns, spacing: 16) {
-                                    ForEach(PromptTemplates.all) { template in
-                                        CleanTemplateButton(prompt: template) {
-                                            title = template.title
-                                            promptText = template.promptText
-                                            selectedIcon = template.icon
-                                            description = template.description
-                                        }
-                                    }
+                            // Popover keeps templates accessible without taking space in the layout
+                            Button("Start with a Predefined Template") {
+                                showingPredefinedPrompts.toggle()
+                            }
+                            .font(.headline)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(
+                                Capsule()
+                                    .fill(Color(.windowBackgroundColor).opacity(0.9))
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                            )
+                            .buttonStyle(.plain)
+                            .padding(.horizontal)
+                            .popover(isPresented: $showingPredefinedPrompts, arrowEdge: .bottom) {
+                                PredefinedPromptsView { template in
+                                    title = template.title
+                                    promptText = template.promptText
+                                    selectedIcon = template.icon
+                                    description = template.description
+                                    showingPredefinedPrompts = false
                                 }
                             }
-                            .padding(.horizontal)
-                            .padding(.vertical, 16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(Color(.windowBackgroundColor).opacity(0.6))
-                            )
-                            .padding(.horizontal)
                         }
                     }
                 }
@@ -279,90 +275,6 @@ struct PromptEditorView: View {
             )
             enhancementService.updatePrompt(updatedPrompt)
         }
-    }
-}
-
-// Clean template button with minimal styling
-struct CleanTemplateButton: View {
-    let prompt: TemplatePrompt
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack(alignment: .top, spacing: 12) {
-                // Clean icon design
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.accentColor.opacity(0.15))
-                        .frame(width: 44, height: 44)
-                    
-                    Image(systemName: prompt.icon)
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(.accentColor)
-                }
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(prompt.title)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.primary)
-                        .lineLimit(1)
-                    
-                    Text(prompt.description)
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                }
-                
-                Spacer(minLength: 0)
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.controlBackgroundColor))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// Keep the old TemplateButton for backward compatibility if needed elsewhere
-struct TemplateButton: View {
-    let prompt: TemplatePrompt
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack(alignment: .center, spacing: 12) {
-                Image(systemName: prompt.icon)
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(.accentColor)
-                    .frame(width: 28, height: 28)
-                    .background(Color.accentColor.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(prompt.title)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.primary)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(12)
-            .frame(height: 60)
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(10)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
     }
 }
 
