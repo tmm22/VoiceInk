@@ -61,33 +61,32 @@ struct DynamicSidebar: View {
     @Namespace private var buttonAnimation
 
     var body: some View {
-        VStack(spacing: 15) {
-            // App Header
+        VStack(spacing: 8) {
             HStack(spacing: 6) {
                 if let appIcon = NSImage(named: "AppIcon") {
                     Image(nsImage: appIcon)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(width: 28, height: 28)
-                        .cornerRadius(8)
+                        .frame(width: 24, height: 24)
+                        .cornerRadius(6)
                 }
                 
                 Text("VoiceLink")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 13, weight: .medium))
                 Text("Community")
-                    .font(.system(size: 9, weight: .heavy))
+                    .font(.system(size: 8, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 4)
                     .padding(.vertical, 2)
                     .background(Color.accentColor)
-                    .cornerRadius(4)
+                    .cornerRadius(3)
                 
                 Spacer()
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 12)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
             
-            // Navigation Items
             ForEach(views, id: \.self) { viewType in
                 DynamicSidebarButton(
                     title: viewType.rawValue,
@@ -121,29 +120,28 @@ struct DynamicSidebarButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 18, weight: .medium))
-                    .frame(width: 24, height: 24)
+                    .font(.system(size: 15, weight: .medium))
+                    .frame(width: 20, height: 20)
                 
                 Text(title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .lineLimit(1)
                 Spacer()
             }
-            .foregroundColor(isSelected ? .white : (isHovered ? .accentColor : .primary))
-            .frame(height: 40)
+            .foregroundColor(isSelected ? .white : .primary.opacity(isHovered ? 1 : 0.7))
+            .frame(height: 32)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.leading, 16)
+            .padding(.leading, 12)
             .background(
-                ZStack {
+                Group {
                     if isSelected {
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .fill(Color.accentColor)
-                            .shadow(color: Color.accentColor.opacity(0.5), radius: 5, x: 0, y: 2)
                     } else if isHovered {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(colorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.05))
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color.primary.opacity(0.05))
                     }
                 }
             )

@@ -24,7 +24,7 @@ struct SettingsView: View {
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: 20) {
                 SettingsSection(
                     icon: "command.circle",
                     title: "VoiceLink Community Shortcuts",
@@ -505,39 +505,40 @@ struct SettingsSection<Content: View>: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundColor(showWarning ? .red : .accentColor)
-                    .frame(width: 24, height: 24)
+                    .frame(width: 20, height: 20)
                 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(title)
-                        .font(.headline)
+                        .font(.system(size: 14, weight: .semibold))
                     Text(subtitle)
-                        .font(.subheadline)
-                        .foregroundColor(showWarning ? .red : .secondary)
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
                 }
                 
                 if showWarning {
                     Spacer()
                     Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 14))
                         .foregroundColor(.red)
                         .help("Permission required for VoiceLink Community to function properly")
                 }
             }
             
             Divider()
-                .padding(.vertical, 4)
+                .padding(.vertical, 2)
             
             content
         }
-        .padding(16)
+        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(CardBackground(isSelected: showWarning, useAccentGradientWhenSelected: true))
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(showWarning ? Color.red.opacity(0.5) : Color.clear, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(showWarning ? Color.red.opacity(0.4) : Color.clear, lineWidth: 0.5)
         )
     }
 }

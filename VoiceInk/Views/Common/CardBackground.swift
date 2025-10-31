@@ -1,87 +1,61 @@
 import SwiftUI
 
-// Style Constants for consistent styling across components
 struct StyleConstants {
-    // Colors - Glassmorphism Style
-    static let cardGradient = LinearGradient( // Simulates frosted glass
+    static let cardGradient = LinearGradient(
         gradient: Gradient(stops: [
-            .init(color: Color(NSColor.windowBackgroundColor).opacity(0.6), location: 0.0),
-            .init(color: Color(NSColor.windowBackgroundColor).opacity(0.55), location: 0.70), // Hold start opacity longer
-            .init(color: Color(NSColor.windowBackgroundColor).opacity(0.3), location: 1.0)
+            .init(color: Color(NSColor.controlBackgroundColor).opacity(0.5), location: 0.0),
+            .init(color: Color(NSColor.controlBackgroundColor).opacity(0.3), location: 1.0)
         ]),
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
     
-    static let cardGradientSelected = LinearGradient( // Selected glass, accent tint extends further
+    static let cardGradientSelected = LinearGradient(
         gradient: Gradient(stops: [
-            .init(color: Color.accentColor.opacity(0.3), location: 0.0),
-            .init(color: Color.accentColor.opacity(0.25), location: 0.70), // Accent tint held longer
-            .init(color: Color(NSColor.windowBackgroundColor).opacity(0.4), location: 1.0) // Blend to window bg at the end
+            .init(color: Color.accentColor.opacity(0.15), location: 0.0),
+            .init(color: Color.accentColor.opacity(0.08), location: 1.0)
         ]),
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
     
-    // Border Colors - Adaptive and subtle for glass effect
-    static let cardBorder = LinearGradient(
-        gradient: Gradient(colors: [
-            Color(NSColor.quaternaryLabelColor).opacity(0.5), // Adaptive border color
-            Color(NSColor.quaternaryLabelColor).opacity(0.3)  // Adaptive border color
-        ]),
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
+    static let cardBorder = Color(NSColor.separatorColor).opacity(0.3)
+    static let cardBorderSelected = Color.accentColor.opacity(0.3)
     
-    static let cardBorderSelected = LinearGradient(
-        gradient: Gradient(colors: [
-            Color.accentColor.opacity(0.4),
-            Color.accentColor.opacity(0.2)
-        ]),
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
+    static let shadowDefault = Color.black.opacity(0.03)
+    static let shadowSelected = Color.black.opacity(0.06)
     
-    // Shadows - Adaptive, soft and diffuse for a floating glass look
-    static let shadowDefault = Color(NSColor.shadowColor).opacity(0.1)
-    static let shadowSelected = Color(NSColor.shadowColor).opacity(0.15)
-    
-    // Corner Radius - Larger for a softer, glassy feel
-    static let cornerRadius: CGFloat = 16
-    
-    // Button Style (Keeping this as is unless specified)
-    static let buttonGradient = LinearGradient(
-        colors: [Color.accentColor, Color.accentColor.opacity(0.8)],
-        startPoint: .leading,
-        endPoint: .trailing
-    )
+    static let cornerRadius: CGFloat = 12
 }
 
-// Reusable background component
 struct CardBackground: View {
     var isSelected: Bool
     var cornerRadius: CGFloat = StyleConstants.cornerRadius
-    var useAccentGradientWhenSelected: Bool = false // This might need rethinking for pure glassmorphism
+    var useAccentGradientWhenSelected: Bool = false
     
     var body: some View {
-        RoundedRectangle(cornerRadius: cornerRadius)
-            .fill(
-                useAccentGradientWhenSelected && isSelected ? 
-                    StyleConstants.cardGradientSelected :
-                    StyleConstants.cardGradient
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(
+                        useAccentGradientWhenSelected && isSelected ?
+                            StyleConstants.cardGradientSelected :
+                            StyleConstants.cardGradient
+                    )
             )
             .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(
                         isSelected ? StyleConstants.cardBorderSelected : StyleConstants.cardBorder,
-                        lineWidth: 1.5 // Slightly thicker border for a defined glass edge
+                        lineWidth: 0.5
                     )
             )
             .shadow(
                 color: isSelected ? StyleConstants.shadowSelected : StyleConstants.shadowDefault,
-                radius: isSelected ? 15 : 10, // Larger radius for softer, more diffuse shadows
+                radius: isSelected ? 8 : 4,
                 x: 0,
-                y: isSelected ? 8 : 5      // Slightly more y-offset for a lifted look
+                y: isSelected ? 2 : 1
             )
     }
 } 

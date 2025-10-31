@@ -49,24 +49,24 @@ struct MetricsContent: View {
     // MARK: - Sections
     
     private var heroSection: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             HStack {
                 Spacer(minLength: 0)
                 
                 (Text("You have saved ")
-                    .fontWeight(.bold)
-                    .foregroundColor(.white.opacity(0.85))
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white.opacity(0.9))
                  +
                  Text(formattedTimeSaved)
-                    .fontWeight(.black)
-                    .font(.system(size: 36, design: .rounded))
+                    .fontWeight(.bold)
+                    .font(.system(size: 32, design: .rounded))
                     .foregroundStyle(.white)
                  +
                  Text(" with VoiceLink Community")
-                    .fontWeight(.bold)
-                    .foregroundColor(.white.opacity(0.85))
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white.opacity(0.9))
                 )
-                .font(.system(size: 30))
+                .font(.system(size: 26))
                 .multilineTextAlignment(.center)
                 
                 Spacer(minLength: 0)
@@ -75,23 +75,23 @@ struct MetricsContent: View {
             .minimumScaleFactor(0.5)
             
             Text(heroSubtitle)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(.white.opacity(0.85))
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.white.opacity(0.75))
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
             
         }
-        .padding(28)
+        .padding(24)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(heroGradient)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
         )
-        .shadow(color: Color.black.opacity(0.08), radius: 30, x: 0, y: 16)
+        .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 4)
     }
     
     private var metricsSection: some View {
