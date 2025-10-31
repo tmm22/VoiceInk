@@ -79,15 +79,9 @@ struct VoiceInkApp: App {
         let hotkeyManager = HotkeyManager(whisperState: whisperState)
         _hotkeyManager = StateObject(wrappedValue: hotkeyManager)
         
-        let menuBarManager = MenuBarManager(
-            updaterViewModel: updaterViewModel,
-            whisperState: whisperState,
-            container: container,
-            enhancementService: enhancementService,
-            aiService: aiService,
-            hotkeyManager: hotkeyManager
-        )
+        let menuBarManager = MenuBarManager()
         _menuBarManager = StateObject(wrappedValue: menuBarManager)
+        appDelegate.menuBarManager = menuBarManager
         
         let activeWindowService = ActiveWindowService.shared
         activeWindowService.configure(with: enhancementService)
@@ -157,8 +151,7 @@ struct VoiceInkApp: App {
                     .environmentObject(enhancementService)
                     .frame(minWidth: 880, minHeight: 780)
                     .background(WindowAccessor { window in
-                        // Ensure this is called only once or is idempotent
-                        if window.title != "VoiceInk Onboarding" { // Prevent re-configuration
+                        if window.identifier == nil || window.identifier != NSUserInterfaceItemIdentifier("com.prakashjoshipax.voiceink.onboardingWindow") {
                             WindowManager.shared.configureOnboardingPanel(window)
                         }
                     })
