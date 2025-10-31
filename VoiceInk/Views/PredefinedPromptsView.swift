@@ -8,7 +8,7 @@ struct PredefinedPromptsView: View {
     var body: some View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 16) {
-                ForEach(PromptTemplates.all) { template in
+                ForEach(PromptTemplates.all, id: \.title) { template in
                     PredefinedTemplateButton(prompt: template) {
                         onSelect(template)
                     }
