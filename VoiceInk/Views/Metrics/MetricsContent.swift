@@ -15,10 +15,6 @@ struct MetricsContent: View {
                     VStack(spacing: 24) {
                         heroSection
                         metricsSection
-                        HStack(alignment: .top, spacing: 18) {
-                            HelpAndResourcesSection()
-                            DashboardPromotionsSection(licenseState: licenseState)
-                        }
                     }
                     .padding(.vertical, 28)
                     .padding(.horizontal, 32)
@@ -125,26 +121,7 @@ struct MetricsContent: View {
     }
     
     private var footerActionsView: some View {
-        HStack(spacing: 12) {
-            CopySystemInfoButton()
-            feedbackButton
-        }
-    }
-    
-    private var feedbackButton: some View {
-        Button(action: {
-            EmailSupport.openSupportEmail()
-        }) {
-            HStack(spacing: 8) {
-                Image(systemName: "exclamationmark.bubble.fill")
-                Text("Feedback or Issues?")
-            }
-            .font(.system(size: 13, weight: .medium))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Capsule().fill(.thinMaterial))
-        }
-        .buttonStyle(.plain)
+        CopySystemInfoButton()
     }
     
     private var formattedTimeSaved: String {
