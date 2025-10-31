@@ -51,30 +51,9 @@ struct MenuBarView: View {
             if enableAIEnhancementFeatures {
                 Toggle("AI Enhancement", isOn: $enhancementService.isEnhancementEnabled)
                 
-                Menu {
-                    ForEach(enhancementService.allPrompts) { prompt in
-                        Button {
-                            enhancementService.setActivePrompt(prompt)
-                        } label: {
-                            HStack {
-                                Image(systemName: prompt.icon.rawValue)
-                                    .foregroundColor(.accentColor)
-                                Text(prompt.title)
-                                if enhancementService.selectedPromptId == prompt.id {
-                                    Spacer()
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                } label: {
-                    HStack {
-                        Text("Prompt: \(enhancementService.activePrompt?.title ?? "None")")
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 10))
-                    }
-                }
-                .disabled(!enhancementService.isEnhancementEnabled)
+                PromptSelectionMenu(
+                    enhancementService: enhancementService
+                )
                 
                 Menu {
                     ForEach(aiService.connectedProviders, id: \.self) { provider in
