@@ -42,7 +42,7 @@ enum PromptTemplates {
                     - Output only the cleaned text.
                     - Don't add any information not available in the <TRANSCRIPT> text ever.
                     """,
-                icon: .sealedFill,
+                icon: "checkmark.seal.fill",
                 description: "Default system prompt for improving clarity and accuracy of transcriptions"
             ),
             TemplatePrompt(
@@ -60,7 +60,7 @@ enum PromptTemplates {
                     - Output only the chat message.
                     - Don't add any information not available in the <TRANSCRIPT> text ever.
                     """,
-                icon: .chatFill,
+                icon: "bubble.left.and.bubble.right.fill",
                 description: "Casual chat-style formatting"
             ),
             
@@ -76,7 +76,7 @@ enum PromptTemplates {
                     - Do not invent new content, but structure it as a proper email format.
                     - Don't add any information not available in the <TRANSCRIPT> text ever.
                     """,
-                icon: .emailFill,
+                icon: "envelope.fill",
                 description: "Template for converting casual messages into professional email format"
             ),
             TemplatePrompt(
@@ -95,7 +95,7 @@ enum PromptTemplates {
                     - Output only the rewritten text.
                     - Don't add any information not available in the <TRANSCRIPT> text ever.
                     """,
-                icon: .pencilFill,
+                icon: "pencil.circle.fill",
                 description: "Rewrites transcriptions with enhanced clarity, improved sentence structure, and rhythmic flow while preserving original meaning."
             )
         ]

@@ -27,6 +27,7 @@ struct PromptEditorView: View {
     @State private var triggerWords: [String]
     @State private var showingPredefinedPrompts = false
     @State private var useSystemInstructions: Bool
+    @State private var showingIconPicker = false
     
     private var isEditingPredefinedPrompt: Bool {
         if case .edit(let prompt) = mode {
@@ -41,7 +42,7 @@ struct PromptEditorView: View {
         case .add:
             _title = State(initialValue: "")
             _promptText = State(initialValue: "")
-            _selectedIcon = State(initialValue: .documentFill)
+            _selectedIcon = State(initialValue: "doc.text.fill")
             _description = State(initialValue: "")
             _triggerWords = State(initialValue: [])
             _useSystemInstructions = State(initialValue: true)
@@ -132,29 +133,25 @@ struct PromptEditorView: View {
                                     .font(.headline)
                                     .foregroundColor(.secondary)
                                 
-                                Menu {
-                                    IconMenuContent(selectedIcon: $selectedIcon)
-                                } label: {
-                                    HStack {
-                                        Image(systemName: selectedIcon.rawValue)
-                                            .font(.system(size: 16))
-                                            .foregroundColor(.accentColor)
-                                            .frame(width: 24)
-                                        
-                                        Text(selectedIcon.title)
-                                            .foregroundColor(.primary)
-                                        
-                                        Spacer()
-                                        
-                                        Image(systemName: "chevron.up.chevron.down")
-                                            .font(.system(size: 12))
-                                            .foregroundColor(.secondary)
-                                    }
-                                    .padding(8)
-                                    .background(Color(NSColor.controlBackgroundColor))
-                                    .cornerRadius(8)
+                                // Preview of selected icon - clickable to open popover (square button)
+                                Button(action: {
+                                    showingIconPicker = true
+                                }) {
+                                    Image(systemName: selectedIcon)
+                                        .font(.system(size: 20))
+                                        .foregroundColor(.primary)
+                                        .frame(width: 48, height: 48)
+                                        .background(Color(NSColor.controlBackgroundColor))
+                                        .cornerRadius(8)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                                        )
                                 }
-                                .frame(width: 180)
+                                .buttonStyle(.plain)
+                            }
+                            .popover(isPresented: $showingIconPicker, arrowEdge: .bottom) {
+                                IconPickerPopover(selectedIcon: $selectedIcon, isPresented: $showingIconPicker)
                             }
                         }
                         .padding(.horizontal)
@@ -299,7 +296,7 @@ struct CleanTemplateButton: View {
                         .fill(Color.accentColor.opacity(0.15))
                         .frame(width: 44, height: 44)
                     
-                    Image(systemName: prompt.icon.rawValue)
+                    Image(systemName: prompt.icon)
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundColor(.accentColor)
                 }
@@ -342,7 +339,7 @@ struct TemplateButton: View {
     var body: some View {
         Button(action: action) {
             HStack(alignment: .center, spacing: 12) {
-                Image(systemName: prompt.icon.rawValue)
+                Image(systemName: prompt.icon)
                     .font(.system(size: 20, weight: .medium))
                     .foregroundColor(.accentColor)
                     .frame(width: 28, height: 28)
@@ -425,44 +422,6 @@ struct TriggerWordsEditor: View {
     }
 }
 
-// Icon menu content for better organization
-struct IconMenuContent: View {
-    @Binding var selectedIcon: PromptIcon
-    
-    var body: some View {
-        Group {
-            IconMenuSection(title: "Document & Text", icons: [.documentFill, .textbox, .sealedFill], selectedIcon: $selectedIcon)
-            IconMenuSection(title: "Communication", icons: [.chatFill, .messageFill, .emailFill], selectedIcon: $selectedIcon)
-            IconMenuSection(title: "Professional", icons: [.meetingFill, .presentationFill, .briefcaseFill], selectedIcon: $selectedIcon)
-            IconMenuSection(title: "Technical", icons: [.codeFill, .terminalFill, .gearFill], selectedIcon: $selectedIcon)
-            IconMenuSection(title: "Content", icons: [.blogFill, .notesFill, .bookFill, .bookmarkFill, .pencilFill], selectedIcon: $selectedIcon)
-            IconMenuSection(title: "Media & Creative", icons: [.videoFill, .micFill, .musicFill, .photoFill, .brushFill], selectedIcon: $selectedIcon)
-        }
-    }
-}
-
-// Icon menu section for better organization
-struct IconMenuSection: View {
-    let title: String
-    let icons: [PromptIcon]
-    @Binding var selectedIcon: PromptIcon
-    
-    var body: some View {
-        Group {
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
-            ForEach(icons, id: \.self) { icon in
-                Button(action: { selectedIcon = icon }) {
-                    Label(icon.title, systemImage: icon.rawValue)
-                }
-            }
-            if title != "Media & Creative" {
-                Divider()
-            }
-        }
-    }
-}
 
 struct TriggerWordItemView: View {
     let word: String
@@ -503,4 +462,48 @@ struct TriggerWordItemView: View {
                 .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
         }
     }
-} 
+}
+
+// Icon Picker Popover - shows icons in a grid format without category labels
+struct IconPickerPopover: View {
+    @Binding var selectedIcon: PromptIcon
+    @Binding var isPresented: Bool
+    
+    var body: some View {
+        let columns = [
+            GridItem(.adaptive(minimum: 45, maximum: 52), spacing: 14)
+        ]
+        
+        ScrollView {
+            LazyVGrid(columns: columns, spacing: 14) {
+                ForEach(PromptIcon.allCases, id: \.self) { icon in
+                    Button(action: {
+                        withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                            selectedIcon = icon
+                            isPresented = false
+                        }
+                    }) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(selectedIcon == icon ? Color(NSColor.windowBackgroundColor) : Color(NSColor.controlBackgroundColor))
+                                .frame(width: 52, height: 52)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(selectedIcon == icon ? Color(NSColor.separatorColor) : Color.secondary.opacity(0.2), lineWidth: selectedIcon == icon ? 2 : 1)
+                                )
+                            
+                            Image(systemName: icon)
+                                .font(.system(size: 24, weight: .medium))
+                                .foregroundColor(.primary)
+                        }
+                        .scaleEffect(selectedIcon == icon ? 1.1 : 1.0)
+                        .animation(.spring(response: 0.2, dampingFraction: 0.7), value: selectedIcon == icon)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(20)
+        }
+        .frame(width: 400, height: 400)
+    }
+}
