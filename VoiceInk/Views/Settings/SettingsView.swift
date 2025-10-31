@@ -504,41 +504,40 @@ struct SettingsSection<Content: View>: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 10) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(showWarning ? .red : .accentColor)
-                    .frame(width: 20, height: 20)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundColor(showWarning ? .red : .secondary)
+                    .frame(width: 16, height: 16)
                 
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 13, weight: .medium))
                     Text(subtitle)
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }
                 
                 if showWarning {
                     Spacer()
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 14))
+                        .font(.system(size: 12))
                         .foregroundColor(.red)
                         .help("Permission required for VoiceLink Community to function properly")
                 }
             }
             
             Divider()
-                .padding(.vertical, 2)
             
             content
         }
-        .padding(14)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(CardBackground(isSelected: showWarning, useAccentGradientWhenSelected: true))
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(showWarning ? Color.red.opacity(0.4) : Color.clear, lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(showWarning ? Color.red.opacity(0.5) : Color.clear, lineWidth: 1)
         )
     }
 }

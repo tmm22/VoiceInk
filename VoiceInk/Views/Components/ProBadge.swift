@@ -3,13 +3,13 @@ import SwiftUI
 struct ProBadge: View {
     var body: some View {
         Text("PRO")
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundColor(.white)
-            .padding(.horizontal, 6)
+            .font(.system(size: 9, weight: .medium))
+            .foregroundColor(.secondary)
+            .padding(.horizontal, 5)
             .padding(.vertical, 2)
             .background(
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.blue.opacity(0.8))
+                RoundedRectangle(cornerRadius: 3)
+                    .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
             )
     }
 }

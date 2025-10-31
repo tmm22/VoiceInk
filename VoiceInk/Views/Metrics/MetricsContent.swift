@@ -49,24 +49,24 @@ struct MetricsContent: View {
     // MARK: - Sections
     
     private var heroSection: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 12) {
             HStack {
                 Spacer(minLength: 0)
                 
                 (Text("You have saved ")
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white.opacity(0.9))
+                    .fontWeight(.regular)
+                    .foregroundColor(.primary)
                  +
                  Text(formattedTimeSaved)
-                    .fontWeight(.bold)
-                    .font(.system(size: 32, design: .rounded))
-                    .foregroundStyle(.white)
+                    .fontWeight(.semibold)
+                    .font(.system(size: 28, design: .default))
+                    .foregroundColor(.primary)
                  +
                  Text(" with VoiceLink Community")
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white.opacity(0.9))
+                    .fontWeight(.regular)
+                    .foregroundColor(.primary)
                 )
-                .font(.system(size: 26))
+                .font(.system(size: 20))
                 .multilineTextAlignment(.center)
                 
                 Spacer(minLength: 0)
@@ -75,23 +75,15 @@ struct MetricsContent: View {
             .minimumScaleFactor(0.5)
             
             Text(heroSubtitle)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.white.opacity(0.75))
+                .font(.system(size: 11, weight: .regular))
+                .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
             
         }
         .padding(24)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(heroGradient)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
-        )
-        .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 4)
+        .background(CardBackground(isSelected: false))
     }
     
     private var metricsSection: some View {

@@ -61,31 +61,35 @@ struct DynamicSidebar: View {
     @Namespace private var buttonAnimation
 
     var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 6) {
+        VStack(spacing: 2) {
+            HStack(spacing: 8) {
                 if let appIcon = NSImage(named: "AppIcon") {
                     Image(nsImage: appIcon)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(width: 24, height: 24)
-                        .cornerRadius(6)
+                        .frame(width: 20, height: 20)
+                        .cornerRadius(4)
                 }
                 
                 Text("VoiceLink")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                 Text("Community")
-                    .font(.system(size: 8, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundStyle(.secondary)
                     .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
-                    .background(Color.accentColor)
-                    .cornerRadius(3)
+                    .padding(.vertical, 1)
+                    .background(Color.primary.opacity(0.06))
+                    .cornerRadius(2)
                 
                 Spacer()
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 16)
             .padding(.top, 16)
-            .padding(.bottom, 8)
+            .padding(.bottom, 12)
+            
+            Divider()
+                .padding(.horizontal, 12)
+                .padding(.bottom, 4)
             
             ForEach(views, id: \.self) { viewType in
                 DynamicSidebarButton(
@@ -122,30 +126,38 @@ struct DynamicSidebarButton: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 15, weight: .medium))
-                    .frame(width: 20, height: 20)
+                    .font(.system(size: 13, weight: .regular))
+                    .frame(width: 16, height: 16)
                 
                 Text(title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 12, weight: .regular))
                     .lineLimit(1)
                 Spacer()
             }
-            .foregroundColor(isSelected ? .white : .primary.opacity(isHovered ? 1 : 0.7))
-            .frame(height: 32)
+            .foregroundColor(isSelected ? .primary : .secondary)
+            .frame(height: 28)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.leading, 12)
             .background(
                 Group {
                     if isSelected {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.accentColor)
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(Color.primary.opacity(0.06))
                     } else if isHovered {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.primary.opacity(0.05))
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(Color.primary.opacity(0.03))
                     }
                 }
             )
-            .padding(.horizontal, 8)
+            .overlay(
+                Group {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+                    }
+                }
+            )
+            .padding(.horizontal, 12)
         }
         .buttonStyle(PlainButtonStyle())
     }

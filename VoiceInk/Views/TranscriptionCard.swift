@@ -108,22 +108,21 @@ struct TranscriptionCard: View {
         var body: some View {
             Button(action: action) {
                 Text(title)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
-                    .foregroundColor(isSelected ? .white : .secondary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
+                    .font(.system(size: 11, weight: isSelected ? .medium : .regular))
+                    .foregroundColor(isSelected ? .primary : .secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
                     .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(isSelected ? Color.accentColor.opacity(0.75) : Color.clear)
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(isSelected ? Color.primary.opacity(0.06) : Color.clear)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .stroke(isSelected ? Color.clear : Color.secondary.opacity(0.3), lineWidth: 1)
+                                RoundedRectangle(cornerRadius: 4)
+                                    .stroke(isSelected ? Color.primary.opacity(0.12) : Color.primary.opacity(0.08), lineWidth: 1)
                             )
-                            .contentShape(.capsule)
                     )
             }
             .buttonStyle(.plain)
-            .animation(.easeInOut(duration: 0.2), value: isSelected)
+            .animation(.easeInOut(duration: 0.15), value: isSelected)
         }
     }
 
@@ -139,17 +138,17 @@ struct TranscriptionCard: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text(transcription.timestamp, format: .dateTime.month(.abbreviated).day().year().hour().minute())
-                        .font(.system(size: 14, weight: .medium, design: .default))
+                        .font(.system(size: 12, weight: .regular, design: .default))
                         .foregroundColor(.secondary)
                     Spacer()
 
                     Text(formatTiming(transcription.duration))
-                        .font(.system(size: 14, weight: .medium, design: .default))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.blue.opacity(0.1))
-                        .foregroundColor(.blue)
-                        .cornerRadius(6)
+                        .font(.system(size: 11, weight: .regular, design: .default))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.primary.opacity(0.06))
+                        .foregroundColor(.secondary)
+                        .cornerRadius(4)
                 }
 
                 if isExpanded {
@@ -237,8 +236,6 @@ struct TranscriptionCard: View {
         }
         .padding(16)
         .background(CardBackground(isSelected: false))
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 2)
         .contextMenu {
             if let enhancedText = transcription.enhancedText {
                 Button {

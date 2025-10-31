@@ -10,22 +10,21 @@ struct AnimatedCopyButton: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
-                    .font(.system(size: 12, weight: isCopied ? .bold : .regular))
-                    .foregroundColor(.white)
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundColor(isCopied ? .green : .secondary)
                 Text(isCopied ? "Copied" : "Copy")
-                    .font(.system(size: 12, weight: isCopied ? .medium : .regular))
-                    .foregroundColor(.white)
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundColor(isCopied ? .green : .secondary)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(
-                Capsule()
-                    .fill(isCopied ? Color.green.opacity(0.8) : Color.blue)
+                RoundedRectangle(cornerRadius: 4)
+                    .strokeBorder(isCopied ? Color.green.opacity(0.4) : Color.primary.opacity(0.15), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
-        .scaleEffect(isCopied ? 1.05 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isCopied)
+        .animation(.easeInOut(duration: 0.2), value: isCopied)
     }
     
     private func copyToClipboard() {

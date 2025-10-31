@@ -45,12 +45,12 @@ struct InfoTip: View {
                                 Image(systemName: "arrow.up.forward")
                                     .font(.caption2)
                             }
-                            .foregroundColor(.white)
+                            .foregroundColor(.accentColor)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
                             .background(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(Color.accentColor)
+                                RoundedRectangle(cornerRadius: 4)
+                                    .strokeBorder(Color.accentColor.opacity(0.4), lineWidth: 1)
                             )
                         }
                         .buttonStyle(.plain)

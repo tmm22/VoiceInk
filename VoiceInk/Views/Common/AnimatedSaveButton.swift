@@ -18,22 +18,21 @@ struct AnimatedSaveButton: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: isSaved ? "checkmark" : "square.and.arrow.down")
-                    .font(.system(size: 12, weight: isSaved ? .bold : .regular))
-                    .foregroundColor(.white)
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundColor(isSaved ? .green : .secondary)
                 Text(isSaved ? "Saved" : "Save")
-                    .font(.system(size: 12, weight: isSaved ? .medium : .regular))
-                    .foregroundColor(.white)
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundColor(isSaved ? .green : .secondary)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(
-                Capsule()
-                    .fill(isSaved ? Color.green.opacity(0.8) : Color.orange)
+                RoundedRectangle(cornerRadius: 4)
+                    .strokeBorder(isSaved ? Color.green.opacity(0.4) : Color.primary.opacity(0.15), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
-        .scaleEffect(isSaved ? 1.05 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSaved)
+        .animation(.easeInOut(duration: 0.2), value: isSaved)
     }
     
     private func saveFile(as contentType: UTType, extension fileExtension: String) {

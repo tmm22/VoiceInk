@@ -1562,13 +1562,12 @@ private struct GenerationStatusFooter: View {
                 .padding(.vertical, 6)
                 .padding(.horizontal, 8)
                 .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(StyleConstants.cardGradient)
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(NSColor.controlBackgroundColor))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8)
+                            RoundedRectangle(cornerRadius: 6)
                                 .stroke(StyleConstants.cardBorder, lineWidth: 1)
                         )
-                        .shadow(color: StyleConstants.shadowDefault, radius: 6, x: 0, y: 3)
                 )
             }
             .buttonStyle(.plain)
