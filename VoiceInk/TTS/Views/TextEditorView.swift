@@ -8,10 +8,10 @@ struct TextEditorView: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             // Background and border
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 6)
                 .fill(Color(NSColor.textBackgroundColor))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
+                    RoundedRectangle(cornerRadius: 6)
                         .stroke(
                             isFocused ? Color.accentColor.opacity(0.5) :
                             isHovering ? Color.secondary.opacity(0.3) :

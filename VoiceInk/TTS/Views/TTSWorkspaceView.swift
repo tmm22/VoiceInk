@@ -121,7 +121,6 @@ private enum ComposerUtility: String, CaseIterable, Identifiable {
 
 struct TTSWorkspaceView: View {
     @EnvironmentObject var viewModel: TTSViewModel
-    @State private var showingSettings = false
     @State private var showingAbout = false
     @State private var selectedContextPanel: ContextPanelDestination? = .queue
     @State private var isInspectorVisible = false
@@ -141,7 +140,6 @@ struct TTSWorkspaceView: View {
                 CommandStripView(
                     isCompact: isCompact,
                     isInspectorVisible: isInspectorVisible,
-                    showingSettings: $showingSettings,
                     showingAbout: $showingAbout,
                     toggleInspector: {
                         if isCompact {
@@ -215,11 +213,6 @@ struct TTSWorkspaceView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .preferredColorScheme(viewModel.colorSchemeOverride)
-        .sheet(isPresented: $showingSettings) {
-            TTSSettingsView()
-                .environmentObject(viewModel)
-                .preferredColorScheme(viewModel.colorSchemeOverride)
-        }
         .sheet(isPresented: $showingAbout) {
             AboutView()
         }
@@ -261,7 +254,6 @@ private struct CommandStripView: View {
     @EnvironmentObject var viewModel: TTSViewModel
     let isCompact: Bool
     let isInspectorVisible: Bool
-    @Binding var showingSettings: Bool
     @Binding var showingAbout: Bool
     let toggleInspector: () -> Void
     let focusInspector: (InspectorSection) -> Void
@@ -643,17 +635,17 @@ private struct CommandStripView: View {
             Divider()
 
             Button("Settings", systemImage: "gear") {
-                showingSettings = true
+                // Navigate to main app settings
+                WindowManager.shared.showMainWindow()
+                NotificationCenter.default.post(
+                    name: .navigateToDestination,
+                    object: nil,
+                    userInfo: ["destination": "Settings"]
+                )
             }
 
             Button("About", systemImage: "info.circle") {
                 showingAbout = true
-            }
-
-            Button("Donate", systemImage: "heart.fill") {
-                if let url = AppConfiguration.donationURL {
-                    NSWorkspace.shared.open(url)
-                }
             }
         } label: {
             Image(systemName: "ellipsis.circle")
@@ -874,7 +866,7 @@ private struct ContextShelfView: View {
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
-                    CardBackground(isSelected: false, cornerRadius: 12)
+                    CardBackground(isSelected: false)
                 )
             }
 
@@ -912,7 +904,7 @@ private struct ContextShelfView: View {
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                CardBackground(isSelected: false, cornerRadius: 12)
+                CardBackground(isSelected: false)
             )
         }
         .frame(maxWidth: .infinity)
@@ -993,7 +985,7 @@ private struct ArticleSummaryCard: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            CardBackground(isSelected: false, cornerRadius: 12)
+            CardBackground(isSelected: false)
         )
         .animation(.easeInOut(duration: 0.2), value: viewModel.isSummarizingArticle)
         .animation(.easeInOut(duration: 0.2), value: viewModel.articleSummary)
@@ -1021,10 +1013,10 @@ private struct ContextSwitcher: View {
                         .padding(.horizontal, 12)
                         .background(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8)
+                            RoundedRectangle(cornerRadius: 6)
                                 .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 1)
                         )
-                        .cornerRadius(8)
+                        .cornerRadius(6)
                     }
                     .buttonStyle(.plain)
                     .help(destination.title)
@@ -1050,7 +1042,7 @@ private struct ContextPanelCard: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            CardBackground(isSelected: false, cornerRadius: 12)
+            CardBackground(isSelected: false)
         )
     }
 }
@@ -1172,7 +1164,7 @@ private struct TranslationComparisonView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
                     .background(
-                        RoundedRectangle(cornerRadius: 8)
+                        RoundedRectangle(cornerRadius: 6)
                             .fill(Color(NSColor.windowBackgroundColor))
                     )
             }
@@ -1288,9 +1280,9 @@ private struct VoicePreviewPopover: View {
                                 .padding(12)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(rowBackground(for: voice))
-                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
                                         .strokeBorder(rowBorderColor(for: voice), lineWidth: 1)
                                 )
                             }
@@ -1574,7 +1566,7 @@ private struct ChunkingHelperView: View {
                         }
                         .padding(8)
                         .background(
-                            RoundedRectangle(cornerRadius: 8)
+                            RoundedRectangle(cornerRadius: 6)
                                 .fill(Color(NSColor.windowBackgroundColor))
                         )
                     }
@@ -1646,7 +1638,7 @@ private struct ContextRailView: View {
                 }
                 .buttonStyle(.plain)
                 .background(
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: 6)
                         .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
                 )
                 .help(destination.title)
@@ -2134,7 +2126,7 @@ private struct SegmentMarkersView: View {
                         }
                         .padding(6)
                         .background(
-                            RoundedRectangle(cornerRadius: 8)
+                            RoundedRectangle(cornerRadius: 6)
                                 .fill(Color(NSColor.windowBackgroundColor))
                         )
                         .help(statusText(for: item))

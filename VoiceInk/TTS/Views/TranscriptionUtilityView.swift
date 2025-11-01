@@ -160,7 +160,7 @@ struct TranscriptionUtilityView: View {
             .font(.system(size: 13))
             .frame(minHeight: 80, idealHeight: 100)
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 6)
                     .stroke(Color.secondary.opacity(0.2))
             )
         }
@@ -303,7 +303,7 @@ struct TranscriptionUtilityView: View {
                                 }
                                 .padding(8)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 8)
+                                    RoundedRectangle(cornerRadius: 6)
                                         .fill(Color(NSColor.windowBackgroundColor))
                                 )
                             }

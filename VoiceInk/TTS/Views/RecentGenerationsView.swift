@@ -36,7 +36,7 @@ struct RecentGenerationsView: View {
         }
         .padding(viewModel.isMinimalistMode ? 10 : 14)
         .background(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: 6)
                 .fill(Color(NSColor.controlBackgroundColor))
         )
         .animation(.easeInOut(duration: 0.2), value: viewModel.recentGenerations)
@@ -125,7 +125,7 @@ private struct HistoryRow: View {
         }
         .padding(10)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 6)
                 .fill(isHovering ? Color(NSColor.windowBackgroundColor).opacity(0.6) : Color.clear)
         )
         .onHover { hovering in

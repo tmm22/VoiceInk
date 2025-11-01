@@ -25,7 +25,7 @@ struct CostEstimateView: View {
         }
         .padding(viewModel.isMinimalistMode ? 8 : 10)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 6)
                 .fill(Color(NSColor.controlBackgroundColor).opacity(viewModel.inputText.isEmpty ? 0.6 : 1.0))
         )
         .animation(.easeInOut(duration: 0.2), value: estimate.summary)

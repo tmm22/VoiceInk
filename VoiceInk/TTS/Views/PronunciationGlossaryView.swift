@@ -43,7 +43,7 @@ struct PronunciationGlossaryView: View {
         }
         .padding(viewModel.isMinimalistMode ? 10 : 14)
         .background(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: 6)
                 .fill(Color(NSColor.controlBackgroundColor))
         )
         .animation(.easeInOut(duration: 0.2), value: viewModel.pronunciationRules)
@@ -87,7 +87,7 @@ private struct RuleRow: View {
         }
         .padding(10)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 6)
                 .fill(Color(NSColor.windowBackgroundColor).opacity(0.5))
         )
     }

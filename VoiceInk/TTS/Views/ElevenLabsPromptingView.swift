@@ -173,7 +173,7 @@ struct ElevenLabsPromptingView: View {
         }
         .padding(10)
         .background(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: 6)
                 .fill(Color.secondary.opacity(0.08))
         )
     }
