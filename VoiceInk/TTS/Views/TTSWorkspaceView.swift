@@ -303,6 +303,7 @@ private struct CommandStripView: View {
             statusIndicator
             generateButton
             actionsMenu
+            inspectorToggleButton
             overflowMenu
         }
     }
@@ -319,6 +320,7 @@ private struct CommandStripView: View {
                 Spacer()
                 generateButton
                 actionsMenu
+                inspectorToggleButton
                 overflowMenu
             }
         }
@@ -593,6 +595,18 @@ private struct CommandStripView: View {
         .menuStyle(.borderlessButton)
         .help("Actions and tools")
     }
+    
+    private var inspectorToggleButton: some View {
+        Button {
+            toggleInspector()
+        } label: {
+            Image(systemName: isInspectorVisible ? "sidebar.right.fill" : "sidebar.right")
+                .imageScale(.large)
+                .frame(width: 28, height: 28)
+        }
+        .buttonStyle(.plain)
+        .help(isInspectorVisible ? "Hide Inspector" : "Show Inspector")
+    }
 
     private var advancedButton: some View {
         Button {
@@ -608,10 +622,6 @@ private struct CommandStripView: View {
 
     private var overflowMenu: some View {
         Menu {
-            Button(isInspectorVisible ? "Hide Inspector" : "Show Inspector", systemImage: "sidebar.right") {
-                toggleInspector()
-            }
-
             Button("View Cost Detail", systemImage: "dollarsign.circle") {
                 focusInspector(.cost)
             }
