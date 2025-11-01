@@ -213,7 +213,7 @@ struct TTSWorkspaceView: View {
             }
             .background(Color(NSColor.controlBackgroundColor).ignoresSafeArea())
         }
-        .frame(minWidth: 800, minHeight: 600)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .preferredColorScheme(viewModel.colorSchemeOverride)
         .sheet(isPresented: $showingSettings) {
             TTSSettingsView()
