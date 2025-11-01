@@ -96,7 +96,7 @@ private struct DashboardPromotionCard: View {
     )
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top) {
                 Text(badge.uppercased())
                     .font(.system(size: 11, weight: .heavy))
@@ -106,9 +106,9 @@ private struct DashboardPromotionCard: View {
                     .background(.white.opacity(0.2))
                     .clipShape(Capsule())
                     .foregroundColor(.white)
-                
+
                 Spacer()
-                
+
                 Image(systemName: accentSymbol)
                     .font(.system(size: 20, weight: .bold))
                     .foregroundColor(.white.opacity(0.85))
@@ -116,17 +116,17 @@ private struct DashboardPromotionCard: View {
                     .background(.white.opacity(0.18))
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
-            
+
             Text(title)
-                .font(.system(size: 21, weight: .heavy, design: .rounded))
+                .font(.system(size: 20, weight: .heavy, design: .rounded))
                 .foregroundColor(.white)
                 .fixedSize(horizontal: false, vertical: true)
-            
+
             Text(message)
-                .font(.system(size: 13.5, weight: .medium))
+                .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.white.opacity(0.85))
                 .fixedSize(horizontal: false, vertical: true)
-            
+
             Button(action: action) {
                 HStack(spacing: 6) {
                     Text(actionTitle)
@@ -141,8 +141,8 @@ private struct DashboardPromotionCard: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, minHeight: 200, alignment: .topLeading)
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .fill(Self.defaultGradient)
