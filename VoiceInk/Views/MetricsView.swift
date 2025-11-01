@@ -9,12 +9,6 @@ struct MetricsView: View {
     @EnvironmentObject private var whisperState: WhisperState
     @EnvironmentObject private var hotkeyManager: HotkeyManager
     @StateObject private var licenseViewModel = LicenseViewModel()
-    @State private var hasLoadedData = false
-    let skipSetupCheck: Bool
-    
-    init(skipSetupCheck: Bool = false) {
-        self.skipSetupCheck = skipSetupCheck
-    }
     
     var body: some View {
         VStack {
@@ -48,35 +42,12 @@ struct MetricsView: View {
                 )
                 .padding()
             }
-            
-            Group {
-                if skipSetupCheck {
-                    MetricsContent(
-                        transcriptions: Array(transcriptions),
-                        licenseState: licenseViewModel.licenseState
-                    )
-                } else if isSetupComplete {
-                    MetricsContent(
-                        transcriptions: Array(transcriptions),
-                        licenseState: licenseViewModel.licenseState
-                    )
-                } else {
-                    MetricsSetupView()
-                }
-            }
+
+            MetricsContent(
+                transcriptions: Array(transcriptions),
+                licenseState: licenseViewModel.licenseState
+            )
         }
         .background(Color(.controlBackgroundColor))
-        .task {
-            // Ensure the model context is ready
-            hasLoadedData = true
-        }
-    }
-    
-    private var isSetupComplete: Bool {
-        hasLoadedData &&
-        whisperState.currentTranscriptionModel != nil &&
-        hotkeyManager.selectedHotkey1 != .none &&
-        AXIsProcessTrusted() &&
-        CGPreflightScreenCaptureAccess()
     }
 }

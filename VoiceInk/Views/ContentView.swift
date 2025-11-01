@@ -172,18 +172,8 @@ struct ContentView: View {
     @AppStorage("powerModeUIFlag") private var powerModeUIFlag = false
     @State private var selectedView: ViewType = .metrics
     @State private var hoveredView: ViewType?
-    @State private var hasLoadedData = false
     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
     @StateObject private var licenseViewModel = LicenseViewModel()
-    
-    
-    private var isSetupComplete: Bool {
-        hasLoadedData &&
-        whisperState.currentTranscriptionModel != nil &&
-        hotkeyManager.selectedHotkey1 != .none &&
-        AXIsProcessTrusted() &&
-        CGPreflightScreenCaptureAccess()
-    }
 
     var body: some View {
         NavigationSplitView {
@@ -201,9 +191,6 @@ struct ContentView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 940, minHeight: 730)
-        .onAppear {
-            hasLoadedData = true
-        }
         // inside ContentView body:
         .onReceive(NotificationCenter.default.publisher(for: .navigateToDestination)) { notification in
             if let destination = notification.userInfo?["destination"] as? String {
@@ -235,12 +222,7 @@ struct ContentView: View {
     private var detailView: some View {
         switch selectedView {
         case .metrics:
-            if isSetupComplete {
-                MetricsView(skipSetupCheck: true)
-            } else {
-                MetricsSetupView()
-                    .environmentObject(hotkeyManager)
-            }
+            MetricsView()
         case .models:
             ModelManagementView(whisperState: whisperState)
         case .enhancement:
