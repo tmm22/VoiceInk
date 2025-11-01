@@ -449,7 +449,7 @@ struct SettingsView: View {
         if !key.isEmpty {
             keychainManager.saveAPIKey(key, for: service)
         } else {
-            keychainManager.deleteAPIKey(for: service)
+            try? keychainManager.deleteAPIKey(for: service)
         }
     }
     
