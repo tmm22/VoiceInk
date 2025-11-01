@@ -15,7 +15,7 @@ struct URLContentService: URLContentLoading {
     }
 
     func fetchPlainText(from url: URL) async throws -> String {
-        guard let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http" else {
+        guard let scheme = url.scheme?.lowercased(), scheme == "https" else {
             throw URLError(.unsupportedURL)
         }
 
