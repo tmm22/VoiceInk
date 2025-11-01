@@ -69,9 +69,7 @@ class NotchRecorderPanel: KeyablePanel {
         // Make window transparent to mouse events except for the content
         self.ignoresMouseEvents = false
         self.isMovable = false
-        
-        print("NotchRecorderPanel initialized")
-        
+
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleScreenParametersChange),
