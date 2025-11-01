@@ -299,20 +299,10 @@ private struct CommandStripView: View {
     private var horizontalLayout: some View {
         HStack(spacing: 12) {
             providerAndVoice
-            Divider()
-                .frame(height: 24)
-            characterCount
             Spacer(minLength: 12)
             statusIndicator
-            voicePreviewButton
-            voiceStyleButton
-            translationControl
-            batchButton
             generateButton
-            exportButton
-            transcriptMenu
-            clearButton
-            advancedButton
+            actionsMenu
             overflowMenu
         }
     }
@@ -326,17 +316,9 @@ private struct CommandStripView: View {
             }
 
             HStack(spacing: 12) {
-                characterCount
                 Spacer()
-                voicePreviewButton
-                voiceStyleButton
-                translationControl
-                batchButton
                 generateButton
-                exportButton
-                transcriptMenu
-                clearButton
-                advancedButton
+                actionsMenu
                 overflowMenu
             }
         }
@@ -534,6 +516,82 @@ private struct CommandStripView: View {
         .buttonStyle(.bordered)
         .keyboardShortcut("k", modifiers: .command)
         .help("Clear the editor and audio (⌘K)")
+    }
+    
+    private var actionsMenu: some View {
+        Menu {
+            Section("Voice") {
+                Button {
+                    showingPreviewPopover = true
+                } label: {
+                    Label("Preview Voices", systemImage: voicePreviewButtonIcon)
+                }
+                .disabled(viewModel.availableVoices.isEmpty)
+                
+                Button {
+                    showingStylePopover = true
+                } label: {
+                    Label("Voice Style", systemImage: "slider.horizontal.2.rectangle")
+                }
+                .disabled(!viewModel.hasActiveStyleControls)
+            }
+            
+            Section("Text") {
+                Button {
+                    showingTranslationPopover = true
+                } label: {
+                    if viewModel.isTranslating {
+                        Label("Translating…", systemImage: "arrow.triangle.2.circlepath")
+                    } else {
+                        Label("Translate", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                }
+                
+                Button(action: viewModel.startBatchGeneration) {
+                    Label("Batch Generate", systemImage: "text.badge.plus")
+                }
+                .disabled(!viewModel.hasBatchableSegments || viewModel.isGenerating || viewModel.isBatchRunning)
+                
+                Button(action: viewModel.clearText) {
+                    Label("Clear Text", systemImage: "trash")
+                }
+                .keyboardShortcut("k", modifiers: .command)
+            }
+            
+            Section("Export") {
+                Button(action: viewModel.exportAudio) {
+                    Label("Export Audio", systemImage: "square.and.arrow.down")
+                }
+                .keyboardShortcut("e", modifiers: .command)
+                .disabled(viewModel.audioData == nil)
+                
+                Menu {
+                    Button("Export SRT") {
+                        viewModel.exportTranscript(format: .srt)
+                    }
+                    Button("Export VTT") {
+                        viewModel.exportTranscript(format: .vtt)
+                    }
+                } label: {
+                    Label("Export Transcript", systemImage: "doc.text")
+                }
+                .disabled(viewModel.currentTranscript == nil)
+            }
+            
+            Section {
+                Button {
+                    showAdvancedPanel = true
+                } label: {
+                    Label("Advanced Controls", systemImage: "slider.horizontal.3")
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .imageScale(.large)
+                .frame(width: 28, height: 28)
+        }
+        .menuStyle(.borderlessButton)
+        .help("Actions and tools")
     }
 
     private var advancedButton: some View {
@@ -991,33 +1049,30 @@ private struct ComposerUtilityBar: View {
     @Binding var activeUtility: ComposerUtility?
 
     var body: some View {
-        HStack(spacing: 10) {
+        Menu {
             ForEach(ComposerUtility.allCases) { utility in
-                let isActive = activeUtility == utility
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        activeUtility = isActive ? nil : utility
+                        activeUtility = activeUtility == utility ? nil : utility
                     }
                 } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: utility.icon)
-                        Text(utility.title)
-                    }
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 12)
-                    .background(isActive ? Color.accentColor.opacity(0.15) : Color.clear)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(isActive ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 1)
-                    )
-                    .cornerRadius(8)
+                    Label(utility.title, systemImage: utility.icon)
                 }
-                .buttonStyle(.plain)
-                .help(utility.helpText)
             }
-
-            Spacer()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "plus.circle")
+                    .imageScale(.small)
+                Text("Add Content")
+                    .font(.caption)
+            }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 10)
+            .background(Color.secondary.opacity(0.1))
+            .cornerRadius(6)
         }
+        .menuStyle(.borderlessButton)
+        .help("Import text, transcribe audio, or add sample content")
     }
 }
 
@@ -1524,55 +1579,34 @@ private struct GenerationStatusFooter: View {
     let focusInspector: (InspectorSection) -> Void
 
     var body: some View {
-        let formattedLimit = viewModel.formattedCharacterLimit(for: viewModel.selectedProvider)
-        let characterCount = viewModel.effectiveCharacterCount
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Label("Characters: \(characterCount)/\(formattedLimit)", systemImage: "textformat.alt")
-                    .font(.caption)
-                    .foregroundColor(viewModel.shouldHighlightCharacterOverflow ? .red : .secondary)
-
-                Spacer()
-
-                if viewModel.isGenerating {
-                    HStack(spacing: 6) {
-                        ProgressView(value: viewModel.generationProgress)
-                            .frame(width: 100)
-                        Text("Generating…")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+        HStack(spacing: 12) {
+            if viewModel.isGenerating {
+                HStack(spacing: 6) {
+                    ProgressView(value: viewModel.generationProgress)
+                        .frame(width: 100)
+                    Text("Generating…")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
-
+            
+            Spacer()
+            
             Button {
                 focusInspector(.cost)
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Image(systemName: "dollarsign.circle")
-                        .foregroundColor(.accentColor)
+                        .imageScale(.small)
                     Text(viewModel.costEstimate.summary)
                         .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
                 }
-                .padding(.vertical, 6)
-                .padding(.horizontal, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color(NSColor.controlBackgroundColor))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(StyleConstants.cardBorder, lineWidth: 1)
-                        )
-                )
+                .foregroundColor(.secondary)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("View detailed cost estimate")
+            .help("View detailed cost estimate")
         }
+        .padding(.vertical, 4)
     }
 }
 
