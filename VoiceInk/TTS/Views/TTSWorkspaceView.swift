@@ -1062,16 +1062,22 @@ private struct ComposerUtilityBar: View {
                 }
             }
         } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "plus.circle")
-                    .imageScale(.small)
+            HStack(spacing: 8) {
+                Image(systemName: "plus.circle.fill")
+                    .imageScale(.medium)
+                    .foregroundColor(.accentColor)
                 Text("Add Content")
-                    .font(.caption)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
             }
-            .padding(.vertical, 4)
-            .padding(.horizontal, 10)
-            .background(Color.secondary.opacity(0.1))
-            .cornerRadius(6)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 12)
+            .background(Color.accentColor.opacity(0.12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.accentColor.opacity(0.3), lineWidth: 1)
+            )
+            .cornerRadius(8)
         }
         .menuStyle(.borderlessButton)
         .help("Import text, transcribe audio, or add sample content")
