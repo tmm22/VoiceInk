@@ -399,13 +399,17 @@ class AIEnhancementService: ObservableObject {
     }
 
     func captureScreenContext() async {
+        guard CGPreflightScreenCaptureAccess() else {
+            return
+        }
+
         if let capturedText = await screenCaptureService.captureAndExtractText() {
             await MainActor.run {
                 self.objectWillChange.send()
             }
         }
     }
-    
+
     func captureClipboardContext() {
         lastCapturedClipboard = NSPasteboard.general.string(forType: .string)
     }
