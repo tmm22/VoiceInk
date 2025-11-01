@@ -1683,7 +1683,7 @@ private struct ContextPanelContainer: View {
             }
         }
         .padding(20)
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(CardBackground(isSelected: false))
     }
 }
 
@@ -1758,7 +1758,7 @@ private struct InspectorPanelView: View {
             }
         }
         .padding(20)
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(CardBackground(isSelected: false))
     }
 }
 
