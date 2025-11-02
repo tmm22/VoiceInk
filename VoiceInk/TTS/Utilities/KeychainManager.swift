@@ -46,7 +46,9 @@ class KeychainManager {
                 try addAPIKey(key, for: provider)
             }
         } catch {
+            #if DEBUG
             print("Failed to save API key: \(error)")
+            #endif
         }
     }
     
@@ -65,9 +67,11 @@ class KeychainManager {
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         
         guard status == errSecSuccess else {
+            #if DEBUG
             if status != errSecItemNotFound {
                 print("Keychain read error: \(status)")
             }
+            #endif
             return nil
         }
         
@@ -210,10 +214,31 @@ extension KeychainManager {
         }
     }
     
-    /// Validate API key format (basic validation)
-    static func isValidAPIKey(_ key: String) -> Bool {
-        // Basic validation: not empty and reasonable length
-        return !key.isEmpty && key.count >= 20 && key.count <= 200
+    /// Validate API key format with provider-specific patterns
+    static func isValidAPIKey(_ key: String, for provider: String? = nil) -> Bool {
+        guard !key.isEmpty && key.count >= 20 && key.count <= 200 else {
+            return false
+        }
+        
+        // Provider-specific validation if specified
+        if let provider = provider {
+            switch provider {
+            case "OpenAI":
+                // OpenAI keys: sk-proj-xxx or sk-xxx format (48-51 chars after prefix)
+                return key.hasPrefix("sk-") && key.count >= 43
+            case "ElevenLabs":
+                // ElevenLabs keys: 32+ alphanumeric characters
+                return key.count >= 32 && key.range(of: "^[a-zA-Z0-9]{32,}$", options: .regularExpression) != nil
+            case "Google":
+                // Google API keys: 39 characters, alphanumeric with dashes/underscores
+                return key.count >= 30 && key.range(of: "^[a-zA-Z0-9_-]+$", options: .regularExpression) != nil
+            default:
+                break
+            }
+        }
+        
+        // Generic validation for unknown providers
+        return true
     }
     
     /// Get formatted provider name for display

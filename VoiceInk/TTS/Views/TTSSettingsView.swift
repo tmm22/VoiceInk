@@ -464,25 +464,52 @@ struct TTSSettingsView: View {
     }
     
     private func saveSettings() {
-        // Save API keys
+        // Validate and save API keys
         if !elevenLabsKey.isEmpty {
-            viewModel.saveAPIKey(elevenLabsKey, for: .elevenLabs)
+            if KeychainManager.isValidAPIKey(elevenLabsKey, for: "ElevenLabs") {
+                viewModel.saveAPIKey(elevenLabsKey, for: .elevenLabs)
+            } else {
+                saveMessage = "Invalid ElevenLabs API key format. Please check and try again."
+                showingSaveAlert = true
+                return
+            }
         }
         if !openAIKey.isEmpty {
-            viewModel.saveAPIKey(openAIKey, for: .openAI)
+            if KeychainManager.isValidAPIKey(openAIKey, for: "OpenAI") {
+                viewModel.saveAPIKey(openAIKey, for: .openAI)
+            } else {
+                saveMessage = "Invalid OpenAI API key format. Keys should start with 'sk-'."
+                showingSaveAlert = true
+                return
+            }
         }
         if !googleKey.isEmpty {
-            viewModel.saveAPIKey(googleKey, for: .google)
+            if KeychainManager.isValidAPIKey(googleKey, for: "Google") {
+                viewModel.saveAPIKey(googleKey, for: .google)
+            } else {
+                saveMessage = "Invalid Google Cloud API key format. Please check and try again."
+                showingSaveAlert = true
+                return
+            }
         }
 
         // Save other settings
         viewModel.saveSettings()
 
+        // Validate and save managed provisioning configuration
         let trimmedURL = managedBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedAccount = managedAccountId.trimmingCharacters(in: .whitespacesAndNewlines)
+        
         if trimmedURL.isEmpty || trimmedAccount.isEmpty {
             viewModel.clearManagedProvisioning()
         } else {
+            // Validate HTTPS for managed provisioning
+            guard let url = URL(string: trimmedURL), url.scheme?.lowercased() == "https" else {
+                saveMessage = "Managed provisioning base URL must use HTTPS for security."
+                showingSaveAlert = true
+                return
+            }
+            
             viewModel.updateManagedProvisioningConfiguration(
                 baseURL: trimmedURL,
                 accountId: trimmedAccount,
