@@ -54,13 +54,43 @@ struct VoiceInkApp: App {
             
             container = try ModelContainer(for: schema, configurations: [modelConfiguration])
             
-            // Print SwiftData storage location
+            #if DEBUG
+            // Print SwiftData storage location in debug builds only
             if let url = container.mainContext.container.configurations.first?.url {
                 print("💾 SwiftData storage location: \(url.path)")
             }
+            #endif
             
         } catch {
-            fatalError("Failed to create ModelContainer for Transcription: \(error.localizedDescription)")
+            // Graceful degradation: Use in-memory storage as fallback
+            let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "Initialization")
+            logger.error("Failed to create persistent ModelContainer: \(error.localizedDescription)")
+            
+            // Attempt in-memory fallback
+            do {
+                let schema = Schema([Transcription.self])
+                let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+                container = try ModelContainer(for: schema, configurations: [configuration])
+                
+                logger.warning("Using in-memory storage as fallback. Data will not persist between sessions.")
+                
+                // Show alert to user about storage issue
+                DispatchQueue.main.async {
+                    let alert = NSAlert()
+                    alert.messageText = "Storage Warning"
+                    alert.informativeText = "VoiceInk couldn't access its storage location. Your transcriptions will not be saved between sessions."
+                    alert.alertStyle = .warning
+                    alert.addButton(withTitle: "OK")
+                    alert.runModal()
+                }
+            } catch {
+                // Last resort: critical failure, but log and attempt to continue
+                logger.critical("Failed to create in-memory ModelContainer: \(error.localizedDescription)")
+                
+                // Create minimal container with empty schema
+                let schema = Schema([Transcription.self])
+                container = try! ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)])
+            }
         }
         
         // Initialize services with proper sharing of instances
