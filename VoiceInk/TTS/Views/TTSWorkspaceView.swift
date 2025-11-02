@@ -135,7 +135,8 @@ struct TTSWorkspaceView: View {
             let horizontalPadding = viewModel.isMinimalistMode ? constants.composerHorizontalPadding * 0.75 : constants.composerHorizontalPadding
             let commandVerticalPadding = viewModel.isMinimalistMode ? constants.commandStripVerticalPadding * 0.8 : constants.commandStripVerticalPadding
             let composerVerticalPadding = viewModel.isMinimalistMode ? constants.composerVerticalPadding * 0.8 : constants.composerVerticalPadding
-            let isBelowMinimum = ResponsiveConstants.isBelowMinimum(width: proxy.size.width, height: proxy.size.height)
+            // Disable minimum window check for now - causing issues
+            let isBelowMinimum = false // ResponsiveConstants.isBelowMinimum(width: proxy.size.width, height: proxy.size.height)
 
             ZStack {
                 VStack(spacing: 0) {
