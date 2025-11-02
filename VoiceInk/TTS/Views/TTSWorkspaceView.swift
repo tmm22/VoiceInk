@@ -1755,11 +1755,9 @@ private struct ContextPanelContainer: View {
                     .padding(.horizontal, constants.panelPadding)
                     .padding(.bottom, constants.panelPadding)
             }
-            .clipped()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(CardBackground(isSelected: false))
-        .clipShape(RoundedRectangle(cornerRadius: StyleConstants.cornerRadius, style: .continuous))
     }
 }
 
@@ -1849,11 +1847,9 @@ private struct InspectorPanelView: View {
                 .padding(.horizontal, constants.panelPadding)
                 .padding(.bottom, constants.panelPadding)
             }
-            .clipped()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(CardBackground(isSelected: false))
-        .clipShape(RoundedRectangle(cornerRadius: StyleConstants.cornerRadius, style: .continuous))
     }
 }
 
