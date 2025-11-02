@@ -140,6 +140,7 @@ struct TTSWorkspaceView: View {
             ZStack {
                 VStack(spacing: 0) {
                 CommandStripView(
+                    constants: constants,
                     isCompact: isCompact,
                     isInspectorVisible: isInspectorVisible,
                     showingAbout: $showingAbout,
@@ -288,6 +289,7 @@ struct TTSWorkspaceView: View {
 
 private struct CommandStripView: View {
     @EnvironmentObject var viewModel: TTSViewModel
+    let constants: ResponsiveConstants
     let isCompact: Bool
     let isInspectorVisible: Bool
     @Binding var showingAbout: Bool
@@ -355,7 +357,16 @@ private struct CommandStripView: View {
     }
 
     private var providerAndVoice: some View {
-        HStack(spacing: 12) {
+        let pickerWidth: CGFloat = {
+            switch constants.breakpoint {
+            case .ultraCompact: return 120
+            case .compact: return 140
+            case .regular: return 160
+            case .wide: return 180
+            }
+        }()
+        
+        return HStack(spacing: 12) {
             Picker("Provider", selection: $viewModel.selectedProvider) {
                 ForEach(TTSProviderType.allCases, id: \.self) { provider in
                     Label(provider.displayName, systemImage: provider.icon)
@@ -365,7 +376,7 @@ private struct CommandStripView: View {
             .onChange(of: viewModel.selectedProvider) {
                 viewModel.updateAvailableVoices()
             }
-            .frame(minWidth: 160)
+            .frame(minWidth: pickerWidth)
             .pickerStyle(MenuPickerStyle())
             .help("Choose the speech provider")
 
@@ -375,7 +386,7 @@ private struct CommandStripView: View {
                     Text(voice.name).tag(voice as Voice?)
                 }
             }
-            .frame(minWidth: 160)
+            .frame(minWidth: pickerWidth)
             .pickerStyle(MenuPickerStyle())
             .help("Select the voice for this provider")
         }
