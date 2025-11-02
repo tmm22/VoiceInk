@@ -49,13 +49,13 @@ struct ResponsiveConstants {
     var inspectorWidth: ClosedRange<CGFloat> {
         switch breakpoint {
         case .ultraCompact:
-            return 280...300  // Compact but usable
+            return 260...280  // Very compact for limited space
         case .compact:
-            return 280...300  // Same as ultra-compact, limited space
+            return 270...290  // Still compact
         case .regular:
-            return 300...340  // More breathing room
+            return 290...320  // More breathing room
         case .wide:
-            return 320...360  // Full featured
+            return 310...350  // Full featured
         }
     }
     
@@ -69,13 +69,13 @@ struct ResponsiveConstants {
     var contextPanelWidth: ClosedRange<CGFloat> {
         switch breakpoint {
         case .ultraCompact:
-            return 240...260  // Narrow to preserve center space
+            return 220...240  // Very narrow to preserve center space
         case .compact:
-            return 260...280  // Slightly wider
+            return 240...260  // Narrow
         case .regular:
-            return 280...300  // Standard
+            return 260...280  // Standard
         case .wide:
-            return 300...320  // Spacious
+            return 280...300  // Spacious
         }
     }
     
@@ -105,13 +105,13 @@ struct ResponsiveConstants {
     var panelPadding: CGFloat {
         switch breakpoint {
         case .ultraCompact:
-            return 8   // Tight
+            return 6   // Very tight
         case .compact:
-            return 10  // Balanced
+            return 8   // Tight
         case .regular:
-            return 12  // Comfortable
+            return 10  // Comfortable
         case .wide:
-            return 16  // Generous
+            return 12  // Generous
         }
     }
     
