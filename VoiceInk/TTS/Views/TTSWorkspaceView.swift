@@ -824,8 +824,13 @@ private struct MainComposerColumn: View {
     @State private var showingTranslationDetail = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            composerStack()
+        GeometryReader { geometry in
+            ScrollView(.vertical, showsIndicators: true) {
+                composerStack()
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .frame(minHeight: geometry.size.height, alignment: .top)
+            }
+            .scrollIndicators(.hidden)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color(NSColor.windowBackgroundColor))
@@ -1738,11 +1743,13 @@ private struct ContextPanelContainer: View {
             .padding(.top, constants.panelPadding)
             .padding(.bottom, constants.panelPadding * 0.6)
 
-            // Content area - fits without scrolling
-            ContextPanelContent(selection: selection)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .padding(.horizontal, constants.panelPadding)
-                .padding(.bottom, constants.panelPadding)
+            // Scrollable content area
+            ScrollView {
+                ContextPanelContent(selection: selection)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, constants.panelPadding)
+                    .padding(.bottom, constants.panelPadding)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(CardBackground(isSelected: false))
@@ -1817,22 +1824,24 @@ private struct InspectorPanelView: View {
             .padding(.top, constants.panelPadding)
             .padding(.bottom, constants.panelPadding * 0.6)
 
-            // Content area - designed to fit without scrolling
-            VStack(alignment: .leading, spacing: constants.itemSpacing) {
-                switch selection {
-                case .cost:
-                    CostInspectorContent()
-                case .transcript:
-                    TranscriptInspectorContent()
-                case .notifications:
-                    NotificationsInspectorContent()
-                case .provider:
-                    ProviderInspectorContent()
+            // Scrollable content area
+            ScrollView {
+                VStack(alignment: .leading, spacing: constants.itemSpacing) {
+                    switch selection {
+                    case .cost:
+                        CostInspectorContent()
+                    case .transcript:
+                        TranscriptInspectorContent()
+                    case .notifications:
+                        NotificationsInspectorContent()
+                    case .provider:
+                        ProviderInspectorContent()
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, constants.panelPadding)
+                .padding(.bottom, constants.panelPadding)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.horizontal, constants.panelPadding)
-            .padding(.bottom, constants.panelPadding)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(CardBackground(isSelected: false))
@@ -2386,20 +2395,13 @@ private struct SegmentMarkersView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         } else {
-            // Fit all markers to available width - no scrolling
-            GeometryReader { geometry in
-                let spacing: CGFloat = 8
-                let totalSpacing = spacing * CGFloat(max(items.count - 1, 0))
-                let availableWidth = geometry.size.width - totalSpacing
-                let itemWidth = availableWidth / CGFloat(max(items.count, 1))
-                let markerWidth = max(min(itemWidth - 12, 40), 20) // Between 20-40px
-                
-                HStack(spacing: spacing) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
                     ForEach(items) { item in
                         VStack(spacing: 6) {
                             RoundedRectangle(cornerRadius: 3)
                                 .fill(color(for: item.status))
-                                .frame(width: markerWidth, height: 8)
+                                .frame(width: 40, height: 8)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 3)
                                         .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
@@ -2416,9 +2418,7 @@ private struct SegmentMarkersView: View {
                         .help(statusText(for: item))
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(height: 50)
         }
     }
 
