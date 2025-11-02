@@ -727,7 +727,7 @@ private struct WideWorkspace: View {
                                              isInspectorVisible = false
                                          }
                                      })
-                    .frame(minWidth: 300, idealWidth: 320, maxWidth: 340)
+                    .frame(minWidth: 320, idealWidth: 340, maxWidth: 360)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
@@ -1679,7 +1679,7 @@ private struct ContextPanelContainer: View {
 
                 Divider()
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 12)
             .padding(.top, 16)
             .padding(.bottom, 12)
 
@@ -1687,7 +1687,7 @@ private struct ContextPanelContainer: View {
             ScrollView {
                 ContextPanelContent(selection: selection)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, 12)
                     .padding(.bottom, 16)
             }
         }
@@ -1751,7 +1751,7 @@ private struct InspectorPanelView: View {
                 }
                 .pickerStyle(.segmented)
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 12)
             .padding(.top, 16)
             .padding(.bottom, 12)
 
@@ -1770,7 +1770,7 @@ private struct InspectorPanelView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 12)
                 .padding(.bottom, 16)
             }
         }
@@ -1791,11 +1791,13 @@ private struct CostInspectorContent: View {
 
             Text(estimate.summary)
                 .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
 
             if let detail = estimate.detail {
                 Text(detail)
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Button("Refresh estimate") {
@@ -1819,10 +1821,12 @@ private struct TranscriptInspectorContent: View {
                 Text("Generate speech to create a transcript you can export as SRT or VTT.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text("Choose a caption format for the active generation.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 HStack(spacing: 12) {
                     Button("Export SRT") {
@@ -1851,11 +1855,13 @@ private struct NotificationsInspectorContent: View {
                 set: { viewModel.setNotificationsEnabled($0) }
             )) {
                 Text("Notify me when batch generation completes")
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Text("Notifications use the macOS alert center. You will only be notified for batches with at least one generated segment.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -1875,15 +1881,18 @@ private struct ProviderInspectorContent: View {
             Text(profile.detail)
                 .font(.caption)
                 .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
             Text("Supported export formats: \(supportedFormats)")
                 .font(.caption)
                 .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
             if viewModel.selectedVoice == nil {
                 Text("Using the provider default voice. Choose a voice from the Command strip to override.")
                     .font(.caption2)
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

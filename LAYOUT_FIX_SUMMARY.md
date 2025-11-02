@@ -22,30 +22,38 @@ This pattern meant content only had 260px width despite the 300px container.
 ### 1. Flexible Frame Width
 **Changed:** Inspector container from fixed width to flexible width range
 ```swift
-// BEFORE:
+// ITERATION 1:
 .frame(width: 300)
 
-// AFTER:
+// ITERATION 2:
 .frame(minWidth: 300, idealWidth: 320, maxWidth: 340)
+
+// FINAL (ITERATION 3):
+.frame(minWidth: 320, idealWidth: 340, maxWidth: 360)
 ```
-This allows the panel to expand slightly when needed while maintaining a reasonable size.
+This allows the panel to expand appropriately while maintaining reasonable size constraints.
 
 ### 2. Optimized Padding
-**Changed:** Reduced padding from 20px to 16px throughout
+**Changed:** Reduced padding from 20px → 16px → 12px throughout multiple iterations
 ```swift
 // BEFORE:
 .padding(20)
 .padding(.bottom, 8)
 
-// AFTER:
+// ITERATION 1:
 .padding(.horizontal, 16)
+.padding(.top, 16)
+.padding(.bottom, 12)
+
+// FINAL:
+.padding(.horizontal, 12)
 .padding(.top, 16)
 .padding(.bottom, 12)
 ```
 Benefits:
-- More space for content (268px minimum vs 260px)
-- Consistent visual balance
-- Still plenty of breathing room
+- More space for content (296px minimum vs 260px original)
+- Better visual balance with wider panel
+- Still adequate breathing room
 
 ### 3. Proper Frame Hierarchy
 **Added:** `maxWidth: .infinity` to content areas
@@ -58,7 +66,15 @@ VStack {
 ```
 This ensures content expands to fill available space properly.
 
-### 4. Clear Structure
+### 4. Text Wrapping
+**Added:** `.fixedSize(horizontal: false, vertical: true)` to all text elements
+This ensures text wraps properly rather than being truncated, especially important for:
+- Long notification messages
+- Provider details
+- Cost estimate descriptions
+- Export format lists
+
+### 5. Clear Structure
 ```
 Container: .frame(minWidth: 300, idealWidth: 320, maxWidth: 340)
   └─ VStack (spacing: 0)
@@ -106,16 +122,23 @@ See `LAYOUT_DIAGNOSTIC_PLAN.md` for:
 ## Effective Widths
 
 ### Before Fix:
-- Container: 300px
+- Container: 300px (fixed)
 - Left padding: -20px
 - Right padding: -20px
 - **Content: 260px** ❌ Too narrow
 
-### After Fix:
+### After Iteration 1:
 - Container: 300-340px (flexible)
 - Left padding: -16px
 - Right padding: -16px
-- **Content: 268-308px** ✅ Adequate space
+- **Content: 268-308px** ⚠️ Still tight
+
+### Final (Iteration 3):
+- Container: 320-360px (flexible, wider range)
+- Left padding: -12px
+- Right padding: -12px
+- **Content: 296-336px** ✅ Sufficient space
+- Plus text wrapping enabled for overflow protection
 
 ## Key Learnings
 1. **Always apply padding BEFORE background**
