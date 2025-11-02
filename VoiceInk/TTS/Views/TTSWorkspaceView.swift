@@ -243,12 +243,6 @@ struct TTSWorkspaceView: View {
                 }
             }
         }
-        .frame(
-            minWidth: ResponsiveConstants.minimumWindowWidth,
-            maxWidth: .infinity,
-            minHeight: ResponsiveConstants.minimumWindowHeight,
-            maxHeight: .infinity
-        )
         .preferredColorScheme(viewModel.colorSchemeOverride)
         .sheet(isPresented: $showingAbout) {
             AboutView()
