@@ -130,7 +130,7 @@ struct TTSWorkspaceView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let constants = ResponsiveConstants(width: proxy.size.width)
+            let constants = ResponsiveConstants(width: proxy.size.width, height: proxy.size.height)
             let isCompact = proxy.size.width < 960
             let horizontalPadding = viewModel.isMinimalistMode ? constants.composerHorizontalPadding * 0.75 : constants.composerHorizontalPadding
             let commandVerticalPadding = viewModel.isMinimalistMode ? constants.commandStripVerticalPadding * 0.8 : constants.commandStripVerticalPadding

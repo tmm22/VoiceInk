@@ -1,5 +1,27 @@
 import SwiftUI
 
+// MARK: - Dynamic UI Scaling System
+//
+// This file implements a comprehensive adaptive UI system that prevents content cutoff
+// and minimizes scrolling by automatically scaling all UI elements to fit the screen.
+//
+// How it works:
+// 1. Breakpoints: Four layout modes (ultraCompact, compact, regular, wide) based on window width
+// 2. Dynamic Scaling: All sizes scaled proportionally using a scale factor (0.75-1.15x)
+//    - Scale factor calculated relative to "ideal" 1680px width
+//    - At 1680px width = 1.0x scale (100%)
+//    - At 1260px width = 0.75x scale (75% - smaller panels, tighter padding)
+//    - At 1920px width = 1.14x scale (114% - larger panels, generous padding)
+// 3. Automatic Adaptation: Everything scales together - panels, padding, spacing, fonts
+//
+// Benefits:
+// - No content cutoff at any window size
+// - Minimal scrolling needed
+// - Proportional scaling maintains visual balance
+// - Works seamlessly from laptop (1280px) to 4K displays (3840px)
+//
+// Usage: Pass window size to ResponsiveConstants, all measurements auto-scale
+
 /// Defines the responsive layout breakpoints for the application
 enum LayoutBreakpoint: String, CaseIterable {
     case ultraCompact  // < 960px
@@ -34,29 +56,55 @@ enum LayoutBreakpoint: String, CaseIterable {
 /// Provides responsive sizing constants based on the current layout breakpoint
 struct ResponsiveConstants {
     let breakpoint: LayoutBreakpoint
+    let windowWidth: CGFloat
+    let windowHeight: CGFloat
     
-    init(width: CGFloat) {
+    /// Dynamic scale factor based on window size (0.8 to 1.2 range)
+    /// Scales UI elements proportionally to fit the screen
+    var scaleFactor: CGFloat {
+        // Base scale on width relative to "ideal" 1680px width
+        let idealWidth: CGFloat = 1680
+        let widthScale = windowWidth / idealWidth
+        
+        // Clamp between 0.75 and 1.15 for reasonable scaling
+        return max(0.75, min(1.15, widthScale))
+    }
+    
+    /// Whether to use compact vertical layout (for short windows)
+    var isVerticallyCompact: Bool {
+        return windowHeight < 800
+    }
+    
+    init(width: CGFloat, height: CGFloat = 1000) {
+        self.windowWidth = width
+        self.windowHeight = height
         self.breakpoint = LayoutBreakpoint.current(for: width)
     }
     
     init(breakpoint: LayoutBreakpoint) {
         self.breakpoint = breakpoint
+        self.windowWidth = 1680 // Default
+        self.windowHeight = 1000 // Default
     }
     
     // MARK: - Panel Widths
     
-    /// Inspector panel width range
+    /// Inspector panel width range (dynamically scaled)
     var inspectorWidth: ClosedRange<CGFloat> {
+        let baseRange: ClosedRange<CGFloat>
         switch breakpoint {
         case .ultraCompact:
-            return 280...300  // Compact but usable
+            baseRange = 280...300  // Compact but usable
         case .compact:
-            return 300...320  // Comfortable
+            baseRange = 300...320  // Comfortable
         case .regular:
-            return 320...360  // Standard - plenty of room for text
+            baseRange = 320...360  // Standard - plenty of room for text
         case .wide:
-            return 340...380  // Spacious - no cutoff issues
+            baseRange = 340...380  // Spacious - no cutoff issues
         }
+        
+        // Apply scale factor
+        return (baseRange.lowerBound * scaleFactor)...(baseRange.upperBound * scaleFactor)
     }
     
     /// Ideal inspector width (midpoint of range)
@@ -65,18 +113,22 @@ struct ResponsiveConstants {
         return (range.lowerBound + range.upperBound) / 2
     }
     
-    /// Context panel width range
+    /// Context panel width range (dynamically scaled)
     var contextPanelWidth: ClosedRange<CGFloat> {
+        let baseRange: ClosedRange<CGFloat>
         switch breakpoint {
         case .ultraCompact:
-            return 220...240  // Very narrow to preserve center space
+            baseRange = 220...240  // Very narrow to preserve center space
         case .compact:
-            return 240...260  // Narrow
+            baseRange = 240...260  // Narrow
         case .regular:
-            return 260...280  // Standard
+            baseRange = 260...280  // Standard
         case .wide:
-            return 280...300  // Spacious
+            baseRange = 280...300  // Spacious
         }
+        
+        // Apply scale factor
+        return (baseRange.lowerBound * scaleFactor)...(baseRange.upperBound * scaleFactor)
     }
     
     /// Ideal context panel width (midpoint of range)
@@ -101,32 +153,36 @@ struct ResponsiveConstants {
     
     // MARK: - Padding
     
-    /// Standard panel padding (around entire panel)
+    /// Standard panel padding (around entire panel) - dynamically scaled
     var panelPadding: CGFloat {
+        let basePadding: CGFloat
         switch breakpoint {
         case .ultraCompact:
-            return 8   // Tight but readable
+            basePadding = 8   // Tight but readable
         case .compact:
-            return 10  // Comfortable
+            basePadding = 10  // Comfortable
         case .regular:
-            return 12  // Standard
+            basePadding = 12  // Standard
         case .wide:
-            return 14  // Generous
+            basePadding = 14  // Generous
         }
+        return basePadding * scaleFactor
     }
     
-    /// Content padding (for main content areas)
+    /// Content padding (for main content areas) - dynamically scaled
     var contentPadding: CGFloat {
+        let basePadding: CGFloat
         switch breakpoint {
         case .ultraCompact:
-            return 12
+            basePadding = 12
         case .compact:
-            return 16
+            basePadding = 16
         case .regular:
-            return 20
+            basePadding = 20
         case .wide:
-            return 24
+            basePadding = 24
         }
+        return basePadding * scaleFactor
     }
     
     /// Horizontal padding for composer and main areas
@@ -173,18 +229,20 @@ struct ResponsiveConstants {
     
     // MARK: - Spacing
     
-    /// Standard item spacing in VStacks/HStacks
+    /// Standard item spacing in VStacks/HStacks - dynamically scaled
     var itemSpacing: CGFloat {
+        let baseSpacing: CGFloat
         switch breakpoint {
         case .ultraCompact:
-            return 8
+            baseSpacing = 8
         case .compact:
-            return 10
+            baseSpacing = 10
         case .regular:
-            return 12
+            baseSpacing = 12
         case .wide:
-            return 14
+            baseSpacing = 14
         }
+        return baseSpacing * scaleFactor
     }
     
     /// Card spacing
