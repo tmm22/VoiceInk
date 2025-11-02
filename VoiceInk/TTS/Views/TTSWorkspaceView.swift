@@ -727,7 +727,7 @@ private struct WideWorkspace: View {
                                              isInspectorVisible = false
                                          }
                                      })
-                    .frame(width: 300)
+                    .frame(minWidth: 300, idealWidth: 320, maxWidth: 340)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
@@ -742,7 +742,7 @@ private struct SmartInspectorColumn: View {
 
     var body: some View {
         InspectorPanelView(selection: $selection, onClose: collapse)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -1662,27 +1662,36 @@ private struct ContextPanelContainer: View {
     let onClose: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label(selection.title, systemImage: selection.icon)
-                    .font(.headline)
-                Spacer()
-                Button(action: onClose) {
-                    Image(systemName: "xmark.circle.fill")
-                        .imageScale(.medium)
-                        .foregroundColor(.secondary)
+        VStack(alignment: .leading, spacing: 0) {
+            // Header section
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label(selection.title, systemImage: selection.icon)
+                        .font(.headline)
+                    Spacer()
+                    Button(action: onClose) {
+                        Image(systemName: "xmark.circle.fill")
+                            .imageScale(.medium)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+
+                Divider()
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
 
-            Divider()
-
+            // Scrollable content area
             ScrollView {
                 ContextPanelContent(selection: selection)
-                    .padding(.bottom, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
             }
         }
-        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(CardBackground(isSelected: false))
     }
 }
@@ -1717,29 +1726,36 @@ private struct InspectorPanelView: View {
     let onClose: (() -> Void)?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label("Inspector", systemImage: "sidebar.right")
-                    .font(.headline)
-                Spacer()
-                if let onClose {
-                    Button(action: onClose) {
-                        Image(systemName: "xmark.circle.fill")
-                            .imageScale(.medium)
-                            .foregroundColor(.secondary)
+        VStack(alignment: .leading, spacing: 0) {
+            // Header section with fixed padding
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label("Inspector", systemImage: "sidebar.right")
+                        .font(.headline)
+                    Spacer()
+                    if let onClose {
+                        Button(action: onClose) {
+                            Image(systemName: "xmark.circle.fill")
+                                .imageScale(.medium)
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
-            }
 
-            Picker("Inspector Section", selection: $selection) {
-                ForEach(InspectorSection.allCases) { section in
-                    Label(section.title, systemImage: section.icon)
-                        .tag(section)
+                Picker("Inspector Section", selection: $selection) {
+                    ForEach(InspectorSection.allCases) { section in
+                        Label(section.title, systemImage: section.icon)
+                            .tag(section)
+                    }
                 }
+                .pickerStyle(.segmented)
             }
-            .pickerStyle(.segmented)
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
 
+            // Scrollable content area
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     switch selection {
@@ -1753,11 +1769,12 @@ private struct InspectorPanelView: View {
                         ProviderInspectorContent()
                     }
                 }
-                .padding(.top, 8)
-                .padding(.bottom, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
             }
         }
-        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(CardBackground(isSelected: false))
     }
 }
