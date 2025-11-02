@@ -130,13 +130,15 @@ struct TTSWorkspaceView: View {
 
     var body: some View {
         GeometryReader { proxy in
+            let constants = ResponsiveConstants(width: proxy.size.width)
             let isCompact = proxy.size.width < 960
-            let horizontalPadding = LayoutGuidance.horizontalPadding(for: proxy.size.width,
-                                                                     isMinimalist: viewModel.isMinimalistMode)
-            let commandVerticalPadding: CGFloat = viewModel.isMinimalistMode ? 10 : 12
-            let composerVerticalPadding: CGFloat = viewModel.isMinimalistMode ? 16 : 20
+            let horizontalPadding = viewModel.isMinimalistMode ? constants.composerHorizontalPadding * 0.75 : constants.composerHorizontalPadding
+            let commandVerticalPadding = viewModel.isMinimalistMode ? constants.commandStripVerticalPadding * 0.8 : constants.commandStripVerticalPadding
+            let composerVerticalPadding = viewModel.isMinimalistMode ? constants.composerVerticalPadding * 0.8 : constants.composerVerticalPadding
+            let isBelowMinimum = ResponsiveConstants.isBelowMinimum(width: proxy.size.width, height: proxy.size.height)
 
-            VStack(spacing: 0) {
+            ZStack {
+                VStack(spacing: 0) {
                 CommandStripView(
                     isCompact: isCompact,
                     isInspectorVisible: isInspectorVisible,
@@ -165,10 +167,17 @@ struct TTSWorkspaceView: View {
                 .padding(.vertical, commandVerticalPadding)
                 .background(Color(NSColor.windowBackgroundColor))
                 .popover(isPresented: $showingInspectorPopover, arrowEdge: .top) {
-                    InspectorPanelView(selection: $inspectorSection, onClose: {
-                        showingInspectorPopover = false
-                    })
-                    .frame(minWidth: 280, idealWidth: 320)
+                    InspectorPanelView(
+                        constants: constants,
+                        selection: $inspectorSection,
+                        onClose: {
+                            showingInspectorPopover = false
+                        }
+                    )
+                    .frame(
+                        minWidth: min(280, proxy.size.width * 0.8),
+                        idealWidth: min(320, proxy.size.width * 0.4)
+                    )
                     .environmentObject(viewModel)
                 }
 
@@ -188,6 +197,7 @@ struct TTSWorkspaceView: View {
                     .environmentObject(viewModel)
                 } else {
                     WideWorkspace(
+                        constants: constants,
                         selectedContextPanel: $selectedContextPanel,
                         activeUtility: $activeUtility,
                         inspectorSection: $inspectorSection,
@@ -208,10 +218,36 @@ struct TTSWorkspaceView: View {
 
                 PlaybackBarView(horizontalPadding: horizontalPadding)
                     .background(Color(NSColor.windowBackgroundColor))
+                }
+                .background(Color(NSColor.controlBackgroundColor).ignoresSafeArea())
+                
+                // Minimum window size warning overlay
+                if isBelowMinimum {
+                    VStack(spacing: 16) {
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .font(.system(size: 48))
+                            .foregroundColor(.secondary)
+                        
+                        Text("Window Too Small")
+                            .font(.headline)
+                        
+                        Text("Please resize to at least \(Int(ResponsiveConstants.minimumWindowWidth))×\(Int(ResponsiveConstants.minimumWindowHeight)) for the best experience")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.ultraThinMaterial)
+                }
             }
-            .background(Color(NSColor.controlBackgroundColor).ignoresSafeArea())
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(
+            minWidth: ResponsiveConstants.minimumWindowWidth,
+            maxWidth: .infinity,
+            minHeight: ResponsiveConstants.minimumWindowHeight,
+            maxHeight: .infinity
+        )
         .preferredColorScheme(viewModel.colorSchemeOverride)
         .sheet(isPresented: $showingAbout) {
             AboutView()
@@ -681,6 +717,7 @@ private struct CompactWorkspace: View {
 
 private struct WideWorkspace: View {
     @EnvironmentObject var viewModel: TTSViewModel
+    let constants: ResponsiveConstants
     @Binding var selectedContextPanel: ContextPanelDestination?
     @Binding var activeUtility: ComposerUtility?
     @Binding var inspectorSection: InspectorSection
@@ -692,17 +729,25 @@ private struct WideWorkspace: View {
     var body: some View {
         HStack(spacing: 0) {
             ContextRailView(selection: $selectedContextPanel)
-                .frame(width: 68)
+                .frame(width: constants.contextRailWidth)
                 .background(Color(NSColor.windowBackgroundColor))
 
             if let selection = selectedContextPanel {
                 Divider()
-                ContextPanelContainer(selection: selection) {
+                ContextPanelContainer(
+                    constants: constants,
+                    selection: selection
+                ) {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         selectedContextPanel = nil
                     }
                 }
-                .frame(minWidth: 260, idealWidth: 300, maxHeight: .infinity)
+                .frame(
+                    minWidth: constants.contextPanelWidth.lowerBound,
+                    idealWidth: constants.idealContextPanelWidth,
+                    maxWidth: constants.contextPanelWidth.upperBound,
+                    maxHeight: .infinity
+                )
                 .transition(.move(edge: .leading).combined(with: .opacity))
             }
 
@@ -721,14 +766,21 @@ private struct WideWorkspace: View {
 
             if isInspectorVisible {
                 Divider()
-                SmartInspectorColumn(selection: $inspectorSection,
-                                     collapse: {
-                                         withAnimation(.easeInOut(duration: 0.2)) {
-                                             isInspectorVisible = false
-                                         }
-                                     })
-                    .frame(minWidth: 320, idealWidth: 340, maxWidth: 360)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                SmartInspectorColumn(
+                    constants: constants,
+                    selection: $inspectorSection,
+                    collapse: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isInspectorVisible = false
+                        }
+                    }
+                )
+                .frame(
+                    minWidth: constants.inspectorWidth.lowerBound,
+                    idealWidth: constants.idealInspectorWidth,
+                    maxWidth: constants.inspectorWidth.upperBound
+                )
+                .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
         .background(Color(NSColor.controlBackgroundColor))
@@ -737,11 +789,12 @@ private struct WideWorkspace: View {
 
 private struct SmartInspectorColumn: View {
     @EnvironmentObject var viewModel: TTSViewModel
+    let constants: ResponsiveConstants
     @Binding var selection: InspectorSection
     let collapse: () -> Void
 
     var body: some View {
-        InspectorPanelView(selection: $selection, onClose: collapse)
+        InspectorPanelView(constants: constants, selection: $selection, onClose: collapse)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
@@ -1658,6 +1711,7 @@ private struct ContextRailView: View {
 }
 
 private struct ContextPanelContainer: View {
+    let constants: ResponsiveConstants
     let selection: ContextPanelDestination
     let onClose: () -> Void
 
@@ -1679,16 +1733,16 @@ private struct ContextPanelContainer: View {
 
                 Divider()
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 16)
-            .padding(.bottom, 12)
+            .padding(.horizontal, constants.panelPadding)
+            .padding(.top, constants.panelPadding)
+            .padding(.bottom, constants.panelPadding * 0.6)
 
             // Scrollable content area
             ScrollView {
                 ContextPanelContent(selection: selection)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 16)
+                    .padding(.horizontal, constants.panelPadding)
+                    .padding(.bottom, constants.panelPadding)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1722,12 +1776,21 @@ private struct ContextPanelContent: View {
 
 private struct InspectorPanelView: View {
     @EnvironmentObject var viewModel: TTSViewModel
+    let constants: ResponsiveConstants
     @Binding var selection: InspectorSection
     let onClose: (() -> Void)?
+    
+    init(constants: ResponsiveConstants = ResponsiveConstants(breakpoint: .regular), 
+         selection: Binding<InspectorSection>, 
+         onClose: (() -> Void)? = nil) {
+        self.constants = constants
+        self._selection = selection
+        self.onClose = onClose
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header section with fixed padding
+            // Header section with responsive padding
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Label("Inspector", systemImage: "sidebar.right")
@@ -1751,13 +1814,13 @@ private struct InspectorPanelView: View {
                 }
                 .pickerStyle(.segmented)
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 16)
-            .padding(.bottom, 12)
+            .padding(.horizontal, constants.panelPadding)
+            .padding(.top, constants.panelPadding)
+            .padding(.bottom, constants.panelPadding * 0.6)
 
             // Scrollable content area
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: constants.itemSpacing) {
                     switch selection {
                     case .cost:
                         CostInspectorContent()
@@ -1770,8 +1833,8 @@ private struct InspectorPanelView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 12)
-                .padding(.bottom, 16)
+                .padding(.horizontal, constants.panelPadding)
+                .padding(.bottom, constants.panelPadding)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
