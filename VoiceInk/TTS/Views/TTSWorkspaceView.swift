@@ -1848,29 +1848,100 @@ private struct InspectorPanelView: View {
     }
 }
 
+// MARK: - Inspector Helper Components
+
+private struct InfoButton: View {
+    let message: String
+    @State private var showingPopover = false
+    
+    var body: some View {
+        Button {
+            showingPopover = true
+        } label: {
+            Image(systemName: "info.circle")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help(message)
+        .popover(isPresented: $showingPopover) {
+            Text(message)
+                .padding()
+                .frame(maxWidth: 250)
+        }
+    }
+}
+
+private struct CompactInfoGrid: View {
+    let items: [(icon: String, label: String, value: String)]
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            ForEach(items.indices, id: \.self) { index in
+                HStack(spacing: 8) {
+                    Image(systemName: items[index].icon)
+                        .frame(width: 20)
+                        .foregroundColor(.secondary)
+                    
+                    Text(items[index].label)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Text(items[index].value)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .padding(12)
+        .background(Color.secondary.opacity(0.1))
+        .cornerRadius(8)
+    }
+}
+
+// MARK: - Inspector Content Sections
+
 private struct CostInspectorContent: View {
     @EnvironmentObject var viewModel: TTSViewModel
 
     var body: some View {
         let estimate = viewModel.costEstimate
 
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Estimated cost", systemImage: "dollarsign.circle")
-                .font(.headline)
-
-            Text(estimate.summary)
-                .font(.body)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if let detail = estimate.detail {
-                Text(detail)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 16) {
+            // Cost display
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: "dollarsign.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(.green)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(estimate.summary)
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                    
+                    Text("per generation")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                if let detail = estimate.detail {
+                    InfoButton(message: detail)
+                }
             }
-
-            Button("Refresh estimate") {
+            
+            Divider()
+            
+            // Refresh action
+            Button {
                 viewModel.objectWillChange.send()
+            } label: {
+                Label("Refresh Estimate", systemImage: "arrow.clockwise")
+                    .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
             .disabled(viewModel.inputText.isEmpty)
@@ -1880,32 +1951,71 @@ private struct CostInspectorContent: View {
 
 private struct TranscriptInspectorContent: View {
     @EnvironmentObject var viewModel: TTSViewModel
+    @State private var selectedFormat: TranscriptFormat = .srt
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Transcript export", systemImage: "doc.text")
-                .font(.headline)
-
-            if viewModel.currentTranscript == nil {
-                Text("Generate speech to create a transcript you can export as SRT or VTT.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                Text("Choose a caption format for the active generation.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                HStack(spacing: 12) {
-                    Button("Export SRT") {
-                        viewModel.exportTranscript(format: .srt)
+        VStack(alignment: .leading, spacing: 16) {
+            // Status header
+            HStack(spacing: 12) {
+                Image(systemName: viewModel.currentTranscript != nil ? 
+                      "doc.text.fill" : "doc.text")
+                    .font(.title2)
+                    .foregroundColor(viewModel.currentTranscript != nil ? 
+                                   .green : .secondary)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Transcript")
+                        .font(.headline)
+                    
+                    Text(viewModel.currentTranscript != nil ? 
+                         "Ready to export" : "Not generated")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+            }
+            
+            if viewModel.currentTranscript != nil {
+                Divider()
+                
+                // Format picker
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Export Format")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+                    
+                    Picker("Format", selection: $selectedFormat) {
+                        Label("SRT", systemImage: "captions.bubble")
+                            .tag(TranscriptFormat.srt)
+                        Label("VTT", systemImage: "text.bubble")
+                            .tag(TranscriptFormat.vtt)
                     }
-                    Button("Export VTT") {
-                        viewModel.exportTranscript(format: .vtt)
-                    }
+                    .pickerStyle(.segmented)
+                }
+                
+                // Export button
+                Button {
+                    viewModel.exportTranscript(format: selectedFormat)
+                } label: {
+                    Label("Export Transcript", systemImage: "square.and.arrow.down")
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+            } else {
+                // Help message
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.blue)
+                    Text("Generate audio to create transcript")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(6)
             }
         }
     }
@@ -1915,53 +2025,128 @@ private struct NotificationsInspectorContent: View {
     @EnvironmentObject var viewModel: TTSViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Batch alerts", systemImage: "bell")
-                .font(.headline)
-
+        VStack(alignment: .leading, spacing: 16) {
+            // Header
+            HStack {
+                Image(systemName: "bell.badge.fill")
+                    .font(.title2)
+                    .foregroundColor(.orange)
+                
+                Text("Batch Alerts")
+                    .font(.headline)
+                
+                Spacer()
+            }
+            
+            // Toggle with info button
             Toggle(isOn: Binding(
                 get: { viewModel.notificationsEnabled },
                 set: { viewModel.setNotificationsEnabled($0) }
             )) {
-                Text("Notify me when batch generation completes")
-                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 4) {
+                    Text("Completion notifications")
+                        .font(.subheadline)
+                    
+                    InfoButton(message: "Get notified when batch generation completes. Uses macOS notification center. Only notifies for batches with at least one generated segment.")
+                }
             }
-
-            Text("Notifications use the macOS alert center. You will only be notified for batches with at least one generated segment.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            
+            // Status indicator
+            if viewModel.notificationsEnabled {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                        .font(.caption)
+                    Text("Notifications enabled")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(6)
+            }
         }
     }
 }
 
 private struct ProviderInspectorContent: View {
     @EnvironmentObject var viewModel: TTSViewModel
+    @State private var showingDetails = false
 
     var body: some View {
         let provider = viewModel.selectedProvider
         let profile = ProviderCostProfile.profile(for: provider)
-        let supportedFormats = viewModel.supportedFormats.map(\.displayName).joined(separator: ", ")
+        let formats = viewModel.supportedFormats.map(\.displayName)
+        let primaryFormat = formats.first ?? "MP3"
+        let formatCount = formats.count
 
-        VStack(alignment: .leading, spacing: 12) {
-            Label(provider.displayName, systemImage: provider.icon)
-                .font(.headline)
-
-            Text(profile.detail)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text("Supported export formats: \(supportedFormats)")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
+        VStack(alignment: .leading, spacing: 16) {
+            // Provider header
+            HStack(spacing: 12) {
+                Image(systemName: provider.icon)
+                    .font(.title)
+                    .foregroundColor(.accentColor)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(provider.displayName)
+                        .font(.headline)
+                    
+                    Text("Current Provider")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                Button {
+                    showingDetails.toggle()
+                } label: {
+                    Image(systemName: showingDetails ? "chevron.up.circle" : "info.circle")
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Provider details")
+            }
+            
+            // Key info grid
+            CompactInfoGrid(items: [
+                ("waveform", "Quality", "High"),
+                ("arrow.down.circle", "Formats", "\(primaryFormat) +\(formatCount - 1)"),
+                ("person.wave.2", "Voice", viewModel.selectedVoice?.name ?? "Default")
+            ])
+            
+            // Expanded details
+            if showingDetails {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(profile.detail)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    
+                    Text("All formats: \(formats.joined(separator: ", "))")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(8)
+                .background(Color.secondary.opacity(0.05))
+                .cornerRadius(6)
+            }
+            
+            // Voice selection hint
             if viewModel.selectedVoice == nil {
-                Text("Using the provider default voice. Choose a voice from the Command strip to override.")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Image(systemName: "lightbulb.fill")
+                        .foregroundColor(.yellow)
+                    Text("Choose voice from Command Strip")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.yellow.opacity(0.1))
+                .cornerRadius(6)
             }
         }
     }
