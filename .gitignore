@@ -31,6 +31,8 @@ playground.xcworkspace
 
 .build/
 build/
+DerivedData/
+Release/
 
 # CocoaPods
 #
