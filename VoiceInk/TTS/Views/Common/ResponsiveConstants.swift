@@ -7,12 +7,13 @@ import SwiftUI
 //
 // How it works:
 // 1. Breakpoints: Four layout modes (ultraCompact, compact, regular, wide) based on window width
-// 2. Dynamic Scaling: All sizes scaled proportionally using a scale factor (0.75-1.15x)
-//    - Scale factor calculated relative to "ideal" 1680px width
-//    - At 1680px width = 1.0x scale (100%)
-//    - At 1260px width = 0.75x scale (75% - smaller panels, tighter padding)
-//    - At 1920px width = 1.14x scale (114% - larger panels, generous padding)
-// 3. Automatic Adaptation: Everything scales together - panels, padding, spacing, fonts
+// 2. Dynamic Scaling: All sizes scaled proportionally using a scale factor (0.85-1.15x)
+//    - Scale factor calculated relative to "ideal" 1440px width (comfortable default)
+//    - At 1440px width = 1.0x scale (100%)
+//    - At 1224px width = 0.85x scale (85% - minimum scale, still readable)
+//    - At 1656px width = 1.15x scale (115% - maximum scale, spacious)
+// 3. Automatic Adaptation: Everything scales together - panels, padding, spacing
+// 4. Default window size: 1200×800 minimum, 1440×900 ideal for comfortable viewing
 //
 // Benefits:
 // - No content cutoff at any window size
@@ -59,15 +60,16 @@ struct ResponsiveConstants {
     let windowWidth: CGFloat
     let windowHeight: CGFloat
     
-    /// Dynamic scale factor based on window size (0.8 to 1.2 range)
+    /// Dynamic scale factor based on window size (0.85 to 1.15 range)
     /// Scales UI elements proportionally to fit the screen
     var scaleFactor: CGFloat {
-        // Base scale on width relative to "ideal" 1680px width
-        let idealWidth: CGFloat = 1680
+        // Base scale on width relative to "ideal" 1440px width (comfortable default)
+        let idealWidth: CGFloat = 1440
         let widthScale = windowWidth / idealWidth
         
-        // Clamp between 0.75 and 1.15 for reasonable scaling
-        return max(0.75, min(1.15, widthScale))
+        // Clamp between 0.85 and 1.15 for more generous scaling
+        // Starts scaling down less aggressively - better for readability
+        return max(0.85, min(1.15, widthScale))
     }
     
     /// Whether to use compact vertical layout (for short windows)
