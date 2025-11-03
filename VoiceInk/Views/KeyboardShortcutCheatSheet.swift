@@ -1,5 +1,6 @@
 import SwiftUI
 import KeyboardShortcuts
+import SwiftData
 
 struct KeyboardShortcutCheatSheet: View {
     @EnvironmentObject private var hotkeyManager: HotkeyManager

@@ -3,6 +3,7 @@ import AVFoundation
 import Combine
 import UniformTypeIdentifiers
 import UserNotifications
+import OSLog
 
 enum SnippetInsertMode {
     case replace
@@ -594,8 +595,12 @@ class TTSViewModel: ObservableObject {
     
     // Placeholder service for graceful degradation
     private class PlaceholderTranscriptionService: AudioTranscribing {
-        func transcribe(fileURL: URL, languageHint: String?) async throws -> TranscriptionResult {
-            throw TTSError.serviceUnavailable("No transcription service is currently configured. Please check your settings.")
+        func hasCredentials() -> Bool {
+            return false
+        }
+        
+        func transcribe(fileURL: URL, languageHint: String?) async throws -> (text: String, language: String?, duration: TimeInterval, segments: [TranscriptionSegment]) {
+            throw TTSError.apiError("No transcription service is currently configured. Please check your settings.")
         }
     }
 

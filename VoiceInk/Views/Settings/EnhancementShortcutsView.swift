@@ -6,13 +6,13 @@ struct EnhancementShortcutsView: View {
     
     var body: some View {
         VStack(spacing: 12) {
-            ShortcutRow(
+            EnhancementShortcutRow(
                 title: "Toggle AI Enhancement",
                 description: "Quickly enable or disable enhancement while recording.",
                 keyDisplay: ["⌘", "E"],
                 isOn: $shortcutSettings.isToggleEnhancementShortcutEnabled
             )
-            ShortcutRow(
+            EnhancementShortcutRow(
                 title: "Switch Enhancement Prompt",
                 description: "Switch between your saved prompts without touching the UI. Use ⌘1–⌘0 to activate the corresponding prompt in the order they are saved.",
                 keyDisplay: ["⌘", "1 – 0"]
@@ -86,7 +86,7 @@ struct EnhancementShortcutsSection: View {
 }
 
 // MARK: - Supporting Views
-private struct ShortcutRow: View {
+private struct EnhancementShortcutRow: View {
     let title: String
     let description: String
     let keyDisplay: [String]

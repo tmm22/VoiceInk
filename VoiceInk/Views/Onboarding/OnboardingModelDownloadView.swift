@@ -60,47 +60,49 @@ struct OnboardingModelDownloadView: View {
                     }
                     
                     // Model card - Centered and compact
-                    if let model = turboModel {
-                        VStack(alignment: .leading, spacing: 16) {
-                            // Model name and details
-                            VStack(alignment: .center, spacing: 8) {
-                                Text(model.displayName)
+                    Group {
+                        if let model = turboModel {
+                            VStack(alignment: .leading, spacing: 16) {
+                                // Model name and details
+                                VStack(alignment: .center, spacing: 8) {
+                                    Text(model.displayName)
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                    Text("\(model.size) • \(model.language)")
+                                        .font(.caption)
+                                        .foregroundColor(.white.opacity(0.7))
+                                }
+                                .frame(maxWidth: .infinity)
+                                
+                                Divider()
+                                    .background(Color.white.opacity(0.1))
+                                
+                                // Performance indicators in a more compact layout
+                                HStack(spacing: 20) {
+                                    performanceIndicator(label: "Speed", value: model.speed)
+                                    performanceIndicator(label: "Accuracy", value: model.accuracy)
+                                    ramUsageLabel(gb: model.ramUsage)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                
+                                // Download progress
+                                if isDownloading {
+                                    DownloadProgressView(
+                                        modelName: model.name,
+                                        downloadProgress: whisperState.downloadProgress
+                                    )
+                                    .transition(.opacity)
+                                }
+                            }
+                        } else {
+                            VStack(spacing: 16) {
+                                Text("Model configuration error")
                                     .font(.headline)
                                     .foregroundColor(.white)
-                                Text("\(model.size) • \(model.language)")
+                                Text("Unable to find the turbo model")
                                     .font(.caption)
                                     .foregroundColor(.white.opacity(0.7))
                             }
-                            .frame(maxWidth: .infinity)
-                            
-                            Divider()
-                                .background(Color.white.opacity(0.1))
-                            
-                            // Performance indicators in a more compact layout
-                            HStack(spacing: 20) {
-                                performanceIndicator(label: "Speed", value: model.speed)
-                                performanceIndicator(label: "Accuracy", value: model.accuracy)
-                                ramUsageLabel(gb: model.ramUsage)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            
-                            // Download progress
-                            if isDownloading {
-                                DownloadProgressView(
-                                    modelName: model.name,
-                                    downloadProgress: whisperState.downloadProgress
-                                )
-                                .transition(.opacity)
-                            }
-                        }
-                    } else {
-                        VStack(spacing: 16) {
-                            Text("Model configuration error")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                            Text("Unable to find the turbo model")
-                                .font(.caption)
-                                .foregroundColor(.white.opacity(0.7))
                         }
                     }
                     .padding(24)

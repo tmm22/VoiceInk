@@ -15,14 +15,14 @@ class PasteEligibilityService {
         var focusedElement: AnyObject?
         let result = AXUIElementCopyAttributeValue(appElement, kAXFocusedUIElementAttribute as CFString, &focusedElement)
 
-        guard result == .success, let element = focusedElement else {
+        guard result == .success, 
+              let element = focusedElement,
+              CFGetTypeID(element) == AXUIElementGetTypeID() else {
             return false
         }
         
-        // Safe cast to AXUIElement
-        guard let axElement = element as? AXUIElement else {
-            return false
-        }
+        // Element is already an AXUIElement (CoreFoundation type)
+        let axElement = (element as! AXUIElement)
 
         var isWritable: DarwinBoolean = false
         let isSettableResult = AXUIElementIsAttributeSettable(axElement, kAXValueAttribute as CFString, &isWritable)

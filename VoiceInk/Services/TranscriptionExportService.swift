@@ -282,8 +282,7 @@ class TranscriptionExportService {
                 // Show success notification
                 DispatchQueue.main.async {
                     NotificationManager.shared.showNotification(
-                        title: "Export successful",
-                        subtitle: "Saved to \(url.lastPathComponent)",
+                        title: "Export successful - Saved to \(url.lastPathComponent)",
                         type: .success
                     )
                 }
@@ -296,8 +295,7 @@ class TranscriptionExportService {
     private func showError(_ message: String) {
         DispatchQueue.main.async {
             NotificationManager.shared.showNotification(
-                title: "Export failed",
-                subtitle: message,
+                title: "Export failed: \(message)",
                 type: .error
             )
         }

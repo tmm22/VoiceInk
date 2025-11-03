@@ -323,8 +323,8 @@ class AIService: ObservableObject {
     }
     
     private func verifyOpenAICompatibleAPIKey(_ key: String, completion: @escaping (Bool) -> Void) {
-        guard let url = URL(string: selectedProvider.baseURL) else {
-            logger.error("Invalid base URL for provider: \(selectedProvider.baseURL)")
+        guard let url = URL(string: self.selectedProvider.baseURL) else {
+            logger.error("Invalid base URL for provider: \(self.selectedProvider.baseURL)")
             completion(false)
             return
         }
@@ -372,8 +372,8 @@ class AIService: ObservableObject {
     }
     
     private func verifyAnthropicAPIKey(_ key: String, completion: @escaping (Bool) -> Void) {
-        guard let url = URL(string: selectedProvider.baseURL) else {
-            logger.error("Invalid base URL for provider: \(selectedProvider.baseURL)")
+        guard let url = URL(string: self.selectedProvider.baseURL) else {
+            logger.error("Invalid base URL for provider: \(self.selectedProvider.baseURL)")
             completion(false)
             return
         }

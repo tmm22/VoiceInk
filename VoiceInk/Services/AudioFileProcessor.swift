@@ -168,8 +168,7 @@ class AudioProcessor {
         // Copy samples to buffer safely
         try int16Samples.withUnsafeBufferPointer { int16Buffer in
             guard let int16Pointer = int16Buffer.baseAddress,
-                  let channelData = buffer.int16ChannelData,
-                  channelData.count > 0 else {
+                  let channelData = buffer.int16ChannelData else {
                 throw AudioProcessingError.conversionFailed
             }
             channelData[0].update(from: int16Pointer, count: int16Samples.count)
