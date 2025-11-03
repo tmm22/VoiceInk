@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AudioInputSettingsView: View {
     @ObservedObject var audioDeviceManager = AudioDeviceManager.shared
+    @StateObject private var audioMonitor = AudioLevelMonitor()
     @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
@@ -18,6 +19,8 @@ struct AudioInputSettingsView: View {
         VStack(spacing: 40) {
             inputModeSection
             
+            microphoneTestSection
+            
             if audioDeviceManager.inputMode == .custom {
                 customDeviceSection
             } else if audioDeviceManager.inputMode == .prioritized {
@@ -26,6 +29,11 @@ struct AudioInputSettingsView: View {
         }
         .padding(.horizontal, 32)
         .padding(.vertical, 40)
+        .onDisappear {
+            if audioMonitor.isMonitoring {
+                audioMonitor.stopMonitoring()
+            }
+        }
     }
     
     private var heroSection: some View {
@@ -65,6 +73,136 @@ struct AudioInputSettingsView: View {
                     )
                 }
             }
+        }
+    }
+    
+    private var microphoneTestSection: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Microphone Test")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                
+                Text("Test your microphone to ensure it's working properly before recording")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            
+            VStack(alignment: .leading, spacing: 16) {
+                // Test button
+                HStack {
+                    Button(action: toggleMonitoring) {
+                        HStack(spacing: 8) {
+                            Image(systemName: audioMonitor.isMonitoring ? "stop.circle.fill" : "play.circle.fill")
+                            Text(audioMonitor.isMonitoring ? "Stop Test" : "Test Microphone")
+                        }
+                        .frame(minWidth: 150)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(audioDeviceManager.isRecordingActive)
+                    
+                    if audioMonitor.isMonitoring {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 8, height: 8)
+                            Text("Monitoring")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .transition(.opacity)
+                    }
+                    
+                    Spacer()
+                }
+                .animation(.easeInOut(duration: 0.2), value: audioMonitor.isMonitoring)
+                
+                // Level meter
+                if audioMonitor.isMonitoring {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Input Level")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        // Level bar
+                        GeometryReader { geometry in
+                            ZStack(alignment: .leading) {
+                                // Background
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color(NSColor.controlBackgroundColor))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                                    )
+                                
+                                // Level bar with gradient
+                                let levelWidth = geometry.size.width * CGFloat(audioMonitor.currentLevel)
+                                let color = AudioLevelMonitor.levelColor(for: audioMonitor.currentLevel)
+                                
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color(red: color.red, green: color.green, blue: color.blue),
+                                                Color(red: color.red, green: color.green, blue: color.blue).opacity(0.7)
+                                            ],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .frame(width: max(0, levelWidth))
+                                    .animation(.linear(duration: 0.05), value: audioMonitor.currentLevel)
+                            }
+                        }
+                        .frame(height: 24)
+                        
+                        // Level description
+                        Text(AudioLevelMonitor.levelDescription(for: audioMonitor.currentLevel))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .accessibilityLabel("Microphone level: \(AudioLevelMonitor.levelDescription(for: audioMonitor.currentLevel))")
+                    }
+                    .padding()
+                    .background(CardBackground(isSelected: false))
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+                
+                // Error display
+                if let error = audioMonitor.error {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text(error.localizedDescription)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 8)
+                    .transition(.opacity)
+                }
+            }
+            .padding()
+            .background(CardBackground(isSelected: false))
+        }
+    }
+    
+    private func toggleMonitoring() {
+        if audioMonitor.isMonitoring {
+            audioMonitor.stopMonitoring()
+        } else {
+            // Get the appropriate device ID to test
+            let deviceID: AudioDeviceID?
+            
+            switch audioDeviceManager.inputMode {
+            case .systemDefault:
+                deviceID = nil  // Use system default
+            case .custom:
+                deviceID = audioDeviceManager.selectedDeviceID
+            case .prioritized:
+                // Use the highest priority available device
+                deviceID = audioDeviceManager.getCurrentDevice()
+            }
+            
+            audioMonitor.startMonitoring(deviceID: deviceID)
         }
     }
     
