@@ -214,53 +214,83 @@ struct ContentView: View {
         }
         // inside ContentView body:
         .onReceive(NotificationCenter.default.publisher(for: .navigateToDestination)) { notification in
+            #if DEBUG
             print("ContentView: Received navigation notification")
+            #endif
             if let destination = notification.userInfo?["destination"] as? String {
+                #if DEBUG
                 print("ContentView: Destination received: \(destination)")
+                #endif
                 switch destination {
                 case "Settings":
+                    #if DEBUG
                     print("ContentView: Navigating to Settings")
+                    #endif
                     selectedView = .settings
                 case "AI Models":
                     guard enableAIEnhancementFeatures else {
+                        #if DEBUG
                         print("ContentView: AI features disabled; ignoring AI Models navigation")
+                        #endif
                         return
                     }
+                    #if DEBUG
                     print("ContentView: Navigating to AI Models")
+                    #endif
                     selectedView = .models
                 case "Community":
+                    #if DEBUG
                     print("ContentView: Navigating to Community")
+                    #endif
                     selectedView = .community
                 case "History":
+                    #if DEBUG
                     print("ContentView: Navigating to History")
+                    #endif
                     selectedView = .history
                 case "Permissions":
+                    #if DEBUG
                     print("ContentView: Navigating to Permissions")
+                    #endif
                     selectedView = .permissions
                 case "Enhancement":
                     guard enableAIEnhancementFeatures else {
+                        #if DEBUG
                         print("ContentView: AI features disabled; ignoring Enhancement navigation")
+                        #endif
                         return
                     }
+                    #if DEBUG
                     print("ContentView: Navigating to Enhancement")
+                    #endif
                     selectedView = .enhancement
                 case "Transcribe Audio":
                     // Ensure we switch to the Transcribe Audio view in-place
+                    #if DEBUG
                     print("ContentView: Navigating to Transcribe Audio")
+                    #endif
                     selectedView = .transcribeAudio
                 case "Text to Speech":
                     guard enableAIEnhancementFeatures else {
+                        #if DEBUG
                         print("ContentView: AI features disabled; ignoring Text to Speech navigation")
+                        #endif
                         return
                     }
+                    #if DEBUG
                     print("ContentView: Navigating to Text to Speech")
+                    #endif
                     selectedView = .textToSpeech
                 default:
+                    #if DEBUG
                     print("ContentView: No matching destination found for: \(destination)")
+                    #endif
                     break
                 }
             } else {
+                #if DEBUG
                 print("ContentView: No destination in notification")
+                #endif
             }
         }
         .onChange(of: enableAIEnhancementFeatures) { _, _ in

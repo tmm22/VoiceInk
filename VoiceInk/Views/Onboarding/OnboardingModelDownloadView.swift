@@ -9,7 +9,9 @@ struct OnboardingModelDownloadView: View {
     @State private var isModelSet = false
     @State private var showTutorial = false
     
-    private let turboModel = PredefinedModels.models.first { $0.name == "ggml-large-v3-turbo-q5_0" } as! LocalModel
+    private var turboModel: LocalModel? {
+        PredefinedModels.models.first { $0.name == "ggml-large-v3-turbo-q5_0" } as? LocalModel
+    }
     
     var body: some View {
         ZStack {
@@ -58,36 +60,47 @@ struct OnboardingModelDownloadView: View {
                     }
                     
                     // Model card - Centered and compact
-                    VStack(alignment: .leading, spacing: 16) {
-                        // Model name and details
-                        VStack(alignment: .center, spacing: 8) {
-                            Text(turboModel.displayName)
+                    if let model = turboModel {
+                        VStack(alignment: .leading, spacing: 16) {
+                            // Model name and details
+                            VStack(alignment: .center, spacing: 8) {
+                                Text(model.displayName)
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                Text("\(model.size) • \(model.language)")
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
+                            .frame(maxWidth: .infinity)
+                            
+                            Divider()
+                                .background(Color.white.opacity(0.1))
+                            
+                            // Performance indicators in a more compact layout
+                            HStack(spacing: 20) {
+                                performanceIndicator(label: "Speed", value: model.speed)
+                                performanceIndicator(label: "Accuracy", value: model.accuracy)
+                                ramUsageLabel(gb: model.ramUsage)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            
+                            // Download progress
+                            if isDownloading {
+                                DownloadProgressView(
+                                    modelName: model.name,
+                                    downloadProgress: whisperState.downloadProgress
+                                )
+                                .transition(.opacity)
+                            }
+                        }
+                    } else {
+                        VStack(spacing: 16) {
+                            Text("Model configuration error")
                                 .font(.headline)
                                 .foregroundColor(.white)
-                            Text("\(turboModel.size) • \(turboModel.language)")
+                            Text("Unable to find the turbo model")
                                 .font(.caption)
                                 .foregroundColor(.white.opacity(0.7))
-                        }
-                        .frame(maxWidth: .infinity)
-                        
-                        Divider()
-                            .background(Color.white.opacity(0.1))
-                        
-                        // Performance indicators in a more compact layout
-                        HStack(spacing: 20) {
-                            performanceIndicator(label: "Speed", value: turboModel.speed)
-                            performanceIndicator(label: "Accuracy", value: turboModel.accuracy)
-                            ramUsageLabel(gb: turboModel.ramUsage)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        
-                        // Download progress
-                        if isDownloading {
-                            DownloadProgressView(
-                                modelName: turboModel.name,
-                                downloadProgress: whisperState.downloadProgress
-                            )
-                            .transition(.opacity)
                         }
                     }
                     .padding(24)
@@ -149,18 +162,21 @@ struct OnboardingModelDownloadView: View {
     }
     
     private func checkModelStatus() {
-        if whisperState.availableModels.contains(where: { $0.name == turboModel.name }) {
-            isModelSet = whisperState.currentTranscriptionModel?.name == turboModel.name
+        guard let model = turboModel else { return }
+        if whisperState.availableModels.contains(where: { $0.name == model.name }) {
+            isModelSet = whisperState.currentTranscriptionModel?.name == model.name
         }
     }
     
     private func handleAction() {
+        guard let model = turboModel else { return }
+        
         if isModelSet {
             withAnimation {
                 showTutorial = true
             }
-        } else if whisperState.availableModels.contains(where: { $0.name == turboModel.name }) {
-            if let modelToSet = whisperState.allAvailableModels.first(where: { $0.name == turboModel.name }) {
+        } else if whisperState.availableModels.contains(where: { $0.name == model.name }) {
+            if let modelToSet = whisperState.allAvailableModels.first(where: { $0.name == model.name }) {
                 Task {
                     await whisperState.setDefaultTranscriptionModel(modelToSet)
                     withAnimation {
@@ -173,8 +189,8 @@ struct OnboardingModelDownloadView: View {
                 isDownloading = true
             }
             Task {
-                await whisperState.downloadModel(turboModel)
-                if let modelToSet = whisperState.allAvailableModels.first(where: { $0.name == turboModel.name }) {
+                await whisperState.downloadModel(model)
+                if let modelToSet = whisperState.allAvailableModels.first(where: { $0.name == model.name }) {
                     await whisperState.setDefaultTranscriptionModel(modelToSet)
                     withAnimation {
                         isModelSet = true
@@ -186,11 +202,13 @@ struct OnboardingModelDownloadView: View {
     }
     
     private func getButtonTitle() -> String {
+        guard let model = turboModel else { return "Model Error" }
+        
         if isModelSet {
             return "Continue"
         } else if isDownloading {
             return "Downloading..."
-        } else if whisperState.availableModels.contains(where: { $0.name == turboModel.name }) {
+        } else if whisperState.availableModels.contains(where: { $0.name == model.name }) {
             return "Set as Default"
         } else {
             return "Download Model"

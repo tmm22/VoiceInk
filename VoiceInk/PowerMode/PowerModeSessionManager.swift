@@ -179,7 +179,9 @@ class PowerModeSessionManager {
                 do {
                     try await whisperState.loadModel(localModel)
                 } catch {
+                    #if DEBUG
                     print("Power Mode: Failed to load local model '\(localModel.name)': \(error)")
+                    #endif
                 }
             }
         case .parakeet:

@@ -6,7 +6,9 @@ class OpenAICompatibleTranscriptionService {
     
     func transcribe(audioURL: URL, model: CustomCloudModel) async throws -> String {
         let config = APIConfig(
-            url: URL(string: model.apiEndpoint)!,
+            url: try URL(string: model.apiEndpoint).map { $0 } ?? {
+                throw NSError(domain: "OpenAICompatibleTranscriptionService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid API endpoint URL"])
+            }(),
             apiKey: model.apiKey,
             modelName: model.modelName
         )

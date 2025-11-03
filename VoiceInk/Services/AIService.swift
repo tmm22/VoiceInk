@@ -323,7 +323,11 @@ class AIService: ObservableObject {
     }
     
     private func verifyOpenAICompatibleAPIKey(_ key: String, completion: @escaping (Bool) -> Void) {
-        let url = URL(string: selectedProvider.baseURL)!
+        guard let url = URL(string: selectedProvider.baseURL) else {
+            logger.error("Invalid base URL for provider: \(selectedProvider.baseURL)")
+            completion(false)
+            return
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -368,7 +372,11 @@ class AIService: ObservableObject {
     }
     
     private func verifyAnthropicAPIKey(_ key: String, completion: @escaping (Bool) -> Void) {
-        let url = URL(string: selectedProvider.baseURL)!
+        guard let url = URL(string: selectedProvider.baseURL) else {
+            logger.error("Invalid base URL for provider: \(selectedProvider.baseURL)")
+            completion(false)
+            return
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -401,8 +409,11 @@ class AIService: ObservableObject {
     }
     
     private func verifyElevenLabsAPIKey(_ key: String, completion: @escaping (Bool) -> Void) {
-        let url = URL(string: "https://api.elevenlabs.io/v1/user")!
-
+        guard let url = URL(string: "https://api.elevenlabs.io/v1/user") else {
+            logger.error("Invalid ElevenLabs API URL")
+            completion(false)
+            return
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -420,7 +431,11 @@ class AIService: ObservableObject {
     }
     
     private func verifyMistralAPIKey(_ key: String, completion: @escaping (Bool) -> Void) {
-        let url = URL(string: "https://api.mistral.ai/v1/models")!
+        guard let url = URL(string: "https://api.mistral.ai/v1/models") else {
+            logger.error("Invalid Mistral API URL")
+            completion(false)
+            return
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
@@ -451,7 +466,11 @@ class AIService: ObservableObject {
     }
 
     private func verifyDeepgramAPIKey(_ key: String, completion: @escaping (Bool) -> Void) {
-        let url = URL(string: "https://api.deepgram.com/v1/auth/token")!
+        guard let url = URL(string: "https://api.deepgram.com/v1/auth/token") else {
+            logger.error("Invalid Deepgram API URL")
+            completion(false)
+            return
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("Token \(key)", forHTTPHeaderField: "Authorization")
@@ -543,7 +562,15 @@ class AIService: ObservableObject {
     }
     
     func fetchOpenRouterModels() async {
-        let url = URL(string: "https://openrouter.ai/api/v1/models")!
+        guard let url = URL(string: "https://openrouter.ai/api/v1/models") else {
+            logger.error("Invalid OpenRouter API URL")
+            await MainActor.run {
+                self.openRouterModels = []
+                self.saveOpenRouterModels()
+                self.objectWillChange.send()
+            }
+            return
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")

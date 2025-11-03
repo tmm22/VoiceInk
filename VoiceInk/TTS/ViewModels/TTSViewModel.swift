@@ -578,10 +578,25 @@ class TTSViewModel: ObservableObject {
         if let fallback = transcriptionServices[defaultTranscriptionProvider] {
             return fallback
         }
-        guard let service = transcriptionServices.values.first else {
-            fatalError("No transcription services configured.")
+        
+        // Last resort: return any available service or a placeholder
+        if let service = transcriptionServices.values.first {
+            return service
         }
-        return service
+        
+        // Critical error: no services available, but don't crash the app
+        let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "TTS")
+        logger.error("No transcription services configured - returning placeholder")
+        
+        // Return a placeholder service that will fail gracefully
+        return PlaceholderTranscriptionService()
+    }
+    
+    // Placeholder service for graceful degradation
+    private class PlaceholderTranscriptionService: AudioTranscribing {
+        func transcribe(fileURL: URL, languageHint: String?) async throws -> TranscriptionResult {
+            throw TTSError.serviceUnavailable("No transcription service is currently configured. Please check your settings.")
+        }
     }
 
     private func refreshStyleControls(for providerType: TTSProviderType) {

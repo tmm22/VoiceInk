@@ -88,7 +88,9 @@ class OllamaService: ObservableObject {
                 selectedModel = models[0].name
             }
         } catch {
+            #if DEBUG
             print("Error fetching models: \(error)")
+            #endif
             availableModels = []
         }
     }
@@ -116,9 +118,11 @@ class OllamaService: ObservableObject {
             throw LocalAIError.invalidRequest
         }
         
+        #if DEBUG
         print("\nOllama Enhancement Debug:")
         print("Original Text: \(text)")
         print("System Prompt: \(systemPrompt)")
+        #endif
         
         let body: [String: Any] = [
             "model": selectedModel,
@@ -139,7 +143,9 @@ class OllamaService: ObservableObject {
         switch httpResponse.statusCode {
         case 200:
             let response = try JSONDecoder().decode(OllamaResponse.self, from: data)
+            #if DEBUG
             print("Enhanced Text: \(response.response)\n")
+            #endif
             return response.response
         case 404:
             throw LocalAIError.modelNotFound

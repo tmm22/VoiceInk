@@ -18,9 +18,14 @@ class PasteEligibilityService {
         guard result == .success, let element = focusedElement else {
             return false
         }
+        
+        // Safe cast to AXUIElement
+        guard let axElement = element as? AXUIElement else {
+            return false
+        }
 
         var isWritable: DarwinBoolean = false
-        let isSettableResult = AXUIElementIsAttributeSettable(element as! AXUIElement, kAXValueAttribute as CFString, &isWritable)
+        let isSettableResult = AXUIElementIsAttributeSettable(axElement, kAXValueAttribute as CFString, &isWritable)
 
         if isSettableResult == .success && isWritable.boolValue {
             return true

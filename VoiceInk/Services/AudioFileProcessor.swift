@@ -165,10 +165,14 @@ class AudioProcessor {
         // Convert float samples to int16
         let int16Samples = samples.map { max(-1.0, min(1.0, $0)) * Float(Int16.max) }.map { Int16($0) }
 
-        // Copy samples to buffer
-        int16Samples.withUnsafeBufferPointer { int16Buffer in
-            let int16Pointer = int16Buffer.baseAddress!
-            buffer.int16ChannelData![0].update(from: int16Pointer, count: int16Samples.count)
+        // Copy samples to buffer safely
+        try int16Samples.withUnsafeBufferPointer { int16Buffer in
+            guard let int16Pointer = int16Buffer.baseAddress,
+                  let channelData = buffer.int16ChannelData,
+                  channelData.count > 0 else {
+                throw AudioProcessingError.conversionFailed
+            }
+            channelData[0].update(from: int16Pointer, count: int16Samples.count)
         }
         buffer.frameLength = AVAudioFrameCount(samples.count)
 

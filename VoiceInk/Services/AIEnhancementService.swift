@@ -237,7 +237,10 @@ class AIEnhancementService: ObservableObject {
                 ]
             ]
 
-            var request = URLRequest(url: URL(string: aiService.selectedProvider.baseURL)!)
+            guard let url = URL(string: aiService.selectedProvider.baseURL) else {
+                throw NSError(domain: "AIEnhancementService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid API URL"])
+            }
+            var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
             request.addValue(aiService.apiKey, forHTTPHeaderField: "x-api-key")
@@ -280,7 +283,9 @@ class AIEnhancementService: ObservableObject {
             }
 
         default:
-            let url = URL(string: aiService.selectedProvider.baseURL)!
+            guard let url = URL(string: aiService.selectedProvider.baseURL) else {
+                throw NSError(domain: "AIEnhancementService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid API URL"])
+            }
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
