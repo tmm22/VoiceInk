@@ -13,8 +13,11 @@ class Recorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
     private let mediaController = MediaController.shared
     private let playbackController = PlaybackController.shared
     @Published var audioMeter = AudioMeter(averagePower: 0, peakPower: 0)
+    @Published var recordingDuration: TimeInterval = 0
     private var audioLevelCheckTask: Task<Void, Never>?
     private var audioMeterUpdateTask: Task<Void, Never>?
+    private var recordingStartTime: Date?
+    private var durationUpdateTask: Task<Void, Never>?
     private var hasDetectedAudioInCurrentSession = false
     
     enum RecorderError: Error {
@@ -114,11 +117,26 @@ class Recorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
             
             audioLevelCheckTask?.cancel()
             audioMeterUpdateTask?.cancel()
+            durationUpdateTask?.cancel()
+            
+            recordingStartTime = Date()
+            recordingDuration = 0
             
             audioMeterUpdateTask = Task {
                 while recorder != nil && !Task.isCancelled {
                     updateAudioMeter()
                     try? await Task.sleep(nanoseconds: 33_000_000)
+                }
+            }
+            
+            durationUpdateTask = Task {
+                while recorder != nil && !Task.isCancelled {
+                    if let startTime = recordingStartTime {
+                        await MainActor.run {
+                            recordingDuration = Date().timeIntervalSince(startTime)
+                        }
+                    }
+                    try? await Task.sleep(nanoseconds: 100_000_000) // Update every 0.1 seconds
                 }
             }
             
@@ -153,9 +171,12 @@ class Recorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
     func stopRecording() {
         audioLevelCheckTask?.cancel()
         audioMeterUpdateTask?.cancel()
+        durationUpdateTask?.cancel()
         recorder?.stop()
         recorder = nil
         audioMeter = AudioMeter(averagePower: 0, peakPower: 0)
+        recordingDuration = 0
+        recordingStartTime = nil
         
         Task {
             await mediaController.unmuteSystemAudio()

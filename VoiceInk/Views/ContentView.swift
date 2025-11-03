@@ -172,6 +172,7 @@ struct ContentView: View {
     @State private var selectedView: ViewType = .metrics
     @State private var hoveredView: ViewType?
     @State private var hasLoadedData = false
+    @State private var showingShortcutCheatSheet = false
     @AppStorage("enableAIEnhancementFeatures") private var enableAIEnhancementFeatures = false
 
     private var availableViews: [ViewType] {
@@ -295,6 +296,13 @@ struct ContentView: View {
         }
         .onChange(of: enableAIEnhancementFeatures) { _, _ in
             ensureValidSelection()
+        }
+        .sheet(isPresented: $showingShortcutCheatSheet) {
+            KeyboardShortcutCheatSheet()
+                .environmentObject(hotkeyManager)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showShortcutCheatSheet)) { _ in
+            showingShortcutCheatSheet = true
         }
     }
     

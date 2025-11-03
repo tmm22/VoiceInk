@@ -276,11 +276,13 @@ struct RecorderStatusDisplay: View {
     let currentState: RecordingState
     let audioMeter: AudioMeter
     let menuBarHeight: CGFloat?
+    let recordingDuration: TimeInterval
     
-    init(currentState: RecordingState, audioMeter: AudioMeter, menuBarHeight: CGFloat? = nil) {
+    init(currentState: RecordingState, audioMeter: AudioMeter, menuBarHeight: CGFloat? = nil, recordingDuration: TimeInterval = 0) {
         self.currentState = currentState
         self.audioMeter = audioMeter
         self.menuBarHeight = menuBarHeight
+        self.recordingDuration = recordingDuration
     }
     
     var body: some View {
@@ -292,6 +294,7 @@ struct RecorderStatusDisplay: View {
                         .font(.system(size: 11, weight: .medium, design: .default))
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
+                        .accessibilityLabel("Recording status: Enhancing with AI")
                     
                     ProgressAnimation(animationSpeed: 0.15)
                 }
@@ -302,20 +305,51 @@ struct RecorderStatusDisplay: View {
                         .font(.system(size: 11, weight: .medium, design: .default))
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
+                        .accessibilityLabel("Recording status: Transcribing audio")
                     
                     ProgressAnimation(animationSpeed: 0.12)
                 }
             } else if currentState == .recording {
-                AudioVisualizer(
-                    audioMeter: audioMeter,
-                    color: .white,
-                    isActive: currentState == .recording
-                )
-                .scaleEffect(y: menuBarHeight != nil ? min(1.0, (menuBarHeight! - 8) / 25) : 1.0, anchor: .center)
-            } else {
-                StaticVisualizer(color: .white)
+                VStack(spacing: 3) {
+                    AudioVisualizer(
+                        audioMeter: audioMeter,
+                        color: .white,
+                        isActive: currentState == .recording
+                    )
                     .scaleEffect(y: menuBarHeight != nil ? min(1.0, (menuBarHeight! - 8) / 25) : 1.0, anchor: .center)
+                    
+                    Text(formatDuration(recordingDuration))
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.8))
+                        .accessibilityLabel("Recording duration: \(formatDurationAccessibility(recordingDuration))")
+                }
+            } else {
+                VStack(spacing: 3) {
+                    StaticVisualizer(color: .white)
+                        .scaleEffect(y: menuBarHeight != nil ? min(1.0, (menuBarHeight! - 8) / 25) : 1.0, anchor: .center)
+                    
+                    Text("Ready")
+                        .font(.system(.caption2, design: .default))
+                        .foregroundColor(.white.opacity(0.6))
+                        .accessibilityLabel("Recording status: Ready")
+                }
             }
+        }
+    }
+    
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let minutes = Int(duration) / 60
+        let seconds = Int(duration) % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+    
+    private func formatDurationAccessibility(_ duration: TimeInterval) -> String {
+        let minutes = Int(duration) / 60
+        let seconds = Int(duration) % 60
+        if minutes > 0 {
+            return "\(minutes) minute\(minutes == 1 ? "" : "s") \(seconds) second\(seconds == 1 ? "" : "s")"
+        } else {
+            return "\(seconds) second\(seconds == 1 ? "" : "s")"
         }
     }
 }

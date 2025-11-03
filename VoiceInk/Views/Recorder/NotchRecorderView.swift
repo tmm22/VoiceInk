@@ -70,13 +70,34 @@ struct NotchRecorderView: View {
     }
     
     private var statusDisplay: some View {
-        RecorderStatusDisplay(
-            currentState: whisperState.recordingState,
-            audioMeter: recorder.audioMeter,
-            menuBarHeight: menuBarHeight
-        )
-        .frame(width: 70)
+        HStack(spacing: 8) {
+            RecorderStatusDisplay(
+                currentState: whisperState.recordingState,
+                audioMeter: recorder.audioMeter,
+                menuBarHeight: menuBarHeight,
+                recordingDuration: recorder.recordingDuration
+            )
+            .frame(width: 70)
+            
+            // Cancel button for notch recorder
+            if whisperState.recordingState == .recording {
+                Button(action: {
+                    Task {
+                        await whisperState.cancelRecording()
+                    }
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(.red.opacity(0.8))
+                }
+                .buttonStyle(PlainButtonStyle())
+                .help("Cancel recording (ESC)")
+                .accessibilityLabel("Cancel recording")
+                .transition(.opacity.combined(with: .scale))
+            }
+        }
         .padding(.trailing, 8)
+        .animation(.easeInOut(duration: 0.2), value: whisperState.recordingState)
     }
     
     var body: some View {

@@ -29,7 +29,8 @@ struct MiniRecorderView: View {
     private var statusView: some View {
         RecorderStatusDisplay(
             currentState: whisperState.recordingState,
-            audioMeter: recorder.audioMeter
+            audioMeter: recorder.audioMeter,
+            recordingDuration: recorder.recordingDuration
         )
     }
     
@@ -50,10 +51,30 @@ struct MiniRecorderView: View {
             Spacer()
 
             // Right button zone - always visible
-            RecorderPowerModeButton(activePopover: $activePopover)
-                .padding(.trailing, 7)
+            HStack(spacing: 4) {
+                // Cancel button (visible during recording)
+                if whisperState.recordingState == .recording {
+                    Button(action: {
+                        Task {
+                            await whisperState.cancelRecording()
+                        }
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.red.opacity(0.8))
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .help("Cancel recording (ESC)")
+                    .accessibilityLabel("Cancel recording")
+                    .transition(.opacity.combined(with: .scale))
+                }
+                
+                RecorderPowerModeButton(activePopover: $activePopover)
+            }
+            .padding(.trailing, 7)
         }
         .padding(.vertical, 9)
+        .animation(.easeInOut(duration: 0.2), value: whisperState.recordingState)
     }
     
     private var recorderCapsule: some View {

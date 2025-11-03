@@ -265,6 +265,13 @@ struct VoiceInkApp: App {
             CommandGroup(after: .appInfo) {
                 CheckForUpdatesView(updaterViewModel: updaterViewModel)
             }
+            
+            CommandGroup(after: .help) {
+                Button("Keyboard Shortcuts") {
+                    NotificationCenter.default.post(name: .showShortcutCheatSheet, object: nil)
+                }
+                .keyboardShortcut("/", modifiers: .command)
+            }
         }
         
         MenuBarExtra {
