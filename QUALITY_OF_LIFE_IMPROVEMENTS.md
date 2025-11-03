@@ -823,7 +823,7 @@ func sendToWebhook(_ transcription: Transcription) async throws {
         "duration": transcription.duration
     ]
     
-    guard let url = URL(string: settings.url) else {
+    guard let url = URL(string: settings.url), url.scheme?.lowercased() == "https" else {
         throw WebhookError.invalidURL
     }
     
