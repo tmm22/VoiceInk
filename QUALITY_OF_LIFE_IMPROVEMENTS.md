@@ -823,7 +823,11 @@ func sendToWebhook(_ transcription: Transcription) async throws {
         "duration": transcription.duration
     ]
     
-    var request = URLRequest(url: URL(string: settings.url)!)
+    guard let url = URL(string: settings.url) else {
+        throw WebhookError.invalidURL
+    }
+    
+    var request = URLRequest(url: url)
     request.httpMethod = "POST"
     request.httpBody = try JSONSerialization.data(withJSONObject: payload)
     

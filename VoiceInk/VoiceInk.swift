@@ -270,7 +270,7 @@ struct VoiceInkApp: App {
                 Button("Keyboard Shortcuts") {
                     NotificationCenter.default.post(name: .showShortcutCheatSheet, object: nil)
                 }
-                .keyboardShortcut("/", modifiers: .command)
+                .keyboardShortcut("/", modifiers: [.command, .shift])
             }
         }
         

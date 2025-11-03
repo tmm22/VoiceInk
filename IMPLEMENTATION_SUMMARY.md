@@ -7,7 +7,7 @@
 
 ## What Was Implemented
 
-We successfully implemented **5 critical quality of life improvements** for VoiceLink Community:
+We successfully implemented **5 critical quality of life improvements** for VoiceInk:
 
 ### ✅ 1. Recording Duration Indicator
 - Real-time timer showing MM:SS format during recording
@@ -381,4 +381,4 @@ Before merging/deploying:
 
 **Last Updated:** November 3, 2025  
 **Implemented By:** AI Assistant via Factory  
-**Maintained By:** VoiceLink Community
+**Maintained By:** VoiceInk Community
