@@ -213,18 +213,18 @@ struct SettingsView: View {
 
                 SettingsSection(
                     icon: "speaker.wave.2.bubble.left.fill",
-                    title: "Recording Feedback",
-                    subtitle: "Customize app & system feedback"
+                    title: "Audio Feedback",
+                    subtitle: "Customize recording sounds and volumes"
+                ) {
+                    AudioFeedbackSettingsView()
+                }
+                
+                SettingsSection(
+                    icon: "waveform.badge.mic",
+                    title: "Recording Behavior",
+                    subtitle: "System audio and clipboard settings"
                 ) {
                     VStack(alignment: .leading, spacing: 12) {
-                        Toggle(isOn: .init(
-                            get: { SoundManager.shared.isEnabled },
-                            set: { SoundManager.shared.isEnabled = $0 }
-                        )) {
-                            Text("Sound feedback")
-                        }
-                        .toggleStyle(.switch)
-
                         Toggle(isOn: $mediaController.isSystemMuteEnabled) {
                             Text("Mute system audio during recording")
                         }
@@ -239,7 +239,6 @@ struct SettingsView: View {
                         }
                         .toggleStyle(.switch)
                         .help("Keep the transcribed text in clipboard instead of restoring the original clipboard content")
-
                     }
                 }
 
