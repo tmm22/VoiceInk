@@ -99,7 +99,7 @@ struct AudioInputSettingsView: View {
                         .frame(minWidth: 150)
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(audioDeviceManager.isRecordingActive)
+                    .disabled(audioDeviceManager.isRecordingActive && !audioMonitor.isMonitoring)
                     
                     if audioMonitor.isMonitoring {
                         HStack(spacing: 6) {
