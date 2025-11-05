@@ -60,10 +60,12 @@ class AudioLevelMonitor: ObservableObject {
         // Clean initialization, setup happens on demand
     }
     
-    deinit {
-        // Ensure cleanup
-        if isMonitoring {
-            stopMonitoring()
+    nonisolated deinit {
+        // Ensure cleanup - use Task for async work
+        Task { @MainActor in
+            if isMonitoring {
+                stopMonitoring()
+            }
         }
     }
     
