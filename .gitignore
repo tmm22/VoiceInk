@@ -30,6 +30,13 @@ playground.xcworkspace
 # .swiftpm
 
 .build/
+
+# Build Artifacts
+DerivedData/
+Release/
+
+# Temporary Documentation Archive
+docs/archive/
 build/
 DerivedData/
 Release/
