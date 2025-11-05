@@ -20,6 +20,7 @@ struct GeneralSettings: Codable {
     let audioRetentionPeriod: Int?
 
     let isSoundFeedbackEnabled: Bool?
+    let audioFeedbackSettings: AudioFeedbackSettings?
     let isSystemMuteEnabled: Bool?
     let isPauseMediaEnabled: Bool?
     let isTextFormattingEnabled: Bool?
@@ -100,6 +101,7 @@ class ImportExportService {
             audioRetentionPeriod: UserDefaults.standard.integer(forKey: keyAudioRetentionPeriod),
 
             isSoundFeedbackEnabled: soundManager.isEnabled,
+            audioFeedbackSettings: soundManager.settings,
             isSystemMuteEnabled: mediaController.isSystemMuteEnabled,
             isPauseMediaEnabled: playbackController.isPauseMediaEnabled,
             isTextFormattingEnabled: UserDefaults.standard.object(forKey: keyIsTextFormattingEnabled) as? Bool ?? true,
@@ -259,6 +261,9 @@ class ImportExportService {
 
                         if let soundFeedback = general.isSoundFeedbackEnabled {
                             soundManager.isEnabled = soundFeedback
+                        }
+                        if let audioSettings = general.audioFeedbackSettings {
+                            soundManager.settings = audioSettings
                         }
                         if let muteSystem = general.isSystemMuteEnabled {
                             mediaController.isSystemMuteEnabled = muteSystem
