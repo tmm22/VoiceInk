@@ -31,6 +31,19 @@ class WhisperState: NSObject, ObservableObject {
 
     @Published var recorderType: String = UserDefaults.standard.string(forKey: "RecorderType") ?? "mini" {
         didSet {
+            if isMiniRecorderVisible {
+                if oldValue == "notch" {
+                    notchWindowManager?.hide()
+                    notchWindowManager = nil
+                } else {
+                    miniWindowManager?.hide()
+                    miniWindowManager = nil
+                }
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 50_000_000)
+                    showRecorderPanel()
+                }
+            }
             UserDefaults.standard.set(recorderType, forKey: "RecorderType")
         }
     }

@@ -2,33 +2,32 @@ import SwiftUI
 
 struct HelpAndResourcesSection: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 15) {
+        VStack(alignment: .leading, spacing: 14) {
             Text("Help & Resources")
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundColor(.primary.opacity(0.8))
-            
-            VStack(alignment: .leading, spacing: 12) {
+
+            VStack(alignment: .leading, spacing: 10) {
+                resourceLink(
+                    icon: "sparkles",
+                    title: "Recommended Models",
+                    url: "https://tryvoiceink.com/recommended-models"
+                )
+
+                resourceLink(
+                    icon: "video.fill",
+                    title: "YouTube Videos & Guides",
+                    url: "https://www.youtube.com/@tryvoiceink/videos"
+                )
+
                 resourceLink(
                     icon: "book.fill",
-                    title: "Community Documentation",
-                    url: "https://github.com/tmm22/VoiceInk/wiki"
-                )
-                
-                resourceLink(
-                    icon: "exclamationmark.bubble.fill",
-                    title: "Report an Issue",
-                    url: "https://github.com/tmm22/VoiceInk/issues"
-                )
-                
-                resourceLink(
-                    icon: "bubble.left.and.bubble.right.fill",
-                    title: "Join the Discord",
-                    url: "https://discord.gg/xryDy57nYD"
+                    title: "Documentation",
+                    url: "https://tryvoiceink.com/docs"
                 )
             }
         }
-        .padding(22)
-        .padding(.vertical, 2)
+        .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .fill(Color(nsColor: .windowBackgroundColor))

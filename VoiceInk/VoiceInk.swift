@@ -21,6 +21,7 @@ struct VoiceInkApp: App {
     @StateObject private var activeWindowService = ActiveWindowService.shared
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @AppStorage("enableAnnouncements") private var enableAnnouncements = true
+    @State private var showMenuBarIcon = true
     
     // Audio cleanup manager for automatic deletion of old audio files
     private let audioCleanupManager = AudioCleanupManager.shared
@@ -34,7 +35,7 @@ struct VoiceInkApp: App {
             UserDefaults.standard.set(hasEnabledPowerModes, forKey: "powerModeUIFlag")
         }
 
-        let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "Initialization")
+        let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "Initialization")
         let schema = Schema([Transcription.self])
         var initializationFailed = false
         
@@ -124,7 +125,7 @@ struct VoiceInkApp: App {
         do {
             // Create app-specific Application Support directory URL
             let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("com.tmm22.VoiceLinkCommunity", isDirectory: true)
+                .appendingPathComponent("com.prakashjoshipax.VoiceInk", isDirectory: true)
             
             // Create the directory if it doesn't exist
             try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
@@ -271,7 +272,7 @@ struct VoiceInkApp: App {
             }
         }
         
-        MenuBarExtra {
+        MenuBarExtra(isInserted: $showMenuBarIcon) {
             MenuBarView()
                 .environmentObject(whisperState)
                 .environmentObject(hotkeyManager)

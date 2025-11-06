@@ -21,10 +21,11 @@ struct TranscriptionCard: View {
     @State private var isRetrying = false
 
     private var availableTabs: [ContentTab] {
-        var tabs = [ContentTab.original]
+        var tabs: [ContentTab] = []
         if transcription.enhancedText != nil {
             tabs.append(.enhanced)
         }
+        tabs.append(.original)
         if transcription.aiRequestSystemMessage != nil || transcription.aiRequestUserMessage != nil {
             tabs.append(.aiRequest)
         }
@@ -275,7 +276,7 @@ struct TranscriptionCard: View {
         }
         .onChange(of: isExpanded) { oldValue, newValue in
             if newValue {
-                selectedTab = .original
+                selectedTab = transcription.enhancedText != nil ? .enhanced : .original
             }
         }
     }

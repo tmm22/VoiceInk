@@ -12,13 +12,11 @@ extension WhisperState {
         if recorderType == "notch" {
             if notchWindowManager == nil {
                 notchWindowManager = NotchWindowManager(whisperState: self, recorder: recorder)
-                logger.info("Created new notch window manager")
             }
             notchWindowManager?.show()
         } else {
             if miniWindowManager == nil {
                 miniWindowManager = MiniWindowManager(whisperState: self, recorder: recorder)
-                logger.info("Created new mini window manager")
             }
             miniWindowManager?.show()
         }

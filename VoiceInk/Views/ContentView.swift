@@ -174,6 +174,8 @@ struct ContentView: View {
     @State private var hasLoadedData = false
     @State private var showingShortcutCheatSheet = false
     @AppStorage("enableAIEnhancementFeatures") private var enableAIEnhancementFeatures = false
+    let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+    @StateObject private var licenseViewModel = LicenseViewModel()
 
     private var availableViews: [ViewType] {
         ViewType.allCases.filter { viewType in
@@ -310,12 +312,7 @@ struct ContentView: View {
     private var detailView: some View {
         switch selectedView {
         case .metrics:
-            if isSetupComplete {
-                MetricsView(skipSetupCheck: true)
-            } else {
-                MetricsSetupView()
-                    .environmentObject(hotkeyManager)
-            }
+            MetricsView()
         case .models:
             if enableAIEnhancementFeatures {
                 ModelManagementView(whisperState: whisperState)

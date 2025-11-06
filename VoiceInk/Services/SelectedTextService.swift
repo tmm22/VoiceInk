@@ -4,7 +4,7 @@ import SelectedTextKit
 
 class SelectedTextService {
     static func fetchSelectedText() async -> String? {
-        let strategies: [TextStrategy] = [.accessibility, .menuAction, .shortcut]
+        let strategies: [TextStrategy] = [.accessibility, .menuAction]
         do {
             let selectedText = try await SelectedTextManager.shared.getSelectedText(strategies: strategies)
             return selectedText
