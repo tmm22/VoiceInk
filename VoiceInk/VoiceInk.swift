@@ -20,6 +20,7 @@ struct VoiceInkApp: App {
     @StateObject private var activeWindowService = ActiveWindowService.shared
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @AppStorage("enableAnnouncements") private var enableAnnouncements = true
+    @State private var showMenuBarIcon = true
     
     // Audio cleanup manager for automatic deletion of old audio files
     private let audioCleanupManager = AudioCleanupManager.shared
@@ -166,7 +167,7 @@ struct VoiceInkApp: App {
             }
         }
         
-        MenuBarExtra {
+        MenuBarExtra(isInserted: $showMenuBarIcon) {
             MenuBarView()
                 .environmentObject(whisperState)
                 .environmentObject(hotkeyManager)
