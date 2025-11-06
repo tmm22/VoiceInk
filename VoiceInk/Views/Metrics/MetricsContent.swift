@@ -16,10 +16,7 @@ struct MetricsContent: View {
                         VStack(spacing: 24) {
                             heroSection
                             metricsSection
-                            HStack(alignment: .top, spacing: 18) {
-                                HelpAndResourcesSection()
-                                DashboardPromotionsSection(licenseState: licenseState)
-                            }
+                            HelpAndResourcesSection()
 
                             Spacer(minLength: 20)
 
