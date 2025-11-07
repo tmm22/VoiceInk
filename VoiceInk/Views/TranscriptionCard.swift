@@ -348,8 +348,7 @@ struct TranscriptionCard: View {
                   let audioURL = URL(string: audioURLString),
                   FileManager.default.fileExists(atPath: audioURL.path) else {
                 NotificationManager.shared.showNotification(
-                    title: "Cannot retry",
-                    subtitle: "Audio file not found",
+                    title: "Cannot retry - Audio file not found",
                     type: .error
                 )
                 return
@@ -357,8 +356,7 @@ struct TranscriptionCard: View {
             
             guard let currentModel = whisperState.currentTranscriptionModel else {
                 NotificationManager.shared.showNotification(
-                    title: "Cannot retry",
-                    subtitle: "No transcription model selected",
+                    title: "Cannot retry - No transcription model selected",
                     type: .error
                 )
                 return
@@ -385,14 +383,12 @@ struct TranscriptionCard: View {
                 let _ = ClipboardManager.copyToClipboard(textToCopy)
                 
                 NotificationManager.shared.showNotification(
-                    title: "Retranscription completed",
-                    subtitle: "Copied to clipboard",
+                    title: "Retranscription completed - Copied to clipboard",
                     type: .success
                 )
             } catch {
                 NotificationManager.shared.showNotification(
-                    title: "Retry failed",
-                    subtitle: error.localizedDescription,
+                    title: "Retry failed: \(error.localizedDescription)",
                     type: .error
                 )
             }
