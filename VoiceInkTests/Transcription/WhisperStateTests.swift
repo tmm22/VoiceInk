@@ -311,8 +311,9 @@ final class WhisperStateTests: XCTestCase {
     
     func testTranscriptionStatusTracking() async throws {
         // Create a test audio file
-        let audioFile = AudioTestHarness.createTestAudioFile(
-            at: testDirectory.appendingPathComponent("test.wav"),
+        let audioFileURL = testDirectory.appendingPathComponent("test.wav")
+        try AudioTestHarness.createTestAudioFile(
+            at: audioFileURL,
             duration: 0.5
         )
         
@@ -320,7 +321,7 @@ final class WhisperStateTests: XCTestCase {
         let transcription = Transcription(
             text: "",
             duration: 0.5,
-            audioFileURL: audioFile.absoluteString,
+            audioFileURL: audioFileURL.absoluteString,
             transcriptionStatus: .pending
         )
         
