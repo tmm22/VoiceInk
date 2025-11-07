@@ -1,15 +1,18 @@
 import SwiftUI
 
 struct DictionarySettingsView: View {
-    @State private var selectedSection: DictionarySection = .replacements
+    @State private var selectedSection: DictionarySection = .quickRules
     let whisperPrompt: WhisperPrompt
     
     enum DictionarySection: String, CaseIterable {
+        case quickRules = "Quick Rules"
         case replacements = "Word Replacements"
         case spellings = "Correct Spellings"
         
         var description: String {
             switch self {
+            case .quickRules:
+                return "Apply preset correction rules to clean up transcribed text"
             case .spellings:
                 return "Add words to help VoiceLink Community recognize them properly"
             case .replacements:
@@ -19,6 +22,8 @@ struct DictionarySettingsView: View {
         
         var icon: String {
             switch self {
+            case .quickRules:
+                return "wand.and.stars"
             case .spellings:
                 return "character.book.closed.fill"
             case .replacements:
@@ -93,6 +98,9 @@ struct DictionarySettingsView: View {
     private var selectedSectionContent: some View {
         VStack(alignment: .leading, spacing: 20) {
             switch selectedSection {
+            case .quickRules:
+                QuickRulesView()
+                    .background(CardBackground(isSelected: false))
             case .spellings:
                 DictionaryView(whisperPrompt: whisperPrompt)
                     .background(CardBackground(isSelected: false))

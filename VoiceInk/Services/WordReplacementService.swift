@@ -6,12 +6,14 @@ class WordReplacementService {
     private init() {}
     
     func applyReplacements(to text: String) -> String {
+        // First apply quick rules if enabled
+        var modifiedText = QuickRulesService.shared.applyRules(to: text)
+        
+        // Then apply custom word replacements
         guard let replacements = UserDefaults.standard.dictionary(forKey: "wordReplacements") as? [String: String],
               !replacements.isEmpty else {
-            return text // No replacements to apply
+            return modifiedText // No custom replacements to apply
         }
-        
-        var modifiedText = text
         
         // Apply replacements (case-insensitive)
         for (originalGroup, replacement) in replacements {
