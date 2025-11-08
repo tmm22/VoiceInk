@@ -7,7 +7,13 @@ class MistralTranscriptionService {
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         logger.notice("Sending transcription request to Mistral for model: \(model.name)")
         let keychain = KeychainManager()
-        guard let apiKey = keychain.getAPIKey(for: "Mistral"), !apiKey.isEmpty else {
+        // Try Keychain first, then fall back to UserDefaults for backward compatibility
+        let apiKey: String
+        if let keychainKey = keychain.getAPIKey(for: "Mistral"), !keychainKey.isEmpty {
+            apiKey = keychainKey
+        } else if let legacyKey = UserDefaults.standard.string(forKey: "MistralAPIKey"), !legacyKey.isEmpty {
+            apiKey = legacyKey
+        } else {
             logger.error("Mistral API key is missing.")
             throw CloudTranscriptionError.missingAPIKey
         }

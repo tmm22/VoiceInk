@@ -19,7 +19,13 @@ class SonioxTranscriptionService {
     
     private func getAPIConfig(for model: any TranscriptionModel) throws -> APIConfig {
         let keychain = KeychainManager()
-        guard let apiKey = keychain.getAPIKey(for: "Soniox"), !apiKey.isEmpty else {
+        // Try Keychain first, then fall back to UserDefaults for backward compatibility
+        let apiKey: String
+        if let keychainKey = keychain.getAPIKey(for: "Soniox"), !keychainKey.isEmpty {
+            apiKey = keychainKey
+        } else if let legacyKey = UserDefaults.standard.string(forKey: "SonioxAPIKey"), !legacyKey.isEmpty {
+            apiKey = legacyKey
+        } else {
             throw CloudTranscriptionError.missingAPIKey
         }
         return APIConfig(apiKey: apiKey)
