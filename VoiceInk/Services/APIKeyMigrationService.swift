@@ -6,20 +6,10 @@ class APIKeyMigrationService {
     private static let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "APIKeyMigration")
     private static let migrationKey = "hasCompletedAPIKeyMigrationV1"
     
-    /// Run migration once on app launch
+    /// Run migration on app launch (idempotent, retries until all keys migrated)
     static func migrateAPIKeysIfNeeded() {
         let defaults = UserDefaults.standard
-        
-        // Check if migration already completed
-        guard !defaults.bool(forKey: migrationKey) else {
-            logger.info("API key migration already completed, skipping")
-            return
-        }
-        
-        logger.notice("Starting API key migration from UserDefaults to Keychain")
-        
         let keychain = KeychainManager()
-        var migratedCount = 0
         
         // Define all API keys to migrate
         let keysToMigrate: [(userDefaultsKey: String, keychainProvider: String)] = [
@@ -38,36 +28,63 @@ class APIKeyMigrationService {
             ("OpenRouterAPIKey", "OpenRouter"),
         ]
         
+        var migratedThisRun = 0
+        var needsMigration = false
+        
         for (oldKey, provider) in keysToMigrate {
+            // Check if already migrated (key in Keychain, not in UserDefaults)
+            if keychain.hasAPIKey(for: provider) {
+                // Already in Keychain, clean up UserDefaults if needed
+                if defaults.string(forKey: oldKey) != nil {
+                    defaults.removeObject(forKey: oldKey)
+                    logger.info("🧹 Cleaned up migrated key from UserDefaults: \(provider, privacy: .public)")
+                }
+                continue
+            }
+            
+            // Check if key exists in UserDefaults
             if let apiKey = defaults.string(forKey: oldKey), !apiKey.isEmpty {
-                // Save to keychain
+                needsMigration = true
+                
+                // Attempt to migrate to Keychain
                 keychain.saveAPIKey(apiKey, for: provider)
                 
-                // Verify it was saved successfully
+                // Verify save was successful
                 if keychain.hasAPIKey(for: provider) {
-                    // Remove from UserDefaults
+                    // Successfully migrated, remove from UserDefaults
                     defaults.removeObject(forKey: oldKey)
-                    migratedCount += 1
-                    
+                    migratedThisRun += 1
                     logger.info("✅ Migrated \(provider, privacy: .public) API key to Keychain")
                 } else {
-                    logger.error("❌ Failed to migrate \(provider, privacy: .public) API key to Keychain")
+                    // Failed to save to Keychain, keep in UserDefaults for retry
+                    logger.error("❌ Failed to migrate \(provider, privacy: .public) - will retry next launch")
                 }
             }
         }
         
-        // Mark migration as complete
-        defaults.set(true, forKey: migrationKey)
-        defaults.synchronize()
+        if needsMigration {
+            logger.notice("🔐 API Key Migration: \(migratedThisRun) keys migrated this run")
+        } else if migratedThisRun > 0 {
+            logger.notice("🧹 API Key Cleanup: \(migratedThisRun) keys cleaned from UserDefaults")
+        } else {
+            logger.debug("Migration check complete - all keys already in Keychain")
+        }
         
-        logger.notice("🔐 API Key Migration Complete: \(migratedCount) keys migrated")
+        defaults.synchronize()
     }
     
-    /// Reset migration flag (for testing purposes only)
-    static func resetMigrationFlag() {
+    /// Force clean all keys from UserDefaults (for testing purposes only)
+    static func resetMigration() {
         #if DEBUG
-        UserDefaults.standard.removeObject(forKey: migrationKey)
-        logger.debug("Migration flag reset for testing")
+        let defaults = UserDefaults.standard
+        let keysToRemove = ["GROQAPIKey", "ElevenLabsAPIKey", "DeepgramAPIKey", 
+                            "MistralAPIKey", "GeminiAPIKey", "SonioxAPIKey",
+                            "CerebrasAPIKey", "AnthropicAPIKey", "OpenAIAPIKey", "OpenRouterAPIKey"]
+        for key in keysToRemove {
+            defaults.removeObject(forKey: key)
+        }
+        defaults.synchronize()
+        logger.debug("Migration reset - all keys removed from UserDefaults")
         #endif
     }
 }
