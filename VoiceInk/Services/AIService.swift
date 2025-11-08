@@ -167,8 +167,13 @@ class AIService: ObservableObject {
         didSet {
             userDefaults.set(selectedProvider.rawValue, forKey: "selectedAIProvider")
             if selectedProvider.requiresAPIKey {
+                // Try Keychain first, then fall back to UserDefaults for backward compatibility
                 if let savedKey = keychain.getAPIKey(for: selectedProvider.rawValue) {
                     self.apiKey = savedKey
+                    self.isAPIKeyValid = true
+                } else if let legacyKey = userDefaults.string(forKey: "\(selectedProvider.rawValue)APIKey"), !legacyKey.isEmpty {
+                    // Backward compatibility: load from UserDefaults if not in Keychain
+                    self.apiKey = legacyKey
                     self.isAPIKeyValid = true
                 } else {
                     self.apiKey = ""
@@ -233,8 +238,13 @@ class AIService: ObservableObject {
         }
         
         if selectedProvider.requiresAPIKey {
+            // Try Keychain first, then fall back to UserDefaults for backward compatibility
             if let savedKey = keychain.getAPIKey(for: selectedProvider.rawValue) {
                 self.apiKey = savedKey
+                self.isAPIKeyValid = true
+            } else if let legacyKey = userDefaults.string(forKey: "\(selectedProvider.rawValue)APIKey"), !legacyKey.isEmpty {
+                // Backward compatibility: load from UserDefaults if not in Keychain
+                self.apiKey = legacyKey
                 self.isAPIKeyValid = true
             }
         } else {

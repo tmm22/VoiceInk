@@ -68,7 +68,7 @@ guard let apiKey = UserDefaults.standard.string(forKey: "GROQAPIKey"), !apiKey.i
 
 // After (SECURE)
 let keychain = KeychainManager()
-guard let apiKey = keychain.getAPIKey(for: "Groq"), !apiKey.isEmpty else {
+guard let apiKey = keychain.getAPIKey(for: "GROQ"), !apiKey.isEmpty else {
 ```
 
 #### ElevenLabsTranscriptionService.swift
@@ -233,7 +233,7 @@ init() {
 
 | Service | UserDefaults Key | Keychain Account | Status |
 |---------|------------------|------------------|--------|
-| Groq | `GROQAPIKey` | `Groq` | ✅ Migrated |
+| Groq | `GROQAPIKey` | `GROQ` | ✅ Migrated |
 | ElevenLabs | `ElevenLabsAPIKey` | `ElevenLabs` | ✅ Migrated |
 | Deepgram | `DeepgramAPIKey` | `Deepgram` | ✅ Migrated |
 | Mistral | `MistralAPIKey` | `Mistral` | ✅ Migrated |
