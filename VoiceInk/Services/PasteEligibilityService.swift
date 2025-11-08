@@ -17,12 +17,10 @@ class PasteEligibilityService {
 
         guard result == .success, 
               let element = focusedElement,
-              CFGetTypeID(element) == AXUIElementGetTypeID() else {
+              CFGetTypeID(element) == AXUIElementGetTypeID(),
+              let axElement = element as? AXUIElement else {
             return false
         }
-        
-        // Element is already an AXUIElement (CoreFoundation type)
-        let axElement = (element as! AXUIElement)
 
         var isWritable: DarwinBoolean = false
         let isSettableResult = AXUIElementIsAttributeSettable(axElement, kAXValueAttribute as CFString, &isWritable)

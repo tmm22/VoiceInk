@@ -42,7 +42,8 @@ class DeepgramTranscriptionService {
     }
     
     private func getAPIConfig(for model: any TranscriptionModel) throws -> APIConfig {
-        guard let apiKey = UserDefaults.standard.string(forKey: "DeepgramAPIKey"), !apiKey.isEmpty else {
+        let keychain = KeychainManager()
+        guard let apiKey = keychain.getAPIKey(for: "Deepgram"), !apiKey.isEmpty else {
             throw CloudTranscriptionError.missingAPIKey
         }
         

@@ -36,7 +36,8 @@ class GroqTranscriptionService {
     }
     
     private func getAPIConfig(for model: any TranscriptionModel) throws -> APIConfig {
-        guard let apiKey = UserDefaults.standard.string(forKey: "GROQAPIKey"), !apiKey.isEmpty else {
+        let keychain = KeychainManager()
+        guard let apiKey = keychain.getAPIKey(for: "GROQ"), !apiKey.isEmpty else {
             throw CloudTranscriptionError.missingAPIKey
         }
         
