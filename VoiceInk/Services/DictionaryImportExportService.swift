@@ -110,48 +110,45 @@ class DictionaryImportExportService {
                     }
 
                     var existingReplacements = UserDefaults.standard.dictionary(forKey: self.wordReplacementsKey) as? [String: String] ?? [:]
+                    var addedCount = 0
+                    var updatedCount = 0
 
-                    var replacementToOriginals: [String: Set<String>] = [:]
+                    for (importedKey, importedReplacement) in importedData.wordReplacements {
+                        let normalizedImportedKey = self.normalizeReplacementKey(importedKey)
+                        let importedWords = self.extractWords(from: normalizedImportedKey)
 
-                    for (originals, replacement) in existingReplacements {
-                        let replacementLower = replacement.lowercased()
-                        let words = originals.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-                        replacementToOriginals[replacementLower, default: []].formUnion(words)
-                    }
+                        var modifiedExisting: [String: String] = [:]
+                        for (existingKey, existingReplacement) in existingReplacements {
+                            var existingWords = self.extractWords(from: existingKey)
+                            var modified = false
 
-                    for (originals, replacement) in importedData.wordReplacements {
-                        let replacementLower = replacement.lowercased()
-                        let words = originals.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-                        replacementToOriginals[replacementLower, default: []].formUnion(words)
-                    }
+                            for importedWord in importedWords {
+                                if let index = existingWords.firstIndex(where: { $0.lowercased() == importedWord.lowercased() }) {
+                                    existingWords.remove(at: index)
+                                    modified = true
+                                }
+                            }
 
-                    var mergedReplacements: [String: String] = [:]
-                    for (replacementLower, originals) in replacementToOriginals {
-                        var uniqueOriginals: [String] = []
-                        var seenLower = Set<String>()
+                            if !existingWords.isEmpty {
+                                let newKey = existingWords.joined(separator: ", ")
+                                modifiedExisting[newKey] = existingReplacement
+                            }
 
-                        for original in originals {
-                            let originalLower = original.lowercased()
-                            if !seenLower.contains(originalLower) {
-                                uniqueOriginals.append(original)
-                                seenLower.insert(originalLower)
+                            if modified {
+                                updatedCount += 1
                             }
                         }
 
-                        let mergedKey = uniqueOriginals.sorted().joined(separator: ", ")
-
-                        let replacement = existingReplacements.first(where: { $0.value.lowercased() == replacementLower })?.value
-                            ?? importedData.wordReplacements.first(where: { $0.value.lowercased() == replacementLower })?.value
-                            ?? replacementLower
-
-                        mergedReplacements[mergedKey] = replacement
+                        existingReplacements = modifiedExisting
+                        existingReplacements[normalizedImportedKey] = importedReplacement
+                        addedCount += 1
                     }
 
-                    UserDefaults.standard.set(mergedReplacements, forKey: self.wordReplacementsKey)
+                    UserDefaults.standard.set(existingReplacements, forKey: self.wordReplacementsKey)
 
                     var message = "Dictionary data imported successfully from \(url.lastPathComponent).\n\n"
                     message += "Dictionary Items: \(newWordsAdded) added, \(originalExistingCount) kept\n"
-                    message += "Word Replacements: Merged into \(mergedReplacements.count) total rules"
+                    message += "Word Replacements: \(addedCount) added, \(updatedCount) updated"
 
                     self.showAlert(title: "Import Successful", message: message)
 
@@ -162,6 +159,18 @@ class DictionaryImportExportService {
                 self.showAlert(title: "Import Canceled", message: "Import operation was canceled.")
             }
         }
+    }
+
+    private func normalizeReplacementKey(_ key: String) -> String {
+        let words = extractWords(from: key)
+        return words.joined(separator: ", ")
+    }
+
+    private func extractWords(from key: String) -> [String] {
+        return key
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
 
     private func showAlert(title: String, message: String) {
