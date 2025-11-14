@@ -15,13 +15,17 @@ echo ""
 # Reset all permissions
 tccutil reset All $BUNDLE_ID 2>/dev/null
 
+# Reset onboarding flag
+defaults write $BUNDLE_ID hasCompletedOnboarding -bool false 2>/dev/null
+
 if [ $? -eq 0 ]; then
     echo "✅ All permissions reset successfully"
+    echo "✅ Onboarding flag reset"
     echo ""
     echo "Next steps:"
     echo "1. Quit VoiceInk if it's running"
     echo "2. Launch VoiceInk"
-    echo "3. Grant permissions when prompted"
+    echo "3. You'll see the full onboarding flow with permission prompts"
 else
     echo "⚠️  Some permissions may require manual reset"
     echo ""
