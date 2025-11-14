@@ -37,8 +37,12 @@ extension WhisperState {
         parakeetDownloadStates[modelName] = true
         downloadProgress[modelName] = 0.0
 
-        let timer = Timer.scheduledTimer(withTimeInterval: 1.2, repeats: true) { timer in
+        let timer = Timer.scheduledTimer(withTimeInterval: 1.2, repeats: true) { [weak self] timer in
             Task { @MainActor in
+                guard let self else { 
+                    timer.invalidate()
+                    return 
+                }
                 if let currentProgress = self.downloadProgress[modelName], currentProgress < 0.9 {
                     self.downloadProgress[modelName] = currentProgress + 0.005
                 }

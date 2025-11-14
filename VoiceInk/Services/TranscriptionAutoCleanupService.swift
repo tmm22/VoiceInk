@@ -14,6 +14,10 @@ class TranscriptionAutoCleanupService {
     private let defaultRetentionMinutes: Int = 24 * 60
 
     private init() {}
+    
+    deinit {
+        stopMonitoring()
+    }
 
     func startMonitoring(modelContext: ModelContext) {
         self.modelContext = modelContext

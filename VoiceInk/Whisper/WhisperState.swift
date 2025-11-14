@@ -440,4 +440,8 @@ class WhisperState: NSObject, ObservableObject {
     private func cleanupAndDismiss() async {
         await dismissMiniRecorder()
     }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
 }

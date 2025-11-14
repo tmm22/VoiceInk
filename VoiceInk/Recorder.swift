@@ -250,6 +250,8 @@ class Recorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
     }
     
     deinit {
+        recorder?.delegate = nil
+        recorder = nil
         audioLevelCheckTask?.cancel()
         audioMeterUpdateTask?.cancel()
         if let observer = deviceObserver {
