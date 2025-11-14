@@ -6,18 +6,12 @@ class DictionaryContextService {
     
     private init() {}
     
-    private let predefinedWords = "VoiceInk, chatGPT, GPT-4o, GPT-5-mini, Kimi-K2, GLM V4.5, Claude, Claude 4 sonnet, Claude opus, ultrathink, Vibe-coding, groq, cerebras, gpt-oss-120B, deepseek, gemini-2.5, Veo 3, elevenlabs, Kyutai"
-    
     func getDictionaryContext() -> String {
-        var allWords: [String] = []
-        
-        allWords.append(predefinedWords)
-        
-        if let customWords = getCustomDictionaryWords() {
-            allWords.append(customWords.joined(separator: ", "))
+        guard let customWords = getCustomDictionaryWords(), !customWords.isEmpty else {
+            return ""
         }
-        
-        let wordsText = allWords.joined(separator: ", ")
+
+        let wordsText = customWords.joined(separator: ", ")
         return "Important Vocabulary: \(wordsText)"
     }
     private func getCustomDictionaryWords() -> [String]? {
