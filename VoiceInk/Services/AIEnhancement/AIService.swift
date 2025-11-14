@@ -60,7 +60,7 @@ enum AIProvider: String, CaseIterable {
         case .mistral:
             return "mistral-large-latest"
         case .elevenLabs:
-            return "scribe_v1"
+            return "scribe_v2_realtime"
         case .deepgram:
             return "whisper-1"
         case .soniox:
@@ -124,7 +124,7 @@ enum AIProvider: String, CaseIterable {
                 "mistral-saba-latest"
             ]
         case .elevenLabs:
-            return ["scribe_v1", "scribe_v1_experimental"]
+            return ["scribe_v2_realtime", "scribe_v1", "scribe_v1_experimental"]
         case .deepgram:
             return ["whisper-1"]
         case .soniox:

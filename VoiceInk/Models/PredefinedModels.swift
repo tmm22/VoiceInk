@@ -204,6 +204,16 @@ import Foundation
             supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .groq)
         ),
         CloudModel(
+            name: "scribe_v2_realtime",
+            displayName: "Scribe v2 Realtime (ElevenLabs)",
+            description: "ElevenLabs' latest Scribe v2 Realtime model with improved latency and accuracy.",
+            provider: .elevenLabs,
+            speed: 0.9,
+            accuracy: 0.99,
+            isMultilingual: true,
+            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .elevenLabs)
+        ),
+        CloudModel(
            name: "scribe_v1",
            displayName: "Scribe v1 (ElevenLabs)",
            description: "ElevenLabs' Scribe model for fast and accurate transcription.",
