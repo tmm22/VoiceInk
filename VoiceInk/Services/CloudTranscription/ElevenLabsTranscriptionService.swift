@@ -127,12 +127,8 @@ class ElevenLabsTranscriptionService {
         }
         
         var preferredContentType: String {
-            switch self {
-            case .scribeV1, .unknown:
-                return "audio/wav"
-            case .scribeV2Realtime:
-                return "audio/mpeg"
-            }
+            // VoiceInk records in WAV format, so use audio/wav for all versions
+            return "audio/wav"
         }
         
         var shouldTagAudioEvents: Bool {
