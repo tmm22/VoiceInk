@@ -11,7 +11,7 @@ struct DictionaryExportData: Codable {
 
 class DictionaryImportExportService {
     static let shared = DictionaryImportExportService()
-    private let dictionaryItemsKey = "CustomDictionaryItems"
+    private let dictionaryItemsKey = "CustomVocabularyItems"
     private let wordReplacementsKey = "wordReplacements"
 
     private init() {}

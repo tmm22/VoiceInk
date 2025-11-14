@@ -34,7 +34,7 @@ enum DictionarySortMode: String {
 
 class DictionaryManager: ObservableObject {
     @Published var items: [DictionaryItem] = []
-    private let saveKey = "CustomDictionaryItems"
+    private let saveKey = "CustomVocabularyItems"
     private let whisperPrompt: WhisperPrompt
     
     init(whisperPrompt: WhisperPrompt) {

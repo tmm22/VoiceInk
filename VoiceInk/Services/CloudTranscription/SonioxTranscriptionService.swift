@@ -170,7 +170,7 @@ class SonioxTranscriptionService {
     }
     
     private func getCustomDictionaryTerms() -> [String] {
-        guard let data = UserDefaults.standard.data(forKey: "CustomDictionaryItems") else {
+        guard let data = UserDefaults.standard.data(forKey: "CustomVocabularyItems") else {
             return []
         }
         // Decode without depending on UI layer types; extract "word" strings
