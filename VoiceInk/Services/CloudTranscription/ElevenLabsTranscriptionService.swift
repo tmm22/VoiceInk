@@ -169,12 +169,8 @@ private enum ElevenLabsModelVersion {
     }
     
     var preferredContentType: String {
-        switch self {
-        case .scribeV2Realtime:
-            return "audio/mpeg"
-        default:
-            return "audio/wav"
-        }
+        // VoiceInk records in WAV format, so use audio/wav for all versions
+        return "audio/wav"
     }
     
     var shouldTagAudioEvents: Bool {
