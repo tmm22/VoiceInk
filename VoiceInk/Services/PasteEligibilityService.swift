@@ -17,11 +17,12 @@ class PasteEligibilityService {
 
         guard result == .success, 
               let element = focusedElement,
-              CFGetTypeID(element) == AXUIElementGetTypeID(),
-              let axElement = element as? AXUIElement else {
+              CFGetTypeID(element) == AXUIElementGetTypeID() else {
             return false
         }
 
+        let axElement = unsafeBitCast(element, to: AXUIElement.self)
+        
         var isWritable: DarwinBoolean = false
         let isSettableResult = AXUIElementIsAttributeSettable(axElement, kAXValueAttribute as CFString, &isWritable)
 
