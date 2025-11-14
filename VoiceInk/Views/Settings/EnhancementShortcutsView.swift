@@ -105,12 +105,18 @@ private struct ShortcutRow: View {
                 HStack(spacing: 8) {
                     Text(title)
                         .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.primary)
                     InfoTip(title: title, message: description, learnMoreURL: "https://tryvoiceink.com/docs/switching-enhancement-prompts")
                 }
+
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
             }
-            
-            Spacer(minLength: 0)
-            
+
+            Spacer(minLength: 12)
+
             if let isOn = isOn {
                 keyDisplayView(isActive: isOn.wrappedValue)
                     .onTapGesture {
@@ -123,9 +129,11 @@ private struct ShortcutRow: View {
                 keyDisplayView()
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(CardBackground(isSelected: false))
     }
-    
+
     @ViewBuilder
     private func keyDisplayView(isActive: Bool? = nil) -> some View {
         HStack(spacing: 8) {
@@ -142,21 +150,33 @@ private struct KeyChip: View {
 
     var body: some View {
         let active = isActive ?? true
-        
+
         Text(label)
-            .font(.system(size: 13, weight: .semibold, design: .monospaced))
-            .padding(.horizontal, 12)
+            .font(.system(size: 13, weight: .semibold, design: .rounded))
+            .foregroundColor(active ? .primary : .secondary)
+            .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color(NSColor.controlBackgroundColor))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(Color(NSColor.separatorColor).opacity(active ? 0.7 : 0.3), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color(NSColor.controlBackgroundColor).opacity(active ? 0.9 : 0.6),
+                                Color(NSColor.controlBackgroundColor).opacity(active ? 0.7 : 0.5)
+                            ]),
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
                     )
             )
-            .foregroundColor(active ? .primary : .secondary)
-            .shadow(color: Color(NSColor.shadowColor).opacity(active ? 0.1 : 0), radius: 4, x: 0, y: 2)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(
+                        Color(NSColor.separatorColor).opacity(active ? 0.4 : 0.2),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: Color(NSColor.shadowColor).opacity(active ? 0.15 : 0.05), radius: 2, x: 0, y: 1)
             .opacity(active ? 1.0 : 0.6)
     }
 }
