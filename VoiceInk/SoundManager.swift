@@ -52,6 +52,13 @@ class SoundManager: ObservableObject {
     }
 
     private func reloadCustomSoundsAsync() async {
+        if customStartSound?.isPlaying == true {
+            customStartSound?.stop()
+        }
+        if customStopSound?.isPlaying == true {
+            customStopSound?.stop()
+        }
+
         customStartSound = loadAndPreparePlayer(from: CustomSoundManager.shared.getCustomSoundURL(for: .start))
         customStopSound = loadAndPreparePlayer(from: CustomSoundManager.shared.getCustomSoundURL(for: .stop))
     }
