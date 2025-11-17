@@ -205,11 +205,21 @@ import Foundation
         ),
         CloudModel(
            name: "scribe_v1",
-           displayName: "Scribe v1 (ElevenLabs)",
-           description: "ElevenLabs' Scribe model for fast and accurate transcription.",
+           displayName: "Scribe v1",
+           description: "ElevenLabs' Scribe model for fast & accurate transcription.",
            provider: .elevenLabs,
            speed: 0.7,
            accuracy: 0.98,
+           isMultilingual: true,
+           supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .elevenLabs)
+       ),
+       CloudModel(
+           name: "scribe_v2_realtime",
+           displayName: "Scribe v2",
+           description: "ElevenLabs' Scribe v2 model for the most accurate transcription.",
+           provider: .elevenLabs,
+           speed: 0.75,
+           accuracy: 0.99,
            isMultilingual: true,
            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .elevenLabs)
        ),
