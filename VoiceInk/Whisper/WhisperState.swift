@@ -73,6 +73,7 @@ class WhisperState: NSObject, ObservableObject {
     private lazy var cloudTranscriptionService = CloudTranscriptionService()
     private lazy var nativeAppleTranscriptionService = NativeAppleTranscriptionService()
     internal lazy var parakeetTranscriptionService = ParakeetTranscriptionService()
+    internal lazy var fastConformerTranscriptionService = FastConformerTranscriptionService(modelsDirectory: fastConformerModelsDirectory)
     
     private var modelUrl: URL? {
         let possibleURLs = [
@@ -94,6 +95,7 @@ class WhisperState: NSObject, ObservableObject {
     }
     
     let modelsDirectory: URL
+    let fastConformerModelsDirectory: URL
     let recordingsDirectory: URL
     let enhancementService: AIEnhancementService?
     var licenseViewModel: LicenseViewModel
@@ -104,6 +106,7 @@ class WhisperState: NSObject, ObservableObject {
     // For model progress tracking
     @Published var downloadProgress: [String: Double] = [:]
     @Published var parakeetDownloadStates: [String: Bool] = [:]
+    @Published var fastConformerDownloadProgress: [String: Double] = [:]
     
     init(modelContext: ModelContext, enhancementService: AIEnhancementService? = nil) {
         self.modelContext = modelContext
@@ -111,6 +114,7 @@ class WhisperState: NSObject, ObservableObject {
             .appendingPathComponent("com.tmm22.VoiceLinkCommunity")
         
         self.modelsDirectory = appSupportDirectory.appendingPathComponent("WhisperModels")
+        self.fastConformerModelsDirectory = appSupportDirectory.appendingPathComponent("FastConformer")
         self.recordingsDirectory = appSupportDirectory.appendingPathComponent("Recordings")
         
         self.enhancementService = enhancementService
@@ -128,6 +132,7 @@ class WhisperState: NSObject, ObservableObject {
         
         setupNotifications()
         createModelsDirectoryIfNeeded()
+        createFastConformerDirectoryIfNeeded()
         createRecordingsDirectoryIfNeeded()
         loadAvailableModels()
         loadCurrentTranscriptionModel()
@@ -301,6 +306,8 @@ class WhisperState: NSObject, ObservableObject {
                 transcriptionService = service
             case .parakeet:
                 transcriptionService = parakeetTranscriptionService
+            case .fastConformer:
+                transcriptionService = fastConformerTranscriptionService
             case .nativeApple:
                 transcriptionService = nativeAppleTranscriptionService
             default:

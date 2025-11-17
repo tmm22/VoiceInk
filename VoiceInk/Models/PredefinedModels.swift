@@ -191,6 +191,36 @@ import Foundation
              accuracy: 0.95,
              ramUsage: 1.0
          ),
+         LocalModel(
+             name: "distil-whisper-large-v3",
+             displayName: "Distil-Whisper Large v3",
+             size: "1.5 GB",
+             supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .local),
+             description: "Distilled Whisper Large v3 weights converted to GGUF for 4x faster decoding with minimal accuracy loss.",
+             speed: 0.85,
+             accuracy: 0.96,
+             ramUsage: 1.4,
+            fileExtension: "gguf",
+            downloadURLOverride: "https://huggingface.co/FL33TW00D-HF/distil-whisper-large-v3/resolve/main/distil-large-v3_f16.gguf?download=1",
+             filenameOverride: "distil-large-v3_f16.gguf",
+             badges: ["Distilled", "GGUF"],
+             highlight: "~45% faster than Whisper Large with near-identical WER."
+         ),
+         LocalModel(
+             name: "whisper-large-v3-turbo-gguf",
+             displayName: "Whisper Large v3 Turbo (GGUF)",
+             size: "2.1 GB",
+             supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .local),
+             description: "Latest Whisper Large v3 Turbo export tuned for gguf inference with aggressive layer pruning.",
+             speed: 0.8,
+             accuracy: 0.97,
+             ramUsage: 1.7,
+            fileExtension: "gguf",
+            downloadURLOverride: "https://huggingface.co/xkeyC/whisper-large-v3-turbo-gguf/resolve/main/whisper-large-v3-turbo-q5_0.gguf?download=1",
+             filenameOverride: "whisper-large-v3-turbo-q5_0.gguf",
+             badges: ["Turbo", "GGUF"],
+             highlight: "Optimized for Apple Silicon VRAM with q5_0 precision."
+         ),
          
                  // Cloud Models
         CloudModel(
@@ -212,6 +242,25 @@ import Foundation
             accuracy: 0.99,
             isMultilingual: true,
             supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .elevenLabs)
+        ),
+
+        // FastConformer Models
+        FastConformerModel(
+            name: "fastconformer-ctc-en-24500",
+            displayName: "FastConformer CTC (1.1B)",
+            description: "NVIDIA FastConformer CTC export converted for sherpa-onnx with 4.3% WER on LibriSpeech test-other.",
+            size: "1.1 GB",
+            speed: 0.9,
+            accuracy: 0.975,
+            ramUsage: 2.0,
+            requiresMetal: true,
+            isMultilingualModel: false,
+            supportedLanguages: ["en": "English"],
+            modelURL: "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-fast-conformer-ctc-en-24500/resolve/main/model.onnx?download=1",
+            tokenizerURL: "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-fast-conformer-ctc-en-24500/resolve/main/tokens.txt?download=1",
+            checksum: nil,
+            badges: ["Fast", "CTC"],
+            highlight: "Greedy CTC decoding keeps latency under 250 ms on M-series CPUs."
         ),
         CloudModel(
            name: "scribe_v1",

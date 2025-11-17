@@ -11,6 +11,10 @@ struct WhisperModel: Identifiable {
     let url: URL
     var coreMLEncoderURL: URL? // Path to the unzipped .mlmodelc directory
     var isCoreMLDownloaded: Bool { coreMLEncoderURL != nil }
+
+    var fileExtension: String {
+        url.pathExtension.lowercased()
+    }
     
     var downloadURL: String {
         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/\(filename)"
@@ -22,7 +26,7 @@ struct WhisperModel: Identifiable {
     
     // Core ML related properties
     var coreMLZipDownloadURL: String? {
-        // Only non-quantized models have Core ML versions
+        guard fileExtension == "bin" else { return nil }
         guard !name.contains("q5") && !name.contains("q8") else { return nil }
         return "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/\(name)-encoder.mlmodelc.zip"
     }
@@ -63,13 +67,26 @@ extension WhisperState {
             logError("Error creating models directory", error)
         }
     }
+
+    func createFastConformerDirectoryIfNeeded() {
+        do {
+            try FileManager.default.createDirectory(at: fastConformerModelsDirectory, withIntermediateDirectories: true, attributes: nil)
+        } catch {
+            logError("Error creating FastConformer directory", error)
+        }
+    }
     
     func loadAvailableModels() {
         do {
             let fileURLs = try FileManager.default.contentsOfDirectory(at: modelsDirectory, includingPropertiesForKeys: nil)
+            let localModels = PredefinedModels.models.compactMap { $0 as? LocalModel }
+            let filenameLookup = Dictionary(uniqueKeysWithValues: localModels.map { ($0.filename, $0.name) })
+
             availableModels = fileURLs.compactMap { url in
-                guard url.pathExtension == "bin" else { return nil }
-                return WhisperModel(name: url.deletingPathExtension().lastPathComponent, url: url)
+                let ext = url.pathExtension.lowercased()
+                guard ext == "bin" || ext == "gguf" else { return nil }
+                let canonicalName = filenameLookup[url.lastPathComponent] ?? url.deletingPathExtension().lastPathComponent
+                return WhisperModel(name: canonicalName, url: url)
             }
         } catch {
             logError("Error loading available models", error)
@@ -101,14 +118,14 @@ extension WhisperState {
     // MARK: - Model Download & Management
     
     /// Helper function to download a file from a URL with progress tracking
-    private func downloadFileWithProgress(from url: URL, progressKey: String) async throws -> Data {
-        let destinationURL = modelsDirectory.appendingPathComponent(UUID().uuidString)
+    func downloadFileWithProgress(from url: URL, to destinationURL: URL, progressKey: String, progressUpdate: ((Double) -> Void)? = nil) async throws {
+        let temporaryURL = destinationURL.appendingPathExtension("download")
 
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             // Guard to prevent double resume
             let finished = ManagedAtomic(false)
 
-            func finishOnce(_ result: Result<Data, Error>) {
+            func finishOnce(_ result: Result<Void, Error>) {
                 if finished.exchange(true, ordering: .acquiring) == false {
                     continuation.resume(with: result)
                 }
@@ -128,15 +145,16 @@ extension WhisperState {
                 }
 
                 do {
-                    // Move the downloaded file to the final destination
-                    try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+                    if FileManager.default.fileExists(atPath: temporaryURL.path) {
+                        try FileManager.default.removeItem(at: temporaryURL)
+                    }
+                    try FileManager.default.moveItem(at: tempURL, to: temporaryURL)
 
-                    // Read the file in chunks to avoid memory pressure
-                    let data = try Data(contentsOf: destinationURL, options: .mappedIfSafe)
-                    finishOnce(.success(data))
-
-                    // Clean up the temporary file
-                    try? FileManager.default.removeItem(at: destinationURL)
+                    if FileManager.default.fileExists(atPath: destinationURL.path) {
+                        try FileManager.default.removeItem(at: destinationURL)
+                    }
+                    try FileManager.default.moveItem(at: temporaryURL, to: destinationURL)
+                    finishOnce(.success(()))
                 } catch {
                     finishOnce(.failure(error))
                 }
@@ -158,6 +176,7 @@ extension WhisperState {
 
                     DispatchQueue.main.async {
                         self.downloadProgress[progressKey] = currentProgress
+                        progressUpdate?(currentProgress)
                     }
                 }
             }
@@ -202,20 +221,16 @@ extension WhisperState {
     
     private func downloadMainModel(_ model: LocalModel, from url: URL) async throws -> WhisperModel {
         let progressKeyMain = model.name + "_main"
-        let data = try await downloadFileWithProgress(from: url, progressKey: progressKeyMain)
-        
         let destinationURL = modelsDirectory.appendingPathComponent(model.filename)
-        try data.write(to: destinationURL)
+        try await downloadFileWithProgress(from: url, to: destinationURL, progressKey: progressKeyMain)
         
         return WhisperModel(name: model.name, url: destinationURL)
     }
     
     private func downloadAndSetupCoreMLModel(for model: WhisperModel, from url: URL) async throws -> WhisperModel {
         let progressKeyCoreML = model.name + "_coreml"
-        let coreMLData = try await downloadFileWithProgress(from: url, progressKey: progressKeyCoreML)
-        
         let coreMLZipPath = modelsDirectory.appendingPathComponent("\(model.name)-encoder.mlmodelc.zip")
-        try coreMLData.write(to: coreMLZipPath)
+        try await downloadFileWithProgress(from: url, to: coreMLZipPath, progressKey: progressKeyCoreML)
         
         return try await unzipAndSetupCoreMLModel(for: model, zipPath: coreMLZipPath, progressKey: progressKeyCoreML)
     }
@@ -265,7 +280,7 @@ extension WhisperState {
     }
 
     private func shouldWarmup(_ model: LocalModel) -> Bool {
-        !model.name.contains("q5") && !model.name.contains("q8")
+        model.fileExtension == "bin" && !model.name.contains("q5") && !model.name.contains("q8")
     }
     
     private func handleModelDownloadError(_ model: LocalModel, _ error: Error) {
@@ -342,6 +357,7 @@ extension WhisperState {
         isModelLoaded = false
 
         parakeetTranscriptionService.cleanup()
+        fastConformerTranscriptionService.cleanup()
     }
     
     // MARK: - Helper Methods
@@ -354,17 +370,17 @@ extension WhisperState {
 
     @MainActor
     func importLocalModel(from sourceURL: URL) async {
-        // Accept only .bin files for ggml Whisper models
-        guard sourceURL.pathExtension.lowercased() == "bin" else { return }
+        let fileExtension = sourceURL.pathExtension.lowercased()
+        guard ["bin", "gguf"].contains(fileExtension) else { return }
 
         // Build a destination URL inside the app-managed models directory
         let baseName = sourceURL.deletingPathExtension().lastPathComponent
-        var destinationURL = modelsDirectory.appendingPathComponent("\(baseName).bin")
+        let destinationURL = modelsDirectory.appendingPathComponent("\(baseName).\(fileExtension)")
 
         // Do not rename on collision; simply notify the user and abort
         if FileManager.default.fileExists(atPath: destinationURL.path) {
             await NotificationManager.shared.showNotification(
-                title: "A model named \(baseName).bin already exists",
+                title: "A model named \(destinationURL.lastPathComponent) already exists",
                 type: .warning,
                 duration: 4.0
             )
@@ -404,6 +420,7 @@ extension WhisperState {
 struct DownloadProgressView: View {
     let modelName: String
     let downloadProgress: [String: Double]
+    let supportsCoreML: Bool
     
     @Environment(\.colorScheme) private var colorScheme
     
@@ -413,10 +430,6 @@ struct DownloadProgressView: View {
     
     private var coreMLProgress: Double {
         supportsCoreML ? (downloadProgress[modelName + "_coreml"] ?? 0) : 0
-    }
-    
-    private var supportsCoreML: Bool {
-        !modelName.contains("q5") && !modelName.contains("q8")
     }
     
     private var totalProgress: Double {

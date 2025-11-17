@@ -89,7 +89,8 @@ struct OnboardingModelDownloadView: View {
                                 if isDownloading {
                                     DownloadProgressView(
                                         modelName: model.name,
-                                        downloadProgress: whisperState.downloadProgress
+                                        downloadProgress: whisperState.downloadProgress,
+                                        supportsCoreML: model.supportsCoreMLEncoder
                                     )
                                     .transition(.opacity)
                                 }

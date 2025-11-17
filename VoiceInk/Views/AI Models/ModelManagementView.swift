@@ -123,10 +123,11 @@ struct ModelManagementView: View {
                             warmupCoordinator.isWarming(modelNamed: localModel.name)
                         } ?? false
 
+                        let resolvedIsDownloaded = isModelDownloaded(model)
                         ModelCardRowView(
                             model: model,
                             whisperState: whisperState, 
-                            isDownloaded: whisperState.availableModels.contains { $0.name == model.name },
+                            isDownloaded: resolvedIsDownloaded,
                             isCurrent: whisperState.currentTranscriptionModel?.name == model.name,
                             downloadProgress: whisperState.downloadProgress,
                             modelURL: whisperState.availableModels.first { $0.name == model.name }?.url,
@@ -138,6 +139,13 @@ struct ModelManagementView: View {
                                     deleteActionClosure = {
                                         customModelManager.removeCustomModel(withId: customModel.id)
                                         whisperState.refreshAllAvailableModels()
+                                    }
+                                    isShowingDeleteAlert = true
+                                } else if let fastModel = model as? FastConformerModel {
+                                    alertTitle = "Delete Model"
+                                    alertMessage = "Remove downloaded FastConformer files for '\(fastModel.displayName)'?"
+                                    deleteActionClosure = {
+                                        whisperState.deleteFastConformerModel(fastModel)
                                     }
                                     isShowingDeleteAlert = true
                                 } else if let downloadedModel = whisperState.availableModels.first(where: { $0.name == model.name }) {
@@ -159,6 +167,8 @@ struct ModelManagementView: View {
                             downloadAction: {
                                 if let localModel = model as? LocalModel {
                                     Task { await whisperState.downloadModel(localModel) }
+                                } else if let fastModel = model as? FastConformerModel {
+                                    Task { await whisperState.downloadFastConformerModel(fastModel) }
                                 }
                             },
                             editAction: model.provider == .custom ? { customModel in
@@ -185,7 +195,7 @@ struct ModelManagementView: View {
 
                             InfoTip(
                                 title: "Import local Whisper models",
-                                message: "Add a custom fine-tuned whisper model to use with VoiceLink Community. Select the downloaded .bin file.",
+                                message: "Add a custom fine-tuned whisper model to use with VoiceLink Community. Select the downloaded .bin or .gguf file.",
                                 learnMoreURL: "https://tryvoiceink.com/docs/custom-local-whisper-models"
                             )
                             .help("Read more about custom local models")
@@ -213,16 +223,32 @@ struct ModelManagementView: View {
         switch selectedFilter {
         case .recommended:
             return whisperState.allAvailableModels.filter {
-                let recommendedNames = ["ggml-base.en", "ggml-large-v3-turbo-q5_0", "ggml-large-v3-turbo", "whisper-large-v3-turbo"]
+                let recommendedNames = [
+                    "ggml-base.en",
+                    "ggml-large-v3-turbo-q5_0",
+                    "ggml-large-v3-turbo",
+                    "whisper-large-v3-turbo",
+                    "distil-whisper-large-v3",
+                    "whisper-large-v3-turbo-gguf",
+                    "fastconformer-ctc-en-24500"
+                ]
                 return recommendedNames.contains($0.name)
             }.sorted { model1, model2 in
-                let recommendedOrder = ["ggml-base.en", "ggml-large-v3-turbo-q5_0", "ggml-large-v3-turbo", "whisper-large-v3-turbo"]
+                let recommendedOrder = [
+                    "ggml-base.en",
+                    "distil-whisper-large-v3",
+                    "whisper-large-v3-turbo-gguf",
+                    "ggml-large-v3-turbo-q5_0",
+                    "fastconformer-ctc-en-24500"
+                ]
                 let index1 = recommendedOrder.firstIndex(of: model1.name) ?? Int.max
                 let index2 = recommendedOrder.firstIndex(of: model2.name) ?? Int.max
                 return index1 < index2
             }
         case .local:
-            return whisperState.allAvailableModels.filter { $0.provider == .local || $0.provider == .nativeApple || $0.provider == .parakeet }
+            return whisperState.allAvailableModels.filter { model in
+                model.provider == .local || model.provider == .nativeApple || model.provider == .parakeet || model.provider == .fastConformer
+            }
         case .cloud:
             let cloudProviders: [ModelProvider] = [.groq, .elevenLabs, .deepgram, .mistral, .gemini, .soniox]
             return whisperState.allAvailableModels.filter { cloudProviders.contains($0.provider) }
@@ -234,15 +260,33 @@ struct ModelManagementView: View {
     // MARK: - Import Panel
     private func presentImportPanel() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.init(filenameExtension: "bin")!]
+        panel.allowedContentTypes = [UTType(filenameExtension: "bin")!, UTType(filenameExtension: "gguf")!]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.resolvesAliases = true
-        panel.title = "Select a Whisper ggml .bin model"
+        panel.title = "Select a Whisper ggml (.bin or .gguf) model"
         if panel.runModal() == .OK, let url = panel.url {
             Task { @MainActor in
                 await whisperState.importLocalModel(from: url)
             }
+        }
+    }
+}
+
+extension ModelManagementView {
+    private func isModelDownloaded(_ model: any TranscriptionModel) -> Bool {
+        switch model.provider {
+        case .local:
+            return whisperState.availableModels.contains { $0.name == model.name }
+        case .fastConformer:
+            if let fastModel = model as? FastConformerModel {
+                return whisperState.isFastConformerModelDownloaded(fastModel)
+            }
+            return false
+        case .parakeet:
+            return whisperState.isParakeetModelDownloaded(named: model.name)
+        default:
+            return false
         }
     }
 }

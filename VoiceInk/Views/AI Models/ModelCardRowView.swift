@@ -41,11 +41,27 @@ struct ModelCardRowView: View {
                         setDefaultAction: setDefaultAction
                     )
                 }
-                    case .parakeet:
-            if let parakeetModel = model as? ParakeetModel {
-                ParakeetModelCardRowView(
-                    model: parakeetModel,
+            case .parakeet:
+                if let parakeetModel = model as? ParakeetModel {
+                    ParakeetModelCardRowView(
+                        model: parakeetModel,
                         whisperState: whisperState
+                    )
+                }
+            case .fastConformer:
+                if let fastModel = model as? FastConformerModel {
+                    FastConformerModelCardView(
+                        model: fastModel,
+                        whisperState: whisperState,
+                        isCurrent: isCurrent,
+                        isDownloaded: isDownloaded,
+                        downloadProgress: whisperState.fastConformerDownloadProgress[fastModel.name] ?? 0,
+                        downloadAction: downloadAction,
+                        deleteAction: deleteAction,
+                        setDefaultAction: setDefaultAction,
+                        showInFinderAction: {
+                            whisperState.showFastConformerModelInFinder(fastModel)
+                        }
                     )
                 }
             case .nativeApple:

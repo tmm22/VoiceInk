@@ -40,11 +40,27 @@ struct LocalModelCardView: View {
         HStack(alignment: .firstTextBaseline) {
             Text(model.displayName)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Color(.labelColor))
+                .foregroundColor(Color(NSColor.labelColor))
             
             statusBadge
+            if !model.badges.isEmpty {
+                badgeStack
+            }
             
             Spacer()
+        }
+    }
+
+    private var badgeStack: some View {
+        HStack(spacing: 4) {
+            ForEach(model.badges, id: \.self) { badge in
+                Text(badge)
+                    .font(.system(size: 10, weight: .medium))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Color(NSColor.controlBackgroundColor)))
+                    .foregroundColor(Color(NSColor.secondaryLabelColor))
+            }
         }
     }
     
@@ -62,8 +78,8 @@ struct LocalModelCardView: View {
                     .font(.system(size: 11, weight: .medium))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Capsule().fill(Color(.quaternaryLabelColor)))
-                    .foregroundColor(Color(.labelColor))
+                    .background(Capsule().fill(Color(NSColor.quaternaryLabelColor)))
+                    .foregroundColor(Color(NSColor.labelColor))
             }
         }
     }
@@ -73,20 +89,20 @@ struct LocalModelCardView: View {
             // Language
             Label(model.language, systemImage: "globe")
                 .font(.system(size: 11))
-                .foregroundColor(Color(.secondaryLabelColor))
+                .foregroundColor(Color(NSColor.secondaryLabelColor))
                 .lineLimit(1)
             
             // Size
             Label(model.size, systemImage: "internaldrive")
                 .font(.system(size: 11))
-                .foregroundColor(Color(.secondaryLabelColor))
+                .foregroundColor(Color(NSColor.secondaryLabelColor))
                 .lineLimit(1)
             
             // Speed
             HStack(spacing: 3) {
                 Text("Speed")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Color(.secondaryLabelColor))
+                    .foregroundColor(Color(NSColor.secondaryLabelColor))
                 progressDotsWithNumber(value: model.speed * 10)
             }
             .lineLimit(1)
@@ -96,7 +112,7 @@ struct LocalModelCardView: View {
             HStack(spacing: 3) {
                 Text("Accuracy")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Color(.secondaryLabelColor))
+                    .foregroundColor(Color(NSColor.secondaryLabelColor))
                 progressDotsWithNumber(value: model.accuracy * 10)
             }
             .lineLimit(1)
@@ -106,12 +122,20 @@ struct LocalModelCardView: View {
     }
     
     private var descriptionSection: some View {
-        Text(model.description)
-            .font(.system(size: 11))
-            .foregroundColor(Color(.secondaryLabelColor))
-            .lineLimit(2)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.top, 4)
+        VStack(alignment: .leading, spacing: 4) {
+            Text(model.description)
+                .font(.system(size: 11))
+                .foregroundColor(Color(NSColor.secondaryLabelColor))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            if let highlight = model.highlight {
+                Text(highlight)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Color(NSColor.systemBlue))
+                    .lineLimit(2)
+            }
+        }
+        .padding(.top, 4)
     }
     
     private var progressSection: some View {
@@ -119,7 +143,8 @@ struct LocalModelCardView: View {
             if isDownloading {
                 DownloadProgressView(
                     modelName: model.name,
-                    downloadProgress: downloadProgress
+                    downloadProgress: downloadProgress,
+                    supportsCoreML: model.supportsCoreMLEncoder
                 )
                 .padding(.top, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -132,7 +157,7 @@ struct LocalModelCardView: View {
             if isCurrent {
                 Text("Default Model")
                     .font(.system(size: 12))
-                    .foregroundColor(Color(.secondaryLabelColor))
+                    .foregroundColor(Color(NSColor.secondaryLabelColor))
             } else if isDownloaded {
                 if isWarming {
                     HStack(spacing: 6) {
@@ -140,7 +165,7 @@ struct LocalModelCardView: View {
                             .controlSize(.small)
                         Text("Optimizing model for your device...")
                             .font(.system(size: 12))
-                            .foregroundColor(Color(.secondaryLabelColor))
+                            .foregroundColor(Color(NSColor.secondaryLabelColor))
                     }
                 } else {
                     Button(action: setDefaultAction) {
@@ -163,8 +188,8 @@ struct LocalModelCardView: View {
                     .padding(.vertical, 6)
                     .background(
                         Capsule()
-                            .fill(Color(.controlAccentColor))
-                            .shadow(color: Color(.controlAccentColor).opacity(0.2), radius: 2, x: 0, y: 1)
+                            .fill(Color(NSColor.controlAccentColor))
+                            .shadow(color: Color(NSColor.controlAccentColor).opacity(0.2), radius: 2, x: 0, y: 1)
                     )
                 }
                 .buttonStyle(.plain)
@@ -212,7 +237,7 @@ struct ImportedLocalModelCardView: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text(model.displayName)
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Color(.labelColor))
+                        .foregroundColor(Color(NSColor.labelColor))
                     if isCurrent {
                         Text("Default")
                             .font(.system(size: 11, weight: .medium))
@@ -225,15 +250,15 @@ struct ImportedLocalModelCardView: View {
                             .font(.system(size: 11, weight: .medium))
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Capsule().fill(Color(.quaternaryLabelColor)))
-                            .foregroundColor(Color(.labelColor))
+                            .background(Capsule().fill(Color(NSColor.quaternaryLabelColor)))
+                            .foregroundColor(Color(NSColor.labelColor))
                     }
                     Spacer()
                 }
 
                 Text("Imported local model")
                     .font(.system(size: 11))
-                    .foregroundColor(Color(.secondaryLabelColor))
+                    .foregroundColor(Color(NSColor.secondaryLabelColor))
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 4)
@@ -244,7 +269,7 @@ struct ImportedLocalModelCardView: View {
                 if isCurrent {
                     Text("Default Model")
                         .font(.system(size: 12))
-                        .foregroundColor(Color(.secondaryLabelColor))
+                        .foregroundColor(Color(NSColor.secondaryLabelColor))
                 } else if isDownloaded {
                     Button(action: setDefaultAction) {
                         Text("Set as Default")
@@ -289,7 +314,7 @@ func progressDotsWithNumber(value: Double) -> some View {
         progressDots(value: value)
         Text(String(format: "%.1f", value))
             .font(.system(size: 10, weight: .medium, design: .monospaced))
-            .foregroundColor(Color(.secondaryLabelColor))
+            .foregroundColor(Color(NSColor.secondaryLabelColor))
     }
 }
 
@@ -297,7 +322,7 @@ func progressDots(value: Double) -> some View {
     HStack(spacing: 2) {
         ForEach(0..<5) { index in
             Circle()
-                .fill(index < Int(value / 2) ? performanceColor(value: value / 10) : Color(.quaternaryLabelColor))
+                .fill(index < Int(value / 2) ? performanceColor(value: value / 10) : Color(NSColor.quaternaryLabelColor))
                 .frame(width: 6, height: 6)
         }
     }
@@ -305,9 +330,9 @@ func progressDots(value: Double) -> some View {
 
 func performanceColor(value: Double) -> Color {
     switch value {
-    case 0.8...1.0: return Color(.systemGreen)
-    case 0.6..<0.8: return Color(.systemYellow)
-    case 0.4..<0.6: return Color(.systemOrange)
-    default: return Color(.systemRed)
+    case 0.8...1.0: return Color(NSColor.systemGreen)
+    case 0.6..<0.8: return Color(NSColor.systemYellow)
+    case 0.4..<0.6: return Color(NSColor.systemOrange)
+    default: return Color(NSColor.systemRed)
     }
 }

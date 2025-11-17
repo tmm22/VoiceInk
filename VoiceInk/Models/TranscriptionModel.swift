@@ -4,6 +4,7 @@ import Foundation
 enum ModelProvider: String, Codable, Hashable, CaseIterable {
     case local = "Local"
     case parakeet = "Parakeet"
+    case fastConformer = "FastConformer"
     case groq = "Groq"
     case elevenLabs = "ElevenLabs"
     case deepgram = "Deepgram"
@@ -128,17 +129,59 @@ struct LocalModel: TranscriptionModel {
     let accuracy: Double
     let ramUsage: Double
     let provider: ModelProvider = .local
+    let fileExtension: String
+    let downloadURLOverride: String?
+    let filenameOverride: String?
+    let badges: [String]
+    let highlight: String?
 
     var downloadURL: String {
-        "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/\(filename)"
+        downloadURLOverride ?? "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/\(filename)"
     }
 
     var filename: String {
-        "\(name).bin"
+        if let filenameOverride {
+            return filenameOverride
+        }
+        return "\(name).\(fileExtension)"
     }
 
     var isMultilingualModel: Bool {
         supportedLanguages.count > 1
+    }
+
+    var supportsCoreMLEncoder: Bool {
+        fileExtension == "bin" && !name.contains("q5") && !name.contains("q8")
+    }
+
+    init(
+        name: String,
+        displayName: String,
+        size: String,
+        supportedLanguages: [String: String],
+        description: String,
+        speed: Double,
+        accuracy: Double,
+        ramUsage: Double,
+        fileExtension: String = "bin",
+        downloadURLOverride: String? = nil,
+        filenameOverride: String? = nil,
+        badges: [String] = [],
+        highlight: String? = nil
+    ) {
+        self.name = name
+        self.displayName = displayName
+        self.size = size
+        self.supportedLanguages = supportedLanguages
+        self.description = description
+        self.speed = speed
+        self.accuracy = accuracy
+        self.ramUsage = ramUsage
+        self.fileExtension = fileExtension
+        self.downloadURLOverride = downloadURLOverride
+        self.filenameOverride = filenameOverride
+        self.badges = badges
+        self.highlight = highlight
     }
 } 
 
@@ -159,4 +202,24 @@ struct ImportedLocalModel: TranscriptionModel {
         self.isMultilingualModel = true
         self.supportedLanguages = PredefinedModels.getLanguageDictionary(isMultilingual: true, provider: .local)
     }
+}
+
+struct FastConformerModel: TranscriptionModel {
+    let id = UUID()
+    let name: String
+    let displayName: String
+    let description: String
+    let provider: ModelProvider = .fastConformer
+    let size: String
+    let speed: Double
+    let accuracy: Double
+    let ramUsage: Double
+    let requiresMetal: Bool
+    let isMultilingualModel: Bool
+    let supportedLanguages: [String: String]
+    let modelURL: String
+    let tokenizerURL: String
+    let checksum: String?
+    let badges: [String]
+    let highlight: String?
 }
