@@ -133,6 +133,10 @@ class CustomSoundManager: ObservableObject {
         let newFilename = "\(standardName).\(fileExtension)"
         let destinationURL = directory.appendingPathComponent(newFilename)
 
+        if sourceURL.resolvingSymlinksInPath() == destinationURL.resolvingSymlinksInPath() {
+            return .success(newFilename)
+        }
+
         if FileManager.default.fileExists(atPath: destinationURL.path) {
             try? FileManager.default.removeItem(at: destinationURL)
         }
