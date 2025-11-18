@@ -9,17 +9,13 @@ struct TranscriptionHistoryView: View {
     @State private var showDeleteConfirmation = false
     @State private var isViewCurrentlyVisible = false
     @State private var showAnalysisView = false
+    @StateObject private var viewModel: TranscriptionHistoryViewModel
     
     private let exportService = TranscriptionExportService()
     
-    // Pagination states
-    @State private var displayedTranscriptions: [Transcription] = []
-    @State private var isLoading = false
-    @State private var hasMoreContent = true
-    
-    // Cursor-based pagination - track the last timestamp
-    @State private var lastTimestamp: Date?
-    private let pageSize = 20
+    init(modelContext: ModelContext) {
+        _viewModel = StateObject(wrappedValue: TranscriptionHistoryViewModel(modelContext: modelContext))
+    }
     
     @Query(Self.createLatestTranscriptionIndicatorDescriptor()) private var latestTranscriptionIndicator: [Transcription]
     
@@ -32,18 +28,17 @@ struct TranscriptionHistoryView: View {
         return descriptor
     }
     
-    // Cursor-based query descriptor
+    // Cursor-based query descriptor retained for select-all operations
     private func cursorQueryDescriptor(after timestamp: Date? = nil) -> FetchDescriptor<Transcription> {
         var descriptor = FetchDescriptor<Transcription>(
             sortBy: [SortDescriptor(\Transcription.timestamp, order: .reverse)]
         )
-        
-        // Build the predicate based on search text and timestamp cursor
-        if let timestamp = timestamp {
+
+        if let timestamp {
             if !searchText.isEmpty {
                 descriptor.predicate = #Predicate<Transcription> { transcription in
                     (transcription.text.localizedStandardContains(searchText) ||
-                    (transcription.enhancedText?.localizedStandardContains(searchText) ?? false)) &&
+                     (transcription.enhancedText?.localizedStandardContains(searchText) ?? false)) &&
                     transcription.timestamp < timestamp
                 }
             } else {
@@ -57,86 +52,22 @@ struct TranscriptionHistoryView: View {
                 (transcription.enhancedText?.localizedStandardContains(searchText) ?? false)
             }
         }
-        
-        descriptor.fetchLimit = pageSize
+
         return descriptor
     }
     
     var body: some View {
         ZStack(alignment: .bottom) {
-            VStack(spacing: 0) {
+            VStack(spacing: VoiceInkSpacing.lg) {
                 searchBar
-                
-                if displayedTranscriptions.isEmpty && !isLoading {
-                    emptyStateView
-                } else {
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            LazyVStack(spacing: 10) {
-                                ForEach(displayedTranscriptions) { transcription in
-                                    TranscriptionCard(
-                                        transcription: transcription,
-                                        isExpanded: expandedTranscription == transcription,
-                                        isSelected: selectedTranscriptions.contains(transcription),
-                                        onDelete: { deleteTranscription(transcription) },
-                                        onToggleSelection: { toggleSelection(transcription) }
-                                    )
-                                    .id(transcription) // Using the object as its own ID
-                                    .onTapGesture {
-                                        withAnimation(.easeInOut(duration: 0.25)) {
-                                            if expandedTranscription == transcription {
-                                                expandedTranscription = nil
-                                            } else {
-                                                expandedTranscription = transcription
-                                            }
-                                        }
-                                    }
-                                }
-                                
-                                if hasMoreContent {
-                                    Button(action: {
-                                        Task {
-                                            await loadMoreContent()
-                                        }
-                                    }) {
-                                        HStack(spacing: 8) {
-                                            if isLoading {
-                                                ProgressView()
-                                                    .controlSize(.small)
-                                            }
-                                            Text(isLoading ? "Loading..." : "Load More")
-                                                .font(.system(size: 14, weight: .medium))
-                                        }
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 12)
-                                        .background(CardBackground(isSelected: false))
-                                    }
-                                    .buttonStyle(.plain)
-                                    .disabled(isLoading)
-                                    .padding(.top, 12)
-                                }
-                            }
-                            .animation(.easeInOut(duration: 0.3), value: expandedTranscription)
-                            .padding(24)
-                            // Add bottom padding to ensure content is not hidden by the toolbar when visible
-                            .padding(.bottom, !selectedTranscriptions.isEmpty ? 60 : 0)
-                        }
-                        .padding(.vertical, 16)
-                        .onChange(of: expandedTranscription) { old, new in
-                            if let transcription = new {
-                                proxy.scrollTo(transcription, anchor: nil)
-                            }
-                        }
-                    }
-                }
+                historyContent
             }
-            .background(Color(NSColor.controlBackgroundColor))
-            
-            // Selection toolbar as an overlay
+            .padding(VoiceInkSpacing.lg)
+
             if !selectedTranscriptions.isEmpty {
                 selectionToolbar
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .animation(.easeInOut(duration: 0.3), value: !selectedTranscriptions.isEmpty)
+                    .animation(.easeInOut(duration: 0.3), value: selectedTranscriptions.count)
             }
         }
         .alert("Delete Selected Items?", isPresented: $showDeleteConfirmation) {
@@ -155,7 +86,7 @@ struct TranscriptionHistoryView: View {
         .onAppear {
             isViewCurrentlyVisible = true
             Task {
-                await loadInitialContent()
+                await viewModel.loadInitialContent(searchText: searchText)
             }
         }
         .onDisappear {
@@ -163,8 +94,8 @@ struct TranscriptionHistoryView: View {
         }
         .onChange(of: searchText) { _, _ in
             Task {
-                await resetPagination()
-                await loadInitialContent()
+                viewModel.reset()
+                await viewModel.loadInitialContent(searchText: searchText)
             }
         }
         // Improved change detection for new transcriptions
@@ -173,18 +104,54 @@ struct TranscriptionHistoryView: View {
 
             // Check if a new transcription was added or the latest one changed
             if newId != oldId {
-                // Only refresh if we're on the first page (no pagination cursor set)
-                // or if the view is active and new content is relevant.
-                if lastTimestamp == nil {
-                    Task {
-                        await resetPagination()
-                        await loadInitialContent()
+                Task {
+                    viewModel.reset()
+                    await viewModel.loadInitialContent(searchText: searchText)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var historyContent: some View {
+        if viewModel.displayedTranscriptions.isEmpty && !viewModel.isLoading {
+            emptyStateView
+        } else {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: VoiceInkSpacing.md) {
+                        ForEach(viewModel.displayedTranscriptions) { transcription in
+                            TranscriptionCard(
+                                transcription: transcription,
+                                isExpanded: expandedTranscription == transcription,
+                                isSelected: selectedTranscriptions.contains(transcription),
+                                onDelete: { deleteTranscription(transcription) },
+                                onToggleSelection: { toggleSelection(transcription) }
+                            )
+                            .id(transcription)
+                            .onTapGesture {
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    if expandedTranscription == transcription {
+                                        expandedTranscription = nil
+                                    } else {
+                                        expandedTranscription = transcription
+                                    }
+                                }
+                            }
+                        }
+
+                        if viewModel.hasMoreContent {
+                            loadMoreButton
+                        }
                     }
-                } else {
-                    // Reset pagination to show the latest content
-                    Task {
-                        await resetPagination()
-                        await loadInitialContent()
+                    .animation(.easeInOut(duration: 0.3), value: expandedTranscription)
+                    .padding(.horizontal, VoiceInkSpacing.lg)
+                    .padding(.bottom, selectedTranscriptions.isEmpty ? VoiceInkSpacing.lg : 80)
+                }
+                .padding(.vertical, VoiceInkSpacing.md)
+                .onChange(of: expandedTranscription) { _, newValue in
+                    if let transcription = newValue {
+                        proxy.scrollTo(transcription, anchor: nil)
                     }
                 }
             }
@@ -199,46 +166,66 @@ struct TranscriptionHistoryView: View {
                 .font(.system(size: 16, weight: .regular, design: .default))
                 .textFieldStyle(PlainTextFieldStyle())
         }
-        .padding(12)
-        .background(CardBackground(isSelected: false))
-        .padding(.horizontal, 24)
-        .padding(.vertical, 16)
+        .padding(.horizontal, VoiceInkSpacing.md)
+        .padding(.vertical, VoiceInkSpacing.sm)
+        .voiceInkCardBackground()
     }
     
     private var emptyStateView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 50))
-                .foregroundColor(.secondary)
-            Text("No transcriptions found")
-                .font(.system(size: 24, weight: .semibold, design: .default))
-            Text("Your history will appear here")
-                .font(.system(size: 18, weight: .regular, design: .default))
-                .foregroundColor(.secondary)
+        VStack {
+            Spacer()
+            VoiceInkCard(padding: VoiceInkSpacing.xl) {
+                VStack(spacing: VoiceInkSpacing.md) {
+                    Image(systemName: "doc.text.magnifyingglass")
+                        .font(.system(size: 50))
+                        .foregroundColor(.secondary)
+                    Text("No transcriptions found")
+                        .font(.system(size: 22, weight: .semibold))
+                    Text("Your history will appear here")
+                        .voiceInkSubheadline()
+                }
+            }
+            .frame(maxWidth: 420)
+            Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(CardBackground(isSelected: false))
-        .padding(24)
+    }
+
+    private var loadMoreButton: some View {
+        Button(action: {
+            Task { await viewModel.loadMoreContent(searchText: searchText) }
+        }) {
+            HStack(spacing: VoiceInkSpacing.xs) {
+                if viewModel.isLoading {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+                Text(viewModel.isLoading ? "Loading..." : "Load More")
+                    .font(.system(size: 14, weight: .medium))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, VoiceInkSpacing.sm)
+            .voiceInkCardBackground()
+        }
+        .buttonStyle(.plain)
+        .disabled(viewModel.isLoading)
+        .padding(.top, VoiceInkSpacing.sm)
     }
     
     private var selectionToolbar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: VoiceInkSpacing.sm) {
             Text("\(selectedTranscriptions.count) selected")
-                .foregroundColor(.secondary)
-                .font(.system(size: 14))
-            
+                .voiceInkSubheadline()
+
             Spacer()
-            
-            Button(action: {
+
+            Button {
                 showAnalysisView = true
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "chart.bar.xaxis")
-                    Text("Analyze")
-                }
+            } label: {
+                Label("Analyze", systemImage: "chart.bar.xaxis")
             }
-            .buttonStyle(.borderless)
-            
+            .buttonStyle(SecondaryBorderedButtonStyle())
+
             Menu {
                 ForEach(ExportFormat.allCases) { format in
                     Button(action: {
@@ -248,140 +235,67 @@ struct TranscriptionHistoryView: View {
                     }
                 }
             } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "square.and.arrow.up")
-                    Text("Export")
-                }
+                Label("Export", systemImage: "square.and.arrow.up")
+                    .font(.system(size: 13, weight: .medium))
+                    .padding(.horizontal, VoiceInkSpacing.lg)
+                    .padding(.vertical, VoiceInkSpacing.sm)
+                    .background(
+                        RoundedRectangle(cornerRadius: VoiceInkRadius.medium, style: .continuous)
+                            .fill(VoiceInkTheme.Palette.surface)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: VoiceInkRadius.medium, style: .continuous)
+                            .stroke(VoiceInkTheme.Card.stroke, lineWidth: 1)
+                    )
             }
             .menuStyle(.borderlessButton)
-            .fixedSize()
-            
-            Button(action: {
+
+            Button {
                 showDeleteConfirmation = true
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "trash")
-                    Text("Delete")
-                }
+            } label: {
+                Label("Delete", systemImage: "trash")
             }
-            .buttonStyle(.borderless)
-            
-            if selectedTranscriptions.count < displayedTranscriptions.count {
+            .buttonStyle(SecondaryBorderedButtonStyle(tint: .red))
+
+            if selectedTranscriptions.count < viewModel.displayedTranscriptions.count {
                 Button("Select All") {
-                    Task {
-                        await selectAllTranscriptions()
-                    }
+                    Task { await selectAllTranscriptions() }
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(SecondaryBorderedButtonStyle())
             } else {
                 Button("Deselect All") {
                     selectedTranscriptions.removeAll()
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(SecondaryBorderedButtonStyle())
             }
         }
-        .padding(16)
-        .frame(maxWidth: .infinity)
-        .background(
-            Color(.windowBackgroundColor)
-                .shadow(color: Color.black.opacity(0.1), radius: 3, y: -2)
-        )
-    }
-    
-    @MainActor
-    private func loadInitialContent() async {
-        isLoading = true
-        defer { isLoading = false }
-        
-        do {
-            // Reset cursor
-            lastTimestamp = nil
-            
-            // Fetch initial page without a cursor
-            let items = try modelContext.fetch(cursorQueryDescriptor())
-            
-            displayedTranscriptions = items
-            // Update cursor to the timestamp of the last item
-            lastTimestamp = items.last?.timestamp
-            // If we got fewer items than the page size, there are no more items
-            hasMoreContent = items.count == pageSize
-        } catch {
-            print("Error loading transcriptions: \(error)")
-        }
-    }
-    
-    @MainActor
-    private func loadMoreContent() async {
-        guard !isLoading, hasMoreContent, let lastTimestamp = lastTimestamp else { return }
-        
-        isLoading = true
-        defer { isLoading = false }
-        
-        do {
-            // Fetch next page using the cursor
-            let newItems = try modelContext.fetch(cursorQueryDescriptor(after: lastTimestamp))
-            
-            // Append new items to the displayed list
-            displayedTranscriptions.append(contentsOf: newItems)
-            // Update cursor to the timestamp of the last new item
-            self.lastTimestamp = newItems.last?.timestamp
-            // If we got fewer items than the page size, there are no more items
-            hasMoreContent = newItems.count == pageSize
-        } catch {
-            print("Error loading more transcriptions: \(error)")
-        }
-    }
-    
-    @MainActor
-    private func resetPagination() {
-        displayedTranscriptions = []
-        lastTimestamp = nil
-        hasMoreContent = true
-        isLoading = false
+        .padding(VoiceInkSpacing.md)
+        .voiceInkCardBackground(cornerRadius: VoiceInkRadius.large)
+        .shadow(color: VoiceInkTheme.Shadow.subtle, radius: 18, x: 0, y: 6)
+        .padding(.horizontal, VoiceInkSpacing.lg)
+        .padding(.bottom, VoiceInkSpacing.lg)
     }
     
     private func deleteTranscription(_ transcription: Transcription) {
-        // First delete the audio file if it exists
-        if let urlString = transcription.audioFileURL,
-           let url = URL(string: urlString) {
-            try? FileManager.default.removeItem(at: url)
-        }
-        
-        modelContext.delete(transcription)
-        if expandedTranscription == transcription {
-            expandedTranscription = nil
-        }
-        
-        // Remove from selection if selected
-        selectedTranscriptions.remove(transcription)
-        
-        // Refresh the view
         Task {
-            try? await modelContext.save()
-            await loadInitialContent()
+            await viewModel.deleteTranscription(transcription)
+            if expandedTranscription == transcription {
+                expandedTranscription = nil
+            }
+            selectedTranscriptions.remove(transcription)
+            await viewModel.loadInitialContent(searchText: searchText)
         }
     }
     
     private func deleteSelectedTranscriptions() {
-        // Delete audio files and transcriptions
-        for transcription in selectedTranscriptions {
-            if let urlString = transcription.audioFileURL,
-               let url = URL(string: urlString) {
-                try? FileManager.default.removeItem(at: url)
-            }
-            modelContext.delete(transcription)
-            if expandedTranscription == transcription {
+        let items = Array(selectedTranscriptions)
+        Task {
+            await viewModel.deleteTranscriptions(items)
+            selectedTranscriptions.removeAll()
+            if let expanded = expandedTranscription, items.contains(expanded) {
                 expandedTranscription = nil
             }
-        }
-        
-        // Clear selection
-        selectedTranscriptions.removeAll()
-        
-        // Save changes and refresh
-        Task {
-            try? await modelContext.save()
-            await loadInitialContent()
+            await viewModel.loadInitialContent(searchText: searchText)
         }
     }
     
@@ -413,13 +327,12 @@ struct TranscriptionHistoryView: View {
             // Fetch all matching transcriptions
             let allTranscriptions = try modelContext.fetch(allDescriptor)
             
-            // Create a set of all visible transcriptions for quick lookup
-            let visibleIds = Set(displayedTranscriptions.map { $0.id })
+            let visibleIds = Set(viewModel.displayedTranscriptions.map { $0.id })
             
             // Add all transcriptions to the selection
             await MainActor.run {
                 // First add all visible transcriptions directly
-                selectedTranscriptions = Set(displayedTranscriptions)
+                selectedTranscriptions = Set(viewModel.displayedTranscriptions)
                 
                 // Then add any non-visible transcriptions by ID
                 for transcription in allTranscriptions {
@@ -429,7 +342,7 @@ struct TranscriptionHistoryView: View {
                 }
             }
         } catch {
-            print("Error selecting all transcriptions: \(error)")
+            AppLogger.storage.error("Failed to select all transcriptions: \(error.localizedDescription)")
         }
     }
     

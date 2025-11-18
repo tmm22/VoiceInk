@@ -10,9 +10,9 @@ struct SettingsView: View {
     @EnvironmentObject private var hotkeyManager: HotkeyManager
     @EnvironmentObject private var whisperState: WhisperState
     @EnvironmentObject private var enhancementService: AIEnhancementService
-    @StateObject private var deviceManager = AudioDeviceManager.shared
-    @ObservedObject private var mediaController = MediaController.shared
-    @ObservedObject private var playbackController = PlaybackController.shared
+    @StateObject private var deviceManager: AudioDeviceManager
+    @ObservedObject private var mediaController: MediaController
+    @ObservedObject private var playbackController: PlaybackController
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = true
     @AppStorage("autoUpdateCheck") private var autoUpdateCheck = true
     @AppStorage("enableAnnouncements") private var enableAnnouncements = true
@@ -30,14 +30,22 @@ struct SettingsView: View {
     @State private var showTTSGoogleKey = false
     private let keychainManager = KeychainManager()
 
+    init(deviceManager: AudioDeviceManager = .shared,
+         mediaController: MediaController = .shared,
+         playbackController: PlaybackController = .shared) {
+        _deviceManager = StateObject(wrappedValue: deviceManager)
+        _mediaController = ObservedObject(wrappedValue: mediaController)
+        _playbackController = ObservedObject(wrappedValue: playbackController)
+    }
+
     
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                SettingsSection(
+                VoiceInkSection(
                     icon: "command.circle",
-                    title: "VoiceLink Community Shortcuts",
-                    subtitle: "Choose how you want to trigger VoiceLink Community"
+                    title: "\(AppBrand.communityName) Shortcuts",
+                    subtitle: "Choose how you want to trigger \(AppBrand.communityName)"
                 ) {
                     VStack(alignment: .leading, spacing: 18) {
                         hotkeyView(
@@ -79,10 +87,10 @@ struct SettingsView: View {
                     }
                 }
 
-                SettingsSection(
+                VoiceInkSection(
                     icon: "keyboard.badge.ellipsis",
                     title: "Other App Shortcuts",
-                    subtitle: "Additional shortcuts for VoiceLink Community"
+                    subtitle: "Additional shortcuts for \(AppBrand.communityName)"
                 ) {
                     VStack(alignment: .leading, spacing: 18) {
                         // Paste Last Transcript (Original)
@@ -187,7 +195,7 @@ struct SettingsView: View {
                                 
                                 InfoTip(
                                     title: "Middle-Click Toggle",
-                                    message: "Use middle mouse button to toggle VoiceLink Community recording."
+                                    message: "Use middle mouse button to toggle \(AppBrand.communityName) recording."
                                 )
                             }
 
@@ -221,7 +229,7 @@ struct SettingsView: View {
                     }
                 }
 
-                SettingsSection(
+                VoiceInkSection(
                     icon: "speaker.wave.2.bubble.left.fill",
                     title: "Audio Feedback",
                     subtitle: "Customize recording sounds and volumes"
@@ -229,7 +237,7 @@ struct SettingsView: View {
                     AudioFeedbackSettingsView()
                 }
                 
-                SettingsSection(
+                VoiceInkSection(
                     icon: "waveform.badge.mic",
                     title: "Recording Behavior",
                     subtitle: "System audio and clipboard settings"
@@ -261,7 +269,7 @@ struct SettingsView: View {
                     TTSSettingsSection()
                 }
 
-                SettingsSection(
+                VoiceInkSection(
                     icon: "wand.and.stars",
                     title: "AI Enhancements",
                     subtitle: "Optional features that rely on external AI providers"
@@ -280,7 +288,7 @@ struct SettingsView: View {
                     }
                 }
 
-                SettingsSection(
+                VoiceInkSection(
                     icon: "rectangle.on.rectangle",
                     title: "Recorder Style",
                     subtitle: "Choose your preferred recorder interface"
@@ -298,7 +306,7 @@ struct SettingsView: View {
                     }
                 }
 
-                SettingsSection(
+                VoiceInkSection(
                     icon: "doc.on.clipboard",
                     title: "Paste Method",
                     subtitle: "Choose how text is pasted"
@@ -315,7 +323,7 @@ struct SettingsView: View {
                     }
                 }
 
-                SettingsSection(
+                VoiceInkSection(
                     icon: "gear",
                     title: "General",
                     subtitle: "Appearance, startup, and updates"
@@ -360,7 +368,7 @@ struct SettingsView: View {
                     }
                 }
                 
-                SettingsSection(
+                VoiceInkSection(
                     icon: "lock.shield",
                     title: "Data & Privacy",
                     subtitle: "Control transcript history and storage"
@@ -368,7 +376,7 @@ struct SettingsView: View {
                     AudioCleanupSettingsView()
                 }
                 
-                SettingsSection(
+                VoiceInkSection(
                     icon: "arrow.up.arrow.down.circle",
                     title: "Data Management",
                     subtitle: "Import or export your settings"
@@ -454,7 +462,7 @@ struct SettingsView: View {
     
     @ViewBuilder
     private func TTSSettingsSection() -> some View {
-        SettingsSection(
+        VoiceInkSection(
             icon: "waveform.circle.fill",
             title: "Text-to-Speech",
             subtitle: "Configure TTS providers and audio settings"
@@ -625,60 +633,6 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
             }
         }
-    }
-}
-
-struct SettingsSection<Content: View>: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-    let content: Content
-    var showWarning: Bool = false
-    
-    init(icon: String, title: String, subtitle: String, showWarning: Bool = false, @ViewBuilder content: () -> Content) {
-        self.icon = icon
-        self.title = title
-        self.subtitle = subtitle
-        self.showWarning = showWarning
-        self.content = content()
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundColor(showWarning ? .red : .secondary)
-                    .frame(width: 16, height: 16)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 13, weight: .medium))
-                    Text(subtitle)
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                }
-                
-                if showWarning {
-                    Spacer()
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 12))
-                        .foregroundColor(.red)
-                        .help("Permission required for VoiceLink Community to function properly")
-                }
-            }
-            
-            Divider()
-            
-            content
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(CardBackground(isSelected: showWarning, useAccentGradientWhenSelected: true))
-        .overlay(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .stroke(showWarning ? Color.red.opacity(0.5) : Color.clear, lineWidth: 1)
-        )
     }
 }
 

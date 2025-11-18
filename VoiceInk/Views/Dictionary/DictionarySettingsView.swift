@@ -14,7 +14,7 @@ struct DictionarySettingsView: View {
             case .quickRules:
                 return "Apply preset correction rules to clean up transcribed text"
             case .spellings:
-                return "Add words to help VoiceLink Community recognize them properly"
+                return "Add words to help \(AppBrand.communityName) recognize them properly"
             case .replacements:
                 return "Automatically replace specific words/phrases with custom formatted text "
             }
@@ -56,7 +56,7 @@ struct DictionarySettingsView: View {
             VStack(spacing: 8) {
                 Text("Dictionary Settings")
                     .font(.system(size: 28, weight: .bold))
-                Text("Enhance VoiceLink Community's transcription accuracy by teaching it your vocabulary")
+                Text("Enhance \(AppBrand.communityName)'s transcription accuracy by teaching it your vocabulary")
                     .font(.system(size: 15))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

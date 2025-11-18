@@ -15,7 +15,7 @@ struct DashboardPromotionsSection: View {
         HStack(alignment: .top, spacing: 18) {
             DashboardPromotionCard(
                 badge: "COMMUNITY",
-                title: "Support VoiceLink Community",
+                title: "Support \(AppBrand.communityName)",
                 message: "Star the project on GitHub or contribute improvements to help the community edition thrive.",
                 accentSymbol: "hands.sparkles.fill",
                 glowColor: Color(nsColor: .controlAccentColor),

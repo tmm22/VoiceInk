@@ -28,7 +28,7 @@ class WindowManager: NSObject {
         window.titleVisibility = .hidden
         window.backgroundColor = .windowBackgroundColor
         window.isReleasedWhenClosed = false
-        window.title = "VoiceLink Community"
+        window.title = "\(AppBrand.communityName)"
         window.collectionBehavior = [.fullScreenPrimary]
         window.level = .normal
         window.isOpaque = true
@@ -54,7 +54,7 @@ class WindowManager: NSObject {
         window.backgroundColor = .clear
         window.isReleasedWhenClosed = false
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        window.title = "VoiceLink Community Onboarding"
+        window.title = "\(AppBrand.communityName) Onboarding"
         window.isOpaque = false
         window.minSize = NSSize(width: 900, height: 780)
         window.makeKeyAndOrderFront(nil)
