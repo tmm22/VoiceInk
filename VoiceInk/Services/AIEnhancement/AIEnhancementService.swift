@@ -183,7 +183,15 @@ class AIEnhancementService: ObservableObject {
                 return activePrompt.finalPromptText + finalContextSection
             }
         } else {
-            let defaultPrompt = allPrompts.first(where: { $0.id == PredefinedPrompts.defaultPromptId }) ?? allPrompts.first!
+            let defaultPrompt = allPrompts.first(where: { $0.id == PredefinedPrompts.defaultPromptId }) 
+                ?? allPrompts.first 
+                ?? CustomPrompt(
+                    title: "Enhance",
+                    promptText: "Enhance the following text.",
+                    icon: "wand.and.stars",
+                    description: "Default enhancement prompt",
+                    isPredefined: true
+                )
             return defaultPrompt.finalPromptText + finalContextSection
         }
     }

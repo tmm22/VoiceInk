@@ -95,17 +95,10 @@ final class LocalTTSService: NSObject, TTSProvider {
 
 // MARK: - Voice Helpers
 private extension LocalTTSService {
+    @MainActor
     static func loadSystemVoices() -> [Voice] {
-        let fetchVoices: () -> [AVSpeechSynthesisVoice] = {
-            AVSpeechSynthesisVoice.speechVoices()
-        }
-
-        let systemVoices: [AVSpeechSynthesisVoice]
-        if Thread.isMainThread {
-            systemVoices = fetchVoices()
-        } else {
-            systemVoices = DispatchQueue.main.sync(execute: fetchVoices)
-        }
+        // Since LocalTTSService is @MainActor, this runs on the main thread.
+        let systemVoices = AVSpeechSynthesisVoice.speechVoices()
 
         let mapped = systemVoices
             .sorted { lhs, rhs in

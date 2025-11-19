@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import os
 
 class MiniWindowManager: ObservableObject {
     @Published var isVisible = false
@@ -7,6 +8,7 @@ class MiniWindowManager: ObservableObject {
     private var miniPanel: MiniRecorderPanel?
     private let whisperState: WhisperState
     private let recorder: Recorder
+    private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "MiniWindowManager")
     
     init(whisperState: WhisperState, recorder: Recorder) {
         self.whisperState = whisperState
@@ -35,9 +37,10 @@ class MiniWindowManager: ObservableObject {
 
         let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
 
-        initializeWindow(screen: activeScreen)
-        self.isVisible = true
-        miniPanel?.show()
+        if initializeWindow(screen: activeScreen) {
+            self.isVisible = true
+            miniPanel?.show()
+        }
     }
 
     func hide() {
@@ -50,15 +53,20 @@ class MiniWindowManager: ObservableObject {
         }
     }
     
-    private func initializeWindow(screen: NSScreen) {
+    private func initializeWindow(screen: NSScreen) -> Bool {
         deinitializeWindow()
+        
+        guard let enhancementService = whisperState.enhancementService else {
+            logger.error("Enhancement service is missing. Cannot initialize mini recorder.")
+            return false
+        }
         
         let metrics = MiniRecorderPanel.calculateWindowMetrics()
         let panel = MiniRecorderPanel(contentRect: metrics)
         
         let miniRecorderView = MiniRecorderView(whisperState: whisperState, recorder: recorder)
             .environmentObject(self)
-            .environmentObject(whisperState.enhancementService!)
+            .environmentObject(enhancementService)
         
         let hostingController = NSHostingController(rootView: miniRecorderView)
         panel.contentView = hostingController.view
@@ -67,6 +75,7 @@ class MiniWindowManager: ObservableObject {
         self.windowController = NSWindowController(window: panel)
         
         panel.orderFrontRegardless()
+        return true
     }
     
     private func deinitializeWindow() {
