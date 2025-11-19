@@ -18,7 +18,7 @@ struct TranscriptionFallbackView: View {
                 
                 Spacer()
                 
-                Text("VoiceLink Community")
+                Text("\(AppBrand.communityName)")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundColor(.secondary)
                 

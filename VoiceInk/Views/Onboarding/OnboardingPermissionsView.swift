@@ -49,13 +49,13 @@ struct OnboardingPermissionsView: View {
         ),
         OnboardingPermission(
             title: "Microphone Selection",
-            description: "Select the audio input device you want to use with VoiceLink Community.",
+            description: "Select the audio input device you want to use with \(AppBrand.communityName).",
             icon: "headphones",
             type: .audioDeviceSelection
         ),
         OnboardingPermission(
             title: "Accessibility Access",
-            description: "Allow VoiceLink Community to help you type anywhere on your Mac.",
+            description: "Allow \(AppBrand.communityName) to help you type anywhere on your Mac.",
             icon: "accessibility",
             type: .accessibility
         ),
@@ -67,7 +67,7 @@ struct OnboardingPermissionsView: View {
         ),
         OnboardingPermission(
             title: "Keyboard Shortcut",
-            description: "Set up a keyboard shortcut to quickly access VoiceLink Community from anywhere.",
+            description: "Set up a keyboard shortcut to quickly access \(AppBrand.communityName) from anywhere.",
             icon: "keyboard",
             type: .keyboardShortcut
         )
@@ -126,7 +126,7 @@ struct OnboardingPermissionsView: View {
                                     if permissions[currentPermissionIndex].type == .screenRecording {
                                         InfoTip(
                                             title: "Screen Recording Access",
-                                            message: "VoiceLink Community captures on-screen text to understand the context of your voice input, which significantly improves transcription accuracy. Your privacy is important: this data is processed locally and is not stored.",
+                                            message: "\(AppBrand.communityName) captures on-screen text to understand the context of your voice input, which significantly improves transcription accuracy. Your privacy is important: this data is processed locally and is not stored.",
                                             learnMoreURL: "https://tryvoiceink.com/docs/contextual-awareness"
                                         )
                                     }

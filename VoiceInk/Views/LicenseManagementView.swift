@@ -24,7 +24,7 @@ struct LicenseManagementView: View {
                 .frame(width: 96, height: 96)
 
             VStack(spacing: 8) {
-                Text("VoiceLink Community Edition")
+                Text("\(AppBrand.communityName) Edition")
                     .font(.system(size: 32, weight: .bold))
 
                 Text("Version \(appVersion)")

@@ -16,7 +16,7 @@ class LicenseViewModel: ObservableObject {
 
     @Published private(set) var licenseState: LicenseState = .communityEdition
 
-    let headline = "VoiceLink Community Edition is fully unlocked."
+    let headline = "\(AppBrand.communityName) Edition is fully unlocked."
     let subheadline = "No license keys, no trials, and no upgrade prompts—everything you need ships out of the box."
 
     let contributionNote = "Consider supporting continued development or sharing improvements with the community."

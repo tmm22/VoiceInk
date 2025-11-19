@@ -65,7 +65,7 @@ struct MetricsContent: View {
                     .font(.system(size: 28, design: .default))
                     .foregroundColor(.primary)
                  +
-                 Text(" with VoiceLink Community")
+                 Text(" with \(AppBrand.communityName)")
                     .fontWeight(.regular)
                     .foregroundColor(.primary)
                 )
@@ -95,7 +95,7 @@ struct MetricsContent: View {
                 icon: "mic.fill",
                 title: "Sessions Recorded",
                 value: "\(transcriptions.count)",
-                detail: "VoiceLink Community sessions completed",
+                detail: "\(AppBrand.communityName) sessions completed",
                 color: .purple
             )
             
@@ -113,7 +113,7 @@ struct MetricsContent: View {
                 value: averageWordsPerMinute > 0
                     ? String(format: "%.1f", averageWordsPerMinute)
                     : "–",
-                detail: "VoiceLink vs. typing by hand",
+                detail: "\(AppBrand.primaryName) vs. typing by hand",
                 color: .yellow
             )
             
@@ -140,7 +140,7 @@ struct MetricsContent: View {
     
     private var heroSubtitle: String {
         guard !transcriptions.isEmpty else {
-            return "Your VoiceLink Community journey starts with your first recording."
+            return "Your \(AppBrand.communityName) journey starts with your first recording."
         }
         
         let wordsText = Formatters.formattedNumber(totalWordsTranscribed)

@@ -4,7 +4,7 @@ import AppKit
 
 struct EmailSupport {
     static func generateSupportEmailURL() -> URL? {
-        let subject = "VoiceLink Community Support Request"
+        let subject = "\(AppBrand.communityName) Support Request"
         let systemInfo = SystemInfoService.shared.getSystemInfoString()
 
         let body = """

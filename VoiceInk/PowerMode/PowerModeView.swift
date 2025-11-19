@@ -217,7 +217,7 @@ struct PowerModeView: View {
                                                     .font(.system(size: 20, weight: .medium))
                                                     .foregroundColor(.primary)
                                                 
-                                                Text("Create first power mode to automate your VoiceLink Community workflow based on apps/website you are using")
+                                                Text("Create first power mode to automate your \(AppBrand.communityName) workflow based on apps/website you are using")
                                                     .font(.system(size: 14))
                                                     .foregroundColor(.secondary)
                                                     .multilineTextAlignment(.center)

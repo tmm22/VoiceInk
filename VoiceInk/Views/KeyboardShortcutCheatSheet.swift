@@ -138,7 +138,7 @@ struct KeyboardShortcutCheatSheet: View {
                         )
                         
                         ShortcutRow(
-                            action: "Quit VoiceLink",
+                            action: "Quit \(AppBrand.primaryName)",
                             shortcut: "⌘Q",
                             description: "Exit the application"
                         )

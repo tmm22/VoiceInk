@@ -3,36 +3,42 @@ import SwiftData
 import UniformTypeIdentifiers
 import AVFoundation
 
+@MainActor
 struct AudioTranscribeView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var whisperState: WhisperState
-    @StateObject private var transcriptionManager = AudioTranscriptionManager.shared
+    @StateObject private var transcriptionManager: AudioTranscriptionManager
     @State private var isDropTargeted = false
     @State private var selectedAudioURL: URL?
     @State private var isAudioFileSelected = false
     @State private var isEnhancementEnabled = false
     @State private var selectedPromptId: UUID?
+
+    init(transcriptionManager: AudioTranscriptionManager) {
+        _transcriptionManager = StateObject(wrappedValue: transcriptionManager)
+    }
+
+    @MainActor
+    init() {
+        _transcriptionManager = StateObject(wrappedValue: AudioTranscriptionManager.shared)
+    }
     
     var body: some View {
-        ZStack {
-            Color(NSColor.controlBackgroundColor)
-                .ignoresSafeArea()
-            
-            VStack(spacing: 0) {
-                if transcriptionManager.isProcessing {
-                    processingView
-                } else {
-                    dropZoneView
+        ScrollView {
+            VStack(spacing: VoiceInkSpacing.lg) {
+                VoiceInkCard(padding: VoiceInkSpacing.xl) {
+                    if transcriptionManager.isProcessing {
+                        processingView
+                    } else {
+                        uploaderView
+                    }
                 }
-                
-                Divider()
-                    .padding(.vertical)
-                
-                // Show current transcription result
+
                 if let transcription = transcriptionManager.currentTranscription {
                     TranscriptionResultView(transcription: transcription)
                 }
             }
+            .padding(VoiceInkSpacing.lg)
         }
         .onDrop(of: [.fileURL, .data, .audio, .movie], isTargeted: $isDropTargeted) { providers in
             if !transcriptionManager.isProcessing && !isAudioFileSelected {
@@ -52,151 +58,126 @@ struct AudioTranscribeView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .openFileForTranscription)) { notification in
             if let url = notification.userInfo?["url"] as? URL {
-                // Do not auto-start; only select file for manual transcription
                 validateAndSetAudioFile(url)
             }
         }
     }
     
-    private var dropZoneView: some View {
-        VStack(spacing: 16) {
+    private var uploaderView: some View {
+        VStack(spacing: VoiceInkSpacing.lg) {
             if isAudioFileSelected {
-                VStack(spacing: 16) {
-                    Text("Audio file selected: \(selectedAudioURL?.lastPathComponent ?? "")")
-                        .font(.headline)
-                    
-                    // AI Enhancement Settings
-                    if let enhancementService = whisperState.getEnhancementService() {
-                        VStack(spacing: 16) {
-                            // AI Enhancement and Prompt in the same row
-                            HStack(spacing: 16) {
-                                Toggle("AI Enhancement", isOn: $isEnhancementEnabled)
-                                    .toggleStyle(.switch)
-                                    .onChange(of: isEnhancementEnabled) { oldValue, newValue in
-                                        enhancementService.isEnhancementEnabled = newValue
-                                    }
-                                
-                                if isEnhancementEnabled {
-                                    Divider()
-                                        .frame(height: 20)
-                                    
-                                    // Prompt Selection
-                                    HStack(spacing: 8) {
-                                        Text("Prompt:")
-                                            .font(.subheadline)
-                                        
-                                        if enhancementService.allPrompts.isEmpty {
-                                            Text("No prompts available")
-                                                .foregroundColor(.secondary)
-                                                .italic()
-                                                .font(.caption)
-                                        } else {
-                                            let promptBinding = Binding<UUID>(
-                                                get: {
-                                                    selectedPromptId ?? enhancementService.allPrompts.first?.id ?? UUID()
-                                                },
-                                                set: { newValue in
-                                                    selectedPromptId = newValue
-                                                    enhancementService.selectedPromptId = newValue
-                                                }
-                                            )
-                                            
-                                            Picker("", selection: promptBinding) {
-                                                ForEach(enhancementService.allPrompts) { prompt in
-                                                    Text(prompt.title).tag(prompt.id)
-                                                }
-                                            }
-                                            .labelsHidden()
-                                            .fixedSize()
-                                        }
-                                    }
+                selectedFileView
+            } else {
+                VoiceInkDropZone(
+                    isActive: isDropTargeted,
+                    title: "Drop audio or video file here",
+                    subtitle: "Drag files directly into this window or choose a file manually.",
+                    buttonTitle: "Choose File",
+                    buttonAction: selectFile
+                )
+                .frame(height: 240)
+            }
+
+            Text("Supported formats: WAV, MP3, M4A, AIFF, MP4, MOV")
+                .voiceInkCaptionStyle()
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var selectedFileView: some View {
+        VStack(alignment: .leading, spacing: VoiceInkSpacing.lg) {
+            if let fileName = selectedAudioURL?.lastPathComponent {
+                Text("Audio file selected: \(fileName)")
+                    .voiceInkHeadline()
+            }
+
+            if let enhancementService = whisperState.getEnhancementService() {
+                enhancementControls(for: enhancementService)
+                    .onAppear {
+                        isEnhancementEnabled = enhancementService.isEnhancementEnabled
+                        selectedPromptId = enhancementService.selectedPromptId
+                    }
+            }
+
+            HStack(spacing: VoiceInkSpacing.sm) {
+                Button("Start Transcription") {
+                    if let url = selectedAudioURL {
+                        transcriptionManager.startProcessing(
+                            url: url,
+                            modelContext: modelContext,
+                            whisperState: whisperState
+                        )
+                    }
+                }
+                .buttonStyle(PrimaryProminentButtonStyle())
+
+                Button("Choose Different File") {
+                    selectedAudioURL = nil
+                    isAudioFileSelected = false
+                }
+                .buttonStyle(SecondaryBorderedButtonStyle())
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func enhancementControls(for service: AIEnhancementService) -> some View {
+        VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
+            HStack(spacing: VoiceInkSpacing.sm) {
+                Toggle("AI Enhancement", isOn: $isEnhancementEnabled)
+                    .toggleStyle(.switch)
+                    .onChange(of: isEnhancementEnabled) { _, newValue in
+                        service.isEnhancementEnabled = newValue
+                    }
+
+                if isEnhancementEnabled {
+                    Divider()
+                        .frame(height: 20)
+
+                    HStack(spacing: VoiceInkSpacing.xs) {
+                        Text("Prompt")
+                            .voiceInkSubheadline()
+
+                        if service.allPrompts.isEmpty {
+                            Text("No prompts available")
+                                .voiceInkCaptionStyle()
+                                .italic()
+                        } else {
+                            let promptBinding = Binding<UUID>(
+                                get: {
+                                    selectedPromptId ?? service.allPrompts.first?.id ?? UUID()
+                                },
+                                set: { newValue in
+                                    selectedPromptId = newValue
+                                    service.selectedPromptId = newValue
+                                }
+                            )
+
+                            Picker("Prompt", selection: promptBinding) {
+                                ForEach(service.allPrompts) { prompt in
+                                    Text(prompt.title).tag(prompt.id)
                                 }
                             }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                                        .background(CardBackground(isSelected: false))
+                            .labelsHidden()
+                            .fixedSize()
                         }
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .onAppear {
-                            // Initialize local state from enhancement service
-                            isEnhancementEnabled = enhancementService.isEnhancementEnabled
-                            selectedPromptId = enhancementService.selectedPromptId
-                        }
-                    }
-                    
-                    // Action Buttons in a row
-                    HStack(spacing: 12) {
-                        Button("Start Transcription") {
-                            if let url = selectedAudioURL {
-                                transcriptionManager.startProcessing(
-                                    url: url,
-                                    modelContext: modelContext,
-                                    whisperState: whisperState
-                                )
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        
-                        Button("Choose Different File") {
-                            selectedAudioURL = nil
-                            isAudioFileSelected = false
-                        }
-                        .buttonStyle(.bordered)
                     }
                 }
-                .padding()
-            } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(.windowBackgroundColor).opacity(0.4))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .strokeBorder(
-                                    style: StrokeStyle(
-                                        lineWidth: 2,
-                                        dash: [8]
-                                    )
-                                )
-                                .foregroundColor(isDropTargeted ? .blue : .gray.opacity(0.5))
-                        )
-                    
-                    VStack(spacing: 16) {
-                        Image(systemName: "arrow.down.doc")
-                            .font(.system(size: 32))
-                            .foregroundColor(isDropTargeted ? .blue : .gray)
-                        
-                        Text("Drop audio or video file here")
-                            .font(.headline)
-                        
-                        Text("or")
-                            .foregroundColor(.secondary)
-                        
-                        Button("Choose File") {
-                            selectFile()
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                    .padding(32)
-                }
-                .frame(height: 200)
-                .padding(.horizontal)
             }
-            
-            Text("Supported formats: WAV, MP3, M4A, AIFF, MP4, MOV")
-                .font(.caption)
-                .foregroundColor(.secondary)
         }
-        .padding()
+        .padding(VoiceInkSpacing.md)
+        .voiceInkCardBackground()
     }
     
     private var processingView: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: VoiceInkSpacing.md) {
             ProgressView()
-                .scaleEffect(0.8)
+                .controlSize(.large)
+
             Text(transcriptionManager.processingPhase.message)
-                .font(.headline)
+                .voiceInkHeadline()
         }
-        .padding()
+        .frame(maxWidth: .infinity)
     }
     
     private func selectFile() {

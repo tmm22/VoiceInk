@@ -197,7 +197,7 @@ struct MenuBarView: View {
             
             Divider()
             
-            Button("Quit VoiceLink Community") {
+            Button("Quit \(AppBrand.communityName)") {
                 NSApplication.shared.terminate(nil)
             }
         }

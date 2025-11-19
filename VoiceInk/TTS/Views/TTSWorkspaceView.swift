@@ -1559,7 +1559,7 @@ private struct SampleTextUtilityView: View {
                 }
                 Button("Demo feature tour") {
                     viewModel.inputText = """
-Welcome to the VoiceLink Community Text-to-Speech workspace! This experience transforms written text into natural-sounding speech using a curated set of AI voices.
+Welcome to the \(AppBrand.communityName) Text-to-Speech workspace! This experience transforms written text into natural-sounding speech using a curated set of AI voices.
 
 Choose between OpenAI, ElevenLabs, Google Cloud, or the offline Tight Ass Mode. Dial in voice style, playback speed, and export format so each narration fits the moment.
 
@@ -1573,7 +1573,7 @@ The art of text-to-speech synthesis has evolved dramatically over the past decad
 
 Modern providers use deep learning models trained on vast speech corpora. These networks capture intonation, rhythm, pacing, and emotion to produce rich voices on demand.
 
-From accessibility tools to audiobooks, synthetic narration is reshaping how we consume information. VoiceLink Community brings those capabilities to the desktop so you can experiment, prototype, and deliver high-quality speech quickly.
+From accessibility tools to audiobooks, synthetic narration is reshaping how we consume information. \(AppBrand.communityName) brings those capabilities to the desktop so you can experiment, prototype, and deliver high-quality speech quickly.
 """
                     onClose()
                 }

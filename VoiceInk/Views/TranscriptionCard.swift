@@ -115,14 +115,14 @@ struct TranscriptionCard: View {
                 Text(title)
                     .font(.system(size: 11, weight: isSelected ? .medium : .regular))
                     .foregroundColor(isSelected ? .primary : .secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, VoiceInkSpacing.sm)
+                    .padding(.vertical, VoiceInkSpacing.xxs)
                     .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(isSelected ? Color.primary.opacity(0.06) : Color.clear)
+                        RoundedRectangle(cornerRadius: VoiceInkRadius.small)
+                            .fill(isSelected ? VoiceInkTheme.Palette.accent.opacity(0.12) : Color.clear)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 4)
-                                    .stroke(isSelected ? Color.primary.opacity(0.12) : Color.primary.opacity(0.08), lineWidth: 1)
+                                RoundedRectangle(cornerRadius: VoiceInkRadius.small)
+                                    .stroke(isSelected ? VoiceInkTheme.Palette.accent.opacity(0.4) : VoiceInkTheme.Card.stroke, lineWidth: 1)
                             )
                     )
             }
@@ -132,7 +132,7 @@ struct TranscriptionCard: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: VoiceInkSpacing.md) {
             Toggle("", isOn: Binding(
                 get: { isSelected },
                 set: { _ in onToggleSelection() }
@@ -140,7 +140,7 @@ struct TranscriptionCard: View {
             .toggleStyle(CircularCheckboxStyle())
             .labelsHidden()
             
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
                 HStack {
                     Text(transcription.timestamp, format: .dateTime.month(.abbreviated).day().year().hour().minute())
                         .font(.system(size: 12, weight: .regular, design: .default))
@@ -149,9 +149,9 @@ struct TranscriptionCard: View {
 
                     Text(formatTiming(transcription.duration))
                         .font(.system(size: 11, weight: .regular, design: .default))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(Color.primary.opacity(0.06))
+                        .padding(.horizontal, VoiceInkSpacing.xs)
+                        .padding(.vertical, VoiceInkSpacing.xxs)
+                        .background(VoiceInkTheme.Palette.muted)
                         .foregroundColor(.secondary)
                         .cornerRadius(4)
                 }
@@ -239,8 +239,9 @@ struct TranscriptionCard: View {
                 }
             }
         }
-        .padding(16)
-        .background(CardBackground(isSelected: false))
+        .padding(VoiceInkSpacing.md)
+        .voiceInkCardBackground(isSelected: isSelected, cornerRadius: VoiceInkRadius.large)
+        .shadow(color: VoiceInkTheme.Shadow.subtle.opacity(isSelected ? 0.35 : 0.2), radius: 12, x: 0, y: 6)
         .contextMenu {
             if let enhancedText = transcription.enhancedText {
                 Button {

@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
 
-/// Centralized logging system for VoiceLink Community
+/// Centralized logging system for \(AppBrand.communityName)
 ///
 /// Provides structured, categorized logging with consistent formatting across the application.
 /// Uses OSLog for performance and integration with macOS Console.app.
