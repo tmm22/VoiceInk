@@ -46,9 +46,27 @@ class AudioLevelMonitor: ObservableObject {
     
     // MARK: - Private Properties
     
-    private var audioEngine: AVAudioEngine?
-    private var inputNode: AVAudioInputNode?
-    private var levelUpdateTimer: Timer?
+    private class AudioResources {
+        let engine: AVAudioEngine
+        let input: AVAudioInputNode
+        var timer: Timer?
+        
+        init(engine: AVAudioEngine, input: AVAudioInputNode, timer: Timer? = nil) {
+            self.engine = engine
+            self.input = input
+            self.timer = timer
+        }
+        
+        deinit {
+            timer?.invalidate()
+            input.removeTap(onBus: 0)
+            if engine.isRunning {
+                engine.stop()
+            }
+        }
+    }
+    
+    private var resources: AudioResources?
     
     // Audio processing
     private var lastLevel: Float = 0.0
@@ -60,14 +78,7 @@ class AudioLevelMonitor: ObservableObject {
         // Clean initialization, setup happens on demand
     }
     
-    nonisolated deinit {
-        // Ensure cleanup - use Task for async work
-        Task { @MainActor in
-            if isMonitoring {
-                stopMonitoring()
-            }
-        }
-    }
+    // No deinit needed - AudioResources handles cleanup automatically
     
     // MARK: - Public Methods
     
@@ -86,11 +97,12 @@ class AudioLevelMonitor: ObservableObject {
             isMonitoring = true
             
             // Start level update timer
-            levelUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+            let timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
                 Task { @MainActor [weak self] in
                     self?.updateDisplayLevel()
                 }
             }
+            resources?.timer = timer
             
         } catch let monitorError as AudioMonitorError {
             error = monitorError
@@ -169,8 +181,7 @@ class AudioLevelMonitor: ObservableObject {
             throw AudioMonitorError.engineStartFailed(error)
         }
         
-        self.audioEngine = engine
-        self.inputNode = input
+        self.resources = AudioResources(engine: engine, input: input)
     }
     
     private func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
@@ -206,17 +217,8 @@ class AudioLevelMonitor: ObservableObject {
     }
     
     private func cleanup() {
-        // Stop timer
-        levelUpdateTimer?.invalidate()
-        levelUpdateTimer = nil
-        
-        // Remove tap
-        inputNode?.removeTap(onBus: 0)
-        
-        // Stop and cleanup engine
-        audioEngine?.stop()
-        audioEngine = nil
-        inputNode = nil
+        // Release resources which triggers AudioResources deinit
+        resources = nil
     }
     
     // MARK: - Helper Methods
