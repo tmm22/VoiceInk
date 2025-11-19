@@ -15,6 +15,21 @@ enum AudioInputMode: String, CaseIterable {
     case prioritized = "Prioritized"
 }
 
+// Standalone callback function for AudioObject property listener
+private func audioDevicePropertyListener(
+    objectID: AudioObjectID,
+    numberAddresses: UInt32,
+    addresses: UnsafePointer<AudioObjectPropertyAddress>,
+    clientData: UnsafeMutableRawPointer?
+) -> OSStatus {
+    guard let clientData = clientData else { return noErr }
+    let manager = Unmanaged<AudioDeviceManager>.fromOpaque(clientData).takeUnretainedValue()
+    DispatchQueue.main.async {
+        manager.handleDeviceListChange()
+    }
+    return noErr
+}
+
 class AudioDeviceManager: ObservableObject {
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "AudioDeviceManager")
     @Published var availableDevices: [(id: AudioDeviceID, uid: String, name: String)] = []
@@ -349,13 +364,7 @@ class AudioDeviceManager: ObservableObject {
         let status = AudioObjectAddPropertyListener(
             systemObjectID,
             &address,
-            { (_, _, _, userData) -> OSStatus in
-                let manager = Unmanaged<AudioDeviceManager>.fromOpaque(userData!).takeUnretainedValue()
-                DispatchQueue.main.async {
-                    manager.handleDeviceListChange()
-                }
-                return noErr
-            },
+            audioDevicePropertyListener,
             UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
         )
         
@@ -366,7 +375,7 @@ class AudioDeviceManager: ObservableObject {
         }
     }
     
-    private func handleDeviceListChange() {
+    fileprivate func handleDeviceListChange() {
         logger.info("Device list change detected")
         loadAvailableDevices { [weak self] in
             guard let self = self else { return }
@@ -394,14 +403,17 @@ class AudioDeviceManager: ObservableObject {
             mElement: kAudioObjectPropertyElementMain
         )
         
-        AudioObjectRemovePropertyListener(
+        let status = AudioObjectRemovePropertyListener(
             AudioObjectID(kAudioObjectSystemObject),
             &address,
-            { (_, _, _, userData) -> OSStatus in
-                return noErr
-            },
+            audioDevicePropertyListener,
             UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
         )
+        
+        if status != noErr {
+            // We can't log here reliably if logger is deallocated, but print is safe
+            print("AudioDeviceManager: Failed to remove property listener in deinit: \(status)")
+        }
     }
     
     private func createPropertyAddress(selector: AudioObjectPropertySelector,
