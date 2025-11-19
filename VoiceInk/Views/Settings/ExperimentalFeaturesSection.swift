@@ -32,10 +32,11 @@ struct ExperimentalFeaturesSection: View {
                     }
             }
 
-            Divider()
-                .padding(.vertical, 4)
-
             if isExperimentalFeaturesEnabled {
+                Divider()
+                    .padding(.vertical, 4)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                
                 Toggle(isOn: $playbackController.isPauseMediaEnabled) {
                     Text("Pause Media during recording")
                 }
@@ -50,5 +51,3 @@ struct ExperimentalFeaturesSection: View {
         .background(CardBackground(isSelected: false, useAccentGradientWhenSelected: true))
     }
 }
-
-

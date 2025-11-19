@@ -3,24 +3,20 @@
     <channel>
         <title>VoiceInk Releases</title>
         <item>
-            <title>1.59</title>
-            <pubDate>Fri, 10 Oct 2025 12:00:00 +0545</pubDate>
-            <sparkle:version>159</sparkle:version>
-            <sparkle:shortVersionString>1.59</sparkle:shortVersionString>
+            <title>1.61</title>
+            <pubDate>Sat, 08 Nov 2025 11:50:19 +0545</pubDate>
+            <sparkle:version>161</sparkle:version>
+            <sparkle:shortVersionString>1.61</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 
-                <h3>What's New in Version 1.59</h3>
+                <h3>What's New in Version 1.61</h3>
                 <ul>
-                    <li>Added Multi-language support for Context Awareness</li>
-                    <li>Improved Context handling</li>
-                    <li>Added context awareness toggle in Power Mode</li>
-                    <li>Better logging for parakeet model</li>
-                    <li>Minor improvements and bug fixes</li>
+                    <li>Minor improvements and fixes</li>
                 </ul>
 
             ]]></description>
-            <enclosure url="https://github.com/Beingpax/VoiceInk/releases/download/v1.59/VoiceInk.dmg" length="9611533" type="application/octet-stream" sparkle:edSignature="Sw5RdQkpfIRVHFIBF/x8+M+A4azzAZvmWy/oJwSSd0tN0riZ+gNh7O/mBQm1PK0LOVnlGNmhAunK3o30Od3mDQ=="/>
+            <enclosure url="https://github.com/Beingpax/VoiceInk/releases/download/v1.61/VoiceInk.dmg" length="24558601" type="application/octet-stream" sparkle:edSignature="SoDJAIDhAQXA7FvRqgF0a1zTKNKhYQxCvNjylNJkj4SBgZmQfNDFq9GZogk3uIPS12LJBvuk9Gu714fJ7MMmBg=="/>
         </item>
     </channel>
 </rss>

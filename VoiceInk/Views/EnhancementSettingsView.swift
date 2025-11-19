@@ -69,11 +69,9 @@ struct EnhancementSettingsView: View {
                             .font(.headline)
                         
                         APIKeyManagementView()
-                            .background(CardBackground(isSelected: false))
                     }
                     .padding()
-                    .background(Color(.windowBackgroundColor).opacity(0.4))
-                    .cornerRadius(10)
+                    .background(CardBackground(isSelected: false))
                     
                     // 3. Enhancement Modes & Assistant Section
                     VStack(alignment: .leading, spacing: 16) {
@@ -99,6 +97,8 @@ struct EnhancementSettingsView: View {
                     }
                     .padding()
                     .background(CardBackground(isSelected: false))
+                    
+                    EnhancementShortcutsSection()
                 }
             }
             .padding(24)

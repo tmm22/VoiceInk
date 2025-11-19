@@ -2,32 +2,46 @@
 
 First off, thank you for considering contributing to VoiceInk! It's people like you that make VoiceInk such a great tool.
 
-## Important Notice About Pull Requests
+## ⚠️ Pull Requests Not Accepted
 
-We welcome forks and improvements to VoiceInk! However, please note:
+**As of now, this project is not accepting pull requests.** While VoiceInk is open source and you're welcome to fork and modify it for your own use.
 
-1. **The acceptance of Pull Requests is solely at the discretion of the project maintainers**
-2. **Before making significant changes or starting work on major features:**
-   - Open an issue to discuss your proposed changes
-   - Wait for maintainer feedback and approval
-   - This helps ensure your time and effort align with the project's direction
-3. **For fundamental or architectural changes:**
-   - Direct consultation with the maintainers is required
-   - These discussions should happen before you start the implementation
+**You can still contribute by:**
+- 🐛 **Reporting bugs** - Open an issue with detailed information
+- 💡 **Suggesting features** - Share your ideas via issues or discussions
+- 🍴 **Forking the project** - Feel free to create your own version
+- 📖 **Improving documentation** - Suggest clarifications or corrections via issues
 
-This policy helps ensure:
-- Your valuable time is spent on changes that align with the project's vision
-- The codebase maintains its consistency and quality
-- We can provide proper guidance and support for your contribution
+Thank you for understanding!
 
-## Important Notice
+---
 
-Before starting work on any new feature or fix, please reach out to us first by opening an issue or discussion. This is crucial because:
+## ~~Important Notice About Pull Requests~~
 
-1. We want to ensure your contribution aligns with the project's goals and vision
-2. Someone else might already be working on something similar
-3. We might have valuable insights or requirements that could save you time
-4. Your proposed changes might need some adjustments to fit with our roadmap
+~~We welcome forks and improvements to VoiceInk! However, please note:~~
+
+~~1. **The acceptance of Pull Requests is solely at the discretion of the project maintainers**~~
+~~2. **Before making significant changes or starting work on major features:**~~
+   ~~- Open an issue to discuss your proposed changes~~
+   ~~- Wait for maintainer feedback and approval~~
+   ~~- This helps ensure your time and effort align with the project's direction~~
+~~3. **For fundamental or architectural changes:**~~
+   ~~- Direct consultation with the maintainers is required~~
+   ~~- These discussions should happen before you start the implementation~~
+
+~~This policy helps ensure:~~
+~~- Your valuable time is spent on changes that align with the project's vision~~
+~~- The codebase maintains its consistency and quality~~
+~~- We can provide proper guidance and support for your contribution~~
+
+## ~~Important Notice~~
+
+~~Before starting work on any new feature or fix, please reach out to us first by opening an issue or discussion. This is crucial because:~~
+
+~~1. We want to ensure your contribution aligns with the project's goals and vision~~
+~~2. Someone else might already be working on something similar~~
+~~3. We might have valuable insights or requirements that could save you time~~
+~~4. Your proposed changes might need some adjustments to fit with our roadmap~~
 
 ## Code of Conduct
 
@@ -49,15 +63,15 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 - Discuss potential implementation approaches
 - Consider the feature's impact on existing functionality
 
-### Pull Requests
+### ~~Pull Requests~~
 
-1. Fork the repository
-2. Create a new branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run tests and ensure they pass
-5. Commit your changes (`git commit -m 'Add some amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
+~~1. Fork the repository~~
+~~2. Create a new branch (`git checkout -b feature/amazing-feature`)~~
+~~3. Make your changes~~
+~~4. Run tests and ensure they pass~~
+~~5. Commit your changes (`git commit -m 'Add some amazing feature'`)~~
+~~6. Push to the branch (`git push origin feature/amazing-feature`)~~
+~~7. Open a Pull Request~~
 
 ### Development Process
 

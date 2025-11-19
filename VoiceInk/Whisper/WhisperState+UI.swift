@@ -12,13 +12,11 @@ extension WhisperState {
         if recorderType == "notch" {
             if notchWindowManager == nil {
                 notchWindowManager = NotchWindowManager(whisperState: self, recorder: recorder)
-                logger.info("Created new notch window manager")
             }
             notchWindowManager?.show()
         } else {
             if miniWindowManager == nil {
                 miniWindowManager = MiniWindowManager(whisperState: self, recorder: recorder)
-                logger.info("Created new mini window manager")
             }
             miniWindowManager?.show()
         }
@@ -79,6 +77,13 @@ extension WhisperState {
         }
         
         await cleanupModelResources()
+        
+        if UserDefaults.standard.bool(forKey: PowerModeDefaults.autoRestoreKey) {
+            await PowerModeSessionManager.shared.endSession()
+            await MainActor.run {
+                PowerModeManager.shared.setActiveConfiguration(nil)
+            }
+        }
         
         await MainActor.run {
             recordingState = .idle

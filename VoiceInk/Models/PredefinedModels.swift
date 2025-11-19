@@ -206,10 +206,20 @@ import Foundation
         CloudModel(
            name: "scribe_v1",
            displayName: "Scribe v1 (ElevenLabs)",
-           description: "ElevenLabs' Scribe model for fast and accurate transcription.",
+           description: "ElevenLabs' Scribe model for fast & accurate transcription.",
            provider: .elevenLabs,
            speed: 0.7,
            accuracy: 0.98,
+           isMultilingual: true,
+           supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .elevenLabs)
+       ),
+       CloudModel(
+           name: "scribe_v2",
+           displayName: "Scribe v2 (ElevenLabs)",
+           description: "ElevenLabs' Scribe v2 model for the most accurate transcription.",
+           provider: .elevenLabs,
+           speed: 0.75,
+           accuracy: 0.99,
            isMultilingual: true,
            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .elevenLabs)
        ),
@@ -264,6 +274,17 @@ import Foundation
             accuracy: 0.94,
             isMultilingual: true,
             supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .gemini)
+        )
+        ,
+        CloudModel(
+            name: "stt-async-v3",
+            displayName: "Soniox (stt-async-v3)",
+            description: "Soniox asynchronous transcription model v3.",
+            provider: .soniox,
+            speed: 0.8,
+            accuracy: 0.96,
+            isMultilingual: true,
+            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .soniox)
         )
      ]
  

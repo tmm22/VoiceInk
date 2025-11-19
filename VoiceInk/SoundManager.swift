@@ -2,9 +2,10 @@ import Foundation
 import AVFoundation
 import SwiftUI
 
+@MainActor
 class SoundManager: ObservableObject {
     static let shared = SoundManager()
-    
+
     private var startSound: AVAudioPlayer?
     private var stopSound: AVAudioPlayer?
     private var escSound: AVAudioPlayer?
@@ -125,13 +126,13 @@ class SoundManager: ObservableObject {
             throw error
         }
     }
-    
+
     func playStartSound() {
         guard settings.isEnabled, settings.preset != .silent else { return }
         startSound?.volume = settings.volumes.start
         startSound?.play()
     }
-    
+
     func playStopSound() {
         guard settings.isEnabled, settings.preset != .silent else { return }
         stopSound?.volume = settings.volumes.stop

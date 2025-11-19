@@ -1,42 +1,40 @@
 import SwiftUI
 
 struct DictionaryItem: Identifiable, Hashable, Codable {
-    let id: UUID
     var word: String
-    var dateAdded: Date
-    
-    init(id: UUID = UUID(), word: String, dateAdded: Date = Date()) {
-        self.id = id
+
+    var id: String { word }
+
+    init(word: String) {
         self.word = word
-        self.dateAdded = dateAdded
     }
-    
-    // Legacy support for decoding old data with isEnabled property
+
     private enum CodingKeys: String, CodingKey {
         case id, word, dateAdded, isEnabled
     }
-    
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(UUID.self, forKey: .id)
         word = try container.decode(String.self, forKey: .word)
-        dateAdded = try container.decode(Date.self, forKey: .dateAdded)
-        // Ignore isEnabled during decoding - all items are enabled by default now
+        _ = try? container.decodeIfPresent(UUID.self, forKey: .id)
+        _ = try? container.decodeIfPresent(Date.self, forKey: .dateAdded)
         _ = try? container.decodeIfPresent(Bool.self, forKey: .isEnabled)
     }
-    
+
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
         try container.encode(word, forKey: .word)
-        try container.encode(dateAdded, forKey: .dateAdded)
-        // Don't encode isEnabled anymore
     }
+}
+
+enum DictionarySortMode: String {
+    case wordAsc = "wordAsc"
+    case wordDesc = "wordDesc"
 }
 
 class DictionaryManager: ObservableObject {
     @Published var items: [DictionaryItem] = []
-    private let saveKey = "CustomDictionaryItems"
+    private let saveKey = "CustomVocabularyItems"
     private let whisperPrompt: WhisperPrompt
     
     init(whisperPrompt: WhisperPrompt) {
@@ -46,9 +44,9 @@ class DictionaryManager: ObservableObject {
     
     private func loadItems() {
         guard let data = UserDefaults.standard.data(forKey: saveKey) else { return }
-        
+
         if let savedItems = try? JSONDecoder().decode([DictionaryItem].self, from: data) {
-            items = savedItems.sorted(by: { $0.dateAdded > $1.dateAdded })
+            items = savedItems
         }
     }
     
@@ -85,15 +83,34 @@ struct DictionaryView: View {
     @State private var newWord = ""
     @State private var showAlert = false
     @State private var alertMessage = ""
-    
+    @State private var sortMode: DictionarySortMode = .wordAsc
+
     init(whisperPrompt: WhisperPrompt) {
         self.whisperPrompt = whisperPrompt
         _dictionaryManager = StateObject(wrappedValue: DictionaryManager(whisperPrompt: whisperPrompt))
+
+        if let savedSort = UserDefaults.standard.string(forKey: "dictionarySortMode"),
+           let mode = DictionarySortMode(rawValue: savedSort) {
+            _sortMode = State(initialValue: mode)
+        }
     }
-    
+
+    private var sortedItems: [DictionaryItem] {
+        switch sortMode {
+        case .wordAsc:
+            return dictionaryManager.items.sorted { $0.word.localizedCaseInsensitiveCompare($1.word) == .orderedAscending }
+        case .wordDesc:
+            return dictionaryManager.items.sorted { $0.word.localizedCaseInsensitiveCompare($1.word) == .orderedDescending }
+        }
+    }
+
+    private func toggleSort() {
+        sortMode = (sortMode == .wordAsc) ? .wordDesc : .wordAsc
+        UserDefaults.standard.set(sortMode.rawValue, forKey: "dictionarySortMode")
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            // Information Section
             GroupBox {
                 Label {
                     Text("Add words to help VoiceInk recognize them properly. (Requires AI enhancement)")
@@ -105,14 +122,13 @@ struct DictionaryView: View {
                         .foregroundColor(.blue)
                 }
             }
-            
-            // Input Section
+
             HStack(spacing: 8) {
                 TextField("Add word to dictionary", text: $newWord)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 13))
                     .onSubmit { addWords() }
-                
+
                 Button(action: addWords) {
                     Image(systemName: "plus.circle.fill")
                         .symbolRenderingMode(.hierarchical)
@@ -123,21 +139,26 @@ struct DictionaryView: View {
                 .disabled(newWord.isEmpty)
                 .help("Add word")
             }
-            
-            // Words List
+
             if !dictionaryManager.items.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Dictionary Items (\(dictionaryManager.items.count))")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.secondary)
-                    
+                    Button(action: toggleSort) {
+                        HStack(spacing: 4) {
+                            Text("Dictionary Items (\(dictionaryManager.items.count))")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.secondary)
+
+                            Image(systemName: sortMode == .wordAsc ? "chevron.up" : "chevron.down")
+                                .font(.caption)
+                                .foregroundColor(.accentColor)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help("Sort alphabetically")
+
                     ScrollView {
-                        let columns = [
-                            GridItem(.adaptive(minimum: 240, maximum: .infinity), spacing: 12)
-                        ]
-                        
-                        LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
-                            ForEach(dictionaryManager.items) { item in
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 240, maximum: .infinity), spacing: 12)], alignment: .leading, spacing: 12) {
+                            ForEach(sortedItems) { item in
                                 DictionaryItemView(item: item) {
                                     dictionaryManager.removeWord(item.word)
                                 }
@@ -194,16 +215,16 @@ struct DictionaryItemView: View {
     let item: DictionaryItem
     let onDelete: () -> Void
     @State private var isHovered = false
-    
+
     var body: some View {
         HStack(spacing: 6) {
             Text(item.word)
                 .font(.system(size: 13))
                 .lineLimit(1)
                 .foregroundColor(.primary)
-            
+
             Spacer(minLength: 8)
-            
+
             Button(action: onDelete) {
                 Image(systemName: "xmark.circle.fill")
                     .symbolRenderingMode(.hierarchical)

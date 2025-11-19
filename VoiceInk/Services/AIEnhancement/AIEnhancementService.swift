@@ -65,7 +65,7 @@ class AIEnhancementService: ObservableObject {
 
     private let aiService: AIService
     private let screenCaptureService: ScreenCaptureService
-    private let dictionaryContextService: DictionaryContextService
+    private let customVocabularyService: CustomVocabularyService
     private let baseTimeout: TimeInterval = 30
     private let rateLimitInterval: TimeInterval = 1.0
     private var lastRequestTime: Date?
@@ -77,7 +77,7 @@ class AIEnhancementService: ObservableObject {
         self.aiService = aiService
         self.modelContext = modelContext
         self.screenCaptureService = ScreenCaptureService()
-        self.dictionaryContextService = DictionaryContextService.shared
+        self.customVocabularyService = CustomVocabularyService.shared
 
         self.isEnhancementEnabled = UserDefaults.standard.bool(forKey: "isAIEnhancementEnabled")
         self.useClipboardContext = UserDefaults.standard.bool(forKey: "useClipboardContext")
@@ -139,8 +139,8 @@ class AIEnhancementService: ObservableObject {
         lastRequestTime = Date()
     }
 
-    private func getSystemMessage(for mode: EnhancementPrompt) -> String {
-        let selectedText = SelectedTextService.fetchSelectedText()
+    private func getSystemMessage(for mode: EnhancementPrompt) async -> String {
+        let selectedText = await SelectedTextService.fetchSelectedText()
 
         let selectedTextContext = if let selectedText = selectedText, !selectedText.isEmpty {
             "\n\n<CURRENTLY_SELECTED_TEXT>\n\(selectedText)\n</CURRENTLY_SELECTED_TEXT>"
@@ -164,17 +164,17 @@ class AIEnhancementService: ObservableObject {
             ""
         }
 
-        let dictionaryContext = dictionaryContextService.getDictionaryContext()
+        let customVocabulary = customVocabularyService.getCustomVocabulary()
 
         let allContextSections = selectedTextContext + clipboardContext + screenCaptureContext
 
-        let dictionaryContextSection = if !dictionaryContext.isEmpty {
-            "\n\n<DICTIONARY_CONTEXT>\(dictionaryContext)\n</DICTIONARY_CONTEXT>"
+        let customVocabularySection = if !customVocabulary.isEmpty {
+            "\n\n<CUSTOM_VOCABULARY>\(customVocabulary)\n</CUSTOM_VOCABULARY>"
         } else {
             ""
         }
 
-        let finalContextSection = allContextSections + dictionaryContextSection
+        let finalContextSection = allContextSections + customVocabularySection
 
         if let activePrompt = activePrompt {
             if activePrompt.id == PredefinedPrompts.assistantPromptId {
@@ -198,7 +198,7 @@ class AIEnhancementService: ObservableObject {
         }
 
         let formattedText = "\n<TRANSCRIPT>\n\(text)\n</TRANSCRIPT>"
-        let systemMessage = getSystemMessage(for: mode)
+        let systemMessage = await getSystemMessage(for: mode)
         
         // Persist the exact payload being sent (also used for UI)
         await MainActor.run {
@@ -292,12 +292,17 @@ class AIEnhancementService: ObservableObject {
                 ["role": "user", "content": formattedText]
             ]
 
-            let requestBody: [String: Any] = [
+            var requestBody: [String: Any] = [
                 "model": aiService.currentModel,
                 "messages": messages,
                 "temperature": aiService.currentModel.lowercased().hasPrefix("gpt-5") ? 1.0 : 0.3,
                 "stream": false
             ]
+
+            // Add reasoning_effort parameter if the model supports it
+            if let reasoningEffort = ReasoningConfig.getReasoningParameter(for: aiService.currentModel) {
+                requestBody["reasoning_effort"] = reasoningEffort
+            }
 
             request.httpBody = try? JSONSerialization.data(withJSONObject: requestBody)
 
@@ -399,13 +404,17 @@ class AIEnhancementService: ObservableObject {
     }
 
     func captureScreenContext() async {
+        guard CGPreflightScreenCaptureAccess() else {
+            return
+        }
+
         if let capturedText = await screenCaptureService.captureAndExtractText() {
             await MainActor.run {
                 self.objectWillChange.send()
             }
         }
     }
-    
+
     func captureClipboardContext() {
         lastCapturedClipboard = NSPasteboard.general.string(forType: .string)
     }
@@ -415,7 +424,7 @@ class AIEnhancementService: ObservableObject {
         screenCaptureService.lastCapturedText = nil
     }
 
-    func addPrompt(title: String, promptText: String, icon: PromptIcon = .documentFill, description: String? = nil, triggerWords: [String] = [], useSystemInstructions: Bool = true) {
+    func addPrompt(title: String, promptText: String, icon: PromptIcon = "doc.text.fill", description: String? = nil, triggerWords: [String] = [], useSystemInstructions: Bool = true) {
         let newPrompt = CustomPrompt(title: title, promptText: promptText, icon: icon, description: description, isPredefined: false, triggerWords: triggerWords, useSystemInstructions: useSystemInstructions)
         customPrompts.append(newPrompt)
         if customPrompts.count == 1 {

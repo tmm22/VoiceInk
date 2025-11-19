@@ -17,10 +17,11 @@ struct TranscriptionCard: View {
     @State private var selectedTab: ContentTab = .original
 
     private var availableTabs: [ContentTab] {
-        var tabs = [ContentTab.original]
+        var tabs: [ContentTab] = []
         if transcription.enhancedText != nil {
             tabs.append(.enhanced)
         }
+        tabs.append(.original)
         if transcription.aiRequestSystemMessage != nil || transcription.aiRequestUserMessage != nil {
             tabs.append(.aiRequest)
         }
@@ -228,7 +229,7 @@ struct TranscriptionCard: View {
                         }
                     }
                 } else {
-                    Text(transcription.text)
+                    Text(transcription.enhancedText ?? transcription.text)
                         .font(.system(size: 15, weight: .regular, design: .default))
                         .lineLimit(2)
                         .lineSpacing(2)
@@ -262,7 +263,7 @@ struct TranscriptionCard: View {
         }
         .onChange(of: isExpanded) { oldValue, newValue in
             if newValue {
-                selectedTab = .original
+                selectedTab = transcription.enhancedText != nil ? .enhanced : .original
             }
         }
     }

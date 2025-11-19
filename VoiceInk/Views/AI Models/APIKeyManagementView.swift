@@ -14,12 +14,12 @@ struct APIKeyManagementView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Header Section
+            // Provider Selection
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Enhance your transcriptions with AI")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
+                Picker("AI Provider", selection: $aiService.selectedProvider) {
+                    ForEach(AIProvider.allCases.filter { $0 != .elevenLabs && $0 != .deepgram && $0 != .soniox }, id: \.self) { provider in
+                        Text(provider.rawValue).tag(provider)
+                    }
                 }
                 
                 Spacer()
@@ -39,13 +39,6 @@ struct APIKeyManagementView: View {
                     .background(Color.secondary.opacity(0.1))
                     .foregroundColor(.secondary)
                     .cornerRadius(6)
-                }
-            }
-            
-            // Provider Selection
-            Picker("AI Provider", selection: $aiService.selectedProvider) {
-                ForEach(AIProvider.allCases.filter { $0 != .elevenLabs && $0 != .deepgram }, id: \.self) { provider in
-                    Text(provider.rawValue).tag(provider)
                 }
             }
             
@@ -418,6 +411,8 @@ struct APIKeyManagementView: View {
                                             URL(string: "https://elevenlabs.io/speech-synthesis")!
                                         case .deepgram:
                                             URL(string: "https://console.deepgram.com/api-keys")!
+                                            case .soniox:
+                                                URL(string: "https://console.soniox.com/")!
                                         case .ollama, .custom:
                                             URL(string: "")! // This case should never be reached
                                         case .openRouter:
@@ -443,7 +438,6 @@ struct APIKeyManagementView: View {
                 }
             }
         }
-        .padding()
         .alert("Error", isPresented: $showAlert) {
             Button("OK", role: .cancel) { }
         } message: {

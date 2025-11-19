@@ -3,6 +3,7 @@ import SwiftUI
 struct PowerModeSettingsSection: View {
     @ObservedObject private var powerModeManager = PowerModeManager.shared
     @AppStorage("powerModeUIFlag") private var powerModeUIFlag = false
+    @AppStorage(PowerModeDefaults.autoRestoreKey) private var powerModeAutoRestoreEnabled = false
     @State private var showDisableAlert = false
     
     var body: some View {
@@ -27,7 +28,27 @@ struct PowerModeSettingsSection: View {
                     .labelsHidden()
                     .toggleStyle(.switch)
             }
+
+            if powerModeUIFlag {
+                Divider()
+                    .padding(.vertical, 4)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                
+                HStack(spacing: 8) {
+                    Toggle(isOn: $powerModeAutoRestoreEnabled) {
+                        Text("Auto-Restore Preferences")
+                    }
+                    .toggleStyle(.switch)
+                    
+                    InfoTip(
+                        title: "Auto-Restore Preferences",
+                        message: "After each recording session, revert enhancement and transcription preferences to whatever was configured before Power Mode was activated."
+                    )
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
+        .animation(.easeInOut(duration: 0.25), value: powerModeUIFlag)
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(CardBackground(isSelected: false, useAccentGradientWhenSelected: true))
@@ -59,4 +80,8 @@ private extension Array where Element == PowerModeConfig {
     var noneEnabled: Bool {
         allSatisfy { !$0.isEnabled }
     }
+}
+
+enum PowerModeDefaults {
+    static let autoRestoreKey = "powerModeAutoRestoreEnabled"
 }

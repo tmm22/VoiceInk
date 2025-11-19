@@ -50,7 +50,7 @@ class ParakeetTranscriptionService: TranscriptionService {
 
         var speechAudio = audioSamples
         if durationSeconds >= 20.0, isVADEnabled {
-            let vadConfig = VadConfig(threshold: 0.7)
+            let vadConfig = VadConfig(defaultThreshold: 0.7)
             if vadManager == nil {
                 do {
                     vadManager = try await VadManager(config: vadConfig)

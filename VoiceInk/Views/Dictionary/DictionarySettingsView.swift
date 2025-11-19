@@ -47,7 +47,7 @@ struct DictionarySettingsView: View {
                 .background(Circle()
                     .fill(Color(.windowBackgroundColor).opacity(0.9))
                     .shadow(color: .black.opacity(0.1), radius: 10, y: 5))
-            
+
             VStack(spacing: 8) {
                 Text("Dictionary Settings")
                     .font(.system(size: 28, weight: .bold))
@@ -74,10 +74,36 @@ struct DictionarySettingsView: View {
     
     private var sectionSelector: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Select Section")
-                .font(.title2)
-                .fontWeight(.semibold)
-            
+            HStack {
+                Text("Select Section")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+
+                Spacer()
+
+                HStack(spacing: 12) {
+                    Button(action: {
+                        DictionaryImportExportService.shared.importDictionary()
+                    }) {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.system(size: 18))
+                            .foregroundColor(.blue)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Import dictionary items and word replacements")
+
+                    Button(action: {
+                        DictionaryImportExportService.shared.exportDictionary()
+                    }) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 18))
+                            .foregroundColor(.blue)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Export dictionary items and word replacements")
+                }
+            }
+
             HStack(spacing: 20) {
                 ForEach(DictionarySection.allCases, id: \.self) { section in
                     SectionCard(
