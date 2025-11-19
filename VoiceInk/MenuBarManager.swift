@@ -44,7 +44,7 @@ class MenuBarManager: ObservableObject {
                 WindowManager.shared.showMainWindow()
             }
         }
-        
+
         if Thread.isMainThread {
             applyPolicy()
         } else {

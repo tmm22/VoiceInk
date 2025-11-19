@@ -24,16 +24,21 @@ class CursorPaster {
         
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
-        
-        if UserDefaults.standard.bool(forKey: "UseAppleScriptPaste") {
-            _ = pasteUsingAppleScript()
-        } else {
-            pasteUsingCommandV()
-        }
-        
-        // Only restore clipboard if preserve setting is disabled
+
         if !preserveTranscript {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            pasteboard.setData(Data(), forType: NSPasteboard.PasteboardType("org.nspasteboard.TransientType"))
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            if UserDefaults.standard.bool(forKey: "UseAppleScriptPaste") {
+                _ = pasteUsingAppleScript()
+            } else {
+                pasteUsingCommandV()
+            }
+        }
+
+        if !preserveTranscript {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
                 if !savedContents.isEmpty {
                     pasteboard.clearContents()
                     for (type, data) in savedContents {

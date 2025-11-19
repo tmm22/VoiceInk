@@ -232,7 +232,7 @@ struct TranscriptionCard: View {
                         }
                     }
                 } else {
-                    Text(transcription.text)
+                    Text(transcription.enhancedText ?? transcription.text)
                         .font(.system(size: 15, weight: .regular, design: .default))
                         .lineLimit(2)
                         .lineSpacing(2)

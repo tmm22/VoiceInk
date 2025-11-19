@@ -73,11 +73,8 @@ class AudioTranscriptionService: ObservableObject {
                 text = WhisperTextFormatter.format(text)
             }
 
-            // Apply word replacements if enabled
-            if UserDefaults.standard.bool(forKey: "IsWordReplacementEnabled") {
-                text = WordReplacementService.shared.applyReplacements(to: text)
-                logger.notice("✅ Word replacements applied")
-            }
+            text = WordReplacementService.shared.applyReplacements(to: text)
+            logger.notice("✅ Word replacements applied")
             
             // Get audio duration
             let audioAsset = AVURLAsset(url: url)

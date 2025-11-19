@@ -5,7 +5,8 @@ struct MetricsContent: View {
     @ObservedObject var licenseViewModel: LicenseViewModel
     
     private var licenseState: LicenseViewModel.LicenseState { licenseViewModel.licenseState }
-    
+    @State private var showKeyboardShortcuts = false
+
     var body: some View {
         Group {
             if transcriptions.isEmpty {
@@ -129,6 +130,7 @@ struct MetricsContent: View {
     
     private var footerActionsView: some View {
         HStack(spacing: 12) {
+            KeyboardShortcutsButton(showKeyboardShortcuts: $showKeyboardShortcuts)
             CopySystemInfoButton()
             FeedbackButton()
         }
@@ -270,6 +272,31 @@ private struct FeedbackButton: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                 isClicked = false
             }
+        }
+    }
+}
+
+private struct KeyboardShortcutsButton: View {
+    @Binding var showKeyboardShortcuts: Bool
+
+    var body: some View {
+        Button(action: {
+            showKeyboardShortcuts = true
+        }) {
+            HStack(spacing: 8) {
+                Image(systemName: "command")
+                    .font(.system(size: 13, weight: .medium))
+
+                Text("Keyboard Shortcuts")
+            }
+            .font(.system(size: 13, weight: .medium))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Capsule().fill(.thinMaterial))
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $showKeyboardShortcuts, arrowEdge: .bottom) {
+            KeyboardShortcutsListView()
         }
     }
 }

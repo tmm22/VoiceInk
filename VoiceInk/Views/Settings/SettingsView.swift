@@ -10,42 +10,26 @@ struct SettingsView: View {
     @EnvironmentObject private var hotkeyManager: HotkeyManager
     @EnvironmentObject private var whisperState: WhisperState
     @EnvironmentObject private var enhancementService: AIEnhancementService
-    @StateObject private var deviceManager: AudioDeviceManager
-    @ObservedObject private var mediaController: MediaController
-    @ObservedObject private var playbackController: PlaybackController
+    @StateObject private var deviceManager = AudioDeviceManager.shared
+    @ObservedObject private var soundManager = SoundManager.shared
+    @ObservedObject private var mediaController = MediaController.shared
+    @ObservedObject private var playbackController = PlaybackController.shared
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = true
     @AppStorage("autoUpdateCheck") private var autoUpdateCheck = true
     @AppStorage("enableAnnouncements") private var enableAnnouncements = true
-    @AppStorage("enableAIEnhancementFeatures") private var enableAIEnhancementFeatures = false
     @State private var showResetOnboardingAlert = false
     @State private var currentShortcut = KeyboardShortcuts.getShortcut(for: .toggleMiniRecorder)
     @State private var isCustomCancelEnabled = false
-    
-    // TTS Settings
-    @State private var ttsElevenLabsKey: String = ""
-    @State private var ttsOpenAIKey: String = ""
-    @State private var ttsGoogleKey: String = ""
-    @State private var showTTSElevenLabsKey = false
-    @State private var showTTSOpenAIKey = false
-    @State private var showTTSGoogleKey = false
-    private let keychainManager = KeychainManager()
-
-    init(deviceManager: AudioDeviceManager = .shared,
-         mediaController: MediaController = .shared,
-         playbackController: PlaybackController = .shared) {
-        _deviceManager = StateObject(wrappedValue: deviceManager)
-        _mediaController = ObservedObject(wrappedValue: mediaController)
-        _playbackController = ObservedObject(wrappedValue: playbackController)
-    }
+    @State private var isCustomSoundsExpanded = false
 
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                VoiceInkSection(
+            VStack(spacing: 24) {
+                SettingsSection(
                     icon: "command.circle",
-                    title: "\(AppBrand.communityName) Shortcuts",
-                    subtitle: "Choose how you want to trigger \(AppBrand.communityName)"
+                    title: "VoiceInk Shortcuts",
+                    subtitle: "Choose how you want to trigger VoiceInk"
                 ) {
                     VStack(alignment: .leading, spacing: 18) {
                         hotkeyView(
@@ -87,10 +71,10 @@ struct SettingsView: View {
                     }
                 }
 
-                VoiceInkSection(
+                SettingsSection(
                     icon: "keyboard.badge.ellipsis",
                     title: "Other App Shortcuts",
-                    subtitle: "Additional shortcuts for \(AppBrand.communityName)"
+                    subtitle: "Additional shortcuts for VoiceInk"
                 ) {
                     VStack(alignment: .leading, spacing: 18) {
                         // Paste Last Transcript (Original)
@@ -195,7 +179,7 @@ struct SettingsView: View {
                                 
                                 InfoTip(
                                     title: "Middle-Click Toggle",
-                                    message: "Use middle mouse button to toggle \(AppBrand.communityName) recording."
+                                    message: "Use middle mouse button to toggle VoiceInk recording."
                                 )
                             }
 
@@ -229,7 +213,7 @@ struct SettingsView: View {
                     }
                 }
 
-                VoiceInkSection(
+                SettingsSection(
                     icon: "speaker.wave.2.bubble.left.fill",
                     title: "Audio Feedback",
                     subtitle: "Customize recording sounds and volumes"
@@ -237,7 +221,7 @@ struct SettingsView: View {
                     AudioFeedbackSettingsView()
                 }
                 
-                VoiceInkSection(
+                SettingsSection(
                     icon: "waveform.badge.mic",
                     title: "Recording Behavior",
                     subtitle: "System audio and clipboard settings"
@@ -264,31 +248,7 @@ struct SettingsView: View {
 
                 ExperimentalFeaturesSection()
 
-                // TTS Settings Section
-                if enableAIEnhancementFeatures {
-                    TTSSettingsSection()
-                }
-
-                VoiceInkSection(
-                    icon: "wand.and.stars",
-                    title: "AI Enhancements",
-                    subtitle: "Optional features that rely on external AI providers"
-                ) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Toggle("Enable AI enhancement features", isOn: $enableAIEnhancementFeatures)
-                            .toggleStyle(.switch)
-                            .onChange(of: enableAIEnhancementFeatures) { _, newValue in
-                                if !newValue {
-                                    enhancementService.isEnhancementEnabled = false
-                                }
-                            }
-
-                        Text("Expose the AI Models and Enhancement workspaces, recorder prompts, and menu bar controls. Requires configuring API credentials before use.")
-                            .settingsDescription()
-                    }
-                }
-
-                VoiceInkSection(
+                SettingsSection(
                     icon: "rectangle.on.rectangle",
                     title: "Recorder Style",
                     subtitle: "Choose your preferred recorder interface"
@@ -306,7 +266,7 @@ struct SettingsView: View {
                     }
                 }
 
-                VoiceInkSection(
+                SettingsSection(
                     icon: "doc.on.clipboard",
                     title: "Paste Method",
                     subtitle: "Choose how text is pasted"
@@ -323,7 +283,7 @@ struct SettingsView: View {
                     }
                 }
 
-                VoiceInkSection(
+                SettingsSection(
                     icon: "gear",
                     title: "General",
                     subtitle: "Appearance, startup, and updates"
@@ -368,7 +328,7 @@ struct SettingsView: View {
                     }
                 }
                 
-                VoiceInkSection(
+                SettingsSection(
                     icon: "lock.shield",
                     title: "Data & Privacy",
                     subtitle: "Control transcript history and storage"
@@ -376,7 +336,7 @@ struct SettingsView: View {
                     AudioCleanupSettingsView()
                 }
                 
-                VoiceInkSection(
+                SettingsSection(
                     icon: "arrow.up.arrow.down.circle",
                     title: "Data Management",
                     subtitle: "Import or export your settings"
@@ -429,7 +389,6 @@ struct SettingsView: View {
         .background(Color(NSColor.controlBackgroundColor))
         .onAppear {
             isCustomCancelEnabled = KeyboardShortcuts.getShortcut(for: .cancelRecorder) != nil
-            loadTTSAPIKeys()
         }
         .alert("Reset Onboarding", isPresented: $showResetOnboardingAlert) {
             Button("Cancel", role: .cancel) { }
@@ -441,132 +400,6 @@ struct SettingsView: View {
             }
         } message: {
             Text("Are you sure you want to reset the onboarding? You'll see the introduction screens again the next time you launch the app.")
-        }
-    }
-    
-    // MARK: - TTS Settings Helper Functions
-    
-    private func loadTTSAPIKeys() {
-        ttsElevenLabsKey = keychainManager.getAPIKey(for: "ElevenLabs") ?? ""
-        ttsOpenAIKey = keychainManager.getAPIKey(for: "OpenAI") ?? ""
-        ttsGoogleKey = keychainManager.getAPIKey(for: "Google") ?? ""
-    }
-    
-    private func saveTTSAPIKey(_ key: String, service: String) {
-        if !key.isEmpty {
-            keychainManager.saveAPIKey(key, for: service)
-        } else {
-            try? keychainManager.deleteAPIKey(for: service)
-        }
-    }
-    
-    @ViewBuilder
-    private func TTSSettingsSection() -> some View {
-        VoiceInkSection(
-            icon: "waveform.circle.fill",
-            title: "Text-to-Speech",
-            subtitle: "Configure TTS providers and audio settings"
-        ) {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("API Keys")
-                    .font(.system(size: 13, weight: .semibold))
-                
-                Text("Your API keys are stored securely in the macOS Keychain.")
-                    .settingsDescription()
-                
-                // ElevenLabs
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Image(systemName: "waveform")
-                            .foregroundColor(.orange)
-                        Text("ElevenLabs")
-                            .font(.system(size: 13, weight: .medium))
-                        Spacer()
-                        Link("Get API Key", destination: URL(string: "https://elevenlabs.io")!)
-                            .font(.caption)
-                    }
-                    
-                    HStack {
-                        if showTTSElevenLabsKey {
-                            TextField("Enter your ElevenLabs API key", text: $ttsElevenLabsKey)
-                                .textFieldStyle(.roundedBorder)
-                        } else {
-                            SecureField("Enter your ElevenLabs API key", text: $ttsElevenLabsKey)
-                                .textFieldStyle(.roundedBorder)
-                        }
-                        
-                        Button(action: { showTTSElevenLabsKey.toggle() }) {
-                            Image(systemName: showTTSElevenLabsKey ? "eye.slash" : "eye")
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .onChange(of: ttsElevenLabsKey) { _, newValue in
-                        saveTTSAPIKey(newValue, service: "ElevenLabs")
-                    }
-                }
-                
-                // OpenAI
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Image(systemName: "cpu")
-                            .foregroundColor(.green)
-                        Text("OpenAI")
-                            .font(.system(size: 13, weight: .medium))
-                        Spacer()
-                        Link("Get API Key", destination: URL(string: "https://platform.openai.com/api-keys")!)
-                            .font(.caption)
-                    }
-                    
-                    HStack {
-                        if showTTSOpenAIKey {
-                            TextField("Enter your OpenAI API key", text: $ttsOpenAIKey)
-                                .textFieldStyle(.roundedBorder)
-                        } else {
-                            SecureField("Enter your OpenAI API key", text: $ttsOpenAIKey)
-                                .textFieldStyle(.roundedBorder)
-                        }
-                        
-                        Button(action: { showTTSOpenAIKey.toggle() }) {
-                            Image(systemName: showTTSOpenAIKey ? "eye.slash" : "eye")
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .onChange(of: ttsOpenAIKey) { _, newValue in
-                        saveTTSAPIKey(newValue, service: "OpenAI")
-                    }
-                }
-                
-                // Google Cloud
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Image(systemName: "cloud")
-                            .foregroundColor(.blue)
-                        Text("Google Cloud TTS")
-                            .font(.system(size: 13, weight: .medium))
-                        Spacer()
-                        Link("Get API Key", destination: URL(string: "https://console.cloud.google.com")!)
-                            .font(.caption)
-                    }
-                    
-                    HStack {
-                        if showTTSGoogleKey {
-                            TextField("Enter your Google Cloud API key", text: $ttsGoogleKey)
-                                .textFieldStyle(.roundedBorder)
-                        } else {
-                            SecureField("Enter your Google Cloud API key", text: $ttsGoogleKey)
-                                .textFieldStyle(.roundedBorder)
-                        }
-                        
-                        Button(action: { showTTSGoogleKey.toggle() }) {
-                            Image(systemName: showTTSGoogleKey ? "eye.slash" : "eye")
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .onChange(of: ttsGoogleKey) { _, newValue in
-                        saveTTSAPIKey(newValue, service: "Google")
-                    }
-                }
-            }
         }
     }
     
@@ -633,6 +466,60 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+}
+
+struct SettingsSection<Content: View>: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let content: Content
+    var showWarning: Bool = false
+    
+    init(icon: String, title: String, subtitle: String, showWarning: Bool = false, @ViewBuilder content: () -> Content) {
+        self.icon = icon
+        self.title = title
+        self.subtitle = subtitle
+        self.showWarning = showWarning
+        self.content = content()
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 20))
+                    .foregroundColor(showWarning ? .red : .accentColor)
+                    .frame(width: 24, height: 24)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.headline)
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundColor(showWarning ? .red : .secondary)
+                }
+                
+                if showWarning {
+                    Spacer()
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.red)
+                        .help("Permission required for VoiceInk to function properly")
+                }
+            }
+            
+            Divider()
+                .padding(.vertical, 4)
+            
+            content
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(CardBackground(isSelected: showWarning, useAccentGradientWhenSelected: true))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(showWarning ? Color.red.opacity(0.5) : Color.clear, lineWidth: 1)
+        )
     }
 }
 

@@ -41,7 +41,7 @@ struct VoiceLinkCommunityExportedSettings: Codable {
 class ImportExportService {
     static let shared = ImportExportService()
     private let currentSettingsVersion: String
-    private let dictionaryItemsKey = "CustomDictionaryItems"
+    private let dictionaryItemsKey = "CustomVocabularyItems"
     private let wordReplacementsKey = "wordReplacements"
 
 
@@ -203,10 +203,10 @@ class ImportExportService {
 
                     if let itemsToImport = importedSettings.dictionaryItems {
                         if let encoded = try? JSONEncoder().encode(itemsToImport) {
-                            UserDefaults.standard.set(encoded, forKey: "CustomDictionaryItems")
+                            UserDefaults.standard.set(encoded, forKey: "CustomVocabularyItems")
                         }
                     } else {
-                        print("No dictionary items (for spelling) found in the imported file. Existing items remain unchanged.")
+                        print("No custom vocabulary items (for spelling) found in the imported file. Existing items remain unchanged.")
                     }
 
                     if let replacementsToImport = importedSettings.wordReplacements {
