@@ -315,6 +315,16 @@ import Foundation
         
         // Gemini Models
         CloudModel(
+            name: "gemini-3-pro-preview",
+            displayName: "Gemini 3 Pro",
+            description: "Google's most advanced multimodal model with next-generation reasoning and transcription.",
+            provider: .gemini,
+            speed: 0.6,
+            accuracy: 0.98,
+            isMultilingual: true,
+            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .gemini)
+        ),
+        CloudModel(
             name: "gemini-2.5-pro",
             displayName: "Gemini 2.5 Pro",
             description: "Google's advanced multimodal model with high-quality transcription capabilities.",
