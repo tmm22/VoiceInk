@@ -110,11 +110,11 @@ struct TTSWorkspaceView: View {
                 CommandStripView(
                     constants: constants,
                     isCompact: isCompact,
-                    isInspectorVisible: isInspectorVisible,
+                    isInspectorVisible: isCompact ? showingInspectorPopover : isInspectorVisible,
                     showingAbout: $showingAbout,
                     toggleInspector: {
                         if isCompact {
-                            showingInspectorPopover = true
+                            showingInspectorPopover.toggle()
                         } else {
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 isInspectorVisible.toggle()
