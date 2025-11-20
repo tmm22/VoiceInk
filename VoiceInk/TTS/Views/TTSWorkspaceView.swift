@@ -94,6 +94,7 @@ struct TTSWorkspaceView: View {
     @State private var inspectorSection: InspectorSection = .cost
     @State private var activeUtility: ComposerUtility?
     @State private var showingInspectorPopover = false
+    @State private var lastPopoverDismissal: Date = .distantPast
 
     var body: some View {
         GeometryReader { proxy in
@@ -105,6 +106,17 @@ struct TTSWorkspaceView: View {
             // Disable minimum window check for now - causing issues
             let isBelowMinimum = false // ResponsiveConstants.isBelowMinimum(width: proxy.size.width, height: proxy.size.height)
 
+            // Custom binding to track dismissal time precisely when system updates the state
+            let popoverBinding = Binding<Bool>(
+                get: { showingInspectorPopover },
+                set: { newValue in
+                    if showingInspectorPopover && !newValue {
+                        lastPopoverDismissal = Date()
+                    }
+                    showingInspectorPopover = newValue
+                }
+            )
+
             ZStack {
                 VStack(spacing: 0) {
                 CommandStripView(
@@ -112,12 +124,18 @@ struct TTSWorkspaceView: View {
                     isCompact: isCompact,
                     isInspectorVisible: isCompact ? showingInspectorPopover : isInspectorVisible,
                     showingAbout: $showingAbout,
-                    showingInspectorPopover: $showingInspectorPopover,
+                    showingInspectorPopover: popoverBinding,
                     inspectorSection: $inspectorSection,
                     toggleInspector: {
                         if isCompact {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                showingInspectorPopover.toggle()
+                            if showingInspectorPopover {
+                                showingInspectorPopover = false
+                            } else {
+                                // Prevent immediate re-opening if just dismissed by system
+                                let timeSinceDismissal = Date().timeIntervalSince(lastPopoverDismissal)
+                                if timeSinceDismissal > 0.5 {
+                                    showingInspectorPopover = true
+                                }
                             }
                         } else {
                             withAnimation(.easeInOut(duration: 0.2)) {
@@ -128,9 +146,7 @@ struct TTSWorkspaceView: View {
                     focusInspector: { section in
                         inspectorSection = section
                         if isCompact {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                showingInspectorPopover = true
-                            }
+                            showingInspectorPopover = true
                         } else {
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 isInspectorVisible = true
@@ -152,9 +168,7 @@ struct TTSWorkspaceView: View {
                         activeUtility: $activeUtility,
                         focusInspector: { section in
                             inspectorSection = section
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                showingInspectorPopover = true
-                            }
+                            showingInspectorPopover = true
                         }
                     )
                     .environmentObject(viewModel)
@@ -183,42 +197,6 @@ struct TTSWorkspaceView: View {
                     .background(Color(NSColor.windowBackgroundColor))
                 }
                 .background(Color(NSColor.controlBackgroundColor).ignoresSafeArea())
-                
-                // Compact Inspector Overlay
-                if isCompact && showingInspectorPopover {
-                    Color.black.opacity(0.2)
-                        .ignoresSafeArea()
-                        .onTapGesture {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                showingInspectorPopover = false
-                            }
-                        }
-                        .transition(.opacity)
-                    
-                    HStack {
-                        Spacer()
-                        InspectorPanelView(
-                            constants: constants,
-                            selection: $inspectorSection,
-                            onClose: {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                    showingInspectorPopover = false
-                                }
-                            }
-                        )
-                        .frame(width: 320)
-                        .background(Color(NSColor.windowBackgroundColor))
-                        .overlay(
-                            HStack {
-                                Divider()
-                                Spacer()
-                            }
-                        )
-                        .transition(.move(edge: .trailing))
-                        .environmentObject(viewModel)
-                    }
-                    .zIndex(100)
-                }
                 
                 // Minimum window size warning overlay
                 if isBelowMinimum {
@@ -639,6 +617,17 @@ private struct CommandStripView: View {
         }
         .buttonStyle(.plain)
         .help(isInspectorVisible ? "Hide Inspector" : "Show Inspector")
+        .popover(isPresented: $showingInspectorPopover, arrowEdge: .top) {
+            InspectorPanelView(
+                constants: constants,
+                selection: $inspectorSection,
+                onClose: {
+                    showingInspectorPopover = false
+                }
+            )
+            .frame(width: 320)
+            .environmentObject(viewModel)
+        }
     }
 
     private var advancedButton: some View {
@@ -1886,52 +1875,6 @@ private struct InspectorPanelView: View {
     }
 }
 
-// MARK: - New Compact Inspector Components
-
-private struct CompactInspectorRow: View {
-    let icon: String
-    let title: String
-    let value: String?
-    let action: (() -> Void)?
-    
-    init(icon: String, title: String, value: String? = nil, action: (() -> Void)? = nil) {
-        self.icon = icon
-        self.title = title
-        self.value = value
-        self.action = action
-    }
-    
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .frame(width: 20)
-                .foregroundColor(.accentColor)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
-                if let value = value {
-                    Text(value)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            Spacer()
-            
-            if let action = action {
-                Button(action: action) {
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-}
-
 // MARK: - Helper Components
 
 private struct InfoButton: View {
@@ -1947,6 +1890,7 @@ private struct InfoButton: View {
                 .foregroundColor(.secondary)
         }
         .buttonStyle(.plain)
+        .help(message)
         .popover(isPresented: $showingPopover) {
             Text(message)
                 .padding()
@@ -2066,6 +2010,10 @@ private struct NotificationsInspectorContent: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(6)
             }
         }
     }
@@ -2134,15 +2082,6 @@ private struct ProviderInspectorContent: View {
                 .padding(8)
                 .background(Color.yellow.opacity(0.1))
                 .cornerRadius(6)
-            }
-            
-            // Helpful Tip
-            HStack(spacing: 8) {
-                Image(systemName: "info.circle")
-                    .foregroundColor(.accentColor)
-                Text("Tap for provider details")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
             }
         }
     }
