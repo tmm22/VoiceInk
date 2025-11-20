@@ -106,6 +106,17 @@ struct TTSWorkspaceView: View {
             // Disable minimum window check for now - causing issues
             let isBelowMinimum = false // ResponsiveConstants.isBelowMinimum(width: proxy.size.width, height: proxy.size.height)
 
+            // Custom binding to track dismissal time precisely when system updates the state
+            let popoverBinding = Binding<Bool>(
+                get: { showingInspectorPopover },
+                set: { newValue in
+                    if showingInspectorPopover && !newValue {
+                        lastPopoverDismissal = Date()
+                    }
+                    showingInspectorPopover = newValue
+                }
+            )
+
             ZStack {
                 VStack(spacing: 0) {
                 CommandStripView(
@@ -113,16 +124,16 @@ struct TTSWorkspaceView: View {
                     isCompact: isCompact,
                     isInspectorVisible: isCompact ? showingInspectorPopover : isInspectorVisible,
                     showingAbout: $showingAbout,
-                    showingInspectorPopover: $showingInspectorPopover,
+                    showingInspectorPopover: popoverBinding,
                     inspectorSection: $inspectorSection,
                     toggleInspector: {
                         if isCompact {
-                            // Handle race condition where system dismissal happens before button action
                             if showingInspectorPopover {
                                 showingInspectorPopover = false
                             } else {
+                                // Prevent immediate re-opening if just dismissed by system
                                 let timeSinceDismissal = Date().timeIntervalSince(lastPopoverDismissal)
-                                if timeSinceDismissal > 0.25 {
+                                if timeSinceDismissal > 0.5 {
                                     showingInspectorPopover = true
                                 }
                             }
@@ -240,11 +251,6 @@ struct TTSWorkspaceView: View {
         )
         .onAppear {
             viewModel.updateAvailableVoices()
-        }
-        .onChange(of: showingInspectorPopover) { newValue in
-            if !newValue {
-                lastPopoverDismissal = Date()
-            }
         }
     }
 }
