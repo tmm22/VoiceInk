@@ -196,29 +196,6 @@ struct APIKeyManagementView: View {
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                     }
-                    
-                    // Help text for troubleshooting
-                    if ollamaModels.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Troubleshooting")
-                                .font(.subheadline)
-                                .bold()
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                bulletPoint("Ensure Ollama is installed and running")
-                                bulletPoint("Check if the server URL is correct")
-                                bulletPoint("Verify you have at least one model pulled")
-                            }
-                            
-                            Button("Learn More") {
-                                NSWorkspace.shared.open(URL(string: "https://ollama.ai/download")!)
-                            }
-                            .font(.caption)
-                        }
-                        .padding(12)
-                        .background(Color.secondary.opacity(0.05))
-                        .cornerRadius(8)
-                    }
                 }
                 .padding()
                 .background(Color.secondary.opacity(0.03))
@@ -293,28 +270,28 @@ struct APIKeyManagementView: View {
                                 .font(.system(.body, design: .monospaced))
                             
                             HStack {
-                                Button(action: {
-                                    isVerifying = true
-                                    aiService.saveAPIKey(apiKey) { success in
-                                        isVerifying = false
-                                        if !success {
-                                            alertMessage = "Invalid API key. Please check and try again."
-                                            showAlert = true
-                                        }
-                                        apiKey = ""
+                            Button(action: {
+                                isVerifying = true
+                                aiService.saveAPIKey(apiKey) { success, errorMessage in
+                                    isVerifying = false
+                                    if !success {
+                                        alertMessage = errorMessage ?? "Verification failed"
+                                        showAlert = true
                                     }
-                                }) {
-                                    HStack {
-                                        if isVerifying {
-                                            ProgressView()
-                                                .scaleEffect(0.5)
-                                                .frame(width: 16, height: 16)
-                                        } else {
-                                            Image(systemName: "checkmark.circle.fill")
-                                        }
-                                        Text("Verify and Save")
-                                    }
+                                    apiKey = ""
                                 }
+                            }) {
+                                HStack {
+                                    if isVerifying {
+                                        ProgressView()
+                                            .scaleEffect(0.5)
+                                            .frame(width: 16, height: 16)
+                                    } else {
+                                        Image(systemName: "checkmark.circle.fill")
+                                    }
+                                    Text("Verify and Save")
+                                }
+                            }
                                 .disabled(aiService.customBaseURL.isEmpty || aiService.customModel.isEmpty || apiKey.isEmpty)
                                 
                                 Spacer()
@@ -362,10 +339,10 @@ struct APIKeyManagementView: View {
                         HStack {
                             Button(action: {
                                 isVerifying = true
-                                aiService.saveAPIKey(apiKey) { success in
+                                aiService.saveAPIKey(apiKey) { success, errorMessage in
                                     isVerifying = false
                                     if !success {
-                                        alertMessage = "Invalid API key. Please check and try again."
+                                        alertMessage = errorMessage ?? "Verification failed"
                                         showAlert = true
                                     }
                                     apiKey = ""
@@ -464,13 +441,6 @@ struct APIKeyManagementView: View {
                 alertMessage = "Could not connect to Ollama. Please check if Ollama is running and the base URL is correct."
                 showAlert = true
             }
-        }
-    }
-    
-    private func bulletPoint(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 4) {
-            Text("•")
-            Text(text)
         }
     }
     
