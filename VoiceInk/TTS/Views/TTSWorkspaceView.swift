@@ -94,6 +94,7 @@ struct TTSWorkspaceView: View {
     @State private var inspectorSection: InspectorSection = .cost
     @State private var activeUtility: ComposerUtility?
     @State private var showingInspectorPopover = false
+    @State private var lastPopoverDismissal: Date = .distantPast
 
     var body: some View {
         GeometryReader { proxy in
@@ -116,7 +117,15 @@ struct TTSWorkspaceView: View {
                     inspectorSection: $inspectorSection,
                     toggleInspector: {
                         if isCompact {
-                            showingInspectorPopover.toggle()
+                            // Handle race condition where system dismissal happens before button action
+                            if showingInspectorPopover {
+                                showingInspectorPopover = false
+                            } else {
+                                let timeSinceDismissal = Date().timeIntervalSince(lastPopoverDismissal)
+                                if timeSinceDismissal > 0.25 {
+                                    showingInspectorPopover = true
+                                }
+                            }
                         } else {
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 isInspectorVisible.toggle()
@@ -231,6 +240,11 @@ struct TTSWorkspaceView: View {
         )
         .onAppear {
             viewModel.updateAvailableVoices()
+        }
+        .onChange(of: showingInspectorPopover) { newValue in
+            if !newValue {
+                lastPopoverDismissal = Date()
+            }
         }
     }
 }
