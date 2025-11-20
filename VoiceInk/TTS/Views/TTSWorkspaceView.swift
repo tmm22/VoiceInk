@@ -112,6 +112,8 @@ struct TTSWorkspaceView: View {
                     isCompact: isCompact,
                     isInspectorVisible: isCompact ? showingInspectorPopover : isInspectorVisible,
                     showingAbout: $showingAbout,
+                    showingInspectorPopover: $showingInspectorPopover,
+                    inspectorSection: $inspectorSection,
                     toggleInspector: {
                         if isCompact {
                             showingInspectorPopover.toggle()
@@ -135,20 +137,6 @@ struct TTSWorkspaceView: View {
                 .padding(.horizontal, horizontalPadding)
                 .padding(.vertical, commandVerticalPadding)
                 .background(Color(NSColor.windowBackgroundColor))
-                .popover(isPresented: $showingInspectorPopover, arrowEdge: .top) {
-                    InspectorPanelView(
-                        constants: constants,
-                        selection: $inspectorSection,
-                        onClose: {
-                            showingInspectorPopover = false
-                        }
-                    )
-                    .frame(
-                        minWidth: min(280, proxy.size.width * 0.8),
-                        idealWidth: min(320, proxy.size.width * 0.4)
-                    )
-                    .environmentObject(viewModel)
-                }
 
                 Divider()
 
@@ -255,6 +243,8 @@ private struct CommandStripView: View {
     let isCompact: Bool
     let isInspectorVisible: Bool
     @Binding var showingAbout: Bool
+    @Binding var showingInspectorPopover: Bool
+    @Binding var inspectorSection: InspectorSection
     let toggleInspector: () -> Void
     let focusInspector: (InspectorSection) -> Void
     @State private var showAdvancedPanel = false
@@ -607,6 +597,17 @@ private struct CommandStripView: View {
         }
         .buttonStyle(.plain)
         .help(isInspectorVisible ? "Hide Inspector" : "Show Inspector")
+        .popover(isPresented: $showingInspectorPopover, arrowEdge: .top) {
+            InspectorPanelView(
+                constants: constants,
+                selection: $inspectorSection,
+                onClose: {
+                    showingInspectorPopover = false
+                }
+            )
+            .frame(width: 320)
+            .environmentObject(viewModel)
+        }
     }
 
     private var advancedButton: some View {
