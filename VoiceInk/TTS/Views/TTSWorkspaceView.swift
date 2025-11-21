@@ -91,7 +91,6 @@ struct TTSWorkspaceView: View {
     @State private var showingAbout = false
     @State private var selectedContextPanel: ContextPanelDestination? = .queue
     @State private var isInspectorVisible = false
-    @State private var inspectorSection: InspectorSection = .cost
     @State private var activeUtility: ComposerUtility?
     @State private var showingInspectorPopover = false
     @State private var lastPopoverDismissal: Date = .distantPast
@@ -125,9 +124,10 @@ struct TTSWorkspaceView: View {
                     isInspectorVisible: isCompact ? showingInspectorPopover : isInspectorVisible,
                     showingAbout: $showingAbout,
                     showingInspectorPopover: popoverBinding,
-                    inspectorSection: $inspectorSection,
                     toggleInspector: {
                         if isCompact {
+                            // In compact mode, we toggle the popover
+                            // If it's open, close it.
                             if showingInspectorPopover {
                                 showingInspectorPopover = false
                             } else {
@@ -138,13 +138,13 @@ struct TTSWorkspaceView: View {
                                 }
                             }
                         } else {
+                            // In wide mode, we toggle the sidebar visibility
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 isInspectorVisible.toggle()
                             }
                         }
                     },
-                    focusInspector: { section in
-                        inspectorSection = section
+                    focusInspector: {
                         if isCompact {
                             showingInspectorPopover = true
                         } else {
@@ -166,8 +166,7 @@ struct TTSWorkspaceView: View {
                         verticalPadding: composerVerticalPadding,
                         selectedContextPanel: $selectedContextPanel,
                         activeUtility: $activeUtility,
-                        focusInspector: { section in
-                            inspectorSection = section
+                        focusInspector: {
                             showingInspectorPopover = true
                         }
                     )
@@ -177,12 +176,10 @@ struct TTSWorkspaceView: View {
                         constants: constants,
                         selectedContextPanel: $selectedContextPanel,
                         activeUtility: $activeUtility,
-                        inspectorSection: $inspectorSection,
                         isInspectorVisible: $isInspectorVisible,
                         horizontalPadding: horizontalPadding,
                         verticalPadding: composerVerticalPadding,
-                        focusInspector: { section in
-                            inspectorSection = section
+                        focusInspector: {
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 isInspectorVisible = true
                             }
@@ -264,12 +261,9 @@ private struct CommandStripView: View {
     let isInspectorVisible: Bool
     @Binding var showingAbout: Bool
     @Binding var showingInspectorPopover: Bool
-    @Binding var inspectorSection: InspectorSection
     let toggleInspector: () -> Void
-    let focusInspector: (InspectorSection) -> Void
-    @State private var showAdvancedPanel = false
+    let focusInspector: () -> Void
     @State private var showingTranslationPopover = false
-    @State private var showingStylePopover = false
     @State private var showingPreviewPopover = false
 
     var body: some View {
@@ -291,11 +285,6 @@ private struct CommandStripView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .popover(isPresented: $showAdvancedPanel, arrowEdge: .top) {
-            AdvancedControlsPanelView()
-                .environmentObject(viewModel)
-                .frame(width: 300)
-        }
     }
 
     private var horizontalLayout: some View {
@@ -398,22 +387,6 @@ private struct CommandStripView: View {
         } else {
             return "play.circle"
         }
-    }
-
-    private var voiceStyleButton: some View {
-        Button {
-            showingStylePopover = true
-        } label: {
-            Label("Voice Style", systemImage: "slider.horizontal.2.rectangle")
-                .commandLabelFixedSize()
-        }
-        .buttonStyle(.bordered)
-        .disabled(!viewModel.hasActiveStyleControls)
-        .popover(isPresented: $showingStylePopover, arrowEdge: .top) {
-            VoiceStylePopover(isPresented: $showingStylePopover)
-                .environmentObject(viewModel)
-        }
-        .help("Adjust emotion and tone controls for the selected provider")
     }
 
     private var characterCount: some View {
@@ -540,13 +513,6 @@ private struct CommandStripView: View {
                     Label("Preview Voices", systemImage: voicePreviewButtonIcon)
                 }
                 .disabled(viewModel.availableVoices.isEmpty)
-                
-                Button {
-                    showingStylePopover = true
-                } label: {
-                    Label("Voice Style", systemImage: "slider.horizontal.2.rectangle")
-                }
-                .disabled(!viewModel.hasActiveStyleControls)
             }
             
             Section("Text") {
@@ -590,14 +556,6 @@ private struct CommandStripView: View {
                 }
                 .disabled(viewModel.currentTranscript == nil)
             }
-            
-            Section {
-                Button {
-                    showAdvancedPanel = true
-                } label: {
-                    Label("Advanced Controls", systemImage: "slider.horizontal.3")
-                }
-            }
         } label: {
             Image(systemName: "ellipsis.circle")
                 .imageScale(.large)
@@ -616,36 +574,18 @@ private struct CommandStripView: View {
                 .frame(width: 28, height: 28)
         }
         .buttonStyle(.plain)
-        .help(isInspectorVisible ? "Hide Inspector" : "Show Inspector")
+        .help(isInspectorVisible ? "Hide Tickwick Settings" : "Show Tickwick Settings")
         .popover(isPresented: $showingInspectorPopover, arrowEdge: .top) {
-            InspectorPanelView(
-                constants: constants,
-                selection: $inspectorSection,
-                onClose: {
-                    showingInspectorPopover = false
-                }
-            )
-            .frame(width: 320)
-            .environmentObject(viewModel)
+            TTSInspectorView(isVisible: $showingInspectorPopover)
+                .frame(width: 320, height: 500)
+                .environmentObject(viewModel)
         }
-    }
-
-    private var advancedButton: some View {
-        Button {
-            showAdvancedPanel = true
-        } label: {
-            Image(systemName: "slider.horizontal.3")
-                .imageScale(.large)
-                .frame(width: 28, height: 28)
-        }
-        .buttonStyle(.plain)
-        .help("Show advanced playback and export controls")
     }
 
     private var overflowMenu: some View {
         Menu {
             Button("View Cost Detail", systemImage: "dollarsign.circle") {
-                focusInspector(.cost)
+                focusInspector()
             }
 
             Menu("Appearance", systemImage: "paintbrush") {
@@ -693,7 +633,7 @@ private struct CompactWorkspace: View {
     let verticalPadding: CGFloat
     @Binding var selectedContextPanel: ContextPanelDestination?
     @Binding var activeUtility: ComposerUtility?
-    let focusInspector: (InspectorSection) -> Void
+    let focusInspector: () -> Void
 
     var body: some View {
         MainComposerColumn(
@@ -714,11 +654,10 @@ private struct WideWorkspace: View {
     let constants: ResponsiveConstants
     @Binding var selectedContextPanel: ContextPanelDestination?
     @Binding var activeUtility: ComposerUtility?
-    @Binding var inspectorSection: InspectorSection
     @Binding var isInspectorVisible: Bool
     let horizontalPadding: CGFloat
     let verticalPadding: CGFloat
-    let focusInspector: (InspectorSection) -> Void
+    let focusInspector: () -> Void
 
     var body: some View {
         HStack(spacing: 0) {
@@ -760,14 +699,8 @@ private struct WideWorkspace: View {
 
             if isInspectorVisible {
                 Divider()
-                SmartInspectorColumn(
-                    constants: constants,
-                    selection: $inspectorSection,
-                    collapse: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            isInspectorVisible = false
-                        }
-                    }
+                InspectorColumn(
+                    isVisible: $isInspectorVisible
                 )
                 .frame(
                     minWidth: constants.inspectorWidth.lowerBound,
@@ -781,14 +714,12 @@ private struct WideWorkspace: View {
     }
 }
 
-private struct SmartInspectorColumn: View {
+private struct InspectorColumn: View {
     @EnvironmentObject var viewModel: TTSViewModel
-    let constants: ResponsiveConstants
-    @Binding var selection: InspectorSection
-    let collapse: () -> Void
+    @Binding var isVisible: Bool
 
     var body: some View {
-        InspectorPanelView(constants: constants, selection: $selection, onClose: collapse)
+        TTSInspectorView(isVisible: $isVisible)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
@@ -808,7 +739,7 @@ private struct MainComposerColumn: View {
     let verticalPadding: CGFloat
     @Binding var selectedContextPanel: ContextPanelDestination?
     @Binding var activeUtility: ComposerUtility?
-    let focusInspector: (InspectorSection) -> Void
+    let focusInspector: () -> Void
     @State private var showingTranslationDetail = false
 
     var body: some View {
@@ -871,7 +802,7 @@ private struct MainComposerColumn: View {
 private struct ContextShelfView: View {
     @EnvironmentObject var viewModel: TTSViewModel
     @Binding var showingTranslationDetail: Bool
-    let focusInspector: (InspectorSection) -> Void
+    let focusInspector: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -943,7 +874,7 @@ private struct ContextShelfView: View {
                 HStack {
                     Spacer()
                     Button("Open Inspector") {
-                        focusInspector(.cost)
+                        focusInspector()
                     }
                     .buttonStyle(.bordered)
                 }
@@ -1396,102 +1327,7 @@ private struct VoicePreviewPopover: View {
     }
 }
 
-private struct VoiceStylePopover: View {
-    @EnvironmentObject var viewModel: TTSViewModel
-    @Binding var isPresented: Bool
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Voice Style")
-                    .font(.headline)
-                Text("Fine-tune expressive controls for the current provider. Settings persist per provider and reset automatically when unsupported.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            if viewModel.hasActiveStyleControls {
-                HStack {
-                    Text("Presets")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                    Spacer()
-                    Button {
-                        viewModel.resetStyleControls()
-                    } label: {
-                        Label("Reset All", systemImage: "arrow.counterclockwise")
-                    }
-                    .controlSize(.small)
-                    .buttonStyle(.bordered)
-                    .disabled(!viewModel.canResetStyleControls)
-                }
-
-                VStack(alignment: .leading, spacing: 14) {
-                    ForEach(viewModel.activeStyleControls) { control in
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(control.label)
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
-                                    Text(control.formattedValue(for: viewModel.currentStyleValue(for: control)))
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                }
-
-                                Spacer()
-
-                                Button {
-                                    viewModel.resetStyleControl(control)
-                                } label: {
-                                    Label("Reset", systemImage: "arrow.uturn.backward")
-                                        .labelStyle(.titleAndIcon)
-                                }
-                                .controlSize(.small)
-                                .buttonStyle(.bordered)
-                                .disabled(!viewModel.canResetStyleControl(control))
-                            }
-
-                            if let step = control.step {
-                                Slider(value: viewModel.binding(for: control), in: control.range, step: step)
-                            } else {
-                                Slider(value: viewModel.binding(for: control), in: control.range)
-                            }
-
-                            if let help = control.helpText {
-                                Text(help)
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                }
-            } else {
-                Label("The selected provider does not expose style controls.", systemImage: "info.circle")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            if viewModel.selectedProvider == .elevenLabs {
-                Divider()
-                ElevenLabsPromptingView()
-                    .environmentObject(viewModel)
-            }
-
-            Divider()
-
-            HStack {
-                Spacer()
-                Button("Close") {
-                    isPresented = false
-                }
-                .buttonStyle(.bordered)
-            }
-        }
-        .padding(20)
-        .frame(minWidth: 280)
-    }
-}
 
 private struct UtilityDetailView: View {
     @EnvironmentObject var viewModel: TTSViewModel
@@ -1631,7 +1467,7 @@ private struct ChunkingHelperView: View {
 
 private struct GenerationStatusFooter: View {
     @EnvironmentObject var viewModel: TTSViewModel
-    let focusInspector: (InspectorSection) -> Void
+    let focusInspector: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -1648,7 +1484,7 @@ private struct GenerationStatusFooter: View {
             Spacer()
             
             Button {
-                focusInspector(.cost)
+                focusInspector()
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "dollarsign.circle")
@@ -1768,394 +1604,7 @@ private struct ContextPanelContent: View {
 
 
 
-// MARK: - Inspector Section Enum
 
-private enum InspectorSection: String, CaseIterable, Identifiable {
-    case cost
-    case transcript
-    case notifications
-    case provider
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .cost:
-            return "Cost"
-        case .transcript:
-            return "Transcript"
-        case .notifications:
-            return "Alerts"
-        case .provider:
-            return "Provider"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .cost:
-            return "dollarsign.circle"
-        case .transcript:
-            return "doc.text"
-        case .notifications:
-            return "bell"
-        case .provider:
-            return "info.circle"
-        }
-    }
-}
-
-// MARK: - Inspector Panel View
-
-private struct InspectorPanelView: View {
-    @EnvironmentObject var viewModel: TTSViewModel
-    let constants: ResponsiveConstants
-    @Binding var selection: InspectorSection
-    let onClose: (() -> Void)?
-    
-    init(constants: ResponsiveConstants = ResponsiveConstants(breakpoint: .regular), 
-         selection: Binding<InspectorSection>, 
-         onClose: (() -> Void)? = nil) {
-        self.constants = constants
-        self._selection = selection
-        self.onClose = onClose
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header section with responsive padding
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Label("Inspector", systemImage: "sidebar.right")
-                        .font(.headline)
-                    Spacer()
-                    if let onClose {
-                        Button(action: onClose) {
-                            Image(systemName: "xmark.circle.fill")
-                                .imageScale(.medium)
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                Picker("Inspector Section", selection: $selection) {
-                    ForEach(InspectorSection.allCases) { section in
-                        Label(section.title, systemImage: section.icon)
-                            .tag(section)
-                    }
-                }
-                .pickerStyle(.segmented)
-            }
-            .padding(.horizontal, constants.panelPadding)
-            .padding(.top, constants.panelPadding)
-            .padding(.bottom, constants.panelPadding * 0.6)
-
-            // Scrollable content area
-            ScrollView {
-                VStack(alignment: .leading, spacing: constants.itemSpacing) {
-                    switch selection {
-                    case .cost:
-                        CostInspectorContent()
-                    case .transcript:
-                        TranscriptInspectorContent()
-                    case .notifications:
-                        NotificationsInspectorContent()
-                    case .provider:
-                        ProviderInspectorContent()
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, constants.panelPadding)
-                .padding(.bottom, constants.panelPadding)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(CardBackground(isSelected: false))
-    }
-}
-
-// MARK: - Helper Components
-
-private struct InfoButton: View {
-    let message: String
-    @State private var showingPopover = false
-    
-    var body: some View {
-        Button {
-            showingPopover = true
-        } label: {
-            Image(systemName: "info.circle")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-        .buttonStyle(.plain)
-        .help(message)
-        .popover(isPresented: $showingPopover) {
-            Text(message)
-                .padding()
-                .frame(maxWidth: 250)
-        }
-    }
-}
-
-private struct CompactInfoGrid: View {
-    let items: [(icon: String, label: String, value: String)]
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            ForEach(items.indices, id: \.self) { index in
-                HStack(spacing: 8) {
-                    Image(systemName: items[index].icon)
-                        .frame(width: 20)
-                        .foregroundColor(.secondary)
-                    
-                    Text(items[index].label)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Spacer()
-                    
-                    Text(items[index].value)
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .lineLimit(1)
-                }
-            }
-        }
-        .padding(12)
-        .background(Color.secondary.opacity(0.1))
-        .cornerRadius(8)
-    }
-}
-
-// MARK: - Content Sections
-
-private struct CostInspectorContent: View {
-    @EnvironmentObject var viewModel: TTSViewModel
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Cost display
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Image(systemName: "dollarsign.circle.fill")
-                    .font(.title2)
-                    .foregroundColor(.green)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(viewModel.costEstimate.summary)
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                    
-                    Text("per generation")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                InfoButton(message: viewModel.costEstimate.detail ?? 
-                          "Based on current provider pricing")
-            }
-            
-            Divider()
-            
-            // Actions
-            Button {
-                viewModel.objectWillChange.send()
-            } label: {
-                Label("Refresh Estimate", systemImage: "arrow.clockwise")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .disabled(viewModel.inputText.isEmpty)
-        }
-    }
-}
-
-private struct NotificationsInspectorContent: View {
-    @EnvironmentObject var viewModel: TTSViewModel
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Image(systemName: "bell.badge.fill")
-                    .font(.title2)
-                    .foregroundColor(.orange)
-                
-                Text("Batch Alerts")
-                    .font(.headline)
-                
-                Spacer()
-            }
-            
-            Toggle(isOn: Binding(
-                get: { viewModel.notificationsEnabled },
-                set: { viewModel.setNotificationsEnabled($0) }
-            )) {
-                HStack(spacing: 4) {
-                    Text("Completion notifications")
-                        .font(.subheadline)
-                    
-                    InfoButton(message: "Get notified when batch generation completes. Uses macOS notification center.")
-                }
-            }
-            
-            if viewModel.notificationsEnabled {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                        .font(.caption)
-                    Text("Notifications enabled")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.green.opacity(0.1))
-                .cornerRadius(6)
-            }
-        }
-    }
-}
-
-private struct ProviderInspectorContent: View {
-    @EnvironmentObject var viewModel: TTSViewModel
-    @State private var showingDetails = false
-    
-    var body: some View {
-        let provider = viewModel.selectedProvider
-        let profile = ProviderCostProfile.profile(for: provider)
-        let formats = viewModel.supportedFormats.map(\.displayName).joined(separator: ", ")
-        
-        VStack(alignment: .leading, spacing: 16) {
-            // Provider header
-            HStack(spacing: 12) {
-                Image(systemName: provider.icon)
-                    .font(.title)
-                    .foregroundColor(.accentColor)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(provider.displayName)
-                        .font(.headline)
-                    
-                    Text("Current Provider")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                Button {
-                    showingDetails.toggle()
-                } label: {
-                    Image(systemName: showingDetails ? "chevron.up" : "info.circle")
-                }
-                .buttonStyle(.plain)
-            }
-            
-            // Key info
-            CompactInfoGrid(items: [
-                ("waveform", "Quality", "High"),
-                ("arrow.down.circle", "Formats", formats.components(separatedBy: ", ").first ?? "MP3"),
-                ("person.wave.2", "Voice", viewModel.selectedVoice?.name ?? "Default")
-            ])
-            
-            // Expanded details
-            if showingDetails {
-                Text(profile.detail)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.vertical, 8)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            
-            // Voice selection hint
-            if viewModel.selectedVoice == nil {
-                HStack(spacing: 8) {
-                    Image(systemName: "lightbulb")
-                        .foregroundColor(.yellow)
-                    Text("Choose voice from Command Strip")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(8)
-                .background(Color.yellow.opacity(0.1))
-                .cornerRadius(6)
-            }
-        }
-    }
-}
-
-private struct TranscriptInspectorContent: View {
-    @EnvironmentObject var viewModel: TTSViewModel
-    @State private var selectedFormat: TranscriptFormat = .srt
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Status
-            HStack(spacing: 12) {
-                Image(systemName: viewModel.currentTranscript != nil ? 
-                      "doc.text.fill" : "doc.text")
-                    .font(.title2)
-                    .foregroundColor(viewModel.currentTranscript != nil ? 
-                                   .green : .secondary)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Transcript")
-                        .font(.headline)
-                    
-                    Text(viewModel.currentTranscript != nil ? 
-                         "Ready to export" : "Generate audio first")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            if viewModel.currentTranscript != nil {
-                Divider()
-                
-                // Format picker
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Export Format")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.secondary)
-                    
-                    Picker("Format", selection: $selectedFormat) {
-                        Label("SRT", systemImage: "captions.bubble")
-                            .tag(TranscriptFormat.srt)
-                        Label("VTT", systemImage: "text.bubble")
-                            .tag(TranscriptFormat.vtt)
-                    }
-                    .pickerStyle(.segmented)
-                }
-                
-                // Export button
-                Button {
-                    viewModel.exportTranscript(format: selectedFormat)
-                } label: {
-                    Label("Export Transcript", systemImage: "square.and.arrow.down")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-            } else {
-                // Help text
-                HStack(spacing: 8) {
-                    Image(systemName: "info.circle")
-                        .foregroundColor(.blue)
-                    Text("Generate speech to create transcript")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.blue.opacity(0.1))
-                .cornerRadius(6)
-            }
-        }
-    }
-}
 
 // MARK: - Playback Bar
 
