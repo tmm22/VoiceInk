@@ -100,10 +100,26 @@ struct CustomCloudModel: TranscriptionModel, Codable {
     let description: String
     let provider: ModelProvider = .custom
     let apiEndpoint: String
-    let apiKey: String
+    // apiKey is no longer stored directly; it's retrieved from Keychain
+    // We use a transient property to hold it temporarily during creation/editing
+    var transientApiKey: String?
+    
+    var apiKey: String {
+        get { 
+            transientApiKey ?? KeychainManager.shared.getAPIKey(for: "custom_model_\(id.uuidString)") ?? "" 
+        }
+        set {
+            transientApiKey = newValue
+        }
+    }
+    
     let modelName: String
     let isMultilingualModel: Bool
     let supportedLanguages: [String: String]
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, displayName, description, provider, apiEndpoint, modelName, isMultilingualModel, supportedLanguages
+    }
 
     init(id: UUID = UUID(), name: String, displayName: String, description: String, apiEndpoint: String, apiKey: String, modelName: String, isMultilingual: Bool = true, supportedLanguages: [String: String]? = nil) {
         self.id = id
@@ -111,10 +127,55 @@ struct CustomCloudModel: TranscriptionModel, Codable {
         self.displayName = displayName
         self.description = description
         self.apiEndpoint = apiEndpoint
-        self.apiKey = apiKey
+        self.transientApiKey = apiKey // Store temporarily; manager must save to Keychain
         self.modelName = modelName
         self.isMultilingualModel = isMultilingual
         self.supportedLanguages = supportedLanguages ?? PredefinedModels.getLanguageDictionary(isMultilingual: isMultilingual)
+    }
+    
+    // Custom decoding to handle both new (no apiKey) and legacy (with apiKey) formats
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        displayName = try container.decode(String.self, forKey: .displayName)
+        description = try container.decode(String.self, forKey: .description)
+        // Provider is default .custom, but if encoded, we decode it
+        if let decodedProvider = try? container.decode(ModelProvider.self, forKey: .provider) {
+            // In a struct let constant, we can't reassign, but since it's defined as `let provider: ModelProvider = .custom` 
+            // and typically `Codable` synthesizes it, wait.
+            // The original struct had `let provider: ModelProvider = .custom`. 
+            // If I implement `init(from:)`, I must assign to all properties.
+            // But `provider` has a default value and is a `let`. Swift allows assigning to `let` in `init`.
+            // However, the previous definition had it as a property with default value.
+            // I'll just assign .custom to match behavior or decode if present.
+        }
+        // Actually, `let provider: ModelProvider = .custom` implies it's a property.
+        // To match previous behavior:
+        
+        apiEndpoint = try container.decode(String.self, forKey: .apiEndpoint)
+        modelName = try container.decode(String.self, forKey: .modelName)
+        isMultilingualModel = try container.decode(Bool.self, forKey: .isMultilingualModel)
+        supportedLanguages = try container.decode([String: String].self, forKey: .supportedLanguages)
+        
+        // Legacy handling: Check if we can decode "apiKey" from the container using a dynamic key
+        // But I limited CodingKeys. 
+        // To support migration at the Model level, I would need to include apiKey in CodingKeys but omit it in encode.
+        // Or simpler: Handle migration in CustomModelManager using a separate struct as planned.
+        // So here, I will just implement standard decoding excluding apiKey.
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(displayName, forKey: .displayName)
+        try container.encode(description, forKey: .description)
+        try container.encode(provider, forKey: .provider)
+        try container.encode(apiEndpoint, forKey: .apiEndpoint)
+        try container.encode(modelName, forKey: .modelName)
+        try container.encode(isMultilingualModel, forKey: .isMultilingualModel)
+        try container.encode(supportedLanguages, forKey: .supportedLanguages)
     }
 } 
 

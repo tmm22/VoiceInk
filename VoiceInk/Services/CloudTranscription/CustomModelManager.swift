@@ -17,6 +17,11 @@ class CustomModelManager: ObservableObject {
     // MARK: - CRUD Operations
     
     func addCustomModel(_ model: CustomCloudModel) {
+        // Save API key to Keychain if present in transient property
+        if let apiKey = model.transientApiKey, !apiKey.isEmpty {
+            KeychainManager.shared.saveAPIKey(apiKey, for: "custom_model_\(model.id.uuidString)")
+        }
+        
         customModels.append(model)
         saveCustomModels()
         logger.info("Added custom model: \(model.displayName)")
@@ -24,12 +29,21 @@ class CustomModelManager: ObservableObject {
     
     func removeCustomModel(withId id: UUID) {
         customModels.removeAll { $0.id == id }
+        
+        // Remove API key from Keychain
+        try? KeychainManager.shared.deleteAPIKey(for: "custom_model_\(id.uuidString)")
+        
         saveCustomModels()
         logger.info("Removed custom model with ID: \(id)")
     }
     
     func updateCustomModel(_ updatedModel: CustomCloudModel) {
         if let index = customModels.firstIndex(where: { $0.id == updatedModel.id }) {
+            // Update API key in Keychain if it was changed (present in transient)
+            if let newKey = updatedModel.transientApiKey, !newKey.isEmpty {
+                KeychainManager.shared.saveAPIKey(newKey, for: "custom_model_\(updatedModel.id.uuidString)")
+            }
+            
             customModels[index] = updatedModel
             saveCustomModels()
             logger.info("Updated custom model: \(updatedModel.displayName)")
@@ -44,6 +58,38 @@ class CustomModelManager: ObservableObject {
             return
         }
         
+        // Attempt migration from legacy format (with apiKey in JSON)
+        if let legacyModels = try? JSONDecoder().decode([LegacyCustomCloudModel].self, from: data) {
+            logger.info("Found legacy custom models. Migrating keys to Keychain...")
+            
+            var migratedModels: [CustomCloudModel] = []
+            
+            for legacy in legacyModels {
+                // Save key to Keychain
+                KeychainManager.shared.saveAPIKey(legacy.apiKey, for: "custom_model_\(legacy.id.uuidString)")
+                
+                // Create new model (apiKey property will now read from Keychain)
+                let newModel = CustomCloudModel(
+                    id: legacy.id,
+                    name: legacy.name,
+                    displayName: legacy.displayName,
+                    description: legacy.description,
+                    apiEndpoint: legacy.apiEndpoint,
+                    apiKey: "", // Not needed here as we just saved it to keychain, and transient is not needed for load
+                    modelName: legacy.modelName,
+                    isMultilingual: legacy.isMultilingualModel,
+                    supportedLanguages: legacy.supportedLanguages
+                )
+                migratedModels.append(newModel)
+            }
+            
+            self.customModels = migratedModels
+            saveCustomModels() // Save in new format
+            logger.info("Migration complete. \(migratedModels.count) models migrated.")
+            return
+        }
+        
+        // Standard load
         do {
             customModels = try JSONDecoder().decode([CustomCloudModel].self, from: data)
         } catch {
@@ -135,4 +181,18 @@ class CustomModelManager: ObservableObject {
         }
         return false
     }
+}
+
+// Legacy struct for migration
+private struct LegacyCustomCloudModel: Codable {
+    let id: UUID
+    let name: String
+    let displayName: String
+    let description: String
+    let provider: ModelProvider
+    let apiEndpoint: String
+    let apiKey: String
+    let modelName: String
+    let isMultilingualModel: Bool
+    let supportedLanguages: [String: String]
 } 

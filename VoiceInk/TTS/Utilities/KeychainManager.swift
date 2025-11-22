@@ -3,6 +3,7 @@ import Security
 
 class KeychainManager {
     // MARK: - Properties
+    static let shared = KeychainManager()
     private let service: String
     private let accessGroup: String?
 

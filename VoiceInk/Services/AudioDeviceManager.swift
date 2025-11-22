@@ -411,8 +411,7 @@ class AudioDeviceManager: ObservableObject {
         )
         
         if status != noErr {
-            // We can't log here reliably if logger is deallocated, but print is safe
-            print("AudioDeviceManager: Failed to remove property listener in deinit: \(status)")
+            os_log("AudioDeviceManager: Failed to remove property listener in deinit: %{public}d", type: .error, status)
         }
     }
     

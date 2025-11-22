@@ -3,6 +3,7 @@ import AppKit
 import UniformTypeIdentifiers
 import KeyboardShortcuts
 import LaunchAtLogin
+import os
 
 struct GeneralSettings: Codable {
     let toggleMiniRecorderShortcut: KeyboardShortcuts.Shortcut?
@@ -40,6 +41,7 @@ struct VoiceLinkCommunityExportedSettings: Codable {
 
 class ImportExportService {
     static let shared = ImportExportService()
+    private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "ImportExportService")
     private let currentSettingsVersion: String
     private let dictionaryItemsKey = "CustomVocabularyItems"
     private let wordReplacementsKey = "wordReplacements"
@@ -189,9 +191,9 @@ class ImportExportService {
                         customModelManager.customModels = modelsToImport
                         customModelManager.saveCustomModels() // Ensure they are persisted
                         whisperState.refreshAllAvailableModels() // Refresh the UI
-                        print("Successfully imported \(modelsToImport.count) custom models.")
+                        self.logger.info("Successfully imported \(modelsToImport.count) custom models.")
                     } else {
-                        print("No custom models found in the imported file.")
+                        self.logger.info("No custom models found in the imported file.")
                     }
 
                     if let customEmojis = importedSettings.customEmojis {
@@ -206,13 +208,13 @@ class ImportExportService {
                             UserDefaults.standard.set(encoded, forKey: "CustomVocabularyItems")
                         }
                     } else {
-                        print("No custom vocabulary items (for spelling) found in the imported file. Existing items remain unchanged.")
+                        self.logger.info("No custom vocabulary items (for spelling) found in the imported file. Existing items remain unchanged.")
                     }
 
                     if let replacementsToImport = importedSettings.wordReplacements {
                         UserDefaults.standard.set(replacementsToImport, forKey: self.wordReplacementsKey)
                     } else {
-                        print("No word replacements found in the imported file. Existing replacements remain unchanged.")
+                        self.logger.info("No word replacements found in the imported file. Existing replacements remain unchanged.")
                     }
 
                     if let general = importedSettings.generalSettings {

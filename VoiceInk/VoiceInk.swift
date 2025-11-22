@@ -285,11 +285,18 @@ struct VoiceInkApp: App {
                 .environmentObject(enhancementService)
         } label: {
             let image: NSImage = {
-                let ratio = $0.size.height / $0.size.width
-                $0.size.height = 22
-                $0.size.width = 22 / ratio
-                return $0
-            }(NSImage(named: "menuBarIcon")!)
+                if let img = NSImage(named: "menuBarIcon") {
+                    let ratio = img.size.height / img.size.width
+                    img.size.height = 22
+                    img.size.width = 22 / ratio
+                    return img
+                } else {
+                    // Fallback system image if custom asset is missing
+                    let fallback = NSImage(systemSymbolName: "mic.fill", accessibilityDescription: "VoiceInk") ?? NSImage()
+                    fallback.size = NSSize(width: 18, height: 22)
+                    return fallback
+                }
+            }()
 
             Image(nsImage: image)
         }
