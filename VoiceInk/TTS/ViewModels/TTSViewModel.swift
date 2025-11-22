@@ -218,6 +218,12 @@ class TTSViewModel: ObservableObject {
             saveSettings()
         }
     }
+    @Published var isInspectorEnabled: Bool = false {
+        didSet {
+            guard isInspectorEnabled != oldValue else { return }
+            saveSettings()
+        }
+    }
     @Published var selectedFormat: AudioSettings.AudioFormat = .mp3 {
         didSet {
             guard selectedFormat != oldValue else { return }
@@ -306,6 +312,7 @@ class TTSViewModel: ObservableObject {
     private let snippetsKey = "textSnippets"
     private let pronunciationKey = "pronunciationRules"
     private let notificationsKey = "notificationsEnabled"
+    private let inspectorEnabledKey = "isInspectorEnabled"
     private let styleValuesKey = "providerStyleValues"
     private let transcriptionProviderKey = "selectedTranscriptionProvider"
     private let elevenLabsPromptKey = "elevenLabs.prompt"
@@ -2031,6 +2038,7 @@ class TTSViewModel: ObservableObject {
         }
 
         notificationsEnabled = UserDefaults.standard.bool(forKey: notificationsKey)
+        isInspectorEnabled = UserDefaults.standard.bool(forKey: inspectorEnabledKey)
 
         if notificationCenter == nil && notificationsEnabled {
             notificationsEnabled = false
@@ -2146,6 +2154,8 @@ class TTSViewModel: ObservableObject {
         UserDefaults.standard.set(isMinimalistMode, forKey: "isMinimalistMode")
         UserDefaults.standard.set(selectedFormat.rawValue, forKey: "audioFormat")
         UserDefaults.standard.set(appearancePreference.rawValue, forKey: "appearancePreference")
+        UserDefaults.standard.set(notificationsEnabled, forKey: notificationsKey)
+        UserDefaults.standard.set(isInspectorEnabled, forKey: inspectorEnabledKey)
     }
 
     @MainActor deinit {

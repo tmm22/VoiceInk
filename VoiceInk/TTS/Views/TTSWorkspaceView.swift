@@ -285,6 +285,11 @@ private struct CommandStripView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .popover(isPresented: $showingInspectorPopover, arrowEdge: .top) {
+            TTSInspectorView(isVisible: $showingInspectorPopover)
+                .frame(width: 320, height: 500)
+                .environmentObject(viewModel)
+        }
     }
 
     private var horizontalLayout: some View {
@@ -565,20 +570,18 @@ private struct CommandStripView: View {
         .help("Actions and tools")
     }
     
+    @ViewBuilder
     private var inspectorToggleButton: some View {
-        Button {
-            toggleInspector()
-        } label: {
-            Image(systemName: isInspectorVisible ? "sidebar.right.fill" : "sidebar.right")
-                .imageScale(.large)
-                .frame(width: 28, height: 28)
-        }
-        .buttonStyle(.plain)
-        .help(isInspectorVisible ? "Hide Tickwick Settings" : "Show Tickwick Settings")
-        .popover(isPresented: $showingInspectorPopover, arrowEdge: .top) {
-            TTSInspectorView(isVisible: $showingInspectorPopover)
-                .frame(width: 320, height: 500)
-                .environmentObject(viewModel)
+        if viewModel.isInspectorEnabled {
+            Button {
+                toggleInspector()
+            } label: {
+                Image(systemName: isInspectorVisible ? "sidebar.right.fill" : "sidebar.right")
+                    .imageScale(.large)
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            .help(isInspectorVisible ? "Hide Tickwick Settings" : "Show Tickwick Settings")
         }
     }
 

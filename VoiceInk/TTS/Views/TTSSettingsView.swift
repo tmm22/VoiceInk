@@ -362,6 +362,17 @@ struct TTSSettingsView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
             
+            GroupBox("Interface") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Toggle("Enable Tickwick Settings (Inspector)", isOn: $viewModel.isInspectorEnabled)
+                    
+                    Text("Show the advanced settings inspector in the Text-to-Speech workspace.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.vertical, 8)
+            }
+
             GroupBox("Appearance") {
                 VStack(alignment: .leading, spacing: 12) {
                     Picker("Appearance", selection: $viewModel.appearancePreference) {
