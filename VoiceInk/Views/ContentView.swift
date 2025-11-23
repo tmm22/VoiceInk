@@ -3,7 +3,7 @@ import SwiftData
 import KeyboardShortcuts
 
 // ViewType enum with all cases
-enum ViewType: String, CaseIterable {
+enum ViewType: String, CaseIterable, Identifiable {
     case metrics = "Dashboard"
     case transcribeAudio = "Transcribe Audio"
     case textToSpeech = "Text to Speech"
@@ -16,6 +16,8 @@ enum ViewType: String, CaseIterable {
     case dictionary = "Dictionary"
     case settings = "Settings"
     case community = "Community"
+    
+    var id: String { rawValue }
     
     var icon: String {
         switch self {
@@ -52,17 +54,26 @@ struct ContentView: View {
     @EnvironmentObject private var hotkeyManager: HotkeyManager
     @StateObject private var ttsViewModel = TTSViewModel()
     @State private var selectedView: ViewType = .metrics
-    @State private var hoveredView: ViewType?
     @State private var hasLoadedData = false
     @State private var showingShortcutCheatSheet = false
     @AppStorage("enableAIEnhancementFeatures") private var enableAIEnhancementFeatures = false
     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
-    @StateObject private var licenseViewModel = LicenseViewModel()
 
-    private var availableViews: [ViewType] {
-        ViewType.allCases.filter { viewType in
-            enableAIEnhancementFeatures || !viewType.requiresAIEnhancement
+    private var sidebarSections: [SidebarSection] {
+        var sections: [SidebarSection] = []
+        
+        // Primary Section
+        sections.append(SidebarSection(title: nil, items: [.metrics, .transcribeAudio, .history]))
+        
+        // AI Workspace
+        if enableAIEnhancementFeatures {
+            sections.append(SidebarSection(title: "AI Workspace", items: [.textToSpeech, .models, .powerMode, .enhancement]))
         }
+        
+        // System
+        sections.append(SidebarSection(title: nil, items: [.settings]))
+        
+        return sections
     }
     
     private var isSetupComplete: Bool {
@@ -76,9 +87,8 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             VoiceInkSidebar(
-                views: availableViews,
-                selectedView: $selectedView,
-                hoveredView: $hoveredView
+                sections: sidebarSections,
+                selectedView: $selectedView
             )
             .frame(width: 220)
             .navigationSplitViewColumnWidth(220)
@@ -223,19 +233,41 @@ struct ContentView: View {
         case .powerMode:
             PowerModeView()
         case .settings:
-            SettingsView()
+            SettingsView(selectedTab: .general)
                 .environmentObject(whisperState)
-        case .community:
-            LicenseManagementView()
-        case .permissions:
-            PermissionsView()
+        case .community, .permissions, .audioInput, .dictionary:
+             // These are now handled within Settings or removed from top-level
+             SettingsView(selectedTab: settingsTab(for: selectedView))
+                 .environmentObject(whisperState)
+        }
+    }
+    
+    private func settingsTab(for viewType: ViewType) -> SettingsTab {
+        switch viewType {
+        case .audioInput: return .audio
+        case .dictionary: return .transcription
+        case .permissions: return .permissions
+        case .community: return .general
+        default: return .general
         }
     }
 
     private func ensureValidSelection() {
-        guard let firstAvailable = availableViews.first else { return }
-        if !availableViews.contains(selectedView) {
-            selectedView = firstAvailable
+        // Gather all available views from sections
+        let allAvailableViews = sidebarSections.flatMap { $0.items }
+        
+        // If current selection is not in available views (and not one of the views moved to settings), reset to default
+        if !allAvailableViews.contains(selectedView) {
+            // Allow staying on views that were moved to settings if we are already there? 
+            // No, if we are simplifying, we should redirect to settings if they select something that's now IN settings.
+            // But for now, let's just default to .metrics if invalid
+             
+            // Check if it's one of the moved views, if so, redirect to Settings
+            if [.audioInput, .dictionary, .permissions, .community].contains(selectedView) {
+                selectedView = .settings
+            } else {
+                selectedView = .metrics
+            }
         }
     }
 }
