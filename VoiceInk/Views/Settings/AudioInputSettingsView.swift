@@ -7,7 +7,7 @@ struct AudioInputSettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
-        VStack(spacing: VoiceInkSpacing.xl) {
+        VStack(spacing: VoiceInkSpacing.lg) {
             inputModeSection
             
             microphoneTestSection
@@ -127,7 +127,7 @@ struct AudioInputSettingsView: View {
                     .padding(VoiceInkSpacing.md)
                     .background(
                         RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                            .fill(VoiceInkTheme.Palette.elevatedSurface.opacity(0.5))
+                            .fill(VoiceInkTheme.Card.background)
                             .overlay(
                                 RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
                                     .stroke(VoiceInkTheme.Palette.outline, lineWidth: 1)
@@ -267,7 +267,7 @@ struct AudioInputSettingsView: View {
         .padding(VoiceInkSpacing.xl)
         .background(
             RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                .fill(VoiceInkTheme.Palette.elevatedSurface.opacity(0.5))
+                .fill(VoiceInkTheme.Card.background)
                 .overlay(
                     RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
                         .stroke(VoiceInkTheme.Palette.outline, lineWidth: 1)
@@ -541,7 +541,7 @@ struct DevicePriorityCard: View {
         .padding(VoiceInkSpacing.md)
         .background(
              RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                 .fill(VoiceInkTheme.Palette.elevatedSurface.opacity(0.5))
+                 .fill(VoiceInkTheme.Card.background)
                  .overlay(
                      RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
                          .stroke(VoiceInkTheme.Palette.outline, lineWidth: 1)

@@ -44,46 +44,61 @@ struct SettingsView: View {
     @State private var isCustomCancelEnabled = false
     @State private var isCustomSoundsExpanded = false
     @State private var selectedTab: SettingsTab? = .general
+    @State private var activeScrollTab: SettingsTab = .general
 
     init(selectedTab: SettingsTab = .general) {
         _selectedTab = State(initialValue: selectedTab)
     }
 
     var body: some View {
-        NavigationSplitView {
-            List(SettingsTab.allCases, selection: $selectedTab) { tab in
-                NavigationLink(value: tab) {
-                    Label(tab.rawValue, systemImage: tab.icon)
+        HStack(spacing: 0) {
+            // Navigation Rail
+            SettingsNavigationRail(
+                tabs: SettingsTab.allCases,
+                selectedTab: $activeScrollTab,
+                onSelect: { tab in
+                    activeScrollTab = tab
+                    // Scrolling is handled by onChange of activeScrollTab in the scroll view
                 }
-            }
-            .navigationTitle("Settings")
-        } detail: {
-            if let selectedTab {
+            )
+            .frame(width: 220)
+            .background(VoiceInkTheme.Palette.surface)
+            .overlay(
+                Rectangle()
+                    .frame(width: 1)
+                    .foregroundColor(VoiceInkTheme.Palette.outline),
+                alignment: .trailing
+            )
+            
+            // Main Content Area
+            ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(spacing: VoiceInkSpacing.lg) {
-                        switch selectedTab {
-                        case .general:
-                            generalSettings
-                        case .audio:
-                            audioSettings
-                        case .transcription:
-                            transcriptionSettings
-                        case .shortcuts:
-                            shortcutsSettings
-                        case .data:
-                            dataSettings
-                        case .permissions:
-                            PermissionsView()
-                                .voiceInkSectionPadding()
+                    VStack(spacing: VoiceInkSpacing.xl) {
+                        ForEach(SettingsTab.allCases) { tab in
+                            VStack(alignment: .leading, spacing: VoiceInkSpacing.lg) {
+                                Text(tab.rawValue)
+                                    .font(.system(size: 24, weight: .bold))
+                                    .padding(.bottom, VoiceInkSpacing.sm)
+                                    .padding(.top, VoiceInkSpacing.lg)
+                                    .id(tab) // Scroll Anchor
+                                
+                                settingsContent(for: tab)
+                            }
                         }
                     }
-                    .padding(.vertical, VoiceInkSpacing.lg)
-                    .padding(.horizontal, VoiceInkSpacing.lg)
+                    .padding(VoiceInkSpacing.xl)
+                    .frame(maxWidth: 800, alignment: .leading) // Limit content width for readability
+                    .frame(maxWidth: .infinity) // Center the content container
                 }
-            } else {
-                Text("Select a category")
+                .onChange(of: activeScrollTab) { _, newTab in
+                    withAnimation {
+                        proxy.scrollTo(newTab, anchor: .top)
+                    }
+                }
             }
+            .background(VoiceInkTheme.Palette.canvas)
         }
+        .navigationTitle("Settings")
         .onAppear {
             isCustomCancelEnabled = KeyboardShortcuts.getShortcut(for: .cancelRecorder) != nil
         }
@@ -99,10 +114,22 @@ struct SettingsView: View {
         }
     }
     
+    @ViewBuilder
+    private func settingsContent(for tab: SettingsTab) -> some View {
+        switch tab {
+        case .general: generalSettings
+        case .audio: audioSettings
+        case .transcription: transcriptionSettings
+        case .shortcuts: shortcutsSettings
+        case .data: dataSettings
+        case .permissions: PermissionsView().voiceInkSectionPadding()
+        }
+    }
+    
     // MARK: - Settings Views
     
     private var generalSettings: some View {
-        VStack(spacing: VoiceInkSpacing.lg) {
+        VStack(spacing: VoiceInkSpacing.md) {
             VoiceInkSection(
                 icon: "gear",
                 title: "App Behavior",
@@ -159,7 +186,7 @@ struct SettingsView: View {
     }
     
     private var audioSettings: some View {
-        VStack(spacing: VoiceInkSpacing.lg) {
+        VStack(spacing: VoiceInkSpacing.md) {
             VoiceInkSection(
                 icon: "mic.fill",
                 title: "Audio Input",
@@ -193,7 +220,7 @@ struct SettingsView: View {
     }
     
     private var transcriptionSettings: some View {
-        VStack(spacing: VoiceInkSpacing.lg) {
+        VStack(spacing: VoiceInkSpacing.md) {
             VoiceInkSection(
                 icon: "character.book.closed.fill",
                 title: "Dictionary",
@@ -254,7 +281,7 @@ struct SettingsView: View {
     }
     
     private var shortcutsSettings: some View {
-        VStack(spacing: VoiceInkSpacing.lg) {
+        VStack(spacing: VoiceInkSpacing.md) {
             VoiceInkSection(
                 icon: "command.circle",
                 title: "VoiceInk Shortcuts",
@@ -441,7 +468,7 @@ struct SettingsView: View {
     }
     
     private var dataSettings: some View {
-        VStack(spacing: VoiceInkSpacing.lg) {
+        VStack(spacing: VoiceInkSpacing.md) {
             VoiceInkSection(
                 icon: "lock.shield",
                 title: "Data & Privacy",
@@ -574,3 +601,59 @@ extension Text {
             .fixedSize(horizontal: false, vertical: true)
     }
 }
+
+struct SettingsNavigationRail: View {
+    let tabs: [SettingsTab]
+    @Binding var selectedTab: SettingsTab
+    let onSelect: (SettingsTab) -> Void
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: VoiceInkSpacing.xs) {
+            ForEach(tabs) { tab in
+                SettingsRailItem(tab: tab, isSelected: selectedTab == tab) {
+                    onSelect(tab)
+                }
+            }
+            
+            Spacer()
+        }
+        .padding(VoiceInkSpacing.md)
+    }
+}
+
+struct SettingsRailItem: View {
+    let tab: SettingsTab
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var isHovering = false
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: VoiceInkSpacing.sm) {
+                Image(systemName: tab.icon)
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: 20)
+                
+                Text(tab.rawValue)
+                    .font(.system(size: 13, weight: .medium))
+                
+                Spacer()
+            }
+            .padding(.horizontal, VoiceInkSpacing.md)
+            .padding(.vertical, VoiceInkSpacing.sm)
+            .background(
+                RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                    .fill(isSelected ? VoiceInkTheme.Palette.elevatedSurface : (isHovering ? VoiceInkTheme.Palette.surface.opacity(0.5) : Color.clear))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundColor(isSelected ? .primary : .secondary)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.1)) {
+                isHovering = hovering
+            }
+        }
+    }
+}
+
