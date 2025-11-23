@@ -44,8 +44,12 @@ struct SettingsView: View {
     @State private var isCustomCancelEnabled = false
     @State private var isCustomSoundsExpanded = false
     @State private var selectedTab: SettingsTab = .general
+    
+    // Store the passed tab to detect changes from parent
+    private let requestedTab: SettingsTab
 
     init(selectedTab: SettingsTab = .general) {
+        self.requestedTab = selectedTab
         _selectedTab = State(initialValue: selectedTab)
     }
 
@@ -85,6 +89,9 @@ struct SettingsView: View {
             .background(VoiceInkTheme.Palette.canvas)
         }
         .navigationTitle("Settings")
+        .onChange(of: requestedTab) { _, newTab in
+            selectedTab = newTab
+        }
         .onAppear {
             isCustomCancelEnabled = KeyboardShortcuts.getShortcut(for: .cancelRecorder) != nil
         }
