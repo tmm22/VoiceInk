@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import OSLog
 
 class LastTranscriptionService: ObservableObject {
     
@@ -13,7 +14,7 @@ class LastTranscriptionService: ObservableObject {
             let transcriptions = try modelContext.fetch(descriptor)
             return transcriptions.first
         } catch {
-            print("Error fetching last transcription: \(error)")
+            AppLogger.transcription.error("Error fetching last transcription: \(error)")
             return nil
         }
     }
@@ -22,7 +23,7 @@ class LastTranscriptionService: ObservableObject {
         guard let lastTranscription = getLastTranscription(from: modelContext) else {
             Task { @MainActor in
                 NotificationManager.shared.showNotification(
-                    title: "No transcription available",
+                    title: Localization.Transcription.noTranscriptionAvailable,
                     type: .error
                 )
             }
@@ -43,12 +44,12 @@ class LastTranscriptionService: ObservableObject {
         Task { @MainActor in
             if success {
                 NotificationManager.shared.showNotification(
-                    title: "Last transcription copied",
+                    title: Localization.Transcription.lastTranscriptionCopied,
                     type: .success
                 )
             } else {
                 NotificationManager.shared.showNotification(
-                    title: "Failed to copy transcription",
+                    title: Localization.Transcription.failedToCopy,
                     type: .error
                 )
             }
@@ -59,7 +60,7 @@ class LastTranscriptionService: ObservableObject {
         guard let lastTranscription = getLastTranscription(from: modelContext) else {
             Task { @MainActor in
                 NotificationManager.shared.showNotification(
-                    title: "No transcription available",
+                    title: Localization.Transcription.noTranscriptionAvailable,
                     type: .error
                 )
             }
@@ -78,7 +79,7 @@ class LastTranscriptionService: ObservableObject {
         guard let lastTranscription = getLastTranscription(from: modelContext) else {
             Task { @MainActor in
                 NotificationManager.shared.showNotification(
-                    title: "No transcription available",
+                    title: Localization.Transcription.noTranscriptionAvailable,
                     type: .error
                 )
             }
@@ -107,7 +108,7 @@ class LastTranscriptionService: ObservableObject {
                   let audioURL = URL(string: audioURLString),
                   FileManager.default.fileExists(atPath: audioURL.path) else {
                 NotificationManager.shared.showNotification(
-                    title: "Cannot retry: Audio file not found",
+                    title: Localization.Transcription.audioFileNotFound,
                     type: .error
                 )
                 return
@@ -115,7 +116,7 @@ class LastTranscriptionService: ObservableObject {
             
             guard let currentModel = whisperState.currentTranscriptionModel else {
                 NotificationManager.shared.showNotification(
-                    title: "No transcription model selected",
+                    title: Localization.Transcription.noModelSelected,
                     type: .error
                 )
                 return
@@ -125,16 +126,22 @@ class LastTranscriptionService: ObservableObject {
             do {
                 let newTranscription = try await transcriptionService.retranscribeAudio(from: audioURL, using: currentModel)
                 
-                let textToCopy = newTranscription.enhancedText?.isEmpty == false ? newTranscription.enhancedText! : newTranscription.text
+                let textToCopy: String
+                if let enhanced = newTranscription.enhancedText, !enhanced.isEmpty {
+                    textToCopy = enhanced
+                } else {
+                    textToCopy = newTranscription.text
+                }
+                
                 ClipboardManager.copyToClipboard(textToCopy)
                 
                 NotificationManager.shared.showNotification(
-                    title: "Copied to clipboard",
+                    title: Localization.Transcription.copiedToClipboard,
                     type: .success
                 )
             } catch {
                 NotificationManager.shared.showNotification(
-                    title: "Retry failed: \(error.localizedDescription)",
+                    title: String(format: Localization.Transcription.retryFailed, error.localizedDescription),
                     type: .error
                 )
             }

@@ -113,3 +113,6 @@ DerivedData/
 
 # Release builds
 Release/
+
+# Test Results
+TestResults*
