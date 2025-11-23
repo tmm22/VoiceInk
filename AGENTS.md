@@ -10,9 +10,10 @@ This document provides comprehensive guidance for AI coding assistants (Claude, 
 2. [Architecture & Technologies](#architecture--technologies)
 3. [Codebase Structure](#codebase-structure)
 4. [Coding Standards](#coding-standards)
-5. [Security Guidelines](#security-guidelines)
-6. [Common Patterns](#common-patterns)
-7. [Testing & Quality](#testing--quality)
+5. [Production Standards](#production-standards)
+6. [Security Guidelines](#security-guidelines)
+7. [Common Patterns](#common-patterns)
+8. [Testing & Quality](#testing--quality)
 8. [Working with Features](#working-with-features)
 9. [Troubleshooting](#troubleshooting)
 10. [Contributing Workflow](#contributing-workflow)
@@ -203,26 +204,45 @@ internal let session: URLSession  // Internal for testing
 public func synthesizeSpeech() { }  // Public API
 ```
 
-### Comments
+### Logging
 
-**When to comment:**
-- ✅ Complex algorithms or business logic
-- ✅ Workarounds for platform bugs
-- ✅ Security-sensitive code
-- ✅ Public API documentation
-
-**When NOT to comment:**
-- ⛔ Obvious code (e.g., `// Set the text` before `text = value`)
-- ⛔ What the code does (the code should be self-documenting)
+**ALWAYS use `AppLogger` (OSLog) for logging.**
 
 ```swift
-// ✅ Good: Explains WHY
-// Whisper requires 16kHz sample rate for optimal accuracy
-let targetSampleRate: Double = 16_000
+// ✅ Good: Structured, categorized logging
+AppLogger.transcription.error("Failed to transcribe: \(error)")
 
-// ⛔ Bad: Explains WHAT (obvious from code)
-// Set the sample rate to 16000
-let targetSampleRate: Double = 16_000
+// ⛔ Bad: Unstructured, spams console
+print("Error: \(error)")
+```
+
+### Localization
+
+**All user-facing strings MUST be localized.**
+
+```swift
+// ✅ Good: Using Localization struct
+NotificationManager.shared.showNotification(
+    title: Localization.Transcription.noTranscriptionAvailable,
+    type: .error
+)
+
+// ⛔ Bad: Hardcoded string
+title: "No transcription available"
+```
+
+### Safety
+
+**Avoid force unwrapping (`!`) in production code.**
+
+```swift
+// ✅ Good: Safe unwrapping
+if let result = result {
+    process(result)
+}
+
+// ⛔ Bad: Force unwrap
+process(result!)
 ```
 
 ### SwiftUI Best Practices
@@ -260,6 +280,18 @@ var body: some View {
     }
 }
 ```
+
+---
+
+## Production Standards
+
+VoiceInk aims for production-grade quality. Every contribution must meet these criteria:
+
+1. **Zero Regressions**: Existing tests must pass. New features must include tests.
+2. **Secure by Design**: Secrets in Keychain only. No insecure fallbacks (e.g. UserDefaults).
+3. **Localized**: No hardcoded strings in UI/Service layers. Use `Localization`.
+4. **Observability**: Use `AppLogger` for all significant events and errors.
+5. **Zero Artifacts**: Commit history must be clean (no `TestResults`, derived data, or secrets).
 
 ---
 
@@ -498,21 +530,22 @@ class AudioDeviceManager: ObservableObject {
 
 ### Testing Strategy
 
-1. **Manual Testing Required** - No automated tests currently
-2. **Test on Multiple macOS Versions** - 14.0+ (Sonoma and newer)
-3. **Test with Different Audio Devices** - Built-in, USB, Bluetooth
-4. **Test AI Providers** - With and without API keys
+1. **Automated First**: Run `./run_tests.sh` before every commit.
+2. **Unit Tests**: Required for all business logic (Services, ViewModels).
+3. **Manual Verification**: Use only for UI interactions that XCTest cannot cover.
 
 ### Pre-Commit Checklist
 
 Before committing changes:
 
 - [ ] Code compiles without warnings
+- [ ] Tests pass (run `./run_tests.sh`)
+- [ ] No secrets or API keys in code or tests
 - [ ] No force-unwraps (`!`) in production code
 - [ ] All new code follows Swift style guide
 - [ ] Security guidelines followed (see above)
-- [ ] No debug `print()` statements (use `#if DEBUG`)
-- [ ] No hardcoded values (use constants or configuration)
+- [ ] No debug `print()` statements (use `AppLogger`)
+- [ ] No hardcoded values or strings (use `Localization`)
 - [ ] Error handling for all async operations
 - [ ] Memory leaks checked (use `[weak self]` in closures)
 
@@ -981,3 +1014,11 @@ This guide is a living document. If you find errors, outdated information, or ha
 **Last Updated:** November 3, 2025  
 **Maintained By:** VoiceInk Community  
 **License:** GPL v3 (same as project)
+
+**Recent Updates:**
+- **v1.1** (2025-11-23) - Enhanced Production Standards
+  - Added `Production Standards` section
+  - Updated `Security Guidelines` (Strict Keychain usage)
+  - Updated `Coding Standards` (Localization, Logging)
+  - Updated `Testing Strategy` (Automated tests via `run_tests.sh`)
+- **v1.0** (2025-11-03) - Initial AGENTS.md created
