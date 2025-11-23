@@ -33,66 +33,28 @@ struct DictionarySettingsView: View {
     }
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                heroSection
-                mainContent
-            }
-        }
-        .frame(minWidth: 600, minHeight: 500)
-        .background(Color(NSColor.controlBackgroundColor))
-    }
-    
-    private var heroSection: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "brain.filled.head.profile")
-                .font(.system(size: 40))
-                .foregroundStyle(.blue)
-                .padding(20)
-                .background(Circle()
-                    .fill(Color(.windowBackgroundColor).opacity(0.9))
-                    .shadow(color: .black.opacity(0.1), radius: 10, y: 5))
-
-            VStack(spacing: 8) {
-                Text("Dictionary Settings")
-                    .font(.system(size: 28, weight: .bold))
-                Text("Enhance \(AppBrand.communityName)'s transcription accuracy by teaching it your vocabulary")
-                    .font(.system(size: 15))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 400)
-            }
-        }
-        .padding(.vertical, 40)
-        .frame(maxWidth: .infinity)
-    }
-    
-    private var mainContent: some View {
-        VStack(spacing: 40) {
+        VStack(spacing: VoiceInkSpacing.xl) {
             sectionSelector
             
             selectedSectionContent
         }
-        .padding(.horizontal, 32)
-        .padding(.vertical, 40)
     }
     
     private var sectionSelector: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
             HStack {
                 Text("Select Section")
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                    .voiceInkHeadline()
 
                 Spacer()
 
-                HStack(spacing: 12) {
+                HStack(spacing: VoiceInkSpacing.sm) {
                     Button(action: {
                         DictionaryImportExportService.shared.importDictionary()
                     }) {
                         Image(systemName: "square.and.arrow.down")
-                            .font(.system(size: 18))
-                            .foregroundColor(.blue)
+                            .font(.system(size: 16))
+                            .foregroundColor(VoiceInkTheme.Palette.accent)
                     }
                     .buttonStyle(.plain)
                     .help("Import dictionary items and word replacements")
@@ -101,15 +63,15 @@ struct DictionarySettingsView: View {
                         DictionaryImportExportService.shared.exportDictionary()
                     }) {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 18))
-                            .foregroundColor(.blue)
+                            .font(.system(size: 16))
+                            .foregroundColor(VoiceInkTheme.Palette.accent)
                     }
                     .buttonStyle(.plain)
                     .help("Export dictionary items and word replacements")
                 }
             }
 
-            HStack(spacing: 20) {
+            HStack(spacing: VoiceInkSpacing.md) {
                 ForEach(DictionarySection.allCases, id: \.self) { section in
                     SectionCard(
                         section: section,
@@ -122,17 +84,41 @@ struct DictionarySettingsView: View {
     }
     
     private var selectedSectionContent: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
             switch selectedSection {
             case .quickRules:
                 QuickRulesView()
-                    .background(CardBackground(isSelected: false))
+                    .padding(VoiceInkSpacing.md)
+                    .background(
+                        RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                            .fill(VoiceInkTheme.Palette.elevatedSurface.opacity(0.5))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                                    .stroke(VoiceInkTheme.Palette.outline, lineWidth: 1)
+                            )
+                    )
             case .spellings:
                 DictionaryView(whisperPrompt: whisperPrompt)
-                    .background(CardBackground(isSelected: false))
+                    .padding(VoiceInkSpacing.md)
+                    .background(
+                        RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                            .fill(VoiceInkTheme.Palette.elevatedSurface.opacity(0.5))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                                    .stroke(VoiceInkTheme.Palette.outline, lineWidth: 1)
+                            )
+                    )
             case .replacements:
                 WordReplacementView()
-                    .background(CardBackground(isSelected: false))
+                    .padding(VoiceInkSpacing.md)
+                    .background(
+                        RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                            .fill(VoiceInkTheme.Palette.elevatedSurface.opacity(0.5))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                                    .stroke(VoiceInkTheme.Palette.outline, lineWidth: 1)
+                            )
+                    )
             }
         }
     }
@@ -145,25 +131,31 @@ struct SectionCard: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
                 Image(systemName: section.icon)
                     .font(.system(size: 28))
                     .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(isSelected ? .blue : .secondary)
+                    .foregroundStyle(isSelected ? VoiceInkTheme.Palette.accent : .secondary)
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(section.rawValue)
-                        .font(.headline)
+                        .voiceInkHeadline()
                     
                     Text(section.description)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .voiceInkCaptionStyle()
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding()
-            .background(CardBackground(isSelected: isSelected))
+            .padding(VoiceInkSpacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                    .fill(VoiceInkTheme.Palette.elevatedSurface.opacity(0.5))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                            .stroke(isSelected ? VoiceInkTheme.Palette.accent.opacity(0.5) : VoiceInkTheme.Palette.outline, lineWidth: 1)
+                    )
+            )
         }
         .buttonStyle(.plain)
     }

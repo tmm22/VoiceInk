@@ -17,18 +17,17 @@ struct AudioCleanupSettingsView: View {
     @State private var showTranscriptCleanupResult = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
             Text("Control how \(AppBrand.communityName) handles your transcription data and audio recordings for privacy and storage management.")
-                .font(.system(size: 13))
-                .foregroundColor(.secondary)
+                .voiceInkCaptionStyle()
                 .fixedSize(horizontal: false, vertical: true)
             
             Toggle("Automatically delete transcript history", isOn: $isTranscriptionCleanupEnabled)
                 .toggleStyle(.switch)
-                .padding(.vertical, 4)
+                .padding(.vertical, VoiceInkSpacing.xxs)
             
             if isTranscriptionCleanupEnabled {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
                     Picker("Delete transcripts older than", selection: $transcriptionRetentionMinutes) {
                         Text("Immediately").tag(0)
                         Text("1 hour").tag(60)
@@ -39,8 +38,7 @@ struct AudioCleanupSettingsView: View {
                     .pickerStyle(.menu)
 
                     Text("Older transcripts will be deleted automatically based on your selection.")
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
+                        .voiceInkCaptionStyle()
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 2)
 
@@ -71,11 +69,11 @@ struct AudioCleanupSettingsView: View {
             if !isTranscriptionCleanupEnabled {
                 Toggle("Enable automatic audio cleanup", isOn: $isAudioCleanupEnabled)
                     .toggleStyle(.switch)
-                    .padding(.vertical, 4)
+                    .padding(.vertical, VoiceInkSpacing.xxs)
             }
 
             if isAudioCleanupEnabled && !isTranscriptionCleanupEnabled {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
                     Picker("Keep audio files for", selection: $audioRetentionPeriod) {
                         Text("1 day").tag(1)
                         Text("3 days").tag(3)
@@ -86,8 +84,7 @@ struct AudioCleanupSettingsView: View {
                     .pickerStyle(.menu)
                     
                     Text("Audio files older than the selected period will be automatically deleted, while keeping the text transcripts intact.")
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
+                        .voiceInkCaptionStyle()
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 2)
                 }

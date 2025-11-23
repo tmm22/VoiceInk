@@ -10,16 +10,16 @@ struct EnhancementSettingsView: View {
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 32) {
+            VStack(spacing: VoiceInkSpacing.xl) {
                 // Main Settings Sections
-                VStack(spacing: 24) {
+                VStack(spacing: VoiceInkSpacing.lg) {
                     // Enable/Disable Toggle Section
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack {
                                     Text("Enable Enhancement")
-                                        .font(.headline)
+                                        .voiceInkHeadline()
                                     
                                     InfoTip(
                                         title: "AI Enhancement",
@@ -29,14 +29,13 @@ struct EnhancementSettingsView: View {
                                 }
                                 
                                 Text("Turn on AI-powered enhancement features")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .voiceInkCaptionStyle()
                             }
                             
                             Spacer()
                             
                             Toggle("", isOn: $enhancementService.isEnhancementEnabled)
-                                .toggleStyle(SwitchToggleStyle(tint: .blue))
+                                .toggleStyle(SwitchToggleStyle(tint: VoiceInkTheme.Palette.accent))
                                 .labelsHidden()
                                 .scaleEffect(1.2)
                         }
@@ -47,7 +46,7 @@ struct EnhancementSettingsView: View {
                                     .toggleStyle(.switch)
                                     .disabled(!enhancementService.isEnhancementEnabled)
                                 Text("Use text from clipboard to understand the context")
-                                    .font(.caption)
+                                    .voiceInkCaptionStyle()
                                     .foregroundColor(enhancementService.isEnhancementEnabled ? .secondary : .secondary.opacity(0.5))
                             }
                             
@@ -56,40 +55,60 @@ struct EnhancementSettingsView: View {
                                     .toggleStyle(.switch)
                                     .disabled(!enhancementService.isEnhancementEnabled)
                                 Text("Learn what is on the screen to understand the context")
-                                    .font(.caption)
+                                    .voiceInkCaptionStyle()
                                     .foregroundColor(enhancementService.isEnhancementEnabled ? .secondary : .secondary.opacity(0.5))
                             }
                         }
                     }
-                    .padding()
-                    .background(CardBackground(isSelected: false))
+                    .padding(VoiceInkSpacing.lg)
+                    .background(
+                        RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                            .fill(VoiceInkTheme.Card.background)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                                    .stroke(VoiceInkTheme.Card.stroke, lineWidth: 1)
+                            )
+                    )
                     
                     if enableAIEnhancementFeatures {
-                        VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
                             Text("AI Provider Integration")
-                                .font(.headline)
+                                .voiceInkHeadline()
                             
                             APIKeyManagementView()
                         }
-                        .padding()
-                        .background(CardBackground(isSelected: false))
+                        .padding(VoiceInkSpacing.lg)
+                        .background(
+                            RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                                .fill(VoiceInkTheme.Card.background)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                                        .stroke(VoiceInkTheme.Card.stroke, lineWidth: 1)
+                                )
+                        )
                     } else {
-                        VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
                             Label("Local-Only Enhancement", systemImage: "lock.shield")
-                                .font(.headline)
+                                .voiceInkHeadline()
                             
                             Text("The community build keeps enhancement providers on-device by default. Enable AI enhancements in Settings to configure cloud providers like OpenAI or Google.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                                .voiceInkCaptionStyle()
                                 .fixedSize(horizontal: false, vertical: true)
                         }
-                        .padding()
-                        .background(CardBackground(isSelected: false))
+                        .padding(VoiceInkSpacing.lg)
+                        .background(
+                            RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                                .fill(VoiceInkTheme.Card.background)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                                        .stroke(VoiceInkTheme.Card.stroke, lineWidth: 1)
+                                )
+                        )
                     }
                     
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
                         Text("Enhancement Prompt")
-                            .font(.headline)
+                            .voiceInkHeadline()
                         
                         // Reorderable prompts grid with drag-and-drop
                         ReorderablePromptGrid(
@@ -108,16 +127,23 @@ struct EnhancementSettingsView: View {
                             }
                         )
                     }
-                    .padding()
-                    .background(CardBackground(isSelected: false))
+                    .padding(VoiceInkSpacing.lg)
+                    .background(
+                        RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                            .fill(VoiceInkTheme.Card.background)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                                        .stroke(VoiceInkTheme.Card.stroke, lineWidth: 1)
+                            )
+                    )
                     
                     EnhancementShortcutsSection()
                 }
             }
-            .padding(24)
+            .padding(VoiceInkSpacing.lg)
         }
         .frame(minWidth: 600, minHeight: 500)
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(VoiceInkTheme.Palette.canvas)
         .sheet(isPresented: $isEditingPrompt) {
             PromptEditorView(mode: .add)
         }

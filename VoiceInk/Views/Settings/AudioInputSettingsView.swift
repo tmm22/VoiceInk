@@ -7,17 +7,7 @@ struct AudioInputSettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                heroSection
-                mainContent
-            }
-        }
-        .background(Color(NSColor.controlBackgroundColor))
-    }
-    
-    private var mainContent: some View {
-        VStack(spacing: 40) {
+        VStack(spacing: VoiceInkSpacing.xl) {
             inputModeSection
             
             microphoneTestSection
@@ -28,8 +18,6 @@ struct AudioInputSettingsView: View {
                 prioritizedDevicesSection
             }
         }
-        .padding(.horizontal, 32)
-        .padding(.vertical, 40)
         .onDisappear {
             if audioMonitor.isMonitoring {
                 audioMonitor.stopMonitoring()
@@ -37,35 +25,12 @@ struct AudioInputSettingsView: View {
         }
     }
     
-    private var heroSection: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "waveform")
-                .font(.system(size: 40))
-                .foregroundStyle(.blue)
-                .padding(20)
-                .background(Circle()
-                    .fill(Color(.windowBackgroundColor).opacity(0.4))
-                    .shadow(color: .black.opacity(0.1), radius: 10, y: 5))
-            
-            VStack(spacing: 8) {
-                Text("Audio Input")
-                    .font(.system(size: 28, weight: .bold))
-                Text("Configure your microphone preferences")
-                    .font(.system(size: 15))
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.vertical, 40)
-        .frame(maxWidth: .infinity)
-    }
-    
     private var inputModeSection: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
             Text("Input Mode")
-                .font(.title2)
-                .fontWeight(.semibold)
+                .voiceInkHeadline()
             
-            HStack(spacing: 20) {
+            HStack(spacing: VoiceInkSpacing.md) {
                 ForEach(AudioInputMode.allCases, id: \.self) { mode in
                     InputModeCard(
                         mode: mode,
@@ -78,22 +43,20 @@ struct AudioInputSettingsView: View {
     }
     
     private var microphoneTestSection: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
+            VStack(alignment: .leading, spacing: VoiceInkSpacing.xxs) {
                 Text("Microphone Test")
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                    .voiceInkHeadline()
                 
                 Text("Test your microphone to ensure it's working properly before recording")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .voiceInkSubheadline()
             }
             
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
                 // Test button
                 HStack {
                     Button(action: toggleMonitoring) {
-                        HStack(spacing: 8) {
+                        HStack(spacing: VoiceInkSpacing.xs) {
                             Image(systemName: audioMonitor.isMonitoring ? "stop.circle.fill" : "play.circle.fill")
                             Text(audioMonitor.isMonitoring ? "Stop Test" : "Test Microphone")
                         }
@@ -120,27 +83,26 @@ struct AudioInputSettingsView: View {
                 
                 // Level meter
                 if audioMonitor.isMonitoring {
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: VoiceInkSpacing.xs) {
                         Text("Input Level")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .voiceInkCaptionStyle()
                         
                         // Level bar
                         GeometryReader { geometry in
                             ZStack(alignment: .leading) {
                                 // Background
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(Color(NSColor.controlBackgroundColor))
+                                RoundedRectangle(cornerRadius: VoiceInkRadius.small)
+                                    .fill(VoiceInkTheme.Palette.elevatedSurface)
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                                        RoundedRectangle(cornerRadius: VoiceInkRadius.small)
+                                            .stroke(VoiceInkTheme.Palette.outline, lineWidth: 1)
                                     )
                                 
                                 // Level bar with gradient
                                 let levelWidth = geometry.size.width * CGFloat(audioMonitor.currentLevel)
                                 let color = AudioLevelMonitor.levelColor(for: audioMonitor.currentLevel)
                                 
-                                RoundedRectangle(cornerRadius: 6)
+                                RoundedRectangle(cornerRadius: VoiceInkRadius.small)
                                     .fill(
                                         LinearGradient(
                                             colors: [
@@ -159,12 +121,18 @@ struct AudioInputSettingsView: View {
                         
                         // Level description
                         Text(AudioLevelMonitor.levelDescription(for: audioMonitor.currentLevel))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .voiceInkCaptionStyle()
                             .accessibilityLabel("Microphone level: \(AudioLevelMonitor.levelDescription(for: audioMonitor.currentLevel))")
                     }
-                    .padding()
-                    .background(CardBackground(isSelected: false))
+                    .padding(VoiceInkSpacing.md)
+                    .background(
+                        RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                            .fill(VoiceInkTheme.Palette.elevatedSurface.opacity(0.5))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                                    .stroke(VoiceInkTheme.Palette.outline, lineWidth: 1)
+                            )
+                    )
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
                 
@@ -181,8 +149,6 @@ struct AudioInputSettingsView: View {
                     .transition(.opacity)
                 }
             }
-            .padding()
-            .background(CardBackground(isSelected: false))
         }
     }
     
@@ -208,11 +174,10 @@ struct AudioInputSettingsView: View {
     }
     
     private var customDeviceSection: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
             HStack {
                 Text("Available Devices")
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                    .voiceInkHeadline()
                 
                 Spacer()
                 
@@ -222,12 +187,11 @@ struct AudioInputSettingsView: View {
                 .buttonStyle(.borderless)
             }
             
-            Text("Note: Selecting a device here will override your Mac\'s system-wide default microphone.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.bottom, 8)
+            Text("Note: Selecting a device here will override your Mac's system-wide default microphone.")
+                .voiceInkCaptionStyle()
+                .padding(.bottom, VoiceInkSpacing.xs)
 
-            VStack(spacing: 12) {
+            VStack(spacing: VoiceInkSpacing.sm) {
                 ForEach(audioDeviceManager.availableDevices, id: \.id) { device in
                     DeviceSelectionCard(
                         name: device.name,
@@ -242,37 +206,34 @@ struct AudioInputSettingsView: View {
     }
     
     private var prioritizedDevicesSection: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
             if audioDeviceManager.availableDevices.isEmpty {
                 emptyDevicesState
             } else {
                 prioritizedDevicesContent
-                Divider().padding(.vertical, 8)
+                Divider().padding(.vertical, VoiceInkSpacing.xs)
                 availableDevicesContent
             }
         }
     }
     
     private var prioritizedDevicesContent: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
+            VStack(alignment: .leading, spacing: VoiceInkSpacing.xxs) {
                 Text("Prioritized Devices")
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                    .voiceInkHeadline()
                 Text("Devices will be used in order of priority. If a device is unavailable, the next one will be tried. If no prioritized device is available, the system default microphone will be used.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .voiceInkSubheadline()
                     .fixedSize(horizontal: false, vertical: true)
-                Text("Warning: Using a prioritized device will override your Mac\'s system-wide default microphone if it becomes active.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.top, 4)
+                Text("Warning: Using a prioritized device will override your Mac's system-wide default microphone if it becomes active.")
+                    .voiceInkCaptionStyle()
+                    .padding(.top, VoiceInkSpacing.xxs)
             }
             
             if audioDeviceManager.prioritizedDevices.isEmpty {
                 Text("No prioritized devices")
                     .foregroundStyle(.secondary)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, VoiceInkSpacing.xs)
             } else {
                 prioritizedDevicesList
             }
@@ -280,37 +241,42 @@ struct AudioInputSettingsView: View {
     }
     
     private var availableDevicesContent: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
             Text("Available Devices")
-                .font(.title2)
-                .fontWeight(.semibold)
+                .voiceInkHeadline()
             
             availableDevicesList
         }
     }
     
     private var emptyDevicesState: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: VoiceInkSpacing.md) {
             Image(systemName: "mic.slash.circle.fill")
                 .font(.system(size: 48))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.secondary)
             
-            VStack(spacing: 8) {
+            VStack(spacing: VoiceInkSpacing.xs) {
                 Text("No Audio Devices")
-                    .font(.headline)
+                    .voiceInkHeadline()
                 Text("Connect an audio input device to get started")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .voiceInkSubheadline()
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(40)
-        .background(CardBackground(isSelected: false))
+        .padding(VoiceInkSpacing.xl)
+        .background(
+            RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                .fill(VoiceInkTheme.Palette.elevatedSurface.opacity(0.5))
+                .overlay(
+                    RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                        .stroke(VoiceInkTheme.Palette.outline, lineWidth: 1)
+                )
+        )
     }
     
     private var prioritizedDevicesList: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: VoiceInkSpacing.sm) {
             ForEach(audioDeviceManager.prioritizedDevices.sorted(by: { $0.priority < $1.priority })) { device in
                 devicePriorityCard(for: device)
             }
@@ -413,25 +379,31 @@ struct InputModeCard: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
                 Image(systemName: icon)
                     .font(.system(size: 28))
                     .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(isSelected ? .blue : .secondary)
+                    .foregroundStyle(isSelected ? VoiceInkTheme.Palette.accent : .secondary)
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(mode.rawValue)
-                        .font(.headline)
+                        .voiceInkHeadline()
                     
                     Text(description)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .voiceInkCaptionStyle()
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding()
-            .background(CardBackground(isSelected: isSelected))
+            .padding(VoiceInkSpacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                    .fill(VoiceInkTheme.Palette.elevatedSurface.opacity(0.5))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                            .stroke(isSelected ? VoiceInkTheme.Palette.accent.opacity(0.5) : VoiceInkTheme.Palette.outline, lineWidth: 1)
+                    )
+            )
         }
         .buttonStyle(.plain)
     }
@@ -448,7 +420,7 @@ struct DeviceSelectionCard: View {
             HStack {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(isSelected ? .blue : .secondary)
+                    .foregroundStyle(isSelected ? VoiceInkTheme.Palette.accent : .secondary)
                     .font(.system(size: 18))
                 
                 Text(name)
@@ -468,8 +440,15 @@ struct DeviceSelectionCard: View {
                         )
                 }
             }
-            .padding()
-            .background(CardBackground(isSelected: isSelected))
+            .padding(VoiceInkSpacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                    .fill(VoiceInkTheme.Palette.elevatedSurface.opacity(0.5))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                            .stroke(isSelected ? VoiceInkTheme.Palette.accent.opacity(0.5) : VoiceInkTheme.Palette.outline, lineWidth: 1)
+                    )
+            )
         }
         .buttonStyle(.plain)
     }
@@ -538,13 +517,13 @@ struct DevicePriorityCard: View {
                     HStack(spacing: 2) {
                         Button(action: onMoveUp) {
                             Image(systemName: "chevron.up")
-                                .foregroundStyle(canMoveUp ? .blue : .secondary.opacity(0.5))
+                                .foregroundStyle(canMoveUp ? VoiceInkTheme.Palette.accent : .secondary.opacity(0.5))
                         }
                         .disabled(!canMoveUp)
                         
                         Button(action: onMoveDown) {
                             Image(systemName: "chevron.down")
-                                .foregroundStyle(canMoveDown ? .blue : .secondary.opacity(0.5))
+                                .foregroundStyle(canMoveDown ? VoiceInkTheme.Palette.accent : .secondary.opacity(0.5))
                         }
                         .disabled(!canMoveDown)
                     }
@@ -554,12 +533,19 @@ struct DevicePriorityCard: View {
                 Button(action: onTogglePriority) {
                     Image(systemName: isPrioritized ? "minus.circle.fill" : "plus.circle.fill")
                         .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(isPrioritized ? .red : .blue)
+                        .foregroundStyle(isPrioritized ? .red : VoiceInkTheme.Palette.accent)
                 }
             }
             .buttonStyle(.plain)
         }
-        .padding()
-        .background(CardBackground(isSelected: false))
+        .padding(VoiceInkSpacing.md)
+        .background(
+             RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                 .fill(VoiceInkTheme.Palette.elevatedSurface.opacity(0.5))
+                 .overlay(
+                     RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                         .stroke(VoiceInkTheme.Palette.outline, lineWidth: 1)
+                 )
+        )
     }
 } 

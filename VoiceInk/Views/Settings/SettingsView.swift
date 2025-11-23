@@ -60,7 +60,7 @@ struct SettingsView: View {
         } detail: {
             if let selectedTab {
                 ScrollView {
-                    VStack(spacing: 24) {
+                    VStack(spacing: VoiceInkSpacing.lg) {
                         switch selectedTab {
                         case .general:
                             generalSettings
@@ -74,11 +74,11 @@ struct SettingsView: View {
                             dataSettings
                         case .permissions:
                             PermissionsView()
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 6)
+                                .voiceInkSectionPadding()
                         }
                     }
-                    .padding(.vertical, 20)
+                    .padding(.vertical, VoiceInkSpacing.lg)
+                    .padding(.horizontal, VoiceInkSpacing.lg)
                 }
             } else {
                 Text("Select a category")
@@ -102,13 +102,13 @@ struct SettingsView: View {
     // MARK: - Settings Views
     
     private var generalSettings: some View {
-        VStack(spacing: 24) {
-            SettingsSection(
+        VStack(spacing: VoiceInkSpacing.lg) {
+            VoiceInkSection(
                 icon: "gear",
                 title: "App Behavior",
                 subtitle: "Appearance, startup, and updates"
             ) {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
                     Toggle("Hide Dock Icon (Menu Bar Only)", isOn: $menuBarManager.isMenuBarOnly)
                         .toggleStyle(.switch)
                     
@@ -148,7 +148,7 @@ struct SettingsView: View {
                 }
             }
             
-            SettingsSection(
+            VoiceInkSection(
                 icon: "hands.sparkles.fill",
                 title: "Community & License",
                 subtitle: "Manage your license and community features"
@@ -156,12 +156,11 @@ struct SettingsView: View {
                 LicenseManagementView()
             }
         }
-        .padding(.horizontal, 20)
     }
     
     private var audioSettings: some View {
-        VStack(spacing: 24) {
-            SettingsSection(
+        VStack(spacing: VoiceInkSpacing.lg) {
+            VoiceInkSection(
                 icon: "mic.fill",
                 title: "Audio Input",
                 subtitle: "Manage input devices"
@@ -169,7 +168,7 @@ struct SettingsView: View {
                 AudioInputSettingsView()
             }
             
-            SettingsSection(
+            VoiceInkSection(
                 icon: "speaker.wave.2.bubble.left.fill",
                 title: "Audio Feedback",
                 subtitle: "Customize recording sounds and volumes"
@@ -177,12 +176,12 @@ struct SettingsView: View {
                 AudioFeedbackSettingsView()
             }
             
-            SettingsSection(
+            VoiceInkSection(
                 icon: "waveform.badge.mic",
                 title: "Recording Behavior",
                 subtitle: "System audio settings"
             ) {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
                     Toggle(isOn: $mediaController.isSystemMuteEnabled) {
                         Text("Mute system audio during recording")
                     }
@@ -191,12 +190,11 @@ struct SettingsView: View {
                 }
             }
         }
-        .padding(.horizontal, 20)
     }
     
     private var transcriptionSettings: some View {
-        VStack(spacing: 24) {
-            SettingsSection(
+        VStack(spacing: VoiceInkSpacing.lg) {
+            VoiceInkSection(
                 icon: "character.book.closed.fill",
                 title: "Dictionary",
                 subtitle: "Custom words and phrases"
@@ -204,7 +202,7 @@ struct SettingsView: View {
                 DictionarySettingsView(whisperPrompt: whisperState.whisperPrompt)
             }
             
-            SettingsSection(
+            VoiceInkSection(
                 icon: "doc.on.clipboard",
                 title: "Clipboard & Paste",
                 subtitle: "Choose how text is pasted and stored"
@@ -232,7 +230,7 @@ struct SettingsView: View {
                 }
             }
             
-            SettingsSection(
+            VoiceInkSection(
                 icon: "rectangle.on.rectangle",
                 title: "Recorder Style",
                 subtitle: "Choose your preferred recorder interface"
@@ -253,12 +251,11 @@ struct SettingsView: View {
             PowerModeSettingsSection()
             ExperimentalFeaturesSection()
         }
-        .padding(.horizontal, 20)
     }
     
     private var shortcutsSettings: some View {
-        VStack(spacing: 24) {
-            SettingsSection(
+        VStack(spacing: VoiceInkSpacing.lg) {
+            VoiceInkSection(
                 icon: "command.circle",
                 title: "VoiceInk Shortcuts",
                 subtitle: "Choose how you want to trigger VoiceInk"
@@ -303,7 +300,7 @@ struct SettingsView: View {
                 }
             }
             
-            SettingsSection(
+            VoiceInkSection(
                 icon: "keyboard.badge.ellipsis",
                 title: "Other App Shortcuts",
                 subtitle: "Additional shortcuts for VoiceInk"
@@ -441,12 +438,11 @@ struct SettingsView: View {
                 }
             }
         }
-        .padding(.horizontal, 20)
     }
     
     private var dataSettings: some View {
-        VStack(spacing: 24) {
-            SettingsSection(
+        VStack(spacing: VoiceInkSpacing.lg) {
+            VoiceInkSection(
                 icon: "lock.shield",
                 title: "Data & Privacy",
                 subtitle: "Control transcript history and storage"
@@ -454,7 +450,7 @@ struct SettingsView: View {
                 AudioCleanupSettingsView()
             }
             
-            SettingsSection(
+            VoiceInkSection(
                 icon: "arrow.up.arrow.down.circle",
                 title: "Data Management",
                 subtitle: "Import or export your settings"
@@ -501,7 +497,6 @@ struct SettingsView: View {
                 }
             }
         }
-        .padding(.horizontal, 20)
     }
     
     @ViewBuilder
@@ -567,60 +562,6 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
             }
         }
-    }
-}
-
-struct SettingsSection<Content: View>: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-    let content: Content
-    var showWarning: Bool = false
-    
-    init(icon: String, title: String, subtitle: String, showWarning: Bool = false, @ViewBuilder content: () -> Content) {
-        self.icon = icon
-        self.title = title
-        self.subtitle = subtitle
-        self.showWarning = showWarning
-        self.content = content()
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 20))
-                    .foregroundColor(showWarning ? .red : .accentColor)
-                    .frame(width: 24, height: 24)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.headline)
-                    Text(subtitle)
-                        .font(.subheadline)
-                        .foregroundColor(showWarning ? .red : .secondary)
-                }
-                
-                if showWarning {
-                    Spacer()
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.red)
-                        .help("Permission required for VoiceInk to function properly")
-                }
-            }
-            
-            Divider()
-                .padding(.vertical, 4)
-            
-            content
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(CardBackground(isSelected: showWarning, useAccentGradientWhenSelected: true))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(showWarning ? Color.red.opacity(0.5) : Color.clear, lineWidth: 1)
-        )
     }
 }
 
