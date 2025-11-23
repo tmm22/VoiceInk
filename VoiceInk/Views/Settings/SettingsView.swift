@@ -43,8 +43,7 @@ struct SettingsView: View {
     @State private var currentShortcut = KeyboardShortcuts.getShortcut(for: .toggleMiniRecorder)
     @State private var isCustomCancelEnabled = false
     @State private var isCustomSoundsExpanded = false
-    @State private var selectedTab: SettingsTab? = .general
-    @State private var activeScrollTab: SettingsTab = .general
+    @State private var selectedTab: SettingsTab = .general
 
     init(selectedTab: SettingsTab = .general) {
         _selectedTab = State(initialValue: selectedTab)
@@ -55,10 +54,9 @@ struct SettingsView: View {
             // Navigation Rail
             SettingsNavigationRail(
                 tabs: SettingsTab.allCases,
-                selectedTab: $activeScrollTab,
+                selectedTab: $selectedTab,
                 onSelect: { tab in
-                    activeScrollTab = tab
-                    // Scrolling is handled by onChange of activeScrollTab in the scroll view
+                    selectedTab = tab
                 }
             )
             .frame(width: 220)
@@ -71,30 +69,18 @@ struct SettingsView: View {
             )
             
             // Main Content Area
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(spacing: VoiceInkSpacing.xl) {
-                        ForEach(SettingsTab.allCases) { tab in
-                            VStack(alignment: .leading, spacing: VoiceInkSpacing.lg) {
-                                Text(tab.rawValue)
-                                    .font(.system(size: 24, weight: .bold))
-                                    .padding(.bottom, VoiceInkSpacing.sm)
-                                    .padding(.top, VoiceInkSpacing.lg)
-                                    .id(tab) // Scroll Anchor
-                                
-                                settingsContent(for: tab)
-                            }
-                        }
-                    }
-                    .padding(VoiceInkSpacing.xl)
-                    .frame(maxWidth: 800, alignment: .leading) // Limit content width for readability
-                    .frame(maxWidth: .infinity) // Center the content container
+            ScrollView {
+                VStack(alignment: .leading, spacing: VoiceInkSpacing.lg) {
+                    Text(selectedTab.rawValue)
+                        .font(.system(size: 24, weight: .bold))
+                        .padding(.bottom, VoiceInkSpacing.sm)
+                        .padding(.top, VoiceInkSpacing.lg)
+                    
+                    settingsContent(for: selectedTab)
                 }
-                .onChange(of: activeScrollTab) { _, newTab in
-                    withAnimation {
-                        proxy.scrollTo(newTab, anchor: .top)
-                    }
-                }
+                .padding(VoiceInkSpacing.xl)
+                .frame(maxWidth: 800, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .background(VoiceInkTheme.Palette.canvas)
         }
