@@ -20,7 +20,7 @@ struct VoiceInkSection<Content: View>: View {
     }
 
     var body: some View {
-        VoiceInkCard(isSelected: showWarning) {
+        VoiceInkCard(isSelected: showWarning, padding: VoiceInkSpacing.md) {
             HStack(spacing: VoiceInkSpacing.sm) {
                 Image(systemName: icon)
                     .font(.system(size: 14, weight: .medium))
