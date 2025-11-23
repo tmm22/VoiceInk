@@ -89,7 +89,7 @@ struct EnhancementSettingsView: View {
                     } else {
                         VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
                             Label("Local-Only Enhancement", systemImage: "lock.shield")
-                                .voiceInkHeadline()
+                                .font(.headline)
                             
                             Text("The community build keeps enhancement providers on-device by default. Enable AI enhancements in Settings to configure cloud providers like OpenAI or Google.")
                                 .voiceInkCaptionStyle()
