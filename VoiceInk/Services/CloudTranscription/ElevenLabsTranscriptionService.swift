@@ -1,11 +1,12 @@
 import Foundation
 
 class ElevenLabsTranscriptionService {
+    private let session = SecureURLSession.makeEphemeral()
     
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         let config = try prepareRequest(for: model, audioURL: audioURL)
         
-        let (data, response) = try await URLSession.shared.upload(for: config.request, from: config.body)
+        let (data, response) = try await session.upload(for: config.request, from: config.body)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
         }

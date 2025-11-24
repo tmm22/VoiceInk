@@ -3,6 +3,7 @@ import os
 
 class DeepgramTranscriptionService {
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "DeepgramService")
+    private let session = SecureURLSession.makeEphemeral()
     
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         let config = try getAPIConfig(for: model)
@@ -16,7 +17,7 @@ class DeepgramTranscriptionService {
             throw CloudTranscriptionError.audioFileNotFound
         }
         
-        let (data, response) = try await URLSession.shared.upload(for: request, from: audioData)
+        let (data, response) = try await session.upload(for: request, from: audioData)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
         }

@@ -151,6 +151,7 @@ enum AIProvider: String, CaseIterable {
 
 class AIService: ObservableObject {
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "AIService")
+    private let session = SecureURLSession.makeEphemeral()
     
     @Published var apiKey: String = ""
     @Published var isAPIKeyValid: Bool = false
@@ -348,7 +349,7 @@ class AIService: ObservableObject {
         
         logger.notice("🔑 Verifying API key for \(self.selectedProvider.rawValue, privacy: .public) provider at \(url.absoluteString, privacy: .public)")
         
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        session.dataTask(with: request) { data, response, error in
             if let error = error {
                 self.logger.notice("🔑 API key verification failed for \(self.selectedProvider.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 completion(false)
@@ -398,7 +399,7 @@ class AIService: ObservableObject {
         
         request.httpBody = try? JSONSerialization.data(withJSONObject: testBody)
         
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        session.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(false)
                 return
@@ -423,7 +424,7 @@ class AIService: ObservableObject {
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.addValue(key, forHTTPHeaderField: "xi-api-key")
 
-        URLSession.shared.dataTask(with: request) { data, response, _ in
+        session.dataTask(with: request) { data, response, _ in
             let isValid = (response as? HTTPURLResponse)?.statusCode == 200
 
             if let data = data, let body = String(data: data, encoding: .utf8) {
@@ -444,7 +445,7 @@ class AIService: ObservableObject {
         request.httpMethod = "GET"
         request.addValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        session.dataTask(with: request) { data, response, error in
             if let error = error {
                 self.logger.error("Mistral API key verification failed: \(error.localizedDescription)")
                 completion(false)
@@ -479,7 +480,7 @@ class AIService: ObservableObject {
         request.httpMethod = "GET"
         request.addValue("Token \(key)", forHTTPHeaderField: "Authorization")
         
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        session.dataTask(with: request) { data, response, error in
             if let error = error {
                 self.logger.error("Deepgram API key verification failed: \(error.localizedDescription)")
                 completion(false)
@@ -504,7 +505,7 @@ class AIService: ObservableObject {
         request.addValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         request.addValue("application/json", forHTTPHeaderField: "Accept")
         
-        URLSession.shared.dataTask(with: request) { _, response, error in
+        session.dataTask(with: request) { _, response, error in
             if let error = error {
                 self.logger.error("Soniox API key verification failed: \(error.localizedDescription)")
                 completion(false)
@@ -580,7 +581,7 @@ class AIService: ObservableObject {
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await session.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
                 logger.error("Failed to fetch OpenRouter models: Invalid HTTP response")

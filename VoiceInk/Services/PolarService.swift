@@ -7,6 +7,7 @@ class PolarService {
     private let apiToken = "Token"
     private let baseURL = "https://api.polar.sh"
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "PolarService")
+    private let session = SecureURLSession.makeEphemeral()
     
     // Create an authenticated URLRequest for the given endpoint
     private func createAuthenticatedRequest(endpoint: String, method: String = "POST") throws -> URLRequest {
@@ -64,7 +65,7 @@ class PolarService {
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
-        let (data, httpResponse) = try await URLSession.shared.data(for: request)
+        let (data, httpResponse) = try await session.data(for: request)
         
         if let httpResponse = httpResponse as? HTTPURLResponse {
             if !(200...299).contains(httpResponse.statusCode) {
@@ -104,7 +105,7 @@ class PolarService {
         
         request.httpBody = try JSONEncoder().encode(activationRequest)
         
-        let (data, httpResponse) = try await URLSession.shared.data(for: request)
+        let (data, httpResponse) = try await session.data(for: request)
         
         if let httpResponse = httpResponse as? HTTPURLResponse {
             if !(200...299).contains(httpResponse.statusCode) {
@@ -144,7 +145,7 @@ class PolarService {
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
-        let (data, httpResponse) = try await URLSession.shared.data(for: request)
+        let (data, httpResponse) = try await session.data(for: request)
         
         if let httpResponse = httpResponse as? HTTPURLResponse {
             if !(200...299).contains(httpResponse.statusCode) {

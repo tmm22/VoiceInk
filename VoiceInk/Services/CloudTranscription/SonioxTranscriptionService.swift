@@ -2,6 +2,7 @@ import Foundation
 
 class SonioxTranscriptionService {
     private let apiBase = "https://api.soniox.com/v1"
+    private let session = SecureURLSession.makeEphemeral()
     
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         let config = try getAPIConfig(for: model)
@@ -41,7 +42,7 @@ class SonioxTranscriptionService {
         let boundary = "Boundary-\(UUID().uuidString)"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         let body = try createMultipartBody(fileURL: audioURL, boundary: boundary)
-        let (data, response) = try await URLSession.shared.upload(for: request, from: body)
+        let (data, response) = try await session.upload(for: request, from: body)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
         }
@@ -83,7 +84,7 @@ class SonioxTranscriptionService {
             payload["language_hints"] = [selectedLanguage]
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
         }
@@ -109,7 +110,7 @@ class SonioxTranscriptionService {
             var request = URLRequest(url: baseURL)
             request.httpMethod = "GET"
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await session.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
             }
@@ -144,7 +145,7 @@ class SonioxTranscriptionService {
         var request = URLRequest(url: apiURL)
         request.httpMethod = "GET"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
         }

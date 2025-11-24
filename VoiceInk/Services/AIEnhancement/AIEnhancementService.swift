@@ -70,6 +70,7 @@ class AIEnhancementService: ObservableObject {
     private let rateLimitInterval: TimeInterval = 1.0
     private var lastRequestTime: Date?
     private let modelContext: ModelContext
+    private let session = SecureURLSession.makeEphemeral()
     
     @Published var lastCapturedClipboard: String?
 
@@ -257,7 +258,7 @@ class AIEnhancementService: ObservableObject {
             request.httpBody = try? JSONSerialization.data(withJSONObject: requestBody)
 
             do {
-                let (data, response) = try await URLSession.shared.data(for: request)
+                let (data, response) = try await session.data(for: request)
 
                 guard let httpResponse = response as? HTTPURLResponse else {
                     throw EnhancementError.invalidResponse
@@ -320,7 +321,7 @@ class AIEnhancementService: ObservableObject {
             request.httpBody = try? JSONSerialization.data(withJSONObject: requestBody)
 
             do {
-                let (data, response) = try await URLSession.shared.data(for: request)
+                let (data, response) = try await session.data(for: request)
 
                 guard let httpResponse = response as? HTTPURLResponse else {
                     throw EnhancementError.invalidResponse

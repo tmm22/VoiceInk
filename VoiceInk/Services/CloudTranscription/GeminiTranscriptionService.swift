@@ -3,6 +3,7 @@ import os
 
 class GeminiTranscriptionService {
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "GeminiService")
+    private let session = SecureURLSession.makeEphemeral()
     
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         let config = try getAPIConfig(for: model)
@@ -47,7 +48,7 @@ class GeminiTranscriptionService {
             throw CloudTranscriptionError.dataEncodingError
         }
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
         }

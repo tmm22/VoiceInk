@@ -49,6 +49,7 @@ class OllamaService: ObservableObject {
     @Published var isLoadingModels: Bool = false
     
     private let defaultTemperature: Double = 0.3
+    private let session = SecureURLSession.makeEphemeral()
     
     init() {
         self.baseURL = UserDefaults.standard.string(forKey: "ollamaBaseURL") ?? Self.defaultBaseURL
@@ -63,7 +64,7 @@ class OllamaService: ObservableObject {
         }
         
         do {
-            let (_, response) = try await URLSession.shared.data(from: url)
+            let (_, response) = try await session.data(from: url)
             if let httpResponse = response as? HTTPURLResponse {
                 isConnected = (200...299).contains(httpResponse.statusCode)
             } else {
@@ -100,7 +101,7 @@ class OllamaService: ObservableObject {
             throw LocalAIError.invalidURL
         }
         
-        let (data, _) = try await URLSession.shared.data(from: url)
+        let (data, _) = try await session.data(from: url)
         let response = try JSONDecoder().decode(OllamaModelsResponse.self, from: data)
         return response.models
     }
@@ -134,7 +135,7 @@ class OllamaService: ObservableObject {
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw LocalAIError.invalidResponse

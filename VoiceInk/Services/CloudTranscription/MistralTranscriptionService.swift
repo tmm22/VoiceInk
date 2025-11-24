@@ -3,6 +3,7 @@ import os
 
 class MistralTranscriptionService {
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "MistralTranscriptionService")
+    private let session = SecureURLSession.makeEphemeral()
     
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         logger.notice("Sending transcription request to Mistral for model: \(model.name)")
@@ -46,7 +47,7 @@ class MistralTranscriptionService {
         request.httpBody = body
         
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await session.data(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
                 let errorResponse = String(data: data, encoding: .utf8) ?? "No response body"

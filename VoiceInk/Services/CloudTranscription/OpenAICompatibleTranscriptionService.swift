@@ -3,6 +3,7 @@ import os
 
 class OpenAICompatibleTranscriptionService {
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "OpenAICompatibleService")
+    private let session = SecureURLSession.makeEphemeral()
     
     func transcribe(audioURL: URL, model: CustomCloudModel) async throws -> String {
         guard let url = URL(string: model.apiEndpoint) else {
@@ -23,7 +24,7 @@ class OpenAICompatibleTranscriptionService {
         
         let body = try createOpenAICompatibleRequestBody(audioURL: audioURL, modelName: config.modelName, boundary: boundary)
         
-        let (data, response) = try await URLSession.shared.upload(for: request, from: body)
+        let (data, response) = try await session.upload(for: request, from: body)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
         }

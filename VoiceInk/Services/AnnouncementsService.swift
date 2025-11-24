@@ -18,6 +18,7 @@ final class AnnouncementsService {
     private let dismissedKey = "dismissedAnnouncementIds"
     private let maxDismissedToKeep = 2
     private var timer: Timer?
+    private let session = SecureURLSession.makeEphemeral()
 
     // MARK: - Public API
 
@@ -42,7 +43,7 @@ final class AnnouncementsService {
     private func fetchAndMaybeShow() {
         guard let url = announcementsURL else { return }
         let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
-        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        let task = session.dataTask(with: request) { [weak self] data, response, error in
             guard let self = self else { return }
             guard error == nil, let data = data else { return }
             guard let announcements = try? JSONDecoder().decode([RemoteAnnouncement].self, from: data) else { return }
