@@ -244,6 +244,8 @@ struct ShortcutRow: View {
 }
 
 #Preview {
-    KeyboardShortcutCheatSheet()
-        .environmentObject(HotkeyManager(whisperState: WhisperState(modelContext: ModelContext(try! ModelContainer(for: Transcription.self)))))
+    let container = try? ModelContainer(for: Transcription.self)
+    let context = container.map { ModelContext($0) }
+    return KeyboardShortcutCheatSheet()
+        .environmentObject(HotkeyManager(whisperState: WhisperState(modelContext: context ?? ModelContext(try! ModelContainer(for: Transcription.self)))))
 }

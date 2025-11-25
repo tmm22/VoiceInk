@@ -37,7 +37,9 @@ class PowerModeSessionManager {
 
     func beginSession(with config: PowerModeConfig) async {
         guard let whisperState = whisperState, let enhancementService = enhancementService else {
+            #if DEBUG
             print("SessionManager not configured.")
+            #endif
             return
         }
 
@@ -194,7 +196,9 @@ class PowerModeSessionManager {
     
     private func recoverSession() {
         guard let session = loadSession() else { return }
+        #if DEBUG
         print("Recovering abandoned Power Mode session.")
+        #endif
         Task {
             await endSession()
         }
@@ -205,7 +209,9 @@ class PowerModeSessionManager {
             let data = try JSONEncoder().encode(session)
             UserDefaults.standard.set(data, forKey: sessionKey)
         } catch {
+            #if DEBUG
             print("Error saving Power Mode session: \(error)")
+            #endif
         }
     }
     
@@ -214,7 +220,9 @@ class PowerModeSessionManager {
         do {
             return try JSONDecoder().decode(PowerModeSession.self, from: data)
         } catch {
+            #if DEBUG
             print("Error loading Power Mode session: \(error)")
+            #endif
             return nil
         }
     }

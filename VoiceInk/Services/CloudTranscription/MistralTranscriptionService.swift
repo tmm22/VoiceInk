@@ -27,22 +27,22 @@ class MistralTranscriptionService {
         var body = Data()
 
         // Add model field
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"model\"\r\n\r\n".data(using: .utf8)!)
-        body.append(model.name.data(using: .utf8)!)
-        body.append("\r\n".data(using: .utf8)!)
+        body.append(Data("--\(boundary)\r\n".utf8))
+        body.append(Data("Content-Disposition: form-data; name=\"model\"\r\n\r\n".utf8))
+        body.append(Data(model.name.utf8))
+        body.append(Data("\r\n".utf8))
 
         // Add file data - matching Python SDK structure (no language field as it's commented out in all Python examples)
         guard let audioData = try? Data(contentsOf: audioURL) else {
             throw CloudTranscriptionError.audioFileNotFound
         }
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(audioURL.lastPathComponent)\"\r\n".data(using: .utf8)!)
-        body.append("Content-Type: audio/wav\r\n\r\n".data(using: .utf8)!)
+        body.append(Data("--\(boundary)\r\n".utf8))
+        body.append(Data("Content-Disposition: form-data; name=\"file\"; filename=\"\(audioURL.lastPathComponent)\"\r\n".utf8))
+        body.append(Data("Content-Type: audio/wav\r\n\r\n".utf8))
         body.append(audioData)
-        body.append("\r\n".data(using: .utf8)!)
+        body.append(Data("\r\n".utf8))
 
-        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        body.append(Data("--\(boundary)--\r\n".utf8))
 
         request.httpBody = body
         

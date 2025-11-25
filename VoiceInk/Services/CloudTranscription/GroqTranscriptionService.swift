@@ -60,42 +60,42 @@ class GroqTranscriptionService {
         let selectedLanguage = UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "auto"
         let prompt = UserDefaults.standard.string(forKey: "TranscriptionPrompt") ?? ""
         
-        body.append("--\(boundary)\(crlf)".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(audioURL.lastPathComponent)\"\(crlf)".data(using: .utf8)!)
-        body.append("Content-Type: audio/wav\(crlf)\(crlf)".data(using: .utf8)!)
+        body.append(Data("--\(boundary)\(crlf)".utf8))
+        body.append(Data("Content-Disposition: form-data; name=\"file\"; filename=\"\(audioURL.lastPathComponent)\"\(crlf)".utf8))
+        body.append(Data("Content-Type: audio/wav\(crlf)\(crlf)".utf8))
         body.append(audioData)
-        body.append(crlf.data(using: .utf8)!)
+        body.append(Data(crlf.utf8))
         
-        body.append("--\(boundary)\(crlf)".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"model\"\(crlf)\(crlf)".data(using: .utf8)!)
-        body.append(modelName.data(using: .utf8)!)
-        body.append(crlf.data(using: .utf8)!)
+        body.append(Data("--\(boundary)\(crlf)".utf8))
+        body.append(Data("Content-Disposition: form-data; name=\"model\"\(crlf)\(crlf)".utf8))
+        body.append(Data(modelName.utf8))
+        body.append(Data(crlf.utf8))
         
         if selectedLanguage != "auto", !selectedLanguage.isEmpty {
-            body.append("--\(boundary)\(crlf)".data(using: .utf8)!)
-            body.append("Content-Disposition: form-data; name=\"language\"\(crlf)\(crlf)".data(using: .utf8)!)
-            body.append(selectedLanguage.data(using: .utf8)!)
-            body.append(crlf.data(using: .utf8)!)
+            body.append(Data("--\(boundary)\(crlf)".utf8))
+            body.append(Data("Content-Disposition: form-data; name=\"language\"\(crlf)\(crlf)".utf8))
+            body.append(Data(selectedLanguage.utf8))
+            body.append(Data(crlf.utf8))
         }
         
         // Include prompt for OpenAI-compatible APIs
         if !prompt.isEmpty {
-            body.append("--\(boundary)\(crlf)".data(using: .utf8)!)
-            body.append("Content-Disposition: form-data; name=\"prompt\"\(crlf)\(crlf)".data(using: .utf8)!)
-            body.append(prompt.data(using: .utf8)!)
-            body.append(crlf.data(using: .utf8)!)
+            body.append(Data("--\(boundary)\(crlf)".utf8))
+            body.append(Data("Content-Disposition: form-data; name=\"prompt\"\(crlf)\(crlf)".utf8))
+            body.append(Data(prompt.utf8))
+            body.append(Data(crlf.utf8))
         }
         
-        body.append("--\(boundary)\(crlf)".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"response_format\"\(crlf)\(crlf)".data(using: .utf8)!)
-        body.append("json".data(using: .utf8)!)
-        body.append(crlf.data(using: .utf8)!)
+        body.append(Data("--\(boundary)\(crlf)".utf8))
+        body.append(Data("Content-Disposition: form-data; name=\"response_format\"\(crlf)\(crlf)".utf8))
+        body.append(Data("json".utf8))
+        body.append(Data(crlf.utf8))
         
-        body.append("--\(boundary)\(crlf)".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"temperature\"\(crlf)\(crlf)".data(using: .utf8)!)
-        body.append("0".data(using: .utf8)!)
-        body.append(crlf.data(using: .utf8)!)
-        body.append("--\(boundary)--\(crlf)".data(using: .utf8)!)
+        body.append(Data("--\(boundary)\(crlf)".utf8))
+        body.append(Data("Content-Disposition: form-data; name=\"temperature\"\(crlf)\(crlf)".utf8))
+        body.append(Data("0".utf8))
+        body.append(Data(crlf.utf8))
+        body.append(Data("--\(boundary)--\(crlf)".utf8))
         
         return body
     }

@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 
+@MainActor
 class OllamaService: ObservableObject {
     static let defaultBaseURL = "http://localhost:11434"
     
@@ -56,7 +57,6 @@ class OllamaService: ObservableObject {
         self.selectedModel = UserDefaults.standard.string(forKey: "ollamaSelectedModel") ?? "llama2"        
     }
     
-    @MainActor
     func checkConnection() async {
         guard let url = URL(string: baseURL) else {
             isConnected = false
@@ -75,7 +75,6 @@ class OllamaService: ObservableObject {
         }
     }
     
-    @MainActor
     func refreshModels() async {
         isLoadingModels = true
         defer { isLoadingModels = false }

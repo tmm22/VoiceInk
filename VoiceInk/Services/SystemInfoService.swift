@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import AVFoundation
 
+@MainActor
 class SystemInfoService {
     static let shared = SystemInfoService()
 

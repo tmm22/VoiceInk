@@ -88,10 +88,47 @@ actor TranscriptionQueue {
 
 **Critical Rules:**
 - ✅ Always use `@MainActor` for view models and UI-related classes
+- ✅ ALL `ObservableObject` classes with `@Published` properties MUST be marked `@MainActor`
+- ✅ Classes that access `@MainActor` singletons must also be `@MainActor`
 - ✅ Use `async/await` for network calls and file I/O
 - ✅ Use `Task` for background work
 - ⛔ Never block the main thread
 - ⛔ Avoid completion handlers (use async/await instead)
+- ⛔ Never call `@MainActor` methods from `deinit` (use direct cleanup instead)
+
+**ObservableObject Requirements:**
+
+```swift
+// ✅ REQUIRED: All ObservableObject classes MUST use @MainActor
+@MainActor
+class AudioDeviceManager: ObservableObject {
+    @Published var availableDevices: [AudioDevice] = []
+}
+
+// ⛔ NEVER: ObservableObject without @MainActor
+class AudioDeviceManager: ObservableObject {  // Missing @MainActor - will cause data races!
+    @Published var availableDevices: [AudioDevice] = []
+}
+```
+
+**deinit with @MainActor:**
+
+```swift
+@MainActor
+class TimerManager: ObservableObject {
+    private var timer: Timer?
+    
+    // ✅ Good: Direct cleanup in deinit (doesn't call isolated methods)
+    deinit {
+        timer?.invalidate()
+    }
+    
+    // ⛔ Bad: Calling @MainActor method from deinit causes compiler error
+    deinit {
+        stopTimer()  // Error: Can't call isolated method from deinit
+    }
+}
+```
 
 ---
 
@@ -206,14 +243,22 @@ public func synthesizeSpeech() { }  // Public API
 
 ### Logging
 
-**ALWAYS use `AppLogger` (OSLog) for logging.**
+**ALWAYS use `AppLogger` (OSLog) for logging. All `print()` statements MUST be wrapped in `#if DEBUG`.**
 
 ```swift
-// ✅ Good: Structured, categorized logging
+// ✅ Good: Structured, categorized logging (preferred)
 AppLogger.transcription.error("Failed to transcribe: \(error)")
 
-// ⛔ Bad: Unstructured, spams console
+// ✅ Good: Debug-only print statements (acceptable for development)
+#if DEBUG
+print("Debug: Processing file \(filename)")
+#endif
+
+// ⛔ Bad: Unstructured logging, spams console
 print("Error: \(error)")
+
+// ⛔ Bad: Unguarded print ships to production
+print("Debug: Processing file \(filename)")  // Ships to production!
 ```
 
 ### Localization
@@ -243,6 +288,21 @@ if let result = result {
 
 // ⛔ Bad: Force unwrap
 process(result!)
+```
+
+### Data Encoding
+
+**Use safe UTF-8 encoding patterns for multipart form data and string conversions.**
+
+```swift
+// ✅ Good: Safe UTF-8 encoding (never fails for valid Swift strings)
+body.append(Data("--\(boundary)\r\n".utf8))
+body.append(Data(modelName.utf8))
+body.append(Data("Content-Type: audio/wav\r\n\r\n".utf8))
+
+// ⛔ Bad: Force unwrap on encoding (unnecessary crash risk)
+body.append("--\(boundary)\r\n".data(using: .utf8)!)
+body.append(modelName.data(using: .utf8)!)
 ```
 
 ### SwiftUI Best Practices
@@ -301,15 +361,32 @@ VoiceInk aims for production-grade quality. Every contribution must meet these c
 
 ### 1. Credential Storage
 
-**ALWAYS use macOS Keychain for API keys:**
+**ALWAYS use macOS Keychain for API keys. Never use UserDefaults fallbacks.**
+
+> **Note:** Legacy API key migration from UserDefaults has been completed. All cloud transcription services now use Keychain-only access. Never add UserDefaults fallbacks for credentials.
 
 ```swift
-// ✅ Good: Keychain storage
+// ✅ Good: Keychain storage with no fallback
 let keychain = KeychainManager()
 keychain.saveAPIKey(apiKey, for: "OpenAI")
 
+// ✅ Good: Keychain-only retrieval
+func getAPIKey() throws -> String {
+    guard let key = keychain.getAPIKey(for: provider), !key.isEmpty else {
+        throw CloudTranscriptionError.missingAPIKey
+    }
+    return key
+}
+
 // ⛔ NEVER: UserDefaults or plist
 UserDefaults.standard.set(apiKey, forKey: "openai_key")  // INSECURE!
+
+// ⛔ NEVER: UserDefaults fallback pattern
+func getAPIKey() -> String {
+    if let key = keychain.getAPIKey(for: provider) { return key }
+    if let legacy = UserDefaults.standard.string(forKey: "APIKey") { return legacy }  // INSECURE!
+    throw error
+}
 ```
 
 ### 2. Network Security
@@ -534,6 +611,26 @@ class AudioDeviceManager: ObservableObject {
 2. **Unit Tests**: Required for all business logic (Services, ViewModels).
 3. **Manual Verification**: Use only for UI interactions that XCTest cannot cover.
 
+### SwiftUI Preview Guidelines
+
+**Never use force-try (`try!`) in SwiftUI previews. Use safe fallback patterns.**
+
+```swift
+// ✅ Good: Safe preview with fallback
+#Preview {
+    let container = try? ModelContainer(for: Transcription.self)
+    let context = container.map { ModelContext($0) }
+    return MyView()
+        .environmentObject(ViewModel(context: context ?? fallbackContext))
+}
+
+// ⛔ Bad: Force try crashes preview canvas on failure
+#Preview {
+    MyView()
+        .environmentObject(ViewModel(context: try! ModelContainer(...)))
+}
+```
+
 ### Pre-Commit Checklist
 
 Before committing changes:
@@ -542,9 +639,13 @@ Before committing changes:
 - [ ] Tests pass (run `./run_tests.sh`)
 - [ ] No secrets or API keys in code or tests
 - [ ] No force-unwraps (`!`) in production code
+- [ ] No `.data(using: .utf8)!` force unwraps (use `Data(string.utf8)`)
+- [ ] No `try!` in SwiftUI previews
+- [ ] All `ObservableObject` classes have `@MainActor`
+- [ ] All `print()` statements wrapped in `#if DEBUG`
+- [ ] No UserDefaults usage for API keys or secrets
 - [ ] All new code follows Swift style guide
 - [ ] Security guidelines followed (see above)
-- [ ] No debug `print()` statements (use `AppLogger`)
 - [ ] No hardcoded values or strings (use `Localization`)
 - [ ] Error handling for all async operations
 - [ ] Memory leaks checked (use `[weak self]` in closures)
@@ -1011,11 +1112,19 @@ This guide is a living document. If you find errors, outdated information, or ha
 
 ---
 
-**Last Updated:** November 3, 2025  
+**Last Updated:** November 25, 2025  
 **Maintained By:** VoiceInk Community  
 **License:** GPL v3 (same as project)
 
 **Recent Updates:**
+- **v1.2** (2025-11-25) - Code Audit Findings
+  - Added mandatory `@MainActor` requirements for all `ObservableObject` classes
+  - Added `deinit` + `@MainActor` pattern guidance
+  - Added `Data Encoding` section with safe UTF-8 patterns
+  - Expanded `Security Guidelines` with API key migration note and anti-pattern examples
+  - Added `SwiftUI Preview Guidelines` section
+  - Enhanced `Pre-Commit Checklist` with 5 new critical items
+  - Updated `Logging` section to require `#if DEBUG` for print statements
 - **v1.1** (2025-11-23) - Enhanced Production Standards
   - Added `Production Standards` section
   - Updated `Security Guidelines` (Strict Keychain usage)

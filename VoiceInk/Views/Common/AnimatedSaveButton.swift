@@ -59,7 +59,9 @@ struct AnimatedSaveButton: View {
                     }
                 }
             } catch {
+                #if DEBUG
                 print("Failed to save file: \(error.localizedDescription)")
+                #endif
             }
         }
     }

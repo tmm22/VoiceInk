@@ -74,8 +74,8 @@ class AIEnhancementService: ObservableObject {
     
     @Published var lastCapturedClipboard: String?
 
-    init(aiService: AIService = AIService(), modelContext: ModelContext) {
-        self.aiService = aiService
+    init(aiService: AIService? = nil, modelContext: ModelContext) {
+        self.aiService = aiService ?? AIService()
         self.modelContext = modelContext
         self.screenCaptureService = ScreenCaptureService()
         self.customVocabularyService = CustomVocabularyService.shared

@@ -20,13 +20,7 @@ class SonioxTranscriptionService {
     
     private func getAPIConfig(for model: any TranscriptionModel) throws -> APIConfig {
         let keychain = KeychainManager()
-        // Try Keychain first, then fall back to UserDefaults for backward compatibility
-        let apiKey: String
-        if let keychainKey = keychain.getAPIKey(for: "Soniox"), !keychainKey.isEmpty {
-            apiKey = keychainKey
-        } else if let legacyKey = UserDefaults.standard.string(forKey: "SonioxAPIKey"), !legacyKey.isEmpty {
-            apiKey = legacyKey
-        } else {
+        guard let apiKey = keychain.getAPIKey(for: "Soniox"), !apiKey.isEmpty else {
             throw CloudTranscriptionError.missingAPIKey
         }
         return APIConfig(apiKey: apiKey)
@@ -168,12 +162,12 @@ class SonioxTranscriptionService {
         guard let audioData = try? Data(contentsOf: fileURL) else {
             throw CloudTranscriptionError.audioFileNotFound
         }
-        body.append("--\(boundary)\(crlf)".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileURL.lastPathComponent)\"\(crlf)".data(using: .utf8)!)
-        body.append("Content-Type: audio/wav\(crlf)\(crlf)".data(using: .utf8)!)
+        body.append(Data("--\(boundary)\(crlf)".utf8))
+        body.append(Data("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileURL.lastPathComponent)\"\(crlf)".utf8))
+        body.append(Data("Content-Type: audio/wav\(crlf)\(crlf)".utf8))
         body.append(audioData)
-        body.append(crlf.data(using: .utf8)!)
-        body.append("--\(boundary)--\(crlf)".data(using: .utf8)!)
+        body.append(Data(crlf.utf8))
+        body.append(Data("--\(boundary)--\(crlf)".utf8))
         return body
     }
     

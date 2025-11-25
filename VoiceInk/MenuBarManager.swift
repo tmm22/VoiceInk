@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 
+@MainActor
 class MenuBarManager: ObservableObject {
     @Published var isMenuBarOnly: Bool {
         didSet {
@@ -27,7 +28,9 @@ class MenuBarManager: ObservableObject {
         applyActivationPolicy()
         DispatchQueue.main.async {
             if WindowManager.shared.showMainWindow() == nil {
+                #if DEBUG
                 print("MenuBarManager: Unable to locate main window to focus")
+                #endif
             }
         }
     }
@@ -53,11 +56,15 @@ class MenuBarManager: ObservableObject {
     }
     
     func openMainWindowAndNavigate(to destination: String) {
+        #if DEBUG
         print("MenuBarManager: Navigating to \(destination)")
+        #endif
 
         let aiFeaturesEnabled = UserDefaults.standard.bool(forKey: "enableAIEnhancementFeatures")
         if !aiFeaturesEnabled && (destination == "AI Models" || destination == "Enhancement" || destination == "Text to Speech") {
+            #if DEBUG
             print("MenuBarManager: AI features disabled; navigation to \(destination) blocked")
+            #endif
             DispatchQueue.main.async {
                 let alert = NSAlert()
                 alert.messageText = "AI enhancements are disabled"
@@ -75,7 +82,9 @@ class MenuBarManager: ObservableObject {
             self.applyActivationPolicy()
             
             guard WindowManager.shared.showMainWindow() != nil else {
+                #if DEBUG
                 print("MenuBarManager: Unable to show main window for navigation")
+                #endif
                 return
             }
             
@@ -86,7 +95,9 @@ class MenuBarManager: ObservableObject {
                     object: nil,
                     userInfo: ["destination": destination]
                 )
+                #if DEBUG
                 print("MenuBarManager: Posted navigation notification for \(destination)")
+                #endif
             }
         }
     }

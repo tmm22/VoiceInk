@@ -33,12 +33,15 @@ class WaveformGenerator {
             }
             return maxValues
         } catch {
+            #if DEBUG
             print("Error reading audio file: \(error)")
+            #endif
             return []
         }
     }
 }
 
+@MainActor
 class AudioPlayerManager: ObservableObject {
     private var audioPlayer: AVAudioPlayer?
     private var timer: Timer?
@@ -63,7 +66,9 @@ class AudioPlayerManager: ObservableObject {
                 }
             }
         } catch {
+            #if DEBUG
             print("Error loading audio: \(error.localizedDescription)")
+            #endif
         }
     }
     
@@ -101,7 +106,7 @@ class AudioPlayerManager: ObservableObject {
     }
     
     deinit {
-        stopTimer()
+        timer?.invalidate()
     }
 }
 

@@ -30,6 +30,7 @@ private func audioDevicePropertyListener(
     return noErr
 }
 
+@MainActor
 class AudioDeviceManager: ObservableObject {
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "AudioDeviceManager")
     @Published var availableDevices: [(id: AudioDeviceID, uid: String, name: String)] = []

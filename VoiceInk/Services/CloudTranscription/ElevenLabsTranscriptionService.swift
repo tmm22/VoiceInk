@@ -79,7 +79,7 @@ class ElevenLabsTranscriptionService {
             appendFormField(data: &body, boundary: boundary, name: key, value: value)
         }
         
-        body.append("--\(boundary)--\(crlf)".data(using: .utf8)!)
+        body.append(Data("--\(boundary)--\(crlf)".utf8))
         return body
     }
 
@@ -90,10 +90,10 @@ class ElevenLabsTranscriptionService {
         value: String
     ) {
         let crlf = "\r\n"
-        data.append("--\(boundary)\(crlf)".data(using: .utf8)!)
-        data.append("Content-Disposition: form-data; name=\"\(name)\"\(crlf)\(crlf)".data(using: .utf8)!)
-        data.append(value.data(using: .utf8)!)
-        data.append(crlf.data(using: .utf8)!)
+        data.append(Data("--\(boundary)\(crlf)".utf8))
+        data.append(Data("Content-Disposition: form-data; name=\"\(name)\"\(crlf)\(crlf)".utf8))
+        data.append(Data(value.utf8))
+        data.append(Data(crlf.utf8))
     }
 
     private func appendFormField(
@@ -105,11 +105,11 @@ class ElevenLabsTranscriptionService {
         value: Data
     ) {
         let crlf = "\r\n"
-        data.append("--\(boundary)\(crlf)".data(using: .utf8)!)
-        data.append("Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(filename)\"\(crlf)".data(using: .utf8)!)
-        data.append("Content-Type: \(contentType)\(crlf)\(crlf)".data(using: .utf8)!)
+        data.append(Data("--\(boundary)\(crlf)".utf8))
+        data.append(Data("Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(filename)\"\(crlf)".utf8))
+        data.append(Data("Content-Type: \(contentType)\(crlf)\(crlf)".utf8))
         data.append(value)
-        data.append(crlf.data(using: .utf8)!)
+        data.append(Data(crlf.utf8))
     }
 
     private func resolvedLanguageCode() -> String? {
@@ -119,13 +119,10 @@ class ElevenLabsTranscriptionService {
 
     private func fetchAPIKey() throws -> String {
         let keychain = KeychainManager()
-        if let keychainKey = keychain.getAPIKey(for: "ElevenLabs"), !keychainKey.isEmpty {
-            return keychainKey
+        guard let apiKey = keychain.getAPIKey(for: "ElevenLabs"), !apiKey.isEmpty else {
+            throw CloudTranscriptionError.missingAPIKey
         }
-        if let legacyKey = UserDefaults.standard.string(forKey: "ElevenLabsAPIKey"), !legacyKey.isEmpty {
-            return legacyKey
-        }
-        throw CloudTranscriptionError.missingAPIKey
+        return apiKey
     }
 }
 

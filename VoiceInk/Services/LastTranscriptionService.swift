@@ -2,6 +2,7 @@ import Foundation
 import SwiftData
 import OSLog
 
+@MainActor
 class LastTranscriptionService: ObservableObject {
     
     static func getLastTranscription(from modelContext: ModelContext) -> Transcription? {

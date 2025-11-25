@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import AppKit
 
+@MainActor
 struct EmailSupport {
     static func generateSupportEmailURL() -> URL? {
         let subject = "\(AppBrand.communityName) Support Request"

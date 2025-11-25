@@ -5,6 +5,7 @@ import SwiftUI
 import CoreAudio
 
 /// Controls system audio management during recording
+@MainActor
 class MediaController: ObservableObject {
     static let shared = MediaController()
     private var didMuteAudio = false

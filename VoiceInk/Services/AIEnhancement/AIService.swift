@@ -149,6 +149,7 @@ enum AIProvider: String, CaseIterable {
     }
 }
 
+@MainActor
 class AIService: ObservableObject {
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "AIService")
     private let session = SecureURLSession.makeEphemeral()

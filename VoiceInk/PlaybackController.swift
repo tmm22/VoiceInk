@@ -3,6 +3,8 @@ import Combine
 import Foundation
 import SwiftUI
 import MediaRemoteAdapter
+
+@MainActor
 class PlaybackController: ObservableObject {
     static let shared = PlaybackController()
     private var mediaController: MediaRemoteAdapter.MediaController

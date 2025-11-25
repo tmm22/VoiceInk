@@ -214,7 +214,9 @@ struct AudioTranscribeView: View {
             if provider.hasItemConformingToTypeIdentifier(typeIdentifier) {
                 provider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { (item, error) in
                     if let error = error {
+                        #if DEBUG
                         print("Error loading dropped file with type \(typeIdentifier): \(error)")
+                        #endif
                         return
                     }
                     
@@ -247,11 +249,15 @@ struct AudioTranscribeView: View {
     }
     
     private func validateAndSetAudioFile(_ url: URL) {
+        #if DEBUG
         print("Attempting to validate file: \(url.path)")
+        #endif
         
         // Check if file exists
         guard FileManager.default.fileExists(atPath: url.path) else {
+            #if DEBUG
             print("File does not exist at path: \(url.path)")
+            #endif
             return
         }
         
@@ -266,7 +272,9 @@ struct AudioTranscribeView: View {
         // Validate file type
         guard SupportedMedia.isSupported(url: url) else { return }
         
+        #if DEBUG
         print("File validated successfully: \(url.lastPathComponent)")
+        #endif
         selectedAudioURL = url
         isAudioFileSelected = true
     }

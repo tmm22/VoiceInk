@@ -289,7 +289,9 @@ struct CloudModelCardView: View {
             aiService.selectedProvider = .soniox
         default:
             // This case should ideally not be hit for cloud models in this view
+            #if DEBUG
             print("Warning: verifyAPIKey called for unsupported provider \(model.provider.rawValue)")
+            #endif
             isVerifying = false
             verificationStatus = .failure
             return

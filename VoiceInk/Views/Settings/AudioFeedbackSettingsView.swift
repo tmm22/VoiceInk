@@ -189,7 +189,9 @@ struct AudioFeedbackSettingsView: View {
             }
             
         case .failure(let error):
+            #if DEBUG
             print("Error selecting audio file: \(error.localizedDescription)")
+            #endif
         }
         
         currentSoundType = nil
