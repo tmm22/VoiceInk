@@ -218,6 +218,11 @@ struct VoiceInkApp: App {
                         // Start the transcription auto-cleanup service (handles immediate and scheduled transcript deletion)
                         transcriptionAutoCleanupService.startMonitoring(modelContext: container.mainContext)
                         
+                        // Clean up expired trash items (items deleted more than 30 days ago)
+                        Task {
+                            await TrashCleanupService.shared.cleanupExpiredTrashItems(modelContext: container.mainContext)
+                        }
+                        
                         // Start the automatic audio cleanup process only if transcript cleanup is not enabled
                         if !UserDefaults.standard.bool(forKey: "IsTranscriptionCleanupEnabled") {
                             audioCleanupManager.startAutomaticCleanup(modelContext: container.mainContext)

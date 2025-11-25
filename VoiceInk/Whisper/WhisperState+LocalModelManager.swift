@@ -380,7 +380,7 @@ extension WhisperState {
         // Do not rename on collision; simply notify the user and abort
         if FileManager.default.fileExists(atPath: destinationURL.path) {
             await NotificationManager.shared.showNotification(
-                title: "A model named \(destinationURL.lastPathComponent) already exists",
+                title: String(format: Localization.Models.modelExists, destinationURL.lastPathComponent),
                 type: .warning,
                 duration: 4.0
             )
@@ -401,14 +401,14 @@ extension WhisperState {
             }
 
             await NotificationManager.shared.showNotification(
-                title: "Imported \(destinationURL.lastPathComponent)",
+                title: String(format: Localization.Models.importSuccess, destinationURL.lastPathComponent),
                 type: .success,
                 duration: 3.0
             )
         } catch {
             logError("Failed to import local model", error)
             await NotificationManager.shared.showNotification(
-                title: "Failed to import model: \(error.localizedDescription)",
+                title: String(format: Localization.Models.importFailed, error.localizedDescription),
                 type: .error,
                 duration: 5.0
             )

@@ -44,6 +44,8 @@ struct SettingsView: View {
     @State private var isCustomCancelEnabled = false
     @State private var isCustomSoundsExpanded = false
     @State private var selectedTab: SettingsTab = .general
+    @State private var showTrashView = false
+    @State private var trashItemCount: Int = 0
     
     // Store the passed tab to detect changes from parent
     private let requestedTab: SettingsTab
@@ -105,6 +107,16 @@ struct SettingsView: View {
         } message: {
             Text("Are you sure you want to reset the onboarding? You'll see the introduction screens again the next time you launch the app.")
         }
+        .sheet(isPresented: $showTrashView) {
+            TrashView(modelContext: whisperState.modelContext)
+                .onDisappear {
+                    updateTrashCount()
+                }
+        }
+    }
+    
+    private func updateTrashCount() {
+        trashItemCount = TrashCleanupService.shared.getTrashCount(modelContext: whisperState.modelContext)
     }
     
     @ViewBuilder
@@ -462,6 +474,41 @@ struct SettingsView: View {
     
     private var dataSettings: some View {
         VStack(spacing: VoiceInkSpacing.md) {
+            VoiceInkSection(
+                icon: "trash",
+                title: "Trash",
+                subtitle: "Recover deleted transcriptions"
+            ) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Deleted transcriptions are kept for 30 days before being permanently removed.")
+                        .settingsDescription()
+                    
+                    HStack {
+                        if trashItemCount > 0 {
+                            Text("\(trashItemCount) item(s) in trash")
+                                .font(.system(size: 13))
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text("Trash is empty")
+                                .font(.system(size: 13))
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Button {
+                            showTrashView = true
+                        } label: {
+                            Label("Open Trash", systemImage: "trash")
+                        }
+                        .controlSize(.large)
+                    }
+                }
+            }
+            .onAppear {
+                updateTrashCount()
+            }
+            
             VoiceInkSection(
                 icon: "lock.shield",
                 title: "Data & Privacy",

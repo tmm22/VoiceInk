@@ -69,7 +69,7 @@ extension WhisperState {
             UserDefaults.standard.set(true, forKey: fastConformerDefaultsKey(for: model.name))
             fastConformerTranscriptionService.invalidateSession(for: model.name)
             await NotificationManager.shared.showNotification(
-                title: "FastConformer ready",
+                title: Localization.Models.downloadSuccess,
                 type: .success,
                 duration: 3.0
             )
@@ -79,7 +79,7 @@ extension WhisperState {
             fastConformerDownloadProgress[model.name] = nil
             UserDefaults.standard.set(false, forKey: fastConformerDefaultsKey(for: model.name))
             await NotificationManager.shared.showNotification(
-                title: "FastConformer download failed",
+                title: Localization.Models.downloadFailed,
                 type: .error,
                 duration: 4.0
             )

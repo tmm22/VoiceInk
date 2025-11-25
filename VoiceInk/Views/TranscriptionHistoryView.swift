@@ -22,6 +22,9 @@ struct TranscriptionHistoryView: View {
     // Static function to create the FetchDescriptor for the latest transcription indicator
     private static func createLatestTranscriptionIndicatorDescriptor() -> FetchDescriptor<Transcription> {
         var descriptor = FetchDescriptor<Transcription>(
+            predicate: #Predicate<Transcription> { transcription in
+                transcription.isDeleted == false
+            },
             sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
         )
         descriptor.fetchLimit = 1
@@ -39,17 +42,22 @@ struct TranscriptionHistoryView: View {
                 descriptor.predicate = #Predicate<Transcription> { transcription in
                     (transcription.text.localizedStandardContains(searchText) ||
                      (transcription.enhancedText?.localizedStandardContains(searchText) ?? false)) &&
-                    transcription.timestamp < timestamp
+                    transcription.timestamp < timestamp && transcription.isDeleted == false
                 }
             } else {
                 descriptor.predicate = #Predicate<Transcription> { transcription in
-                    transcription.timestamp < timestamp
+                    transcription.timestamp < timestamp && transcription.isDeleted == false
                 }
             }
         } else if !searchText.isEmpty {
             descriptor.predicate = #Predicate<Transcription> { transcription in
-                transcription.text.localizedStandardContains(searchText) ||
-                (transcription.enhancedText?.localizedStandardContains(searchText) ?? false)
+                (transcription.text.localizedStandardContains(searchText) ||
+                (transcription.enhancedText?.localizedStandardContains(searchText) ?? false)) &&
+                transcription.isDeleted == false
+            }
+        } else {
+            descriptor.predicate = #Predicate<Transcription> { transcription in
+                transcription.isDeleted == false
             }
         }
 
@@ -70,13 +78,13 @@ struct TranscriptionHistoryView: View {
                     .animation(.easeInOut(duration: 0.3), value: selectedTranscriptions.count)
             }
         }
-        .alert("Delete Selected Items?", isPresented: $showDeleteConfirmation) {
-            Button("Delete", role: .destructive) {
+        .alert("Move to Trash?", isPresented: $showDeleteConfirmation) {
+            Button("Move to Trash", role: .destructive) {
                 deleteSelectedTranscriptions()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This action cannot be undone. Are you sure you want to delete \(selectedTranscriptions.count) item\(selectedTranscriptions.count == 1 ? "" : "s")?")
+            Text("\(selectedTranscriptions.count) item\(selectedTranscriptions.count == 1 ? "" : "s") will be moved to trash. You can restore them within 30 days.")
         }
         .sheet(isPresented: $showAnalysisView) {
             if !selectedTranscriptions.isEmpty {

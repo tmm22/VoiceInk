@@ -25,6 +25,10 @@ final class Transcription {
     var powerModeName: String?
     var powerModeEmoji: String?
     var transcriptionStatus: String?
+    
+    // Soft delete properties
+    var isDeleted: Bool
+    var deletedAt: Date?
 
     init(text: String,
          duration: TimeInterval,
@@ -56,5 +60,19 @@ final class Transcription {
         self.powerModeName = powerModeName
         self.powerModeEmoji = powerModeEmoji
         self.transcriptionStatus = transcriptionStatus.rawValue
+        self.isDeleted = false
+        self.deletedAt = nil
+    }
+    
+    /// Marks the transcription as deleted (soft delete)
+    func moveToTrash() {
+        isDeleted = true
+        deletedAt = Date()
+    }
+    
+    /// Restores a deleted transcription
+    func restore() {
+        isDeleted = false
+        deletedAt = nil
     }
 }

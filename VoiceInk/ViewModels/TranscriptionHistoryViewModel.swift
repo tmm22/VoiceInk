@@ -32,7 +32,34 @@ final class TranscriptionHistoryViewModel: ObservableObject {
         await loadContent(after: lastTimestamp, searchText: searchText, shouldReset: false)
     }
 
+    /// Soft-deletes a transcription (moves to trash)
     func deleteTranscription(_ transcription: Transcription) async {
+        transcription.moveToTrash()
+        displayedTranscriptions.removeAll { $0.id == transcription.id }
+
+        do {
+            try modelContext.save()
+        } catch {
+            AppLogger.storage.error("Failed to save context after soft deletion: \(error.localizedDescription)")
+        }
+    }
+
+    /// Soft-deletes multiple transcriptions (moves to trash)
+    func deleteTranscriptions(_ transcriptions: [Transcription]) async {
+        transcriptions.forEach { $0.moveToTrash() }
+        displayedTranscriptions.removeAll { transcription in
+            transcriptions.contains(where: { $0.id == transcription.id })
+        }
+
+        do {
+            try modelContext.save()
+        } catch {
+            AppLogger.storage.error("Failed to save context after bulk soft deletion: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Permanently deletes a transcription (removes from database and audio file)
+    func permanentlyDeleteTranscription(_ transcription: Transcription) async {
         removeAssociatedAudio(for: transcription)
         modelContext.delete(transcription)
         displayedTranscriptions.removeAll { $0.id == transcription.id }
@@ -40,11 +67,12 @@ final class TranscriptionHistoryViewModel: ObservableObject {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.storage.error("Failed to save context after deletion: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to save context after permanent deletion: \(error.localizedDescription)")
         }
     }
-
-    func deleteTranscriptions(_ transcriptions: [Transcription]) async {
+    
+    /// Permanently deletes multiple transcriptions
+    func permanentlyDeleteTranscriptions(_ transcriptions: [Transcription]) async {
         transcriptions.forEach(removeAssociatedAudio)
         transcriptions.forEach(modelContext.delete)
         displayedTranscriptions.removeAll { transcription in
@@ -54,7 +82,33 @@ final class TranscriptionHistoryViewModel: ObservableObject {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.storage.error("Failed to save context after bulk deletion: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to save context after bulk permanent deletion: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Restores a soft-deleted transcription
+    func restoreTranscription(_ transcription: Transcription) async {
+        transcription.restore()
+        displayedTranscriptions.removeAll { $0.id == transcription.id }
+
+        do {
+            try modelContext.save()
+        } catch {
+            AppLogger.storage.error("Failed to save context after restoration: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Restores multiple soft-deleted transcriptions
+    func restoreTranscriptions(_ transcriptions: [Transcription]) async {
+        transcriptions.forEach { $0.restore() }
+        displayedTranscriptions.removeAll { transcription in
+            transcriptions.contains(where: { $0.id == transcription.id })
+        }
+
+        do {
+            try modelContext.save()
+        } catch {
+            AppLogger.storage.error("Failed to save context after bulk restoration: \(error.localizedDescription)")
         }
     }
 
@@ -88,19 +142,24 @@ final class TranscriptionHistoryViewModel: ObservableObject {
         if let timestamp {
             if searchText.isEmpty {
                 descriptor.predicate = #Predicate<Transcription> { transcription in
-                    transcription.timestamp < timestamp
+                    transcription.timestamp < timestamp && transcription.isDeleted == false
                 }
             } else {
                 descriptor.predicate = #Predicate<Transcription> { transcription in
                     (transcription.text.localizedStandardContains(searchText) ||
                      (transcription.enhancedText?.localizedStandardContains(searchText) ?? false)) &&
-                    transcription.timestamp < timestamp
+                    transcription.timestamp < timestamp && transcription.isDeleted == false
                 }
             }
         } else if !searchText.isEmpty {
             descriptor.predicate = #Predicate<Transcription> { transcription in
-                transcription.text.localizedStandardContains(searchText) ||
-                (transcription.enhancedText?.localizedStandardContains(searchText) ?? false)
+                (transcription.text.localizedStandardContains(searchText) ||
+                (transcription.enhancedText?.localizedStandardContains(searchText) ?? false)) &&
+                transcription.isDeleted == false
+            }
+        } else {
+            descriptor.predicate = #Predicate<Transcription> { transcription in
+                transcription.isDeleted == false
             }
         }
 
