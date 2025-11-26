@@ -89,7 +89,7 @@ private enum ComposerUtility: String, CaseIterable, Identifiable {
 struct TTSWorkspaceView: View {
     @EnvironmentObject var viewModel: TTSViewModel
     @State private var showingAbout = false
-    @State private var selectedContextPanel: ContextPanelDestination? = .queue
+    @State private var selectedContextPanel: ContextPanelDestination? = nil
     @State private var isInspectorVisible = false
     @State private var activeUtility: ComposerUtility?
     @State private var showingInspectorPopover = false
