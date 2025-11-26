@@ -78,13 +78,13 @@ struct TranscriptionHistoryView: View {
                     .animation(.easeInOut(duration: 0.3), value: selectedTranscriptions.count)
             }
         }
-        .alert("Move to Trash?", isPresented: $showDeleteConfirmation) {
-            Button("Move to Trash", role: .destructive) {
+        .alert(Localization.Trash.moveToTrashConfirmTitle, isPresented: $showDeleteConfirmation) {
+            Button(Localization.Trash.moveToTrash, role: .destructive) {
                 deleteSelectedTranscriptions()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("\(selectedTranscriptions.count) item\(selectedTranscriptions.count == 1 ? "" : "s") will be moved to trash. You can restore them within 30 days.")
+            Text(Localization.Trash.moveToTrashConfirmMessage(count: selectedTranscriptions.count))
         }
         .sheet(isPresented: $showAnalysisView) {
             if !selectedTranscriptions.isEmpty {

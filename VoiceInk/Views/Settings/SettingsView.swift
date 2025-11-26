@@ -507,7 +507,7 @@ struct SettingsView: View {
         VStack(spacing: VoiceInkSpacing.md) {
             VoiceInkSection(
                 icon: "trash",
-                title: "Trash",
+                title: Localization.Trash.title,
                 subtitle: "Recover deleted transcriptions"
             ) {
                 VStack(alignment: .leading, spacing: 12) {
@@ -516,11 +516,11 @@ struct SettingsView: View {
                     
                     HStack {
                         if trashItemCount > 0 {
-                            Text("\(trashItemCount) item(s) in trash")
+                            Text(String(format: Localization.Trash.itemCount, trashItemCount))
                                 .font(.system(size: 13))
                                 .foregroundColor(.secondary)
                         } else {
-                            Text("Trash is empty")
+                            Text(Localization.Trash.trashIsEmpty)
                                 .font(.system(size: 13))
                                 .foregroundColor(.secondary)
                         }
@@ -530,7 +530,7 @@ struct SettingsView: View {
                         Button {
                             showTrashView = true
                         } label: {
-                            Label("Open Trash", systemImage: "trash")
+                            Label(Localization.Trash.openTrash, systemImage: "trash")
                         }
                         .controlSize(.large)
                     }

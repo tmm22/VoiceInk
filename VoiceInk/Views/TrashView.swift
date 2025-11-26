@@ -30,9 +30,9 @@ struct TrashView: View {
                 await viewModel.loadDeletedTranscriptions()
             }
         }
-        .alert("Empty Trash?", isPresented: $showEmptyTrashConfirmation) {
+        .alert("\(Localization.Trash.emptyTrash)?", isPresented: $showEmptyTrashConfirmation) {
             Button("Cancel", role: .cancel) {}
-            Button("Empty Trash", role: .destructive) {
+            Button(Localization.Trash.emptyTrash, role: .destructive) {
                 Task {
                     await viewModel.emptyTrash()
                 }
@@ -56,9 +56,9 @@ struct TrashView: View {
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Trash")
+                Text(Localization.Trash.title)
                     .font(.system(size: 20, weight: .semibold))
-                Text("\(viewModel.deletedTranscriptions.count) item(s) - Items are permanently deleted after 30 days")
+                Text("\(viewModel.deletedTranscriptions.count) item(s) - \(Localization.Trash.retentionInfo)")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
             }
@@ -66,7 +66,7 @@ struct TrashView: View {
             Spacer()
             
             if !viewModel.deletedTranscriptions.isEmpty {
-                Button("Empty Trash") {
+                Button(Localization.Trash.emptyTrash) {
                     showEmptyTrashConfirmation = true
                 }
                 .buttonStyle(.bordered)
@@ -88,9 +88,9 @@ struct TrashView: View {
             Image(systemName: "trash")
                 .font(.system(size: 48))
                 .foregroundColor(.secondary)
-            Text("Trash is Empty")
+            Text(Localization.Trash.trashIsEmpty)
                 .font(.system(size: 18, weight: .semibold))
-            Text("Deleted transcriptions will appear here")
+            Text(Localization.Trash.trashEmptyDescription)
                 .font(.system(size: 14))
                 .foregroundColor(.secondary)
             Spacer()

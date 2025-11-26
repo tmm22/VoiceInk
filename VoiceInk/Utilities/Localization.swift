@@ -10,6 +10,15 @@ struct Localization {
             ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
             ?? "VoiceLink Community"
     }
+    
+    /// Returns true if user's region prefers "Bin" over "Trash"
+    /// Commonwealth countries typically use "Bin" while US/Canada use "Trash"
+    private static var usesBinTerminology: Bool {
+        let regionCode = Locale.current.region?.identifier ?? ""
+        // Commonwealth countries that use "Bin"
+        let binRegions = ["GB", "AU", "NZ", "IE", "ZA", "IN", "SG", "HK", "MY", "PK"]
+        return binRegions.contains(regionCode)
+    }
     enum General {
         static let done = NSLocalizedString("Done", comment: "General done action")
         static let cancel = NSLocalizedString("Cancel", comment: "General cancel action")
@@ -33,19 +42,30 @@ struct Localization {
     }
     
     enum Trash {
-        static let title = NSLocalizedString("Trash", comment: "Trash view title")
-        static let emptyTrash = NSLocalizedString("Empty Trash", comment: "Empty trash button")
+        static var title: String { usesBinTerminology ? "Bin" : "Trash" }
+        static var emptyTrash: String { usesBinTerminology ? "Empty Bin" : "Empty Trash" }
         static let restore = NSLocalizedString("Restore", comment: "Restore item from trash")
         static let deletePermanently = NSLocalizedString("Delete Permanently", comment: "Permanently delete item")
-        static let trashIsEmpty = NSLocalizedString("Trash is Empty", comment: "Empty state title")
+        static var trashIsEmpty: String { usesBinTerminology ? "Bin is Empty" : "Trash is Empty" }
         static let trashEmptyDescription = NSLocalizedString("Deleted transcriptions will appear here", comment: "Empty state description")
-        static let movedToTrash = NSLocalizedString("Moved to trash", comment: "Notification when item is moved to trash")
+        static var movedToTrash: String { usesBinTerminology ? "Moved to bin" : "Moved to trash" }
         static let restored = NSLocalizedString("Transcription restored", comment: "Notification when item is restored")
         static let restoredMultiple = NSLocalizedString("Transcriptions restored", comment: "Notification when multiple items are restored")
         static let permanentlyDeleted = NSLocalizedString("Permanently deleted", comment: "Notification when item is permanently deleted")
-        static let itemCount = NSLocalizedString("%d item(s) in trash", comment: "Count of items in trash")
+        static var itemCount: String { usesBinTerminology ? "%d item(s) in bin" : "%d item(s) in trash" }
         static let daysUntilDeletion = NSLocalizedString("%d days until permanent deletion", comment: "Days remaining before permanent deletion")
         static let retentionInfo = NSLocalizedString("Items are permanently deleted after 30 days", comment: "Trash retention policy info")
+        static var openTrash: String { usesBinTerminology ? "Open Bin" : "Open Trash" }
+        static var moveToTrash: String { usesBinTerminology ? "Move to Bin" : "Move to Trash" }
+        static var moveToTrashConfirmTitle: String { usesBinTerminology ? "Move to Bin?" : "Move to Trash?" }
+        static func moveToTrashConfirmMessage(count: Int) -> String {
+            let items = count == 1 ? "item" : "items"
+            let destination = usesBinTerminology ? "bin" : "trash"
+            return "\(count) \(items) will be moved to \(destination). You can restore them within 30 days."
+        }
+        static func deletedTimeAgo(_ timeAgo: String) -> String {
+            usesBinTerminology ? "Deleted \(timeAgo)" : "Deleted \(timeAgo)"
+        }
     }
     
     enum Recording {
