@@ -91,10 +91,10 @@ struct DictionarySettingsView: View {
                     .padding(VoiceInkSpacing.md)
                     .background(
                         RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                            .fill(VoiceInkTheme.Palette.elevatedSurface.opacity(0.5))
+                            .fill(VoiceInkTheme.Card.background)
                             .overlay(
                                 RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                                    .stroke(VoiceInkTheme.Palette.outline, lineWidth: 1)
+                                    .stroke(VoiceInkTheme.Card.stroke, lineWidth: 1)
                             )
                     )
             case .spellings:
@@ -102,10 +102,10 @@ struct DictionarySettingsView: View {
                     .padding(VoiceInkSpacing.md)
                     .background(
                         RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                            .fill(VoiceInkTheme.Palette.elevatedSurface.opacity(0.5))
+                            .fill(VoiceInkTheme.Card.background)
                             .overlay(
                                 RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                                    .stroke(VoiceInkTheme.Palette.outline, lineWidth: 1)
+                                    .stroke(VoiceInkTheme.Card.stroke, lineWidth: 1)
                             )
                     )
             case .replacements:
@@ -113,10 +113,10 @@ struct DictionarySettingsView: View {
                     .padding(VoiceInkSpacing.md)
                     .background(
                         RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                            .fill(VoiceInkTheme.Palette.elevatedSurface.opacity(0.5))
+                            .fill(VoiceInkTheme.Card.background)
                             .overlay(
                                 RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                                    .stroke(VoiceInkTheme.Palette.outline, lineWidth: 1)
+                                    .stroke(VoiceInkTheme.Card.stroke, lineWidth: 1)
                             )
                     )
             }
@@ -150,10 +150,10 @@ struct SectionCard: View {
             .padding(VoiceInkSpacing.md)
             .background(
                 RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                    .fill(VoiceInkTheme.Palette.elevatedSurface.opacity(0.5))
+                    .fill(VoiceInkTheme.Card.background)
                     .overlay(
                         RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                            .stroke(isSelected ? VoiceInkTheme.Palette.accent.opacity(0.5) : VoiceInkTheme.Palette.outline, lineWidth: 1)
+                            .stroke(isSelected ? VoiceInkTheme.Card.selectedStroke : VoiceInkTheme.Card.stroke, lineWidth: 1)
                     )
             )
         }
