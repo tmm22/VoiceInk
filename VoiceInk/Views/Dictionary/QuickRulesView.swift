@@ -53,161 +53,58 @@ class QuickRulesManager: ObservableObject {
 
 struct QuickRulesView: View {
     @StateObject private var manager = QuickRulesManager()
-    @State private var selectedCategory: QuickRule.RuleCategory?
     @State private var showAddRuleSheet = false
     @State private var showResetConfirmation = false
-    @State private var testInput = ""
-    @State private var testOutput = ""
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            // Info Section with Toggle
-            GroupBox {
-                HStack {
-                    Label {
-                        Text("Apply quick correction rules to clean up transcribed text automatically")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(alignment: .leading)
-                    } icon: {
-                        Image(systemName: "info.circle.fill")
-                            .foregroundColor(.blue)
-                    }
-                    
-                    Spacer()
-                    
-                    Toggle("Enable", isOn: $manager.isEnabled)
-                        .toggleStyle(.switch)
-                        .labelsHidden()
-                        .help("Enable automatic quick rules after transcription")
-                }
-            }
-            
-            // Test Section
-            if manager.isEnabled {
-                GroupBox {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Test Rules")
-                            .font(.headline)
-                        
-                        Text("Type or paste text to see how rules will transform it")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        HStack(spacing: 16) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Input:")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                TextEditor(text: $testInput)
-                                    .font(.system(size: 12))
-                                    .frame(height: 60)
-                                    .padding(4)
-                                    .background(Color(.textBackgroundColor))
-                                    .cornerRadius(6)
-                                    .onChange(of: testInput) { _, newValue in
-                                        testOutput = QuickRulesService.shared.applyRules(to: newValue, rules: manager.rules)
-                                    }
-                            }
-                            
-                            Image(systemName: "arrow.right")
-                                .foregroundColor(.secondary)
-                            
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Output:")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                TextEditor(text: .constant(testOutput))
-                                    .font(.system(size: 12))
-                                    .frame(height: 60)
-                                    .padding(4)
-                                    .background(Color(.textBackgroundColor))
-                                    .cornerRadius(6)
-                                    .opacity(0.8)
-                            }
-                        }
-                        
-                        // Quick test buttons
-                        HStack {
-                            Button("Test: 'I'm gonna wanna kinda go there'") {
-                                testInput = "I'm gonna wanna kinda go there"
-                            }
-                            .buttonStyle(.borderless)
-                            .font(.caption)
-                            
-                            Button("Test: 'um, you know, like, it's the the best'") {
-                                testInput = "um, you know, like, it's the the best"
-                            }
-                            .buttonStyle(.borderless)
-                            .font(.caption)
-                            
-                            Spacer()
-                            
-                            Button("Clear") {
-                                testInput = ""
-                                testOutput = ""
-                            }
-                            .buttonStyle(.borderless)
-                            .font(.caption)
-                        }
-                    }
-                }
-            }
-            
-            Divider()
-            
-            // Rules Management Header
+        VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
+            // Header with toggle and actions
             HStack {
-                Text("Quick Rules")
-                    .font(.headline)
+                Toggle("Enable Quick Rules", isOn: $manager.isEnabled)
+                    .toggleStyle(.switch)
                 
                 Spacer()
                 
                 Button {
                     showResetConfirmation = true
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.counterclockwise")
-                        Text("Reset to Defaults")
-                    }
+                    Image(systemName: "arrow.counterclockwise")
                 }
                 .buttonStyle(.borderless)
-                .help("Reset all rules to default presets")
+                .help("Reset to defaults")
                 
                 Button {
                     showAddRuleSheet = true
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus")
-                        Text("Add Custom Rule")
-                    }
+                    Image(systemName: "plus")
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
+                .buttonStyle(.borderless)
+                .help("Add custom rule")
             }
             
-            // Rules by Category
-            ScrollView {
-                VStack(spacing: 20) {
-                    ForEach(QuickRule.RuleCategory.allCases, id: \.self) { category in
-                        if let categoryRules = manager.rulesByCategory()[category], !categoryRules.isEmpty {
-                            CategorySection(
-                                category: category,
-                                rules: categoryRules,
-                                onToggle: { rule in
-                                    manager.toggleRule(rule)
-                                },
-                                onDelete: { rule in
-                                    manager.removeRule(rule)
-                                }
-                            )
+            Text("Automatically clean up transcribed text")
+                .voiceInkCaptionStyle()
+            
+            if manager.isEnabled {
+                Divider()
+                
+                // Rules list by category
+                ScrollView {
+                    VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
+                        ForEach(QuickRule.RuleCategory.allCases, id: \.self) { category in
+                            if let categoryRules = manager.rulesByCategory()[category], !categoryRules.isEmpty {
+                                SimpleCategorySection(
+                                    category: category,
+                                    rules: categoryRules,
+                                    onToggle: { rule in manager.toggleRule(rule) },
+                                    onDelete: { rule in manager.removeRule(rule) }
+                                )
+                            }
                         }
                     }
                 }
             }
         }
-        .padding()
         .sheet(isPresented: $showAddRuleSheet) {
             AddCustomRuleSheet(manager: manager)
         }
@@ -217,132 +114,126 @@ struct QuickRulesView: View {
                 manager.resetToDefaults()
             }
         } message: {
-            Text("This will reset all rules to their default state and remove any custom rules. This cannot be undone.")
+            Text("This will reset all rules to their default state and remove any custom rules.")
         }
     }
 }
 
-struct CategorySection: View {
+struct SimpleCategorySection: View {
     let category: QuickRule.RuleCategory
     let rules: [QuickRule]
     let onToggle: (QuickRule) -> Void
     let onDelete: (QuickRule) -> Void
     
-    @State private var isExpanded = true
-    
-    var enabledCount: Int {
-        rules.filter { $0.isEnabled }.count
-    }
-    
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Category Header
-            Button(action: { isExpanded.toggle() }) {
-                HStack {
-                    Image(systemName: category.icon)
-                        .foregroundColor(.accentColor)
-                    
-                    Text(category.rawValue)
-                        .font(.system(size: 14, weight: .semibold))
-                    
-                    Text("(\(enabledCount)/\(rules.count) enabled)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Spacer()
-                    
-                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .contentShape(Rectangle())
+        VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
+            // Category header
+            HStack(spacing: VoiceInkSpacing.xs) {
+                Image(systemName: category.icon)
+                    .foregroundColor(.secondary)
+                    .font(.system(size: 12))
+                Text(category.rawValue)
+                    .voiceInkHeadline()
             }
-            .buttonStyle(.plain)
             
-            if isExpanded {
-                VStack(spacing: 8) {
-                    ForEach(rules) { rule in
-                        QuickRuleRow(
-                            rule: rule,
-                            onToggle: { onToggle(rule) },
-                            onDelete: rule.category == .custom ? { onDelete(rule) } : nil
-                        )
-                    }
+            // Rules
+            VStack(spacing: VoiceInkSpacing.xs) {
+                ForEach(rules) { rule in
+                    SimpleRuleRow(
+                        rule: rule,
+                        onToggle: { onToggle(rule) },
+                        onDelete: rule.category == .custom ? { onDelete(rule) } : nil
+                    )
                 }
-                .padding(.leading, 8)
             }
         }
-        .padding()
-        .background(Color(.windowBackgroundColor).opacity(0.5))
-        .cornerRadius(10)
     }
 }
 
-struct QuickRuleRow: View {
+struct SimpleRuleRow: View {
     let rule: QuickRule
     let onToggle: () -> Void
     let onDelete: (() -> Void)?
     
     @State private var isHovered = false
+    @State private var isExpanded = false
     
     var body: some View {
-        HStack(spacing: 12) {
-            Toggle("", isOn: Binding(
-                get: { rule.isEnabled },
-                set: { _ in onToggle() }
-            ))
-            .toggleStyle(.switch)
-            .labelsHidden()
-            .controlSize(.mini)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(rule.name)
-                    .font(.system(size: 13, weight: .medium))
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: VoiceInkSpacing.sm) {
+                Toggle("", isOn: Binding(
+                    get: { rule.isEnabled },
+                    set: { _ in onToggle() }
+                ))
+                .toggleStyle(.switch)
+                .labelsHidden()
+                .controlSize(.mini)
                 
-                Text(rule.description)
-                    .font(.system(size: 11))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(rule.name)
+                        .font(.system(size: 12))
+                    Text(rule.description)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                if let onDelete = onDelete, isHovered {
+                    Button(action: onDelete) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 11))
+                            .foregroundColor(.red)
+                    }
+                    .buttonStyle(.borderless)
+                }
+                
+                // Expand/collapse chevron
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    .font(.system(size: 10))
                     .foregroundColor(.secondary)
-                
-                // Show pattern in monospace for technical users
-                HStack(spacing: 4) {
-                    Text(rule.isRegex ? "Regex:" : "Text:")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                        .opacity(0.7)
-                    Text(rule.pattern)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.secondary)
-                    if !rule.replacement.isEmpty {
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 8))
+            }
+            .padding(.vertical, VoiceInkSpacing.xs)
+            .padding(.horizontal, VoiceInkSpacing.sm)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isExpanded.toggle()
+                }
+            }
+            
+            // Collapsible technical details
+            if isExpanded {
+                VStack(alignment: .leading, spacing: VoiceInkSpacing.xs) {
+                    Divider()
+                    HStack(spacing: VoiceInkSpacing.xs) {
+                        Text(rule.isRegex ? "Pattern:" : "Find:")
+                            .font(.system(size: 10))
                             .foregroundColor(.secondary)
-                            .opacity(0.5)
-                        Text(rule.replacement)
+                        Text(rule.pattern)
                             .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(.primary)
+                    }
+                    HStack(spacing: VoiceInkSpacing.xs) {
+                        Text("Replace:")
+                            .font(.system(size: 10))
                             .foregroundColor(.secondary)
+                        Text(rule.replacement.isEmpty ? "(remove)" : rule.replacement)
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(.primary)
+                            .italic(rule.replacement.isEmpty)
                     }
                 }
-            }
-            
-            Spacer()
-            
-            if let onDelete = onDelete {
-                Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red)
-                }
-                .buttonStyle(.borderless)
-                .opacity(isHovered ? 1 : 0)
-                .help("Delete custom rule")
+                .padding(.horizontal, VoiceInkSpacing.sm)
+                .padding(.bottom, VoiceInkSpacing.xs)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 12)
-        .background(Color(.textBackgroundColor))
-        .cornerRadius(8)
-        .onHover { hovering in
-            isHovered = hovering
-        }
+        .background(
+            RoundedRectangle(cornerRadius: VoiceInkRadius.small)
+                .fill(VoiceInkTheme.Card.background)
+        )
+        .onHover { isHovered = $0 }
     }
 }
 
