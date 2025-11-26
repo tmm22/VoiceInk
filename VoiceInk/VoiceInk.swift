@@ -126,9 +126,10 @@ struct VoiceInkApp: App {
     
     private static func createPersistentContainer(schema: Schema, logger: Logger) -> ModelContainer? {
         do {
-            // Create app-specific Application Support directory URL
+            // Use bundle identifier for app-specific storage directory
+            let bundleID = Bundle.main.bundleIdentifier ?? "com.tmm22.VoiceLinkCommunity"
             let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("com.prakashjoshipax.VoiceInk", isDirectory: true)
+                .appendingPathComponent(bundleID, isDirectory: true)
             
             // Create the directory if it doesn't exist
             try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)

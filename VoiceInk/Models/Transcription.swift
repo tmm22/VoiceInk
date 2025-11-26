@@ -26,8 +26,8 @@ final class Transcription {
     var powerModeEmoji: String?
     var transcriptionStatus: String?
     
-    // Soft delete properties
-    var isDeleted: Bool
+    // Soft delete properties (defaults ensure migration compatibility)
+    var isDeleted: Bool = false
     var deletedAt: Date?
 
     init(text: String,
