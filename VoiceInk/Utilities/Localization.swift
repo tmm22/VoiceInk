@@ -3,6 +3,13 @@ import Foundation
 /// A centralized string management system for VoiceInk.
 /// This facilitates the migration from hardcoded strings to a localized system.
 struct Localization {
+    
+    /// Returns the app's display name dynamically from the bundle
+    static var appName: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
+            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+            ?? "VoiceLink Community"
+    }
     enum General {
         static let done = NSLocalizedString("Done", comment: "General done action")
         static let cancel = NSLocalizedString("Cancel", comment: "General cancel action")

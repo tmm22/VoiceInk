@@ -289,8 +289,8 @@ struct SettingsView: View {
         VStack(spacing: VoiceInkSpacing.md) {
             VoiceInkSection(
                 icon: "command.circle",
-                title: "VoiceInk Shortcuts",
-                subtitle: "Choose how you want to trigger VoiceInk"
+                title: "\(Localization.appName) Shortcuts",
+                subtitle: "Choose how you want to trigger \(Localization.appName)"
             ) {
                 VStack(alignment: .leading, spacing: 18) {
                     hotkeyView(
@@ -335,7 +335,7 @@ struct SettingsView: View {
             VoiceInkSection(
                 icon: "keyboard.badge.ellipsis",
                 title: "Other App Shortcuts",
-                subtitle: "Additional shortcuts for VoiceInk"
+                subtitle: "Additional shortcuts for \(Localization.appName)"
             ) {
                 VStack(alignment: .leading, spacing: 18) {
                     // Paste Last Transcript (Original)
@@ -436,7 +436,7 @@ struct SettingsView: View {
                             
                             InfoTip(
                                 title: "Middle-Click Toggle",
-                                message: "Use middle mouse button to toggle VoiceInk recording."
+                                message: "Use middle mouse button to toggle \(Localization.appName) recording."
                             )
                         }
 
