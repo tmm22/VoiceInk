@@ -46,6 +46,8 @@ struct SettingsView: View {
     @State private var selectedTab: SettingsTab = .general
     @State private var showTrashView = false
     @State private var trashItemCount: Int = 0
+    @State private var showLicenseSheet = false
+    @State private var showDictionarySheet = false
     
     // Store the passed tab to detect changes from parent
     private let requestedTab: SettingsTab
@@ -75,12 +77,11 @@ struct SettingsView: View {
             )
             
             // Main Content Area
-            ScrollView {
+            ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: VoiceInkSpacing.lg) {
                     Text(selectedTab.rawValue)
                         .font(.system(size: 24, weight: .bold))
                         .padding(.bottom, VoiceInkSpacing.sm)
-                        .padding(.top, VoiceInkSpacing.lg)
                     
                     settingsContent(for: selectedTab)
                 }
@@ -112,6 +113,15 @@ struct SettingsView: View {
                 .onDisappear {
                     updateTrashCount()
                 }
+        }
+        .sheet(isPresented: $showLicenseSheet) {
+            LicenseManagementView()
+                .frame(minWidth: 600, minHeight: 500)
+        }
+        .sheet(isPresented: $showDictionarySheet) {
+            DictionarySettingsView(whisperPrompt: whisperState.whisperPrompt)
+                .frame(minWidth: 700, minHeight: 500)
+                .padding()
         }
     }
     
@@ -185,7 +195,29 @@ struct SettingsView: View {
                 title: "Community & License",
                 subtitle: "Manage your license and community features"
             ) {
-                LicenseManagementView()
+                VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
+                    HStack(spacing: VoiceInkSpacing.sm) {
+                        Image(systemName: "seal.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.accentColor)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(AppBrand.communityName) Edition")
+                                .font(.headline)
+                            Text("All features unlocked • Privacy-first • Open source")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                    }
+                    
+                    Button("View License & Community Info") {
+                        showLicenseSheet = true
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                }
             }
         }
     }
@@ -231,7 +263,16 @@ struct SettingsView: View {
                 title: "Dictionary",
                 subtitle: "Custom words and phrases"
             ) {
-                DictionarySettingsView(whisperPrompt: whisperState.whisperPrompt)
+                VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
+                    Text("Manage quick rules, word replacements, and correct spellings to improve transcription accuracy.")
+                        .settingsDescription()
+                    
+                    Button("Open Dictionary Settings") {
+                        showDictionarySheet = true
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                }
             }
             
             VoiceInkSection(
@@ -249,16 +290,12 @@ struct SettingsView: View {
                     .toggleStyle(.switch)
                     .help("Keep the transcribed text in clipboard instead of restoring the original clipboard content")
                     
-                    Divider()
-                    
-                    Text("Select the method used to paste text. Use AppleScript if you have a non-standard keyboard layout.")
-                        .settingsDescription()
-                    
                     Toggle("Use AppleScript Paste Method", isOn: Binding(
                         get: { UserDefaults.standard.bool(forKey: "UseAppleScriptPaste") },
                         set: { UserDefaults.standard.set($0, forKey: "UseAppleScriptPaste") }
                     ))
                     .toggleStyle(.switch)
+                    .help("Use AppleScript if you have a non-standard keyboard layout")
                 }
             }
             
@@ -267,17 +304,11 @@ struct SettingsView: View {
                 title: "Recorder Style",
                 subtitle: "Choose your preferred recorder interface"
             ) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Select how you want the recorder to appear on your screen.")
-                        .settingsDescription()
-                    
-                    Picker("Recorder Style", selection: $whisperState.recorderType) {
-                        Text("Notch Recorder").tag("notch")
-                        Text("Mini Recorder").tag("mini")
-                    }
-                    .pickerStyle(.radioGroup)
-                    .padding(.vertical, 4)
+                Picker("Recorder Style", selection: $whisperState.recorderType) {
+                    Text("Notch Recorder").tag("notch")
+                    Text("Mini Recorder").tag("mini")
                 }
+                .pickerStyle(.radioGroup)
             }
             
             PowerModeSettingsSection()
