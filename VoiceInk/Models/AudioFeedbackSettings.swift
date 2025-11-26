@@ -19,20 +19,20 @@ enum AudioPreset: String, Codable, CaseIterable {
             )
         case .minimal:
             return SoundFiles(
-                start: "minimal-start.mp3",
-                stop: "minimal-stop.mp3",
+                start: "minimal-start.wav",
+                stop: "minimal-stop.wav",
                 cancel: "minimal-cancel.wav"
             )
         case .classic:
             return SoundFiles(
-                start: "classic-start.mp3",
-                stop: "classic-stop.mp3",
+                start: "classic-start.wav",
+                stop: "classic-stop.wav",
                 cancel: "classic-cancel.wav"
             )
         case .modern:
             return SoundFiles(
-                start: "modern-start.mp3",
-                stop: "modern-stop.mp3",
+                start: "modern-start.wav",
+                stop: "modern-stop.wav",
                 cancel: "modern-cancel.wav"
             )
         case .silent:
