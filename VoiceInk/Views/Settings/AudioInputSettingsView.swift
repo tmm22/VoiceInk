@@ -398,10 +398,10 @@ struct InputModeCard: View {
             .padding(VoiceInkSpacing.md)
             .background(
                 RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                    .fill(VoiceInkTheme.Palette.elevatedSurface.opacity(0.5))
+                    .fill(VoiceInkTheme.Card.background)
                     .overlay(
                         RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                            .stroke(isSelected ? VoiceInkTheme.Palette.accent.opacity(0.5) : VoiceInkTheme.Palette.outline, lineWidth: 1)
+                            .stroke(isSelected ? VoiceInkTheme.Card.selectedStroke : VoiceInkTheme.Card.stroke, lineWidth: 1)
                     )
             )
         }
@@ -443,10 +443,10 @@ struct DeviceSelectionCard: View {
             .padding(VoiceInkSpacing.md)
             .background(
                 RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                    .fill(VoiceInkTheme.Palette.elevatedSurface.opacity(0.5))
+                    .fill(VoiceInkTheme.Card.background)
                     .overlay(
                         RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                            .stroke(isSelected ? VoiceInkTheme.Palette.accent.opacity(0.5) : VoiceInkTheme.Palette.outline, lineWidth: 1)
+                            .stroke(isSelected ? VoiceInkTheme.Card.selectedStroke : VoiceInkTheme.Card.stroke, lineWidth: 1)
                     )
             )
         }
