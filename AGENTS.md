@@ -305,6 +305,53 @@ body.append("--\(boundary)\r\n".data(using: .utf8)!)
 body.append(modelName.data(using: .utf8)!)
 ```
 
+### Audio File Guidelines
+
+**Use proper audio formats for bundled sound files. Verify format before committing.**
+
+VoiceInk uses WAV and MP3 files for audio feedback. When adding or generating audio files:
+
+```bash
+# ✅ Good: Verify audio file format before committing
+file VoiceInk/Resources/Sounds/my-sound.mp3
+# Expected output for MP3: "Audio file with ID3 version 2.4.0, contains: MPEG ADTS, layer III..."
+# Expected output for WAV: "RIFF (little-endian) data, WAVE audio..."
+
+# ⛔ Bad: M4A/AAC file incorrectly named as .mp3
+file VoiceInk/Resources/Sounds/my-sound.mp3
+# Output: "ISO Media, MP4 v2 [ISO 14496-14]"  # This is NOT an MP3!
+```
+
+**Critical Rules:**
+- ✅ Use WAV format for generated/synthesized sounds (universally compatible)
+- ✅ Use actual MP3 files if MP3 extension is specified in code
+- ✅ Verify file format with `file` command before committing
+- ✅ Match file extensions in code (`AudioFeedbackSettings.swift`) to actual file formats
+- ⛔ Never use `afconvert` to create "MP3" files (it creates M4A/AAC containers)
+- ⛔ Never rename M4A/AAC files to `.mp3` extension
+
+**Generating Audio Files:**
+
+```python
+# ✅ Good: Generate proper WAV files with scipy
+from scipy.io import wavfile
+import numpy as np
+
+audio_data = (np.sin(2 * np.pi * 440 * t) * 32767).astype(np.int16)
+wavfile.write("sound.wav", 44100, audio_data)
+
+# ⛔ Bad: Using afconvert and renaming (creates M4A, not MP3)
+# afconvert -f mp4f -d aac input.wav output.m4a
+# mv output.m4a output.mp3  # WRONG - still M4A inside!
+```
+
+**Sound File Locations:**
+- All sound files go in `VoiceInk/Resources/Sounds/`
+- Files are automatically included via Xcode's synchronized folder feature
+- Reference files in `AudioFeedbackSettings.swift` with correct extensions
+
+---
+
 ### SwiftUI Best Practices
 
 ```swift
@@ -649,6 +696,7 @@ Before committing changes:
 - [ ] No hardcoded values or strings (use `Localization`)
 - [ ] Error handling for all async operations
 - [ ] Memory leaks checked (use `[weak self]` in closures)
+- [ ] Audio files verified with `file` command (WAV/MP3 format matches extension)
 
 ### Build & Run
 
@@ -1112,11 +1160,16 @@ This guide is a living document. If you find errors, outdated information, or ha
 
 ---
 
-**Last Updated:** November 25, 2025  
+**Last Updated:** November 26, 2025  
 **Maintained By:** VoiceInk Community  
 **License:** GPL v3 (same as project)
 
 **Recent Updates:**
+- **v1.3** (2025-11-26) - Audio File Guidelines
+  - Added `Audio File Guidelines` section with format verification rules
+  - Added guidance on generating WAV files with Python/scipy
+  - Warning against using `afconvert` for MP3 creation (produces M4A containers)
+  - Updated `Pre-Commit Checklist` to include audio format verification
 - **v1.2** (2025-11-25) - Code Audit Findings
   - Added mandatory `@MainActor` requirements for all `ObservableObject` classes
   - Added `deinit` + `@MainActor` pattern guidance
