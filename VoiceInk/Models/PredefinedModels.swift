@@ -151,6 +151,46 @@ import Foundation
              ramUsage: 0.5
          ),
          LocalModel(
+             name: "ggml-small",
+             displayName: "Small",
+             size: "488 MB",
+             supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .local),
+             description: "Small model, good accuracy with reasonable speed, supports multiple languages",
+             speed: 0.7,
+             accuracy: 0.82,
+             ramUsage: 1.0
+         ),
+         LocalModel(
+             name: "ggml-small.en",
+             displayName: "Small (English)",
+             size: "488 MB",
+             supportedLanguages: getLanguageDictionary(isMultilingual: false, provider: .local),
+             description: "Small model optimized for English, good accuracy with reasonable speed",
+             speed: 0.7,
+             accuracy: 0.85,
+             ramUsage: 1.0
+         ),
+         LocalModel(
+             name: "ggml-medium",
+             displayName: "Medium",
+             size: "1.5 GB",
+             supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .local),
+             description: "Medium model, high accuracy for most use cases, supports multiple languages",
+             speed: 0.5,
+             accuracy: 0.9,
+             ramUsage: 2.6
+         ),
+         LocalModel(
+             name: "ggml-medium.en",
+             displayName: "Medium (English)",
+             size: "1.5 GB",
+             supportedLanguages: getLanguageDictionary(isMultilingual: false, provider: .local),
+             description: "Medium model optimized for English, high accuracy for most use cases",
+             speed: 0.5,
+             accuracy: 0.92,
+             ramUsage: 2.6
+         ),
+         LocalModel(
              name: "ggml-large-v2",
              displayName: "Large v2",
              size: "2.9 GB",
