@@ -208,18 +208,18 @@ import Foundation
          ),
          LocalModel(
              name: "whisper-large-v3-turbo-gguf",
-             displayName: "Whisper Large v3 Turbo (GGUF)",
-             size: "2.1 GB",
+             displayName: "Whisper Large v3 Turbo",
+             size: "1.5 GB",
              supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .local),
-             description: "Latest Whisper Large v3 Turbo export tuned for gguf inference with aggressive layer pruning.",
+             description: "Official Whisper Large v3 Turbo from whisper.cpp maintainer with 4x faster decoding.",
              speed: 0.8,
              accuracy: 0.97,
              ramUsage: 1.7,
-            fileExtension: "gguf",
-            downloadURLOverride: "https://huggingface.co/xkeyC/whisper-large-v3-turbo-gguf/resolve/main/whisper-large-v3-turbo-q5_0.gguf?download=1",
-             filenameOverride: "whisper-large-v3-turbo-q5_0.gguf",
-             badges: ["Turbo", "GGUF"],
-             highlight: "Optimized for Apple Silicon VRAM with q5_0 precision."
+            fileExtension: "bin",
+            downloadURLOverride: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin?download=true",
+             filenameOverride: "ggml-large-v3-turbo.bin",
+             badges: ["Turbo", "Official"],
+             highlight: "Official whisper.cpp model with aggressive layer pruning for speed."
          ),
          
                  // Cloud Models
