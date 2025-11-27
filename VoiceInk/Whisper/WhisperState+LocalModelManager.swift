@@ -75,12 +75,23 @@ extension WhisperState {
             logError("Error creating FastConformer directory", error)
         }
     }
+
+    func createSenseVoiceDirectoryIfNeeded() {
+        do {
+            try FileManager.default.createDirectory(at: senseVoiceModelsDirectory, withIntermediateDirectories: true, attributes: nil)
+        } catch {
+            logError("Error creating SenseVoice directory", error)
+        }
+    }
     
     func loadAvailableModels() {
         do {
             let fileURLs = try FileManager.default.contentsOfDirectory(at: modelsDirectory, includingPropertiesForKeys: nil)
             let localModels = PredefinedModels.models.compactMap { $0 as? LocalModel }
-            let filenameLookup = Dictionary(uniqueKeysWithValues: localModels.map { ($0.filename, $0.name) })
+            var filenameLookup: [String: String] = [:]
+            for model in localModels {
+                filenameLookup[model.filename] = model.name
+            }
 
             availableModels = fileURLs.compactMap { url in
                 let ext = url.pathExtension.lowercased()
@@ -358,6 +369,7 @@ extension WhisperState {
 
         parakeetTranscriptionService.cleanup()
         fastConformerTranscriptionService.cleanup()
+        senseVoiceTranscriptionService.cleanup()
     }
     
     // MARK: - Helper Methods

@@ -302,6 +302,23 @@ import Foundation
             badges: ["Fast", "CTC"],
             highlight: "Greedy CTC decoding keeps latency under 250 ms on M-series CPUs."
         ),
+        
+        // SenseVoice Models
+        SenseVoiceModel(
+            name: "sensevoice-zh-en-ja-ko-yue",
+            displayName: "SenseVoice",
+            description: "Alibaba's ultra-fast multilingual ASR optimized for Chinese, English, Japanese, Korean, and Cantonese.",
+            size: "234 MB",
+            speed: 0.99,
+            accuracy: 0.96,
+            ramUsage: 0.8,
+            isMultilingualModel: true,
+            supportedLanguages: ["zh": "Chinese", "yue": "Cantonese", "en": "English", "ja": "Japanese", "ko": "Korean"],
+            modelURL: "https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/main/model.int8.onnx?download=true",
+            tokenizerURL: "https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/main/tokens.txt?download=true",
+            badges: ["Fast", "Asian Languages"],
+            highlight: "15x faster than Whisper with excellent Asian language support."
+        ),
         CloudModel(
            name: "scribe_v1",
            displayName: "Scribe v1 (ElevenLabs)",

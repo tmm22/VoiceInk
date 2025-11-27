@@ -148,6 +148,13 @@ struct ModelManagementView: View {
                                         whisperState.deleteFastConformerModel(fastModel)
                                     }
                                     isShowingDeleteAlert = true
+                                } else if let senseVoiceModel = model as? SenseVoiceModel {
+                                    alertTitle = "Delete Model"
+                                    alertMessage = "Remove downloaded SenseVoice files for '\(senseVoiceModel.displayName)'?"
+                                    deleteActionClosure = {
+                                        whisperState.deleteSenseVoiceModel(senseVoiceModel)
+                                    }
+                                    isShowingDeleteAlert = true
                                 } else if let downloadedModel = whisperState.availableModels.first(where: { $0.name == model.name }) {
                                     alertTitle = "Delete Model"
                                     alertMessage = "Are you sure you want to delete the model '\(downloadedModel.name)'?"
@@ -169,6 +176,8 @@ struct ModelManagementView: View {
                                     Task { await whisperState.downloadModel(localModel) }
                                 } else if let fastModel = model as? FastConformerModel {
                                     Task { await whisperState.downloadFastConformerModel(fastModel) }
+                                } else if let senseVoiceModel = model as? SenseVoiceModel {
+                                    Task { await whisperState.downloadSenseVoiceModel(senseVoiceModel) }
                                 }
                             },
                             editAction: model.provider == .custom ? { customModel in
@@ -247,7 +256,7 @@ struct ModelManagementView: View {
             }
         case .local:
             return whisperState.allAvailableModels.filter { model in
-                model.provider == .local || model.provider == .nativeApple || model.provider == .parakeet || model.provider == .fastConformer
+                model.provider == .local || model.provider == .nativeApple || model.provider == .parakeet || model.provider == .fastConformer || model.provider == .senseVoice
             }
         case .cloud:
             let cloudProviders: [ModelProvider] = [.groq, .elevenLabs, .deepgram, .mistral, .gemini, .soniox]
@@ -281,6 +290,11 @@ extension ModelManagementView {
         case .fastConformer:
             if let fastModel = model as? FastConformerModel {
                 return whisperState.isFastConformerModelDownloaded(fastModel)
+            }
+            return false
+        case .senseVoice:
+            if let senseVoiceModel = model as? SenseVoiceModel {
+                return whisperState.isSenseVoiceModelDownloaded(senseVoiceModel)
             }
             return false
         case .parakeet:

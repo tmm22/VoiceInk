@@ -5,6 +5,7 @@ enum ModelProvider: String, Codable, Hashable, CaseIterable {
     case local = "Local"
     case parakeet = "Parakeet"
     case fastConformer = "FastConformer"
+    case senseVoice = "SenseVoice"
     case groq = "Groq"
     case elevenLabs = "ElevenLabs"
     case deepgram = "Deepgram"
@@ -13,7 +14,6 @@ enum ModelProvider: String, Codable, Hashable, CaseIterable {
     case soniox = "Soniox"
     case custom = "Custom"
     case nativeApple = "Native Apple"
-    // Future providers can be added here
 }
 
 // A unified protocol for any transcription model
@@ -281,6 +281,24 @@ struct FastConformerModel: TranscriptionModel {
     let modelURL: String
     let tokenizerURL: String
     let checksum: String?
+    let badges: [String]
+    let highlight: String?
+}
+
+struct SenseVoiceModel: TranscriptionModel {
+    let id = UUID()
+    let name: String
+    let displayName: String
+    let description: String
+    let provider: ModelProvider = .senseVoice
+    let size: String
+    let speed: Double
+    let accuracy: Double
+    let ramUsage: Double
+    let isMultilingualModel: Bool
+    let supportedLanguages: [String: String]
+    let modelURL: String
+    let tokenizerURL: String
     let badges: [String]
     let highlight: String?
 }

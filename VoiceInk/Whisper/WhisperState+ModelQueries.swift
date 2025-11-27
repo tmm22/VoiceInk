@@ -14,6 +14,11 @@ extension WhisperState {
                     return isFastConformerModelDownloaded(fastModel)
                 }
                 return false
+            case .senseVoice:
+                if let senseVoiceModel = model as? SenseVoiceModel {
+                    return isSenseVoiceModelDownloaded(senseVoiceModel)
+                }
+                return false
             case .nativeApple:
                 if #available(macOS 26, *) {
                     return true
