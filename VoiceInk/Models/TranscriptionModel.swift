@@ -27,6 +27,10 @@ protocol TranscriptionModel: Identifiable, Hashable {
     // Language capabilities
     var isMultilingualModel: Bool { get }
     var supportedLanguages: [String: String] { get }
+    
+    // Performance metrics (for sorting/ranking)
+    var speed: Double { get }
+    var accuracy: Double { get }
 }
 
 extension TranscriptionModel {
@@ -37,6 +41,10 @@ extension TranscriptionModel {
     var language: String {
         isMultilingualModel ? "Multilingual" : "English-only"
     }
+    
+    // Default values for models that don't specify speed/accuracy
+    var speed: Double { 0.5 }
+    var accuracy: Double { 0.5 }
 }
 
 // A new struct for Apple's native models

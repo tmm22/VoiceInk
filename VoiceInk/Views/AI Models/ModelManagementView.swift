@@ -231,36 +231,52 @@ struct ModelManagementView: View {
     private var filteredModels: [any TranscriptionModel] {
         switch selectedFilter {
         case .recommended:
+            let recommendedNames = [
+                "ggml-base.en",
+                "ggml-large-v3-turbo-q5_0",
+                "whisper-large-v3-turbo-gguf",
+                "distil-whisper-large-v3",
+                "fastconformer-ctc-en-24500",
+                "sensevoice-zh-en-ja-ko-yue",
+                "parakeet-tdt-0.6b-v2",
+                "parakeet-tdt-0.6b-v3"
+            ]
             return whisperState.allAvailableModels.filter {
-                let recommendedNames = [
-                    "ggml-base.en",
-                    "ggml-large-v3-turbo-q5_0",
-                    "ggml-large-v3-turbo",
-                    "whisper-large-v3-turbo",
-                    "distil-whisper-large-v3",
-                    "whisper-large-v3-turbo-gguf",
-                    "fastconformer-ctc-en-24500"
-                ]
-                return recommendedNames.contains($0.name)
+                recommendedNames.contains($0.name)
             }.sorted { model1, model2 in
-                let recommendedOrder = [
-                    "ggml-base.en",
-                    "distil-whisper-large-v3",
-                    "whisper-large-v3-turbo-gguf",
-                    "ggml-large-v3-turbo-q5_0",
-                    "fastconformer-ctc-en-24500"
-                ]
-                let index1 = recommendedOrder.firstIndex(of: model1.name) ?? Int.max
-                let index2 = recommendedOrder.firstIndex(of: model2.name) ?? Int.max
-                return index1 < index2
+                // Sort by: 1) Best balanced (fast + accurate) first, 2) Then by accuracy
+                let score1 = modelRecommendationScore(model1)
+                let score2 = modelRecommendationScore(model2)
+                if abs(score1 - score2) > 0.01 {
+                    return score1 > score2
+                }
+                // Tie-breaker: higher accuracy wins
+                return model1.accuracy > model2.accuracy
             }
         case .local:
             return whisperState.allAvailableModels.filter { model in
                 model.provider == .local || model.provider == .nativeApple || model.provider == .parakeet || model.provider == .fastConformer || model.provider == .senseVoice
+            }.sorted { model1, model2 in
+                // Sort by: 1) Best balanced (fast + accurate) first, 2) Then by accuracy
+                let score1 = modelRecommendationScore(model1)
+                let score2 = modelRecommendationScore(model2)
+                if abs(score1 - score2) > 0.01 {
+                    return score1 > score2
+                }
+                return model1.accuracy > model2.accuracy
             }
         case .cloud:
             let cloudProviders: [ModelProvider] = [.groq, .elevenLabs, .deepgram, .mistral, .gemini, .soniox]
             return whisperState.allAvailableModels.filter { cloudProviders.contains($0.provider) }
+                .sorted { model1, model2 in
+                    // Sort by: 1) Best balanced (fast + accurate) first, 2) Then by accuracy
+                    let score1 = modelRecommendationScore(model1)
+                    let score2 = modelRecommendationScore(model2)
+                    if abs(score1 - score2) > 0.01 {
+                        return score1 > score2
+                    }
+                    return model1.accuracy > model2.accuracy
+                }
         case .custom:
             return whisperState.allAvailableModels.filter { $0.provider == .custom }
         }
@@ -302,5 +318,23 @@ extension ModelManagementView {
         default:
             return false
         }
+    }
+    
+    /// Calculates a recommendation score prioritizing models that are both fast AND accurate.
+    /// Models with high scores in both categories rank highest.
+    private func modelRecommendationScore(_ model: any TranscriptionModel) -> Double {
+        let accuracy = model.accuracy
+        let speed = model.speed
+        
+        // Use geometric mean to reward models that excel at BOTH speed and accuracy
+        // This penalizes models that are very fast but inaccurate (or vice versa)
+        let balancedScore = sqrt(accuracy * speed)
+        
+        // Boost for models that meet high thresholds in both categories
+        let isHighAccuracy = accuracy >= 0.94
+        let isHighSpeed = speed >= 0.75
+        let bonus: Double = (isHighAccuracy && isHighSpeed) ? 0.1 : 0
+        
+        return balancedScore + bonus
     }
 }
