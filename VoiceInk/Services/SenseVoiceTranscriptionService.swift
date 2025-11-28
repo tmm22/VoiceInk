@@ -6,7 +6,7 @@ import os.log
 final class SenseVoiceTranscriptionService: TranscriptionService {
     private let modelsDirectory: URL
     private let featureExtractor = FastConformerFeatureExtractor()
-    private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "SenseVoice")
+    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "SenseVoice")
 
     private var env: ORTEnv?
     private var sessions: [String: ORTSession] = [:]
