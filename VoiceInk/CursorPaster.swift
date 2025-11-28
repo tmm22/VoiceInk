@@ -22,12 +22,7 @@ class CursorPaster {
             }
         }
         
-        pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
-
-        if !preserveTranscript {
-            pasteboard.setData(Data(), forType: NSPasteboard.PasteboardType("org.nspasteboard.TransientType"))
-        }
+        ClipboardManager.setClipboard(text, transient: !preserveTranscript)
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             if UserDefaults.standard.bool(forKey: "UseAppleScriptPaste") {

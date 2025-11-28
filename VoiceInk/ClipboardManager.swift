@@ -6,13 +6,27 @@ struct ClipboardManager {
         case copyFailed
         case accessDenied
     }
-    
-    static func copyToClipboard(_ text: String) -> Bool {
+
+    static func setClipboard(_ text: String, transient: Bool = false) -> Bool {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        return pasteboard.setString(text, forType: .string)
+        pasteboard.setString(text, forType: .string)
+
+        if let bundleIdentifier = Bundle.main.bundleIdentifier {
+            pasteboard.setString(bundleIdentifier, forType: NSPasteboard.PasteboardType("org.nspasteboard.source"))
+        }
+
+        if transient {
+            pasteboard.setData(Data(), forType: NSPasteboard.PasteboardType("org.nspasteboard.TransientType"))
+        }
+
+        return true
     }
-    
+
+    static func copyToClipboard(_ text: String) -> Bool {
+        return setClipboard(text, transient: false)
+    }
+
     static func getClipboardContent() -> String? {
         return NSPasteboard.general.string(forType: .string)
     }
