@@ -791,12 +791,9 @@ struct SettingsNavigationRail: View {
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                    .fill(VoiceInkTheme.Palette.elevatedSurface)
-            )
+            .padding(.horizontal, VoiceInkSpacing.md)
+            .padding(.vertical, VoiceInkSpacing.sm)
+            .voiceInkCardBackground()
             .padding(.bottom, VoiceInkSpacing.sm)
             
             ForEach(tabs) { tab in
