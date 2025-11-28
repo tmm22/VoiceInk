@@ -39,9 +39,20 @@ struct SenseVoiceTokenizer {
 
     func decode(ids: [Int]) -> String {
         guard !ids.isEmpty else { return "" }
+        
+        // CTC collapse: remove consecutive duplicate token IDs
+        var collapsedIds: [Int] = []
+        var previousId: Int?
+        for id in ids {
+            if id != previousId {
+                collapsedIds.append(id)
+                previousId = id
+            }
+        }
+        
         var pieces: [String] = []
 
-        for id in ids {
+        for id in collapsedIds {
             if id == blankId || id == sosId || id == eosId {
                 continue
             }
