@@ -4,6 +4,12 @@ import KeyboardShortcuts
 import LaunchAtLogin
 import AVFoundation
 
+struct SearchableSetting {
+    let tab: SettingsTab
+    let section: String
+    let keywords: [String]
+}
+
 enum SettingsTab: String, CaseIterable, Identifiable {
     case general = "General"
     case audio = "Audio"
@@ -48,9 +54,60 @@ struct SettingsView: View {
     @State private var trashItemCount: Int = 0
     @State private var showLicenseSheet = false
     @State private var showDictionarySheet = false
+    @State private var searchText: String = ""
     
     // Store the passed tab to detect changes from parent
     private let requestedTab: SettingsTab
+    
+    // Searchable settings definitions
+    private var searchableSettings: [SearchableSetting] {
+        [
+            // General
+            SearchableSetting(tab: .general, section: "App Behavior", keywords: ["dock", "icon", "menu bar", "launch", "login", "startup", "update", "automatic", "announcements", "onboarding", "reset"]),
+            SearchableSetting(tab: .general, section: "Community & License", keywords: ["license", "community", "edition", "open source", "privacy"]),
+            
+            // Audio
+            SearchableSetting(tab: .audio, section: "Audio Input", keywords: ["microphone", "mic", "input", "device", "audio input"]),
+            SearchableSetting(tab: .audio, section: "Audio Feedback", keywords: ["sound", "feedback", "volume", "recording sound", "beep", "notification"]),
+            SearchableSetting(tab: .audio, section: "Recording Behavior", keywords: ["mute", "system audio", "recording", "behavior"]),
+            
+            // Transcription
+            SearchableSetting(tab: .transcription, section: "Dictionary", keywords: ["dictionary", "words", "phrases", "quick rules", "replacement", "spelling", "custom words"]),
+            SearchableSetting(tab: .transcription, section: "Clipboard & Paste", keywords: ["clipboard", "paste", "copy", "transcript", "applescript"]),
+            SearchableSetting(tab: .transcription, section: "Recorder Style", keywords: ["recorder", "style", "notch", "mini", "interface"]),
+            SearchableSetting(tab: .transcription, section: "Power Mode", keywords: ["power mode", "context", "app", "browser", "url", "automatic"]),
+            SearchableSetting(tab: .transcription, section: "Experimental", keywords: ["experimental", "beta", "features"]),
+            
+            // Shortcuts
+            SearchableSetting(tab: .shortcuts, section: "VoiceInk Shortcuts", keywords: ["hotkey", "shortcut", "keyboard", "trigger", "option", "command", "push to talk", "hands-free"]),
+            SearchableSetting(tab: .shortcuts, section: "Other App Shortcuts", keywords: ["paste last", "transcript", "enhanced", "retry", "cancel", "middle click", "mouse"]),
+            
+            // Data
+            SearchableSetting(tab: .data, section: "Trash", keywords: ["trash", "deleted", "recover", "restore", "transcriptions"]),
+            SearchableSetting(tab: .data, section: "Data & Privacy", keywords: ["privacy", "data", "cleanup", "storage", "history", "delete"]),
+            SearchableSetting(tab: .data, section: "Data Management", keywords: ["import", "export", "backup", "settings", "prompts", "preferences"]),
+            
+            // Permissions
+            SearchableSetting(tab: .permissions, section: "Permissions", keywords: ["permissions", "accessibility", "microphone", "access", "privacy", "security"]),
+        ]
+    }
+    
+    private func matchesSearch(_ setting: SearchableSetting) -> Bool {
+        guard !searchText.isEmpty else { return true }
+        let query = searchText.lowercased()
+        return setting.section.lowercased().contains(query) ||
+               setting.keywords.contains { $0.lowercased().contains(query) }
+    }
+    
+    private func tabHasMatches(_ tab: SettingsTab) -> Bool {
+        guard !searchText.isEmpty else { return true }
+        return searchableSettings.filter { $0.tab == tab }.contains { matchesSearch($0) }
+    }
+    
+    private func sectionMatches(_ sectionTitle: String, in tab: SettingsTab) -> Bool {
+        guard !searchText.isEmpty else { return true }
+        return searchableSettings.first { $0.tab == tab && $0.section == sectionTitle }.map { matchesSearch($0) } ?? false
+    }
 
     init(selectedTab: SettingsTab = .general) {
         self.requestedTab = selectedTab
@@ -63,6 +120,8 @@ struct SettingsView: View {
             SettingsNavigationRail(
                 tabs: SettingsTab.allCases,
                 selectedTab: $selectedTab,
+                searchText: $searchText,
+                tabHasMatches: tabHasMatches,
                 onSelect: { tab in
                     selectedTab = tab
                 }
@@ -145,11 +204,12 @@ struct SettingsView: View {
     
     private var generalSettings: some View {
         VStack(spacing: VoiceInkSpacing.md) {
-            VoiceInkSection(
-                icon: "gear",
-                title: "App Behavior",
-                subtitle: "Appearance, startup, and updates"
-            ) {
+            if sectionMatches("App Behavior", in: .general) {
+                VoiceInkSection(
+                    icon: "gear",
+                    title: "App Behavior",
+                    subtitle: "Appearance, startup, and updates"
+                ) {
                 VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
                     Toggle("Hide Dock Icon (Menu Bar Only)", isOn: $menuBarManager.isMenuBarOnly)
                         .toggleStyle(.switch)
@@ -188,35 +248,38 @@ struct SettingsView: View {
                     .buttonStyle(.bordered)
                     .controlSize(.large)
                 }
+                }
             }
             
-            VoiceInkSection(
-                icon: "hands.sparkles.fill",
-                title: "Community & License",
-                subtitle: "Manage your license and community features"
-            ) {
-                VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
-                    HStack(spacing: VoiceInkSpacing.sm) {
-                        Image(systemName: "seal.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.accentColor)
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("\(AppBrand.communityName) Edition")
-                                .font(.headline)
-                            Text("All features unlocked • Privacy-first • Open source")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+            if sectionMatches("Community & License", in: .general) {
+                VoiceInkSection(
+                    icon: "hands.sparkles.fill",
+                    title: "Community & License",
+                    subtitle: "Manage your license and community features"
+                ) {
+                    VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
+                        HStack(spacing: VoiceInkSpacing.sm) {
+                            Image(systemName: "seal.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.accentColor)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("\(AppBrand.communityName) Edition")
+                                    .font(.headline)
+                                Text("All features unlocked • Privacy-first • Open source")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
                         }
                         
-                        Spacer()
+                        Button("View License & Community Info") {
+                            showLicenseSheet = true
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
                     }
-                    
-                    Button("View License & Community Info") {
-                        showLicenseSheet = true
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
                 }
             }
         }
@@ -224,33 +287,39 @@ struct SettingsView: View {
     
     private var audioSettings: some View {
         VStack(spacing: VoiceInkSpacing.md) {
-            VoiceInkSection(
-                icon: "mic.fill",
-                title: "Audio Input",
-                subtitle: "Manage input devices"
-            ) {
-                AudioInputSettingsView()
+            if sectionMatches("Audio Input", in: .audio) {
+                VoiceInkSection(
+                    icon: "mic.fill",
+                    title: "Audio Input",
+                    subtitle: "Manage input devices"
+                ) {
+                    AudioInputSettingsView()
+                }
             }
             
-            VoiceInkSection(
-                icon: "speaker.wave.2.bubble.left.fill",
-                title: "Audio Feedback",
-                subtitle: "Customize recording sounds and volumes"
-            ) {
-                AudioFeedbackSettingsView()
+            if sectionMatches("Audio Feedback", in: .audio) {
+                VoiceInkSection(
+                    icon: "speaker.wave.2.bubble.left.fill",
+                    title: "Audio Feedback",
+                    subtitle: "Customize recording sounds and volumes"
+                ) {
+                    AudioFeedbackSettingsView()
+                }
             }
             
-            VoiceInkSection(
-                icon: "waveform.badge.mic",
-                title: "Recording Behavior",
-                subtitle: "System audio settings"
-            ) {
-                VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
-                    Toggle(isOn: $mediaController.isSystemMuteEnabled) {
-                        Text("Mute system audio during recording")
+            if sectionMatches("Recording Behavior", in: .audio) {
+                VoiceInkSection(
+                    icon: "waveform.badge.mic",
+                    title: "Recording Behavior",
+                    subtitle: "System audio settings"
+                ) {
+                    VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
+                        Toggle(isOn: $mediaController.isSystemMuteEnabled) {
+                            Text("Mute system audio during recording")
+                        }
+                        .toggleStyle(.switch)
+                        .help("Automatically mute system audio when recording starts and restore when recording stops")
                     }
-                    .toggleStyle(.switch)
-                    .help("Automatically mute system audio when recording starts and restore when recording stops")
                 }
             }
         }
@@ -258,112 +327,126 @@ struct SettingsView: View {
     
     private var transcriptionSettings: some View {
         VStack(spacing: VoiceInkSpacing.md) {
-            VoiceInkSection(
-                icon: "character.book.closed.fill",
-                title: "Dictionary",
-                subtitle: "Custom words and phrases"
-            ) {
-                VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
-                    Text("Manage quick rules, word replacements, and correct spellings to improve transcription accuracy.")
-                        .settingsDescription()
-                    
-                    Button("Open Dictionary Settings") {
-                        showDictionarySheet = true
+            if sectionMatches("Dictionary", in: .transcription) {
+                VoiceInkSection(
+                    icon: "character.book.closed.fill",
+                    title: "Dictionary",
+                    subtitle: "Custom words and phrases"
+                ) {
+                    VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
+                        Text("Manage quick rules, word replacements, and correct spellings to improve transcription accuracy.")
+                            .settingsDescription()
+                        
+                        Button("Open Dictionary Settings") {
+                            showDictionarySheet = true
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
                 }
             }
             
-            VoiceInkSection(
-                icon: "doc.on.clipboard",
-                title: "Clipboard & Paste",
-                subtitle: "Choose how text is pasted and stored"
-            ) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Toggle(isOn: Binding(
-                        get: { UserDefaults.standard.bool(forKey: "preserveTranscriptInClipboard") },
-                        set: { UserDefaults.standard.set($0, forKey: "preserveTranscriptInClipboard") }
-                    )) {
-                        Text("Preserve transcript in clipboard")
+            if sectionMatches("Clipboard & Paste", in: .transcription) {
+                VoiceInkSection(
+                    icon: "doc.on.clipboard",
+                    title: "Clipboard & Paste",
+                    subtitle: "Choose how text is pasted and stored"
+                ) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Toggle(isOn: Binding(
+                            get: { UserDefaults.standard.bool(forKey: "preserveTranscriptInClipboard") },
+                            set: { UserDefaults.standard.set($0, forKey: "preserveTranscriptInClipboard") }
+                        )) {
+                            Text("Preserve transcript in clipboard")
+                        }
+                        .toggleStyle(.switch)
+                        .help("Keep the transcribed text in clipboard instead of restoring the original clipboard content")
+                        
+                        Toggle("Use AppleScript Paste Method", isOn: Binding(
+                            get: { UserDefaults.standard.bool(forKey: "UseAppleScriptPaste") },
+                            set: { UserDefaults.standard.set($0, forKey: "UseAppleScriptPaste") }
+                        ))
+                        .toggleStyle(.switch)
+                        .help("Use AppleScript if you have a non-standard keyboard layout")
                     }
-                    .toggleStyle(.switch)
-                    .help("Keep the transcribed text in clipboard instead of restoring the original clipboard content")
-                    
-                    Toggle("Use AppleScript Paste Method", isOn: Binding(
-                        get: { UserDefaults.standard.bool(forKey: "UseAppleScriptPaste") },
-                        set: { UserDefaults.standard.set($0, forKey: "UseAppleScriptPaste") }
-                    ))
-                    .toggleStyle(.switch)
-                    .help("Use AppleScript if you have a non-standard keyboard layout")
                 }
             }
             
-            VoiceInkSection(
-                icon: "rectangle.on.rectangle",
-                title: "Recorder Style",
-                subtitle: "Choose your preferred recorder interface"
-            ) {
-                Picker("Recorder Style", selection: $whisperState.recorderType) {
-                    Text("Notch Recorder").tag("notch")
-                    Text("Mini Recorder").tag("mini")
+            if sectionMatches("Recorder Style", in: .transcription) {
+                VoiceInkSection(
+                    icon: "rectangle.on.rectangle",
+                    title: "Recorder Style",
+                    subtitle: "Choose your preferred recorder interface"
+                ) {
+                    Picker("Recorder Style", selection: $whisperState.recorderType) {
+                        Text("Notch Recorder").tag("notch")
+                        Text("Mini Recorder").tag("mini")
+                    }
+                    .pickerStyle(.radioGroup)
                 }
-                .pickerStyle(.radioGroup)
             }
             
-            PowerModeSettingsSection()
-            ExperimentalFeaturesSection()
+            if sectionMatches("Power Mode", in: .transcription) {
+                PowerModeSettingsSection()
+            }
+            
+            if sectionMatches("Experimental", in: .transcription) {
+                ExperimentalFeaturesSection()
+            }
         }
     }
     
     private var shortcutsSettings: some View {
         VStack(spacing: VoiceInkSpacing.md) {
-            VoiceInkSection(
-                icon: "command.circle",
-                title: "\(Localization.appName) Shortcuts",
-                subtitle: "Choose how you want to trigger \(Localization.appName)"
-            ) {
-                VStack(alignment: .leading, spacing: 18) {
-                    hotkeyView(
-                        title: "Hotkey 1",
-                        binding: $hotkeyManager.selectedHotkey1,
-                        shortcutName: .toggleMiniRecorder
-                    )
-
-                    if hotkeyManager.selectedHotkey2 != .none {
-                        Divider()
+            if sectionMatches("VoiceInk Shortcuts", in: .shortcuts) {
+                VoiceInkSection(
+                    icon: "command.circle",
+                    title: "\(Localization.appName) Shortcuts",
+                    subtitle: "Choose how you want to trigger \(Localization.appName)"
+                ) {
+                    VStack(alignment: .leading, spacing: 18) {
                         hotkeyView(
-                            title: "Hotkey 2",
-                            binding: $hotkeyManager.selectedHotkey2,
-                            shortcutName: .toggleMiniRecorder2,
-                            isRemovable: true,
-                            onRemove: {
-                                withAnimation { hotkeyManager.selectedHotkey2 = .none }
-                            }
+                            title: "Hotkey 1",
+                            binding: $hotkeyManager.selectedHotkey1,
+                            shortcutName: .toggleMiniRecorder
                         )
-                    }
 
-                    if hotkeyManager.selectedHotkey1 != .none && hotkeyManager.selectedHotkey2 == .none {
-                        HStack {
-                            Spacer()
-                            Button(action: {
-                                withAnimation { hotkeyManager.selectedHotkey2 = .rightOption }
-                            }) {
-                                Label("Add another hotkey", systemImage: "plus.circle.fill")
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundColor(.accentColor)
+                        if hotkeyManager.selectedHotkey2 != .none {
+                            Divider()
+                            hotkeyView(
+                                title: "Hotkey 2",
+                                binding: $hotkeyManager.selectedHotkey2,
+                                shortcutName: .toggleMiniRecorder2,
+                                isRemovable: true,
+                                onRemove: {
+                                    withAnimation { hotkeyManager.selectedHotkey2 = .none }
+                                }
+                            )
                         }
-                    }
 
-                    Text("Quick tap to start hands-free recording (tap again to stop). Press and hold for push-to-talk (release to stop recording).")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                        if hotkeyManager.selectedHotkey1 != .none && hotkeyManager.selectedHotkey2 == .none {
+                            HStack {
+                                Spacer()
+                                Button(action: {
+                                    withAnimation { hotkeyManager.selectedHotkey2 = .rightOption }
+                                }) {
+                                    Label("Add another hotkey", systemImage: "plus.circle.fill")
+                                }
+                                .buttonStyle(.plain)
+                                .foregroundColor(.accentColor)
+                            }
+                        }
+
+                        Text("Quick tap to start hands-free recording (tap again to stop). Press and hold for push-to-talk (release to stop recording).")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
             
-            VoiceInkSection(
+            if sectionMatches("Other App Shortcuts", in: .shortcuts) {
+                VoiceInkSection(
                 icon: "keyboard.badge.ellipsis",
                 title: "Other App Shortcuts",
                 subtitle: "Additional shortcuts for \(Localization.appName)"
@@ -499,98 +582,105 @@ struct SettingsView: View {
                         }
                     }
                 }
+                }
             }
         }
     }
     
     private var dataSettings: some View {
         VStack(spacing: VoiceInkSpacing.md) {
-            VoiceInkSection(
-                icon: "trash",
-                title: Localization.Trash.title,
-                subtitle: "Recover deleted transcriptions"
-            ) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Deleted transcriptions are kept for 30 days before being permanently removed.")
-                        .settingsDescription()
-                    
-                    HStack {
-                        if trashItemCount > 0 {
-                            Text(String(format: Localization.Trash.itemCount, trashItemCount))
-                                .font(.system(size: 13))
-                                .foregroundColor(.secondary)
-                        } else {
-                            Text(Localization.Trash.trashIsEmpty)
-                                .font(.system(size: 13))
-                                .foregroundColor(.secondary)
-                        }
+            if sectionMatches("Trash", in: .data) {
+                VoiceInkSection(
+                    icon: "trash",
+                    title: Localization.Trash.title,
+                    subtitle: "Recover deleted transcriptions"
+                ) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Deleted transcriptions are kept for 30 days before being permanently removed.")
+                            .settingsDescription()
                         
-                        Spacer()
-                        
-                        Button {
-                            showTrashView = true
-                        } label: {
-                            Label(Localization.Trash.openTrash, systemImage: "trash")
+                        HStack {
+                            if trashItemCount > 0 {
+                                Text(String(format: Localization.Trash.itemCount, trashItemCount))
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Text(Localization.Trash.trashIsEmpty)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Button {
+                                showTrashView = true
+                            } label: {
+                                Label(Localization.Trash.openTrash, systemImage: "trash")
+                            }
+                            .controlSize(.large)
                         }
-                        .controlSize(.large)
                     }
                 }
-            }
-            .onAppear {
-                updateTrashCount()
-            }
-            
-            VoiceInkSection(
-                icon: "lock.shield",
-                title: "Data & Privacy",
-                subtitle: "Control transcript history and storage"
-            ) {
-                AudioCleanupSettingsView()
+                .onAppear {
+                    updateTrashCount()
+                }
             }
             
-            VoiceInkSection(
-                icon: "arrow.up.arrow.down.circle",
-                title: "Data Management",
-                subtitle: "Import or export your settings"
-            ) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Export your custom prompts, power modes, word replacements, keyboard shortcuts, and app preferences to a backup file. API keys are not included in the export.")
-                        .settingsDescription()
+            if sectionMatches("Data & Privacy", in: .data) {
+                VoiceInkSection(
+                    icon: "lock.shield",
+                    title: "Data & Privacy",
+                    subtitle: "Control transcript history and storage"
+                ) {
+                    AudioCleanupSettingsView()
+                }
+            }
+            
+            if sectionMatches("Data Management", in: .data) {
+                VoiceInkSection(
+                    icon: "arrow.up.arrow.down.circle",
+                    title: "Data Management",
+                    subtitle: "Import or export your settings"
+                ) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Export your custom prompts, power modes, word replacements, keyboard shortcuts, and app preferences to a backup file. API keys are not included in the export.")
+                            .settingsDescription()
 
-                    HStack(spacing: 12) {
-                        Button {
-                            ImportExportService.shared.importSettings(
-                                enhancementService: enhancementService, 
-                                whisperPrompt: whisperState.whisperPrompt, 
-                                hotkeyManager: hotkeyManager, 
-                                menuBarManager: menuBarManager, 
-                                mediaController: MediaController.shared, 
-                                playbackController: PlaybackController.shared,
-                                soundManager: SoundManager.shared,
-                                whisperState: whisperState
-                            )
-                        } label: {
-                            Label("Import Settings...", systemImage: "arrow.down.doc")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .controlSize(.large)
+                        HStack(spacing: 12) {
+                            Button {
+                                ImportExportService.shared.importSettings(
+                                    enhancementService: enhancementService, 
+                                    whisperPrompt: whisperState.whisperPrompt, 
+                                    hotkeyManager: hotkeyManager, 
+                                    menuBarManager: menuBarManager, 
+                                    mediaController: MediaController.shared, 
+                                    playbackController: PlaybackController.shared,
+                                    soundManager: SoundManager.shared,
+                                    whisperState: whisperState
+                                )
+                            } label: {
+                                Label("Import Settings...", systemImage: "arrow.down.doc")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .controlSize(.large)
 
-                        Button {
-                            ImportExportService.shared.exportSettings(
-                                enhancementService: enhancementService, 
-                                whisperPrompt: whisperState.whisperPrompt, 
-                                hotkeyManager: hotkeyManager, 
-                                menuBarManager: menuBarManager, 
-                                mediaController: MediaController.shared, 
-                                playbackController: PlaybackController.shared,
-                                soundManager: SoundManager.shared,
-                                whisperState: whisperState
-                            )
-                        } label: {
-                            Label("Export Settings...", systemImage: "arrow.up.doc")
-                                .frame(maxWidth: .infinity)
+                            Button {
+                                ImportExportService.shared.exportSettings(
+                                    enhancementService: enhancementService, 
+                                    whisperPrompt: whisperState.whisperPrompt, 
+                                    hotkeyManager: hotkeyManager, 
+                                    menuBarManager: menuBarManager, 
+                                    mediaController: MediaController.shared, 
+                                    playbackController: PlaybackController.shared,
+                                    soundManager: SoundManager.shared,
+                                    whisperState: whisperState
+                                )
+                            } label: {
+                                Label("Export Settings...", systemImage: "arrow.up.doc")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .controlSize(.large)
                         }
-                        .controlSize(.large)
                     }
                 }
             }
@@ -676,14 +766,63 @@ extension Text {
 struct SettingsNavigationRail: View {
     let tabs: [SettingsTab]
     @Binding var selectedTab: SettingsTab
+    @Binding var searchText: String
+    let tabHasMatches: (SettingsTab) -> Bool
     let onSelect: (SettingsTab) -> Void
     
     var body: some View {
         VStack(alignment: .leading, spacing: VoiceInkSpacing.xs) {
-            ForEach(tabs) { tab in
-                SettingsRailItem(tab: tab, isSelected: selectedTab == tab) {
-                    onSelect(tab)
+            // Search Field
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.secondary)
+                    .font(.system(size: 12))
+                
+                TextField("Search settings...", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13))
+                
+                if !searchText.isEmpty {
+                    Button(action: { searchText = "" }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                            .font(.system(size: 12))
+                    }
+                    .buttonStyle(.plain)
                 }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                    .fill(VoiceInkTheme.Palette.elevatedSurface)
+            )
+            .padding(.bottom, VoiceInkSpacing.sm)
+            
+            ForEach(tabs) { tab in
+                let hasMatches = tabHasMatches(tab)
+                if searchText.isEmpty || hasMatches {
+                    SettingsRailItem(
+                        tab: tab,
+                        isSelected: selectedTab == tab,
+                        dimmed: !searchText.isEmpty && !hasMatches
+                    ) {
+                        onSelect(tab)
+                    }
+                }
+            }
+            
+            if !searchText.isEmpty && !tabs.contains(where: { tabHasMatches($0) }) {
+                VStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 24))
+                        .foregroundColor(.secondary)
+                    Text("No results found")
+                        .font(.system(size: 13))
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, VoiceInkSpacing.xl)
             }
             
             Spacer()
@@ -695,6 +834,7 @@ struct SettingsNavigationRail: View {
 struct SettingsRailItem: View {
     let tab: SettingsTab
     let isSelected: Bool
+    var dimmed: Bool = false
     let action: () -> Void
     @State private var isHovering = false
     
@@ -720,6 +860,7 @@ struct SettingsRailItem: View {
         }
         .buttonStyle(.plain)
         .foregroundColor(isSelected ? .primary : .secondary)
+        .opacity(dimmed ? 0.4 : 1.0)
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.1)) {
                 isHovering = hovering
