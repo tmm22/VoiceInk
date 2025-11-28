@@ -46,12 +46,20 @@ extension WhisperState {
 
             // Download model file
             senseVoiceDownloadProgress[modelName] = 0.05
-            let (modelData, _) = try await URLSession.shared.data(from: modelURL)
+            let (modelData, modelResponse) = try await URLSession.shared.data(from: modelURL)
+            if let httpResponse = modelResponse as? HTTPURLResponse, !(200...299).contains(httpResponse.statusCode) {
+                throw NSError(domain: "SenseVoice", code: httpResponse.statusCode, 
+                              userInfo: [NSLocalizedDescriptionKey: "Model download failed with status \(httpResponse.statusCode)"])
+            }
             try modelData.write(to: modelFile)
             senseVoiceDownloadProgress[modelName] = 0.85
 
             // Download tokenizer file
-            let (tokenizerData, _) = try await URLSession.shared.data(from: tokenizerURL)
+            let (tokenizerData, tokenizerResponse) = try await URLSession.shared.data(from: tokenizerURL)
+            if let httpResponse = tokenizerResponse as? HTTPURLResponse, !(200...299).contains(httpResponse.statusCode) {
+                throw NSError(domain: "SenseVoice", code: httpResponse.statusCode,
+                              userInfo: [NSLocalizedDescriptionKey: "Tokenizer download failed with status \(httpResponse.statusCode)"])
+            }
             try tokenizerData.write(to: tokenizerFile)
             senseVoiceDownloadProgress[modelName] = 1.0
 
