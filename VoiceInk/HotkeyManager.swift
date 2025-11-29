@@ -299,9 +299,7 @@ class HotkeyManager: ObservableObject {
             fnDebounceTask = Task { [pendingState = isKeyPressed] in
                 try? await Task.sleep(nanoseconds: 75_000_000) // 75ms
                 if pendingFnKeyState == pendingState {
-                    await MainActor.run {
-                        self.processKeyPress(isKeyPressed: pendingState)
-                    }
+                    await self.processKeyPress(isKeyPressed: pendingState)
                 }
             }
             return
@@ -312,48 +310,42 @@ class HotkeyManager: ObservableObject {
         case .custom, .none:
             return // Should not reach here
         }
-        
-        processKeyPress(isKeyPressed: isKeyPressed)
+
+        await processKeyPress(isKeyPressed: isKeyPressed)
     }
     
-    private func processKeyPress(isKeyPressed: Bool) {
+    private func processKeyPress(isKeyPressed: Bool) async {
         guard isKeyPressed != currentKeyState else { return }
         currentKeyState = isKeyPressed
-        
+
         if isKeyPressed {
             keyPressStartTime = Date()
-            
+
             if isHandsFreeMode {
                 isHandsFreeMode = false
-                Task { @MainActor in
-                    guard canProcessHotkeyAction else { return }
-                    await whisperState.handleToggleMiniRecorder()
-                }
+                guard canProcessHotkeyAction else { return }
+                await whisperState.handleToggleMiniRecorder()
                 return
             }
-            
+
             if !whisperState.isMiniRecorderVisible {
-                Task { @MainActor in
-                    guard canProcessHotkeyAction else { return }
-                    await whisperState.handleToggleMiniRecorder()
-                }
+                guard canProcessHotkeyAction else { return }
+                await whisperState.handleToggleMiniRecorder()
             }
         } else {
             let now = Date()
-            
+
             if let startTime = keyPressStartTime {
                 let pressDuration = now.timeIntervalSince(startTime)
-                
+
                 if pressDuration < briefPressThreshold {
                     isHandsFreeMode = true
                 } else {
-                    Task { @MainActor in
-                        guard canProcessHotkeyAction else { return }
-                        await whisperState.handleToggleMiniRecorder()
-                    }
+                    guard canProcessHotkeyAction else { return }
+                    await whisperState.handleToggleMiniRecorder()
                 }
             }
-            
+
             keyPressStartTime = nil
         }
     }
