@@ -33,7 +33,9 @@ class TextInsertionFormatter {
         }
 
         var rangeValue = CFRange()
-        guard AXValueGetValue(range as! AXValue, .cfRange, &rangeValue) else {
+        // Safe to force cast: AXUIElementCopyAttributeValue returns AXValue for kAXSelectedTextRangeAttribute
+        let axValue = range as! AXValue
+        guard AXValueGetValue(axValue, .cfRange, &rangeValue) else {
             return nil
         }
 
@@ -59,16 +61,20 @@ class TextInsertionFormatter {
         let systemWideElement = AXUIElementCreateSystemWide()
         var focusedApp: CFTypeRef?
 
-        guard AXUIElementCopyAttributeValue(systemWideElement, kAXFocusedApplicationAttribute as CFString, &focusedApp) == .success else {
+        guard AXUIElementCopyAttributeValue(systemWideElement, kAXFocusedApplicationAttribute as CFString, &focusedApp) == .success,
+              let app = focusedApp else {
             return nil
         }
 
         var focusedElement: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(focusedApp as! AXUIElement, kAXFocusedUIElementAttribute as CFString, &focusedElement) == .success else {
+        // Safe to force cast: kAXFocusedApplicationAttribute returns AXUIElement
+        guard AXUIElementCopyAttributeValue(app as! AXUIElement, kAXFocusedUIElementAttribute as CFString, &focusedElement) == .success,
+              let element = focusedElement else {
             return nil
         }
 
-        return (focusedElement as! AXUIElement)
+        // Safe to force cast: kAXFocusedUIElementAttribute returns AXUIElement
+        return (element as! AXUIElement)
     }
 
     static func formatTextForInsertion(_ text: String, context: InsertionContext?) -> String {
