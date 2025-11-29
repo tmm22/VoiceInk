@@ -69,10 +69,9 @@ class LastTranscriptionService: ObservableObject {
         }
         
         let textToPaste = lastTranscription.text
-        
-        // Delay to give the user time to release modifier keys (especially Control)
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            CursorPaster.pasteAtCursor(textToPaste + " ")
+            CursorPaster.pasteAtCursor(textToPaste)
         }
     }
     
@@ -96,9 +95,8 @@ class LastTranscriptionService: ObservableObject {
             }
         }()
 
-        // Delay to allow modifier keys to be released
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            CursorPaster.pasteAtCursor(textToPaste + " ")
+            CursorPaster.pasteAtCursor(textToPaste)
         }
     }
     
