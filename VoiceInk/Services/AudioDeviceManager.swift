@@ -161,15 +161,13 @@ class AudioDeviceManager: ObservableObject {
             logger.info("Available device: \(device.name) (ID: \(device.id))")
         }
         
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.availableDevices = devices.map { ($0.id, $0.uid, $0.name) }
-            if let currentID = self.selectedDeviceID, !devices.contains(where: { $0.id == currentID }) {
-                self.logger.warning("Currently selected device is no longer available")
-                self.fallbackToDefaultDevice()
-            }
-            completion?()
+        // Already on MainActor, no need for DispatchQueue.main.async
+        self.availableDevices = devices.map { ($0.id, $0.uid, $0.name) }
+        if let currentID = self.selectedDeviceID, !devices.contains(where: { $0.id == currentID }) {
+            self.logger.warning("Currently selected device is no longer available")
+            self.fallbackToDefaultDevice()
         }
+        completion?()
     }
     
     func getDeviceName(deviceID: AudioDeviceID) -> String? {
@@ -228,12 +226,11 @@ class AudioDeviceManager: ObservableObject {
 
         if let deviceToSelect = availableDevices.first(where: { $0.id == id }) {
             let uid = deviceToSelect.uid
-            DispatchQueue.main.async {
-                self.selectedDeviceID = id
-                UserDefaults.standard.selectedAudioDeviceUID = uid
-                self.logger.info("Device selection saved with UID: \(uid)")
-                self.notifyDeviceChange()
-            }
+            // Already on MainActor, no need for DispatchQueue.main.async
+            self.selectedDeviceID = id
+            UserDefaults.standard.selectedAudioDeviceUID = uid
+            self.logger.info("Device selection saved with UID: \(uid)")
+            self.notifyDeviceChange()
         } else {
             logger.error("Attempted to select unavailable device: \(id)")
             fallbackToDefaultDevice()

@@ -2,6 +2,7 @@ import Cocoa
 import SwiftUI
 import UniformTypeIdentifiers
 
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
     weak var menuBarManager: MenuBarManager?
     

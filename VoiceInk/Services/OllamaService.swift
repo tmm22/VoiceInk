@@ -96,7 +96,8 @@ class OllamaService: ObservableObject {
     }
     
     private func fetchAvailableModels() async throws -> [OllamaModel] {
-        guard let url = URL(string: "\(baseURL)/api/tags") else {
+        guard let base = URL(string: baseURL),
+              let url = URL(string: "api/tags", relativeTo: base) else {
             throw LocalAIError.invalidURL
         }
         
@@ -106,7 +107,8 @@ class OllamaService: ObservableObject {
     }
     
     func enhance(_ text: String, withSystemPrompt systemPrompt: String? = nil) async throws -> String {
-        guard let url = URL(string: "\(baseURL)/api/generate") else {
+        guard let base = URL(string: baseURL),
+              let url = URL(string: "api/generate", relativeTo: base) else {
             throw LocalAIError.invalidURL
         }
         

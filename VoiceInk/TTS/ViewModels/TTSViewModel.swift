@@ -2680,7 +2680,7 @@ private extension TTSViewModel {
             }()
 
             do {
-                try content.data(using: .utf8)?.write(to: destination, options: .atomic)
+                try Data(content.utf8).write(to: destination, options: .atomic)
             } catch {
                 errorMessage = "Failed to save transcript: \(error.localizedDescription)"
             }
