@@ -172,25 +172,20 @@ class WhisperState: NSObject, ObservableObject {
 
                     await transcribeAudio(on: transcription)
                 } else {
-                    await MainActor.run {
-                        recordingState = .idle
-                    }
+                    // No need for MainActor.run - this class is already @MainActor
+                    recordingState = .idle
                     await cleanupModelResources()
                 }
             } else {
                 logger.error("❌ No recorded file found after stopping recording")
-                await MainActor.run {
-                    recordingState = .idle
-                }
+                recordingState = .idle
             }
         } else {
             guard currentTranscriptionModel != nil else {
-                await MainActor.run {
-                    NotificationManager.shared.showNotification(
-                        title: Localization.Models.noModelSelected,
-                        type: .error
-                    )
-                }
+                NotificationManager.shared.showNotification(
+                    title: Localization.Models.noModelSelected,
+                    type: .error
+                )
                 return
             }
             shouldCancelRecording = false
@@ -205,9 +200,8 @@ class WhisperState: NSObject, ObservableObject {
         
                             try await self.recorder.startRecording(toOutputFile: permanentURL)
                             
-                            await MainActor.run {
-                                self.recordingState = .recording
-                            }
+                            // No need for MainActor.run - this class is already @MainActor
+                            self.recordingState = .recording
                             
                             await ActiveWindowService.shared.applyConfigurationForCurrentApp()
          
@@ -252,9 +246,8 @@ class WhisperState: NSObject, ObservableObject {
     private func transcribeAudio(on transcription: Transcription) async {
         guard let urlString = transcription.audioFileURL, let url = URL(string: urlString) else {
             logger.error("❌ Invalid audio file URL in transcription object.")
-            await MainActor.run {
-                recordingState = .idle
-            }
+            // No need for MainActor.run - this class is already @MainActor
+            recordingState = .idle
             transcription.text = "Transcription Failed: Invalid audio file URL"
             transcription.transcriptionStatus = TranscriptionStatus.failed.rawValue
             try? modelContext.save()
@@ -262,26 +255,20 @@ class WhisperState: NSObject, ObservableObject {
         }
 
         if shouldCancelRecording {
-            await MainActor.run {
-                recordingState = .idle
-            }
+            recordingState = .idle
             await cleanupModelResources()
             return
         }
 
-        await MainActor.run {
-            recordingState = .transcribing
-        }
+        recordingState = .transcribing
 
         // Play stop sound when transcription starts with a small delay
-        Task {
+        Task { @MainActor in
             let isSystemMuteEnabled = UserDefaults.standard.bool(forKey: "isSystemMuteEnabled")
             if isSystemMuteEnabled {
                 try? await Task.sleep(nanoseconds: 200_000_000) // 200 milliseconds delay
             }
-            await MainActor.run {
-                SoundManager.shared.playStopSound()
-            }
+            SoundManager.shared.playStopSound()
         }
 
         defer {
@@ -367,7 +354,7 @@ class WhisperState: NSObject, ObservableObject {
                enhancementService.isConfigured {
                 if await checkCancellationAndCleanup() { return }
 
-                await MainActor.run { self.recordingState = .enhancing }
+                self.recordingState = .enhancing
                 let textForAI = promptDetectionResult?.processedText ?? text
                 
                 do {
@@ -413,15 +400,16 @@ class WhisperState: NSObject, ObservableObject {
                 textToPaste += " "
             }
 
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            // Use Task with sleep instead of DispatchQueue.main.asyncAfter to maintain actor isolation
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
                 CursorPaster.pasteAtCursor(textToPaste)
 
                 let powerMode = PowerModeManager.shared
                 if let activeConfig = powerMode.currentActiveConfiguration, activeConfig.isAutoSendEnabled {
                     // Slight delay to ensure the paste operation completes
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        CursorPaster.pressEnter()
-                    }
+                    try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+                    CursorPaster.pressEnter()
                 }
             }
         }

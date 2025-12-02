@@ -68,12 +68,11 @@ class Recorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
         
         if String(currentDeviceID) != lastDeviceID {
             if let deviceName = deviceManager.availableDevices.first(where: { $0.id == currentDeviceID })?.name {
-                await MainActor.run {
-                    NotificationManager.shared.showNotification(
-                        title: String(format: Localization.Recording.usingDevice, deviceName),
-                        type: .info
-                    )
-                }
+                // No need for MainActor.run - this class is already @MainActor
+                NotificationManager.shared.showNotification(
+                    title: String(format: Localization.Recording.usingDevice, deviceName),
+                    type: .info
+                )
             }
         }
         UserDefaults.standard.set(String(currentDeviceID), forKey: "lastUsedMicrophoneDeviceID")
@@ -129,18 +128,17 @@ class Recorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
                 }
             }
             
-            durationUpdateTask = Task {
+            durationUpdateTask = Task { @MainActor in
                 while recorder != nil && !Task.isCancelled {
                     if let startTime = recordingStartTime {
-                        await MainActor.run {
-                            recordingDuration = Date().timeIntervalSince(startTime)
-                        }
+                        // No need for MainActor.run - this task is already @MainActor
+                        recordingDuration = Date().timeIntervalSince(startTime)
                     }
                     try? await Task.sleep(nanoseconds: 100_000_000) // Update every 0.1 seconds
                 }
             }
             
-            audioLevelCheckTask = Task {
+            audioLevelCheckTask = Task { @MainActor in
                 let notificationChecks: [TimeInterval] = [5.0, 12.0]
 
                 for delay in notificationChecks {
@@ -152,12 +150,11 @@ class Recorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
                         return
                     }
 
-                    await MainActor.run {
-                        NotificationManager.shared.showNotification(
-                            title: Localization.Recording.noAudioDetected,
-                            type: .warning
-                        )
-                    }
+                    // No need for MainActor.run - this task is already @MainActor
+                    NotificationManager.shared.showNotification(
+                        title: Localization.Recording.noAudioDetected,
+                        type: .warning
+                    )
                 }
             }
             

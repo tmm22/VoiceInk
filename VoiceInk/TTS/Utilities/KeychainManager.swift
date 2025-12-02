@@ -144,9 +144,8 @@ class KeychainManager {
     // MARK: - Private Methods
     
     private func addAPIKey(_ key: String, for provider: String) throws {
-        guard let data = key.data(using: .utf8) else {
-            throw KeychainError.unexpectedData
-        }
+        // Use Data(key.utf8) which never fails for valid Swift strings
+        let data = Data(key.utf8)
         
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -173,9 +172,8 @@ class KeychainManager {
     }
     
     private func updateAPIKey(_ key: String, for provider: String) throws {
-        guard let data = key.data(using: .utf8) else {
-            throw KeychainError.unexpectedData
-        }
+        // Use Data(key.utf8) which never fails for valid Swift strings
+        let data = Data(key.utf8)
         
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,

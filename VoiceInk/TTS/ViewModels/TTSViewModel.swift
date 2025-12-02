@@ -2158,16 +2158,15 @@ class TTSViewModel: ObservableObject {
         UserDefaults.standard.set(isInspectorEnabled, forKey: inspectorEnabledKey)
     }
 
-    @MainActor deinit {
+    deinit {
         batchTask?.cancel()
         previewTask?.cancel()
         articleSummaryTask?.cancel()
         elevenLabsVoiceTask?.cancel()
         managedProvisioningTask?.cancel()
         transcriptionTask?.cancel()
-        if let url = transcriptionRecorder.cancelRecording() {
-            try? FileManager.default.removeItem(at: url)
-        }
+        // Note: transcriptionRecorder.cancelRecording() cannot be called from deinit
+        // as it may access @MainActor isolated state. Timer invalidation is safe.
         transcriptionRecordingTimer?.invalidate()
         transcriptionRecordingTimer = nil
     }
