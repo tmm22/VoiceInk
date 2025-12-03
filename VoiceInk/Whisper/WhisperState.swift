@@ -189,7 +189,8 @@ class WhisperState: NSObject, ObservableObject {
                 return
             }
             shouldCancelRecording = false
-            requestRecordPermission { [self] granted in
+            requestRecordPermission { [weak self] granted in
+                guard let self else { return }
                 if granted {
                     Task {
                         do {
@@ -233,7 +234,7 @@ class WhisperState: NSObject, ObservableObject {
                         }
                     }
                 } else {
-                    logger.error("❌ Recording permission denied.")
+                    self.logger.error("❌ Recording permission denied.")
                 }
             }
         }

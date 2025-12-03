@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 
+@MainActor
 class EnhancementShortcutSettings: ObservableObject {
     static let shared = EnhancementShortcutSettings()
 

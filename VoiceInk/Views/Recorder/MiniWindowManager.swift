@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import os
 
+@MainActor
 class MiniWindowManager: ObservableObject {
     @Published var isVisible = false
     private var windowController: NSWindowController?

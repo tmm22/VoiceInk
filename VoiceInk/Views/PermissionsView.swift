@@ -3,6 +3,7 @@ import AVFoundation
 import Cocoa
 import KeyboardShortcuts
 
+@MainActor
 class PermissionManager: ObservableObject {
     @Published var audioPermissionStatus = AVCaptureDevice.authorizationStatus(for: .audio)
     @Published var isAccessibilityEnabled = false
@@ -46,15 +47,13 @@ class PermissionManager: ObservableObject {
     func checkAccessibilityPermissions() {
         let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false]
         let accessibilityEnabled = AXIsProcessTrustedWithOptions(options)
-        DispatchQueue.main.async {
-            self.isAccessibilityEnabled = accessibilityEnabled
-        }
+        // No need for DispatchQueue.main.async - this class is already @MainActor
+        self.isAccessibilityEnabled = accessibilityEnabled
     }
     
     func checkScreenRecordingPermission() {
-        DispatchQueue.main.async {
-            self.isScreenRecordingEnabled = CGPreflightScreenCaptureAccess()
-        }
+        // No need for DispatchQueue.main.async - this class is already @MainActor
+        self.isScreenRecordingEnabled = CGPreflightScreenCaptureAccess()
     }
     
     func requestScreenRecordingPermission() {
@@ -62,23 +61,21 @@ class PermissionManager: ObservableObject {
     }
     
     func checkAudioPermissionStatus() {
-        DispatchQueue.main.async {
-            self.audioPermissionStatus = AVCaptureDevice.authorizationStatus(for: .audio)
-        }
+        // No need for DispatchQueue.main.async - this class is already @MainActor
+        self.audioPermissionStatus = AVCaptureDevice.authorizationStatus(for: .audio)
     }
     
     func requestAudioPermission() {
-        AVCaptureDevice.requestAccess(for: .audio) { granted in
-            DispatchQueue.main.async {
-                self.audioPermissionStatus = granted ? .authorized : .denied
+        AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
+            Task { @MainActor in
+                self?.audioPermissionStatus = granted ? .authorized : .denied
             }
         }
     }
     
     func checkKeyboardShortcut() {
-        DispatchQueue.main.async {
-            self.isKeyboardShortcutSet = KeyboardShortcuts.getShortcut(for: .toggleMiniRecorder) != nil
-        }
+        // No need for DispatchQueue.main.async - this class is already @MainActor
+        self.isKeyboardShortcutSet = KeyboardShortcuts.getShortcut(for: .toggleMiniRecorder) != nil
     }
 }
 

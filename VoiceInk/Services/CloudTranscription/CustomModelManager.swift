@@ -1,6 +1,7 @@
 import Foundation
 import os
 
+@MainActor
 class CustomModelManager: ObservableObject {
     static let shared = CustomModelManager()
     

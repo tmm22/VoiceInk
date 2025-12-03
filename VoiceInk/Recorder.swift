@@ -121,24 +121,24 @@ class Recorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
             recordingStartTime = Date()
             recordingDuration = 0
             
-            audioMeterUpdateTask = Task {
-                while recorder != nil && !Task.isCancelled {
-                    updateAudioMeter()
+            audioMeterUpdateTask = Task { [weak self] in
+                while let self = self, self.recorder != nil && !Task.isCancelled {
+                    self.updateAudioMeter()
                     try? await Task.sleep(nanoseconds: 33_000_000)
                 }
             }
             
-            durationUpdateTask = Task { @MainActor in
-                while recorder != nil && !Task.isCancelled {
-                    if let startTime = recordingStartTime {
+            durationUpdateTask = Task { [weak self] @MainActor in
+                while let self = self, self.recorder != nil && !Task.isCancelled {
+                    if let startTime = self.recordingStartTime {
                         // No need for MainActor.run - this task is already @MainActor
-                        recordingDuration = Date().timeIntervalSince(startTime)
+                        self.recordingDuration = Date().timeIntervalSince(startTime)
                     }
                     try? await Task.sleep(nanoseconds: 100_000_000) // Update every 0.1 seconds
                 }
             }
             
-            audioLevelCheckTask = Task { @MainActor in
+            audioLevelCheckTask = Task { [weak self] @MainActor in
                 let notificationChecks: [TimeInterval] = [5.0, 12.0]
 
                 for delay in notificationChecks {
@@ -146,6 +146,7 @@ class Recorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
 
                     if Task.isCancelled { return }
 
+                    guard let self = self else { return }
                     if self.hasDetectedAudioInCurrentSession {
                         return
                     }
@@ -251,6 +252,7 @@ class Recorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
         recorder = nil
         audioLevelCheckTask?.cancel()
         audioMeterUpdateTask?.cancel()
+        durationUpdateTask?.cancel()
         if let observer = deviceObserver {
             NotificationCenter.default.removeObserver(observer)
         }

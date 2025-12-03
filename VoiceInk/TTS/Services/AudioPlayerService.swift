@@ -150,7 +150,8 @@ class AudioPlayerService: NSObject, ObservableObject {
 // MARK: - AVAudioPlayerDelegate
 extension AudioPlayerService: AVAudioPlayerDelegate {
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             self.isPlaying = false
             self.currentTime = 0
             self.stopTimer()
@@ -159,7 +160,8 @@ extension AudioPlayerService: AVAudioPlayerDelegate {
     }
     
     nonisolated func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             self.error = error
             self.isPlaying = false
             self.stopTimer()

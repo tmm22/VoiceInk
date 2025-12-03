@@ -8,6 +8,7 @@ enum ActivePopoverState {
 }
 
 // MARK: - Hover Interaction Manager
+@MainActor
 class HoverInteraction: ObservableObject {
     @Published var isHovered: Bool = false
 

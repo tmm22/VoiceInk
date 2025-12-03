@@ -318,6 +318,7 @@ struct VoiceInkApp: App {
     }
 }
 
+@MainActor
 class UpdaterViewModel: ObservableObject {
     @AppStorage("autoUpdateCheck") private var autoUpdateCheck = true
     

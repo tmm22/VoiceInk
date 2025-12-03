@@ -32,6 +32,7 @@ enum DictionarySortMode: String {
     case wordDesc = "wordDesc"
 }
 
+@MainActor
 class DictionaryManager: ObservableObject {
     @Published var items: [DictionaryItem] = []
     private let saveKey = "CustomVocabularyItems"

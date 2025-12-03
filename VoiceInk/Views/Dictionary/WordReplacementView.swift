@@ -16,6 +16,7 @@ enum SortColumn {
     case replacement
 }
 
+@MainActor
 class WordReplacementManager: ObservableObject {
     @Published var replacements: [String: String] {
         didSet {

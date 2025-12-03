@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import SwiftUI
 
+@MainActor
 class CustomSoundManager: ObservableObject {
     static let shared = CustomSoundManager()
 

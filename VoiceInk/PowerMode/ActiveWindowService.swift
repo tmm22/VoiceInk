@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import os
 
+@MainActor
 class ActiveWindowService: ObservableObject {
     static let shared = ActiveWindowService()
     @Published var currentApplication: NSRunningApplication?
@@ -30,9 +31,8 @@ class ActiveWindowService: ObservableObject {
             return
         }
 
-        await MainActor.run {
-            currentApplication = frontmostApp
-        }
+        // No need for MainActor.run - this class is already @MainActor
+        currentApplication = frontmostApp
 
         var configToApply: PowerModeConfig?
 
@@ -56,9 +56,8 @@ class ActiveWindowService: ObservableObject {
         }
 
         if let config = configToApply {
-            await MainActor.run {
-                PowerModeManager.shared.setActiveConfiguration(config)
-            }
+            // No need for MainActor.run - this class is already @MainActor
+            PowerModeManager.shared.setActiveConfiguration(config)
             await PowerModeSessionManager.shared.beginSession(with: config)
         } else {
             // If no config found, keep the current active configuration (don't clear it)

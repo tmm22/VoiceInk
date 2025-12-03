@@ -1,5 +1,6 @@
 import SwiftUI
 
+@MainActor
 class QuickRulesManager: ObservableObject {
     @Published var rules: [QuickRule]
     @Published var isEnabled: Bool {

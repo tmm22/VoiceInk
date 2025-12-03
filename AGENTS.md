@@ -10,13 +10,14 @@ This document provides comprehensive guidance for AI coding assistants (Claude, 
 2. [Architecture & Technologies](#architecture--technologies)
 3. [Codebase Structure](#codebase-structure)
 4. [Coding Standards](#coding-standards)
-5. [Production Standards](#production-standards)
-6. [Security Guidelines](#security-guidelines)
-7. [Common Patterns](#common-patterns)
-8. [Testing & Quality](#testing--quality)
-8. [Working with Features](#working-with-features)
-9. [Troubleshooting](#troubleshooting)
-10. [Contributing Workflow](#contributing-workflow)
+5. [Memory Management](#memory-management)
+6. [Production Standards](#production-standards)
+7. [Security Guidelines](#security-guidelines)
+8. [Common Patterns](#common-patterns)
+9. [Testing & Quality](#testing--quality)
+10. [Working with Features](#working-with-features)
+11. [Troubleshooting](#troubleshooting)
+12. [Contributing Workflow](#contributing-workflow)
 
 ---
 
@@ -98,6 +99,8 @@ actor TranscriptionQueue {
 
 **ObservableObject Requirements:**
 
+> **Why This Matters:** In Swift 6 strict concurrency mode, `@Published` property wrappers must be accessed from the same actor context. Without `@MainActor`, concurrent access to `@Published` properties causes data races and potential crashes. The 2025-12-03 code review found 14 ObservableObject classes missing this annotation, all of which could cause subtle threading bugs.
+
 ```swift
 // ✅ REQUIRED: All ObservableObject classes MUST use @MainActor
 @MainActor
@@ -111,24 +114,50 @@ class AudioDeviceManager: ObservableObject {  // Missing @MainActor - will cause
 }
 ```
 
-**deinit with @MainActor:**
+**deinit with @MainActor - Comprehensive Cleanup:**
+
+> **Context:** `deinit` is nonisolated in Swift, meaning it cannot call `@MainActor`-isolated methods. This is a common source of bugs when trying to clean up timers, observers, or cancel tasks.
 
 ```swift
 @MainActor
 class TimerManager: ObservableObject {
     private var timer: Timer?
+    private var monitorTask: Task<Void, Never>?
+    private var cancellables = Set<AnyCancellable>()
     
     // ✅ Good: Direct cleanup in deinit (doesn't call isolated methods)
     deinit {
+        // Direct property access is OK
         timer?.invalidate()
+        
+        // Task cancellation is OK (cancel() is thread-safe)
+        monitorTask?.cancel()
+        
+        // Remove observers directly
+        NotificationCenter.default.removeObserver(self)
+        
+        // Cancel all Combine subscriptions
+        cancellables.removeAll()
     }
     
     // ⛔ Bad: Calling @MainActor method from deinit causes compiler error
     deinit {
         stopTimer()  // Error: Can't call isolated method from deinit
+        cleanup()    // Error: Same issue
     }
 }
 ```
+
+**deinit Cleanup Checklist:**
+
+Every class with cleanup requirements should verify these in `deinit`:
+
+- [ ] **Timers**: Call `timer?.invalidate()` directly
+- [ ] **Tasks**: Call `task?.cancel()` directly (cancel() is thread-safe)
+- [ ] **Observers**: Call `NotificationCenter.default.removeObserver(self)`
+- [ ] **Combine**: Clear `cancellables.removeAll()` or let them deallocate
+- [ ] **Audio**: Stop audio engines directly if stored as properties
+- [ ] **KVO**: Remove any KVO observers
 
 ---
 
@@ -186,6 +215,45 @@ VoiceInk/
 - **Services**: `*Service.swift` or `*Manager.swift` (e.g., `AIService.swift`)
 - **Extensions**: `Type+Feature.swift` (e.g., `WhisperState+UI.swift`)
 - **Protocols**: Descriptive adjective ending in `-ing` or `-able` (e.g., `URLContentLoading`)
+
+### File Size Limits
+
+> **Context:** The 2025-12-03 code review identified TTSViewModel.swift at 2,936 lines and TTSWorkspaceView.swift at 1,907 lines. Large files are difficult to maintain, test, and review.
+
+**Rules:**
+- ✅ Files SHOULD NOT exceed **500 lines** of code
+- ✅ Files MUST NOT exceed **1,000 lines** of code without explicit justification
+- ⛔ Never let a file grow beyond 2,000 lines - refactor immediately
+
+**Strategies for Splitting Large Files:**
+
+1. **Use Extensions for Feature Groups:**
+```swift
+// WhisperState.swift - Core functionality (~300 lines)
+// WhisperState+ModelManagement.swift - Model download/delete (~200 lines)
+// WhisperState+UI.swift - UI-related computed properties (~150 lines)
+// WhisperState+Parakeet.swift - Parakeet integration (~200 lines)
+```
+
+2. **Extract Subviews:**
+```swift
+// ❌ Before: One massive TTSWorkspaceView.swift (1,907 lines)
+
+// ✅ After: Logical breakdown
+// TTSWorkspaceView.swift - Main container (~200 lines)
+// TTSTextEditorView.swift - Text input area (~150 lines)
+// TTSPlaybackControlsView.swift - Audio controls (~100 lines)
+// TTSSettingsView.swift - Settings panels (~150 lines)
+// TTSInspectorView.swift - Side panel (~200 lines)
+```
+
+3. **Extract Helper Types:**
+```swift
+// Move nested types to separate files
+// TTSError.swift - Error definitions
+// TTSConstants.swift - Configuration values
+// TTSProviderType.swift - Enum definitions
+```
 
 ---
 
@@ -305,6 +373,88 @@ body.append("--\(boundary)\r\n".data(using: .utf8)!)
 body.append(modelName.data(using: .utf8)!)
 ```
 
+### Error Handling
+
+**Use typed errors and NEVER silently swallow failures:**
+
+```swift
+enum TTSError: LocalizedError {
+    case invalidAPIKey
+    case networkError(String)
+    case quotaExceeded
+    case textTooLong(Int)
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidAPIKey:
+            return "Invalid API key. Please check your settings."
+        case .networkError(let message):
+            return "Network error: \(message)"
+        case .quotaExceeded:
+            return "API quota exceeded."
+        case .textTooLong(let limit):
+            return "Text exceeds maximum length of \(limit) characters."
+        }
+    }
+}
+```
+
+#### Silent Failure Prevention
+
+> **Context:** The 2025-12-03 code review found multiple instances of `try?` used without logging in AIEnhancementService.swift and AIService.swift. Silent failures make debugging extremely difficult.
+
+**Rule: `try?` MUST be accompanied by error logging OR have explicit justification.**
+
+```swift
+// ✅ Good: try? with logging for recoverable failures
+if let data = try? await fetchData() {
+    process(data)
+} else {
+    AppLogger.network.warning("Failed to fetch data, using cached version")
+    useCachedData()
+}
+
+// ✅ Good: try? with explicit comment explaining why silent is OK
+// Cleanup failure is non-critical - file may not exist
+try? FileManager.default.removeItem(at: tempURL)
+
+// ✅ Good: try? in defer for best-effort cleanup
+defer {
+    // Best-effort cleanup, failure is acceptable
+    try? FileManager.default.removeItem(at: tempURL)
+}
+
+// ⛔ Bad: Silent failure with no logging or justification
+let result = try? service.process(data)  // What happened if this failed?
+
+// ⛔ Bad: Ignoring errors in critical paths
+try? keychain.save(apiKey, for: .openAI)  // User has no idea save failed!
+```
+
+**Pattern for Critical vs Recoverable Failures:**
+
+```swift
+// Critical failures - MUST throw or show error to user
+func saveAPIKey(_ key: String) throws {
+    do {
+        try keychain.save(key, for: provider)
+    } catch {
+        AppLogger.security.error("Failed to save API key: \(error)")
+        throw SettingsError.keychainSaveFailed(error)
+    }
+}
+
+// Recoverable failures - Log and continue with fallback
+func loadCachedTranscription() -> Transcription? {
+    do {
+        return try cache.load()
+    } catch {
+        AppLogger.cache.info("Cache miss: \(error.localizedDescription)")
+        return nil  // Fallback: will fetch fresh data
+    }
+}
+```
+
 ### Audio File Guidelines
 
 **Use proper audio formats for bundled sound files. Verify format before committing.**
@@ -390,6 +540,143 @@ var body: some View {
 
 ---
 
+## Memory Management
+
+> **Context:** The 2025-12-03 code review found multiple memory management issues: Tasks missing `[weak self]`, missing Task cancellation in deinit, and strong captures in callbacks. These cause memory leaks and retain cycles.
+
+### Task Lifecycle Management
+
+**Rule: ALL Tasks that capture `self` and are stored/long-lived MUST use `[weak self]`.**
+
+> **Why This Matters:** A Task that captures `self` strongly will prevent the object from being deallocated until the Task completes. For long-running or infinite Tasks (like monitoring loops), this causes permanent memory leaks.
+
+```swift
+@MainActor
+class Recorder: ObservableObject {
+    private var durationUpdateTask: Task<Void, Never>?
+    private var monitoringTask: Task<Void, Never>?
+    
+    // ✅ Good: Task with [weak self] - object can deallocate
+    func startDurationUpdates() {
+        durationUpdateTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                await self?.updateDuration()  // Use optional chaining
+            }
+        }
+    }
+    
+    // ⛔ Bad: Strong capture prevents deallocation
+    func startDurationUpdates() {
+        durationUpdateTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                await self.updateDuration()  // Strong capture - MEMORY LEAK!
+            }
+        }
+    }
+    
+    // ✅ Required: Cancel ALL stored Tasks in deinit
+    deinit {
+        durationUpdateTask?.cancel()
+        monitoringTask?.cancel()
+    }
+}
+```
+
+### Task Cancellation in deinit
+
+**Rule: ALL Task properties MUST be cancelled in deinit.**
+
+```swift
+@MainActor
+class AudioPlayerService: ObservableObject {
+    private var fadeTask: Task<Void, Never>?
+    private var playbackTask: Task<Void, Never>?
+    private var monitorTask: Task<Void, Never>?
+    
+    // ✅ Required: Cancel every Task property
+    deinit {
+        fadeTask?.cancel()
+        playbackTask?.cancel()
+        monitorTask?.cancel()
+    }
+}
+```
+
+### Closures and Callbacks
+
+**Rule: Long-lived closures (stored callbacks, notification handlers) MUST use `[weak self]`.**
+
+```swift
+// ✅ Good: Combine sink with [weak self]
+NotificationCenter.default
+    .publisher(for: .AVCaptureDeviceWasConnected)
+    .sink { [weak self] _ in
+        self?.refreshDevices()
+    }
+    .store(in: &cancellables)
+
+// ✅ Good: Timer with [weak self]
+Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+    self?.updateUI()
+}
+
+// ✅ Good: Stored closure with [weak self]
+audioEngine.onComplete = { [weak self] in
+    self?.handleCompletion()
+}
+
+// ⛔ Bad: Strong capture in stored closure
+audioEngine.onComplete = {
+    self.handleCompletion()  // Retain cycle!
+}
+```
+
+### Nonisolated Methods Creating Tasks
+
+**Pattern for delegate methods and callbacks that need to call @MainActor methods:**
+
+```swift
+@MainActor
+class AudioDeviceManager: ObservableObject {
+    // Delegate callback - nonisolated context
+    nonisolated func audioDeviceDidChange(_ device: AudioDevice) {
+        // ✅ Correct: Create Task with [weak self] for nonisolated -> MainActor
+        Task { [weak self] in
+            await self?.handleDeviceChange(device)
+        }
+    }
+    
+    private func handleDeviceChange(_ device: AudioDevice) {
+        // This runs on MainActor
+        self.currentDevice = device
+        self.refreshDeviceList()
+    }
+    
+    // ⛔ Bad: Strong capture from nonisolated context
+    nonisolated func audioDeviceDidChange(_ device: AudioDevice) {
+        Task {
+            await self.handleDeviceChange(device)  // Strong capture!
+        }
+    }
+}
+```
+
+### Memory Management Checklist
+
+Before submitting code with Tasks or closures:
+
+- [ ] All stored Tasks use `[weak self]`
+- [ ] All Task properties are cancelled in `deinit`
+- [ ] Combine subscriptions stored in `cancellables` Set
+- [ ] Timer callbacks use `[weak self]`
+- [ ] Stored closures/callbacks use `[weak self]`
+- [ ] Nonisolated methods creating Tasks use `[weak self]`
+- [ ] No strong reference cycles between objects
+
+---
+
 ## Production Standards
 
 VoiceInk aims for production-grade quality. Every contribution must meet these criteria:
@@ -450,7 +737,48 @@ configuration.httpCookieStorage = nil        // No cookies
 configuration.httpShouldSetCookies = false   // Block tracking
 ```
 
-### 3. Logging
+### 3. URL Validation for Custom Providers
+
+> **Context:** The 2025-12-03 code review found custom provider URLs were not validated for HTTPS, meaning credentials could be sent over unencrypted connections.
+
+**Rule: Validate URL scheme for ALL user-provided URLs that will carry credentials.**
+
+```swift
+// ✅ Good: Validate URL scheme before use
+func validateProviderURL(_ urlString: String) throws -> URL {
+    guard let url = URL(string: urlString) else {
+        throw ValidationError.invalidURL("Cannot parse URL")
+    }
+    
+    // CRITICAL: Enforce HTTPS for any URL carrying credentials
+    guard url.scheme?.lowercased() == "https" else {
+        throw ValidationError.insecureURL("HTTPS required for API endpoints")
+    }
+    
+    // Validate host exists
+    guard url.host != nil, !url.host!.isEmpty else {
+        throw ValidationError.invalidURL("Missing host")
+    }
+    
+    return url
+}
+
+// ✅ Good: Use in custom model configuration
+class CustomModelManager {
+    func addCustomModel(name: String, urlString: String, apiKey: String) throws {
+        let validatedURL = try validateProviderURL(urlString)
+        // Now safe to use with API key
+        try saveModel(name: name, url: validatedURL, apiKey: apiKey)
+    }
+}
+
+// ⛔ Bad: Using URL without validation
+func setCustomEndpoint(_ urlString: String) {
+    self.endpoint = URL(string: urlString)  // Could be http://!
+}
+```
+
+### 4. Logging
 
 **Never log sensitive data:**
 
@@ -464,7 +792,7 @@ print("Failed to save API key: \(error)")
 print("API Key: \(apiKey)")  // SECURITY VIOLATION!
 ```
 
-### 4. Input Validation
+### 5. Input Validation
 
 **Validate all user input:**
 
@@ -485,7 +813,7 @@ guard KeychainManager.isValidAPIKey(key, for: "OpenAI") else {
 }
 ```
 
-### 5. Temporary Files
+### 6. Temporary Files
 
 **Clean up temporary files:**
 
@@ -508,6 +836,7 @@ Before committing code with credentials or network calls:
 
 - [ ] API keys stored in Keychain (not UserDefaults)
 - [ ] HTTPS-only URLs (no `http://`)
+- [ ] Custom/user-provided URLs validated for HTTPS scheme
 - [ ] No sensitive data in logs
 - [ ] Input validation on all user data
 - [ ] Temporary files cleaned up
@@ -580,33 +909,7 @@ class TTSViewModel: ObservableObject {
 }
 ```
 
-### 3. Error Handling
-
-**Use typed errors:**
-
-```swift
-enum TTSError: LocalizedError {
-    case invalidAPIKey
-    case networkError(String)
-    case quotaExceeded
-    case textTooLong(Int)
-    
-    var errorDescription: String? {
-        switch self {
-        case .invalidAPIKey:
-            return "Invalid API key. Please check your settings."
-        case .networkError(let message):
-            return "Network error: \(message)"
-        case .quotaExceeded:
-            return "API quota exceeded."
-        case .textTooLong(let limit):
-            return "Text exceeds maximum length of \(limit) characters."
-        }
-    }
-}
-```
-
-### 4. Extension Pattern
+### 3. Extension Pattern
 
 **Organize feature code in extensions:**
 
@@ -626,11 +929,12 @@ extension WhisperState {
 }
 ```
 
-### 5. Combine Publishers
+### 4. Combine Publishers
 
 **Use Combine for reactive updates:**
 
 ```swift
+@MainActor
 class AudioDeviceManager: ObservableObject {
     @Published var availableDevices: [AudioDevice] = []
     
@@ -682,20 +986,38 @@ class AudioDeviceManager: ObservableObject {
 
 Before committing changes:
 
+**Code Quality:**
 - [ ] Code compiles without warnings
 - [ ] Tests pass (run `./run_tests.sh`)
-- [ ] No secrets or API keys in code or tests
 - [ ] No force-unwraps (`!`) in production code
 - [ ] No `.data(using: .utf8)!` force unwraps (use `Data(string.utf8)`)
 - [ ] No `try!` in SwiftUI previews
-- [ ] All `ObservableObject` classes have `@MainActor`
-- [ ] All `print()` statements wrapped in `#if DEBUG`
-- [ ] No UserDefaults usage for API keys or secrets
 - [ ] All new code follows Swift style guide
-- [ ] Security guidelines followed (see above)
-- [ ] No hardcoded values or strings (use `Localization`)
-- [ ] Error handling for all async operations
+- [ ] Files under 500 lines (refactor if larger)
+
+**Concurrency & Memory:**
+- [ ] All `ObservableObject` classes have `@MainActor`
+- [ ] All stored Tasks use `[weak self]`
+- [ ] All Task properties cancelled in `deinit`
 - [ ] Memory leaks checked (use `[weak self]` in closures)
+- [ ] Timers and observers cleaned up in `deinit`
+
+**Security:**
+- [ ] No secrets or API keys in code or tests
+- [ ] No UserDefaults usage for API keys or secrets
+- [ ] Custom URLs validated for HTTPS scheme
+- [ ] Security guidelines followed (see above)
+
+**Error Handling:**
+- [ ] Error handling for all async operations
+- [ ] No silent `try?` without logging or justification
+- [ ] User-facing errors are localized
+
+**Logging & Localization:**
+- [ ] All `print()` statements wrapped in `#if DEBUG`
+- [ ] No hardcoded user-facing strings (use `Localization`)
+
+**Assets:**
 - [ ] Audio files verified with `file` command (WAV/MP3 format matches extension)
 
 ### Build & Run
@@ -903,10 +1225,11 @@ guard provider.hasValidAPIKey() else {
 - Strong reference cycles in closures
 - Observers not removed
 - Combine subscriptions not cancelled
+- Tasks not cancelled in deinit
 
 **Solution:**
 ```swift
-// Use [weak self] in closures
+// Use [weak self] in ALL closures
 Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
     self?.updateUI()
 }
@@ -918,6 +1241,12 @@ publisher.sink { [weak self] value in
     self?.handle(value)
 }
 .store(in: &cancellables)
+
+// Cancel tasks in deinit
+deinit {
+    durationUpdateTask?.cancel()
+    monitorTask?.cancel()
+}
 ```
 
 ### Debug Logging
@@ -1120,15 +1449,15 @@ showingAlert = true
 
 **Background task:**
 ```swift
-Task {
-    await performLongRunningTask()
+Task { [weak self] in
+    await self?.performLongRunningTask()
 }
 ```
 
 **Main thread update:**
 ```swift
-Task { @MainActor in
-    self.updateUI()
+Task { @MainActor [weak self] in
+    self?.updateUI()
 }
 ```
 
@@ -1160,11 +1489,24 @@ This guide is a living document. If you find errors, outdated information, or ha
 
 ---
 
-**Last Updated:** November 26, 2025  
+**Last Updated:** December 3, 2025  
 **Maintained By:** VoiceInk Community  
 **License:** GPL v3 (same as project)
 
 **Recent Updates:**
+- **v1.4** (2025-12-03) - Comprehensive Code Review Guidelines
+  - Added new **Memory Management** section with Task lifecycle rules
+  - Added `[weak self]` requirements for ALL stored Tasks and closures
+  - Added Task cancellation requirements in `deinit`
+  - Added pattern for nonisolated delegate methods creating Tasks
+  - Expanded **deinit Cleanup Checklist** with comprehensive verification items
+  - Added **File Size Limits** section (500 line guideline, 1000 max)
+  - Added strategies for splitting large files with extensions
+  - Added **Silent Failure Prevention** guidelines for `try?` usage
+  - Added **URL Validation for Custom Providers** to Security Guidelines
+  - Expanded **Pre-Commit Checklist** with memory, concurrency, and security items
+  - Added context boxes explaining *why* each rule matters
+  - Updated useful snippets to use `[weak self]` pattern
 - **v1.3** (2025-11-26) - Audio File Guidelines
   - Added `Audio File Guidelines` section with format verification rules
   - Added guidance on generating WAV files with Python/scipy

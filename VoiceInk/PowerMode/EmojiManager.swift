@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 class EmojiManager: ObservableObject {
     static let shared = EmojiManager()
     
