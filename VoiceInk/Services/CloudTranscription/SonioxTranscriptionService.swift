@@ -1,15 +1,8 @@
 import Foundation
 
-@MainActor
 class SonioxTranscriptionService {
     private let apiBase = "https://api.soniox.com/v1"
     private let session = SecureURLSession.makeEphemeral()
-    
-    // Polling configuration with exponential backoff
-    private let initialPollingInterval: TimeInterval = 1.0  // Start with 1 second
-    private let maxPollingInterval: TimeInterval = 10.0     // Cap at 10 seconds
-    private let pollingBackoffMultiplier: Double = 1.5      // Increase by 50% each iteration
-    private let maxWaitSeconds: TimeInterval = 120          // 2 minutes max (reduced from 5 minutes)
     
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         let config = try getAPIConfig(for: model)
@@ -67,20 +60,12 @@ class SonioxTranscriptionService {
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Determine the best model to use - prefer stt-async-v3 for optimal accuracy
-        let effectiveModel = resolveModelName(modelName)
-        
         var payload: [String: Any] = [
             "file_id": fileId,
-            "model": effectiveModel,
+            "model": modelName,
             // Disable diarization as per app requirement
-            "enable_speaker_diarization": false,
-            // Enable punctuation and formatting for better output
-            "enable_punctuation": true,
-            "enable_profanity_filter": false  // Keep original text
+            "enable_speaker_diarization": false
         ]
-        
         // Attach custom vocabulary terms from the app's dictionary (if any)
         let dictionaryTerms = getCustomDictionaryTerms()
         if !dictionaryTerms.isEmpty {
@@ -88,17 +73,10 @@ class SonioxTranscriptionService {
                 "terms": dictionaryTerms
             ]
         }
-        
-        // Language detection settings
         let selectedLanguage = UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "auto"
         if selectedLanguage != "auto" && !selectedLanguage.isEmpty {
             payload["language_hints"] = [selectedLanguage]
-        } else {
-            // Enable automatic language detection when no specific language is set
-            payload["enable_language_detection"] = true
         }
-        
-        AppLogger.transcription.debug("Soniox: Creating transcription with model '\(effectiveModel)'")
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
         let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -121,77 +99,37 @@ class SonioxTranscriptionService {
             throw CloudTranscriptionError.dataEncodingError
         }
         let start = Date()
-        var currentInterval = initialPollingInterval
-        var pollCount = 0
-        
-        AppLogger.transcription.debug("Soniox: Starting to poll transcription status for id '\(id)'")
-        
+        let maxWaitSeconds: TimeInterval = 300
         while true {
-            pollCount += 1
             var request = URLRequest(url: baseURL)
             request.httpMethod = "GET"
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-            
             let (data, response) = try await session.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
             }
-            
             if !(200...299).contains(httpResponse.statusCode) {
                 let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-                AppLogger.transcription.error("Soniox: Poll request failed with status \(httpResponse.statusCode): \(errorMessage)")
                 throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
             }
-            
             do {
                 let status = try JSONDecoder().decode(TranscriptionStatusResponse.self, from: data)
                 switch status.status.lowercased() {
                 case "completed":
-                    let elapsed = Date().timeIntervalSince(start)
-                    AppLogger.transcription.info("Soniox: Transcription completed after \(pollCount) polls (\(String(format: "%.1f", elapsed))s)")
                     return
                 case "failed":
-                    let errorMsg = status.errorMessage ?? "Transcription failed"
-                    AppLogger.transcription.error("Soniox: Transcription failed: \(errorMsg)")
-                    throw CloudTranscriptionError.apiRequestFailed(statusCode: 500, message: errorMsg)
-                case "processing", "pending", "queued":
-                    // Expected states, continue polling
-                    break
+                    throw CloudTranscriptionError.apiRequestFailed(statusCode: 500, message: "Transcription failed")
                 default:
-                    AppLogger.transcription.debug("Soniox: Unknown status '\(status.status)', continuing to poll")
+                    break
                 }
-            } catch let decodingError as DecodingError {
-                // Log decoding errors but continue polling
-                AppLogger.transcription.warning("Soniox: Failed to decode status response: \(decodingError.localizedDescription)")
+            } catch {
+                // Decoding status failed, will retry
             }
-            
-            // Check timeout
-            let elapsed = Date().timeIntervalSince(start)
-            if elapsed > maxWaitSeconds {
-                AppLogger.transcription.error("Soniox: Transcription timed out after \(String(format: "%.1f", elapsed))s (\(pollCount) polls)")
-                throw CloudTranscriptionError.apiRequestFailed(statusCode: 504, message: "Transcription timed out after \(Int(elapsed)) seconds")
+            if Date().timeIntervalSince(start) > maxWaitSeconds {
+                throw CloudTranscriptionError.apiRequestFailed(statusCode: 504, message: "Transcription timed out")
             }
-            
-            // Exponential backoff sleep
-            let sleepNanoseconds = UInt64(currentInterval * 1_000_000_000)
-            try await Task.sleep(nanoseconds: sleepNanoseconds)
-            
-            // Increase interval for next iteration (with cap)
-            currentInterval = min(currentInterval * pollingBackoffMultiplier, maxPollingInterval)
+            try await Task.sleep(nanoseconds: 1_000_000_000)
         }
-    }
-    
-    /// Resolves the model name to use the best available Soniox model
-    private func resolveModelName(_ modelName: String) -> String {
-        // If user explicitly specified a model, use it
-        let lowercased = modelName.lowercased()
-        if lowercased.contains("stt-async") || lowercased.contains("stt-rt") {
-            return modelName
-        }
-        
-        // Default to the latest async model for best accuracy
-        // stt-async-v3 is the latest and most accurate model as of 2024
-        return "stt-async-v3"
     }
     
     private func fetchTranscript(id: String, apiKey: String) async throws -> String {
@@ -260,14 +198,6 @@ class SonioxTranscriptionService {
     private struct APIConfig { let apiKey: String }
     private struct FileUploadResponse: Decodable { let id: String }
     private struct CreateTranscriptionResponse: Decodable { let id: String }
-    private struct TranscriptionStatusResponse: Decodable {
-        let status: String
-        let errorMessage: String?
-        
-        enum CodingKeys: String, CodingKey {
-            case status
-            case errorMessage = "error_message"
-        }
-    }
+    private struct TranscriptionStatusResponse: Decodable { let status: String }
     private struct TranscriptResponse: Decodable { let text: String }
 }
