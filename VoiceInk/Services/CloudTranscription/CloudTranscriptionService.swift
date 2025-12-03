@@ -42,6 +42,7 @@ class CloudTranscriptionService: TranscriptionService {
     private lazy var geminiService = GeminiTranscriptionService()
     private lazy var openAICompatibleService = OpenAICompatibleTranscriptionService()
     private lazy var sonioxService = SonioxTranscriptionService()
+    private lazy var assemblyAIService = AssemblyAITranscriptionService()
     
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         var text: String
@@ -59,6 +60,8 @@ class CloudTranscriptionService: TranscriptionService {
             text = try await geminiService.transcribe(audioURL: audioURL, model: model)
         case .soniox:
             text = try await sonioxService.transcribe(audioURL: audioURL, model: model)
+        case .assemblyAI:
+            text = try await assemblyAIService.transcribe(audioURL: audioURL, model: model)
         case .custom:
             guard let customModel = model as? CustomCloudModel else {
                 throw CloudTranscriptionError.unsupportedProvider

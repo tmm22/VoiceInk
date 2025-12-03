@@ -201,7 +201,7 @@ class KeychainManager {
 extension KeychainManager {
     /// Migrate API keys from UserDefaults (for upgrades from older versions)
     func migrateFromUserDefaults() {
-        let providers = ["ElevenLabs", "OpenAI", "Google"]
+        let providers = ["ElevenLabs", "OpenAI", "Google", "AssemblyAI"]
         
         for provider in providers {
             let key = "apiKey_\(provider)"

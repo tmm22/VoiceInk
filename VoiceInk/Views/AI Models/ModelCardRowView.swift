@@ -88,7 +88,7 @@ struct ModelCardRowView: View {
                         setDefaultAction: setDefaultAction
                     )
                 }
-            case .groq, .elevenLabs, .deepgram, .mistral, .gemini, .soniox:
+            case .groq, .elevenLabs, .deepgram, .mistral, .gemini, .soniox, .assemblyAI:
                 if let cloudModel = model as? CloudModel {
                     CloudModelCardView(
                         model: cloudModel,

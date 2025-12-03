@@ -11,6 +11,7 @@ struct APIKeyManagementView: View {
     @State private var selectedOllamaModel: String = UserDefaults.standard.string(forKey: "ollamaSelectedModel") ?? "mistral"
     @State private var isCheckingOllama = false
     @State private var isEditingURL = false
+    @State private var assemblyAIKey: String = ""
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -211,7 +212,9 @@ struct APIKeyManagementView: View {
                             }
                             
                             Button("Learn More") {
-                                NSWorkspace.shared.open(URL(string: "https://ollama.ai/download")!)
+                                if let url = URL(string: "https://ollama.ai/download") {
+                                    NSWorkspace.shared.open(url)
+                                }
                             }
                             .font(.caption)
                         }
@@ -396,31 +399,33 @@ struct APIKeyManagementView: View {
                                 
                                 if aiService.selectedProvider != .ollama && aiService.selectedProvider != .custom {
                                     Button {
-                                        let url = switch aiService.selectedProvider {
+                                        let urlString: String? = switch aiService.selectedProvider {
                                         case .groq:
-                                            URL(string: "https://console.groq.com/keys")!
+                                            "https://console.groq.com/keys"
                                         case .openAI:
-                                            URL(string: "https://platform.openai.com/api-keys")!
+                                            "https://platform.openai.com/api-keys"
                                         case .gemini:
-                                            URL(string: "https://makersuite.google.com/app/apikey")!
+                                            "https://makersuite.google.com/app/apikey"
                                         case .anthropic:
-                                            URL(string: "https://console.anthropic.com/settings/keys")!
+                                            "https://console.anthropic.com/settings/keys"
                                         case .mistral:
-                                            URL(string: "https://console.mistral.ai/api-keys")!
+                                            "https://console.mistral.ai/api-keys"
                                         case .elevenLabs:
-                                            URL(string: "https://elevenlabs.io/speech-synthesis")!
+                                            "https://elevenlabs.io/speech-synthesis"
                                         case .deepgram:
-                                            URL(string: "https://console.deepgram.com/api-keys")!
-                                            case .soniox:
-                                                URL(string: "https://console.soniox.com/")!
-                                        case .ollama, .custom:
-                                            URL(string: "")! // This case should never be reached
+                                            "https://console.deepgram.com/api-keys"
+                                        case .soniox:
+                                            "https://console.soniox.com/"
                                         case .openRouter:
-                                            URL(string: "https://openrouter.ai/keys")!
+                                            "https://openrouter.ai/keys"
                                         case .cerebras:
-                                            URL(string: "https://cloud.cerebras.ai/")!
+                                            "https://cloud.cerebras.ai/"
+                                        case .ollama, .custom:
+                                            nil // This case should never be reached
                                         }
-                                        NSWorkspace.shared.open(url)
+                                        if let urlString, let url = URL(string: urlString) {
+                                            NSWorkspace.shared.open(url)
+                                        }
                                     } label: {
                                         HStack(spacing: 4) {
                                             Text("Get API Key")
@@ -437,6 +442,40 @@ struct APIKeyManagementView: View {
                     }
                 }
             }
+            
+            // AssemblyAI Cloud Transcription Section
+            GroupBox {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Image(systemName: "waveform.badge.mic")
+                            .foregroundColor(.blue)
+                        Text("AssemblyAI")
+                            .font(.headline)
+                    }
+                    
+                    SecureField("API Key", text: $assemblyAIKey)
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: assemblyAIKey) { _, newValue in
+                            saveAPIKey(newValue, for: "AssemblyAI")
+                        }
+                    
+                    HStack {
+                        Text("Best-in-class speaker diarization. Get your API key at")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Button("assemblyai.com") {
+                            if let url = URL(string: "https://www.assemblyai.com/app/api-keys") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                        .font(.caption)
+                        .buttonStyle(.plain)
+                        .foregroundColor(.accentColor)
+                    }
+                }
+                .padding()
+            }
         }
         .alert("Error", isPresented: $showAlert) {
             Button("OK", role: .cancel) { }
@@ -447,6 +486,15 @@ struct APIKeyManagementView: View {
             if aiService.selectedProvider == .ollama {
                 checkOllamaConnection()
             }
+            assemblyAIKey = KeychainManager.shared.getAPIKey(for: "AssemblyAI") ?? ""
+        }
+    }
+    
+    private func saveAPIKey(_ key: String, for provider: String) {
+        if key.isEmpty {
+            try? KeychainManager.shared.deleteAPIKey(for: provider)
+        } else {
+            KeychainManager.shared.saveAPIKey(key, for: provider)
         }
     }
     

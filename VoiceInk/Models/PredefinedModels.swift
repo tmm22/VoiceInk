@@ -359,6 +359,26 @@ import Foundation
            isMultilingual: false,
            supportedLanguages: getLanguageDictionary(isMultilingual: false, provider: .deepgram)
        ),
+       CloudModel(
+           name: "nova-3-diarize",
+           displayName: "Nova-3 + Diarization (Deepgram)",
+           description: "High-accuracy English transcription with speaker identification. Outputs speaker-labeled segments.",
+           provider: .deepgram,
+           speed: 0.88,
+           accuracy: 0.975,
+           isMultilingual: false,
+           supportedLanguages: getLanguageDictionary(isMultilingual: false, provider: .deepgram)
+       ),
+       CloudModel(
+           name: "nova-2-diarize",
+           displayName: "Nova-2 + Diarization (Deepgram)",
+           description: "Multilingual transcription with speaker identification. Outputs speaker-labeled segments for all supported languages.",
+           provider: .deepgram,
+           speed: 0.88,
+           accuracy: 0.95,
+           isMultilingual: true,
+           supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .deepgram)
+       ),
         CloudModel(
             name: "voxtral-mini-latest",
             displayName: "Voxtral Mini (Mistral)",
@@ -411,6 +431,28 @@ import Foundation
             accuracy: 0.96,
             isMultilingual: true,
             supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .soniox)
+        ),
+        
+        // AssemblyAI Models
+        CloudModel(
+            name: "assemblyai-best",
+            displayName: "AssemblyAI Best",
+            description: "High-accuracy transcription with speaker diarization support.",
+            provider: .assemblyAI,
+            speed: 0.75,
+            accuracy: 0.96,
+            isMultilingual: true,
+            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .assemblyAI)
+        ),
+        CloudModel(
+            name: "assemblyai-nano",
+            displayName: "AssemblyAI Nano",
+            description: "Fast, cost-effective transcription optimized for speed.",
+            provider: .assemblyAI,
+            speed: 0.90,
+            accuracy: 0.92,
+            isMultilingual: true,
+            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .assemblyAI)
         )
      ]
  
