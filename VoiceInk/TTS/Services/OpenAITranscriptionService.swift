@@ -18,8 +18,16 @@ final class OpenAITranscriptionService: AudioTranscribing {
     private let keychain: KeychainManager
     private var activeManagedCredential: ManagedCredential?
 
-    private let endpoint = URL(string: "https://api.openai.com/v1/audio/transcriptions")!
-    private let model = "whisper-1"
+    private static let endpoint: URL = {
+        guard let url = URL(string: "https://api.openai.com/v1/audio/transcriptions") else {
+            preconditionFailure("Invalid hardcoded URL - this is a programming error")
+        }
+        return url
+    }()
+    
+    // Using OpenAI's latest and most accurate transcription model (updated from whisper-1)
+    // gpt-4o-transcribe provides higher quality transcriptions with improved accuracy
+    private let model = "gpt-4o-transcribe"
 
     init(session: URLSession = SecureURLSession.makeEphemeral(),
          keychain: KeychainManager = KeychainManager(),
@@ -41,7 +49,7 @@ final class OpenAITranscriptionService: AudioTranscribing {
         let filename = fileURL.lastPathComponent
         let mimeType = Self.mimeType(for: fileURL)
 
-        var request = URLRequest(url: endpoint)
+        var request = URLRequest(url: Self.endpoint)
         request.httpMethod = "POST"
         let authorization = try await authorizationHeader()
         request.setValue(authorization.value, forHTTPHeaderField: authorization.header)
@@ -141,9 +149,7 @@ private extension OpenAITranscriptionService {
         var body = Data()
 
         func append(_ string: String) {
-            if let data = string.data(using: .utf8) {
-                body.append(data)
-            }
+            body.append(Data(string.utf8))
         }
 
         append("--\(boundary)\r\n")
@@ -158,8 +164,12 @@ private extension OpenAITranscriptionService {
         append("Content-Disposition: form-data; name=\"temperature\"\r\n\r\n")
         append("0\r\n")
 
+        // Request both segment-level and word-level timestamps for more detailed timing information
         append("--\(boundary)\r\n")
         append("Content-Disposition: form-data; name=\"timestamp_granularities[]\"\r\n\r\nsegment\r\n")
+        
+        append("--\(boundary)\r\n")
+        append("Content-Disposition: form-data; name=\"timestamp_granularities[]\"\r\n\r\nword\r\n")
 
         if let languageHint {
             append("--\(boundary)\r\n")

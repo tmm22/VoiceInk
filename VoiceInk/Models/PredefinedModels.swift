@@ -350,6 +350,16 @@ import Foundation
            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .deepgram)
        ),
        CloudModel(
+           name: "nova-3",
+           displayName: "Nova-3 (Deepgram)",
+           description: "Deepgram's latest Nova-3 model with improved accuracy and lower latency.",
+           provider: .deepgram,
+           speed: 0.92,
+           accuracy: 0.97,
+           isMultilingual: true,
+           supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .deepgram)
+       ),
+       CloudModel(
            name: "nova-3-medical",
            displayName: "Nova-3 Medical (Deepgram)",
            description: "Specialized medical transcription model optimized for clinical environments.",
@@ -400,6 +410,48 @@ import Foundation
             accuracy: 0.94,
             isMultilingual: true,
             supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .gemini)
+        ),
+        CloudModel(
+            name: "gemini-2.0-flash",
+            displayName: "Gemini 2.0 Flash",
+            description: "Google's previous generation Flash model for fast multimodal transcription.",
+            provider: .gemini,
+            speed: 0.88,
+            accuracy: 0.92,
+            isMultilingual: true,
+            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .gemini)
+        ),
+        
+        // OpenAI Models
+        CloudModel(
+            name: "gpt-4o-transcribe",
+            displayName: "GPT-4o Transcribe (OpenAI)",
+            description: "OpenAI's latest multimodal transcription model with superior accuracy and context understanding.",
+            provider: .openAI,
+            speed: 0.70,
+            accuracy: 0.98,
+            isMultilingual: true,
+            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .openAI)
+        ),
+        CloudModel(
+            name: "gpt-4o-mini-transcribe",
+            displayName: "GPT-4o Mini Transcribe (OpenAI)",
+            description: "OpenAI's cost-effective transcription model with fast inference and good accuracy.",
+            provider: .openAI,
+            speed: 0.85,
+            accuracy: 0.95,
+            isMultilingual: true,
+            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .openAI)
+        ),
+        CloudModel(
+            name: "whisper-1",
+            displayName: "Whisper (OpenAI)",
+            description: "OpenAI's original Whisper API for reliable cloud transcription.",
+            provider: .openAI,
+            speed: 0.75,
+            accuracy: 0.94,
+            isMultilingual: true,
+            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .openAI)
         )
         ,
         CloudModel(
