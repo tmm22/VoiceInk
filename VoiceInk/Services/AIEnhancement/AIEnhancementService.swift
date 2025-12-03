@@ -38,8 +38,11 @@ class AIEnhancementService: ObservableObject {
 
     @Published var customPrompts: [CustomPrompt] {
         didSet {
-            if let encoded = try? JSONEncoder().encode(customPrompts) {
+            do {
+                let encoded = try JSONEncoder().encode(customPrompts)
                 UserDefaults.standard.set(encoded, forKey: "customPrompts")
+            } catch {
+                logger.error("Failed to encode custom prompts for persistence: \(error.localizedDescription)")
             }
         }
     }
@@ -258,7 +261,12 @@ class AIEnhancementService: ObservableObject {
             request.addValue(aiService.apiKey, forHTTPHeaderField: "x-api-key")
             request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
             request.timeoutInterval = baseTimeout
-            request.httpBody = try? JSONSerialization.data(withJSONObject: requestBody)
+            do {
+                request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+            } catch {
+                logger.error("Failed to serialize Anthropic request body: \(error.localizedDescription)")
+                throw EnhancementError.customError("Failed to prepare request: \(error.localizedDescription)")
+            }
 
             do {
                 let (data, response) = try await session.data(for: request)
@@ -321,7 +329,12 @@ class AIEnhancementService: ObservableObject {
                 requestBody["reasoning_effort"] = reasoningEffort
             }
 
-            request.httpBody = try? JSONSerialization.data(withJSONObject: requestBody)
+            do {
+                request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+            } catch {
+                logger.error("Failed to serialize OpenAI-compatible request body: \(error.localizedDescription)")
+                throw EnhancementError.customError("Failed to prepare request: \(error.localizedDescription)")
+            }
 
             do {
                 let (data, response) = try await session.data(for: request)

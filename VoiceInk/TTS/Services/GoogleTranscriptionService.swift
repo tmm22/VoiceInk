@@ -107,6 +107,10 @@ final class GoogleTranscriptionService: AudioTranscribing {
             throw TTSError.apiError("Invalid transcription endpoint")
         }
 
+        // SECURITY NOTE: Google Cloud Speech-to-Text API requires the API key as a URL query parameter.
+        // This is the official authentication method for API key-based access per Google's documentation.
+        // The connection uses HTTPS, so the key is encrypted in transit.
+        // Reference: https://cloud.google.com/speech-to-text/docs/reference/rest
         components.queryItems = [URLQueryItem(name: "key", value: apiKey)]
         guard let requestURL = components.url else {
             throw TTSError.apiError("Unable to prepare transcription request")

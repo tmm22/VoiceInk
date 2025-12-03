@@ -1,6 +1,21 @@
 import Foundation
 import os
 
+// MARK: - URL Validation Errors
+enum AIServiceURLError: LocalizedError {
+    case invalidURL(String)
+    case insecureURL(String)
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL(let message):
+            return "Invalid URL: \(message)"
+        case .insecureURL(let message):
+            return "Insecure URL: \(message)"
+        }
+    }
+}
+
 enum AIProvider: String, CaseIterable {
     case cerebras = "Cerebras"
     case groq = "GROQ"
@@ -39,10 +54,39 @@ enum AIProvider: String, CaseIterable {
         case .soniox:
             return "https://api.soniox.com/v1"
         case .ollama:
+            // NOTE: Ollama runs locally, so http://localhost is acceptable for local development
             return UserDefaults.standard.string(forKey: "ollamaBaseURL") ?? "http://localhost:11434"
         case .custom:
             return UserDefaults.standard.string(forKey: "customProviderBaseURL") ?? ""
         }
+    }
+    
+    /// Validates that a custom URL is secure (HTTPS) for use with API credentials.
+    /// - Parameter urlString: The URL string to validate
+    /// - Returns: A validated URL
+    /// - Throws: AIServiceURLError if the URL is invalid or insecure
+    /// - Note: Ollama URLs are exempt from HTTPS requirement as they typically run locally
+    static func validateSecureURL(_ urlString: String, allowLocalhost: Bool = false) throws -> URL {
+        guard let url = URL(string: urlString) else {
+            throw AIServiceURLError.invalidURL("Cannot parse URL: \(urlString)")
+        }
+        
+        guard let host = url.host, !host.isEmpty else {
+            throw AIServiceURLError.invalidURL("Missing host in URL")
+        }
+        
+        // Allow localhost/127.0.0.1 for local development (e.g., Ollama)
+        let isLocalhost = host == "localhost" || host == "127.0.0.1" || host == "::1"
+        if allowLocalhost && isLocalhost {
+            return url
+        }
+        
+        // CRITICAL: Enforce HTTPS for any URL carrying API credentials
+        guard url.scheme?.lowercased() == "https" else {
+            throw AIServiceURLError.insecureURL("HTTPS required for API endpoints. Use https:// instead of http://")
+        }
+        
+        return url
     }
     
     var defaultModel: String {
@@ -347,7 +391,14 @@ class AIService: ObservableObject {
             ]
         ]
         
-        request.httpBody = try? JSONSerialization.data(withJSONObject: testBody)
+        // Log if JSON serialization fails (non-critical for verification)
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: testBody)
+        } catch {
+            logger.warning("Failed to serialize API key verification request body: \(error.localizedDescription)")
+            completion(false)
+            return
+        }
         
         logger.notice("🔑 Verifying API key for \(self.selectedProvider.rawValue, privacy: .public) provider at \(url.absoluteString, privacy: .public)")
         
@@ -399,7 +450,14 @@ class AIService: ObservableObject {
             ]
         ]
         
-        request.httpBody = try? JSONSerialization.data(withJSONObject: testBody)
+        // Log if JSON serialization fails (non-critical for verification)
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: testBody)
+        } catch {
+            logger.warning("Failed to serialize Anthropic API key verification request body: \(error.localizedDescription)")
+            completion(false)
+            return
+        }
         
         session.dataTask(with: request) { data, response, error in
             if let error = error {

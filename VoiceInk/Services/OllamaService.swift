@@ -52,6 +52,14 @@ class OllamaService: ObservableObject {
     private let defaultTemperature: Double = 0.3
     private let session = SecureURLSession.makeEphemeral()
     
+    // MARK: - Model Caching
+    /// Cached models to avoid repeated network requests
+    private var cachedModels: [OllamaModel]?
+    /// Timestamp of when the cache was last updated
+    private var cacheTimestamp: Date?
+    /// Time-to-live for the cache (60 seconds)
+    private let cacheTTL: TimeInterval = 60
+    
     init() {
         self.baseURL = UserDefaults.standard.string(forKey: "ollamaBaseURL") ?? Self.defaultBaseURL
         self.selectedModel = UserDefaults.standard.string(forKey: "ollamaSelectedModel") ?? "llama2"        
@@ -95,7 +103,35 @@ class OllamaService: ObservableObject {
         }
     }
     
+    /// Fetches available models with caching to reduce network requests.
+    /// Returns cached data if available and not expired, otherwise fetches fresh data.
     private func fetchAvailableModels() async throws -> [OllamaModel] {
+        // Return cached data if valid
+        if let cached = cachedModels,
+           let timestamp = cacheTimestamp,
+           Date().timeIntervalSince(timestamp) < cacheTTL {
+            #if DEBUG
+            print("OllamaService: Returning cached models (\(cached.count) models)")
+            #endif
+            return cached
+        }
+        
+        // Fetch fresh data from API
+        let models = try await fetchModelsFromAPI()
+        
+        // Update cache
+        cachedModels = models
+        cacheTimestamp = Date()
+        
+        #if DEBUG
+        print("OllamaService: Fetched and cached \(models.count) models")
+        #endif
+        
+        return models
+    }
+    
+    /// Fetches models directly from the Ollama API (no caching).
+    private func fetchModelsFromAPI() async throws -> [OllamaModel] {
         guard let base = URL(string: baseURL),
               let url = URL(string: "api/tags", relativeTo: base) else {
             throw LocalAIError.invalidURL
@@ -104,6 +140,16 @@ class OllamaService: ObservableObject {
         let (data, _) = try await session.data(from: url)
         let response = try JSONDecoder().decode(OllamaModelsResponse.self, from: data)
         return response.models
+    }
+    
+    /// Invalidates the model cache, forcing the next fetch to retrieve fresh data.
+    /// Call this when you know the model list may have changed (e.g., after pulling a new model).
+    func invalidateModelCache() {
+        cachedModels = nil
+        cacheTimestamp = nil
+        #if DEBUG
+        print("OllamaService: Model cache invalidated")
+        #endif
     }
     
     func enhance(_ text: String, withSystemPrompt systemPrompt: String? = nil) async throws -> String {

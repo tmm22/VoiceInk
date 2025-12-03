@@ -1,14 +1,50 @@
 import Foundation
 import os
 
+// MARK: - URL Validation Errors for OpenAI-Compatible Service
+enum OpenAICompatibleURLError: LocalizedError {
+    case invalidURL(String)
+    case insecureURL(String)
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL(let message):
+            return "Invalid URL: \(message)"
+        case .insecureURL(let message):
+            return "Insecure URL: \(message)"
+        }
+    }
+}
+
 class OpenAICompatibleTranscriptionService {
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "OpenAICompatibleService")
     private let session = SecureURLSession.makeEphemeral()
     
-    func transcribe(audioURL: URL, model: CustomCloudModel) async throws -> String {
-        guard let url = URL(string: model.apiEndpoint) else {
-            throw NSError(domain: "OpenAICompatibleTranscriptionService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid API endpoint URL"])
+    /// Validates that a custom API endpoint URL is secure (HTTPS) for use with API credentials.
+    /// - Parameter urlString: The URL string to validate
+    /// - Returns: A validated URL
+    /// - Throws: OpenAICompatibleURLError if the URL is invalid or insecure
+    private func validateSecureURL(_ urlString: String) throws -> URL {
+        guard let url = URL(string: urlString) else {
+            throw OpenAICompatibleURLError.invalidURL("Cannot parse URL: \(urlString)")
         }
+        
+        guard let host = url.host, !host.isEmpty else {
+            throw OpenAICompatibleURLError.invalidURL("Missing host in URL")
+        }
+        
+        // CRITICAL: Enforce HTTPS for any URL carrying API credentials
+        // Custom transcription endpoints should always use HTTPS to protect API keys
+        guard url.scheme?.lowercased() == "https" else {
+            throw OpenAICompatibleURLError.insecureURL("HTTPS required for API endpoints. Custom transcription services must use https:// to protect your API key.")
+        }
+        
+        return url
+    }
+    
+    func transcribe(audioURL: URL, model: CustomCloudModel) async throws -> String {
+        // Validate URL is secure before using with API credentials
+        let url = try validateSecureURL(model.apiEndpoint)
         
         let config = APIConfig(
             url: url,
