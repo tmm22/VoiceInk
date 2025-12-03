@@ -56,8 +56,8 @@
 
 | Category | Critical | High | Medium | Low | Total |
 |----------|----------|------|--------|-----|-------|
-| Previous Review (Fixed) | 1 ✅ | 7 ✅ | 5 ✅ | 0 | 13 |
-| Previous Review (Deferred) | 0 | 0 | 3 | 9 | 12 |
+| Previous Review (Fixed) | 1 ✅ | 7 ✅ | 8 ✅ | 0 | 16 |
+| Previous Review (Deferred) | 0 | 0 | 0 | 9 | 9 |
 | **New Findings (All Fixed)** | **14 ✅** | **5 ✅** | **5 ✅** | **3** | **27** |
 
 ### Comparison with Previous Review
@@ -98,9 +98,9 @@ The codebase now demonstrates **excellent** security practices and **full concur
 | Issue | File | Status |
 |-------|------|--------|
 | Silent `try?` failures need logging | Various | ✅ FIXED (5 locations) |
-| Large file refactoring | `TTSViewModel.swift` | ⏸️ DEFERRED |
-| Large file refactoring | `TTSWorkspaceView.swift` | ⏸️ DEFERRED |
-| Large file refactoring | `SettingsView.swift` | ⏸️ DEFERRED |
+| Large file refactoring | `TTSViewModel.swift` | ✅ COMPLETED (578 lines, was 2,936) |
+| Large file refactoring | `TTSWorkspaceView.swift` | ✅ COMPLETED (199 lines, was 1,907) |
+| Large file refactoring | `SettingsView.swift` | ✅ COMPLETED (189 lines, was 868) |
 
 ### Low Priority Issues (P3) — Backlog
 
