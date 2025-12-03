@@ -73,7 +73,7 @@ import Foundation
         "ar-SA": "Arabic (Saudi Arabia)"
     ]
     
-    static var models: [any TranscriptionModel] {
+    @MainActor static var models: [any TranscriptionModel] {
         return predefinedModels + CustomModelManager.shared.customModels
     }
     

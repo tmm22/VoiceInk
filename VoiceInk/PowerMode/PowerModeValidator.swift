@@ -30,6 +30,7 @@ enum PowerModeValidationError: Error, Identifiable {
     }
 }
 
+@MainActor
 struct PowerModeValidator {
     private let powerModeManager: PowerModeManager
     

@@ -128,17 +128,16 @@ class Recorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
                 }
             }
             
-            durationUpdateTask = Task { [weak self] @MainActor in
+            durationUpdateTask = Task { [weak self] in
                 while let self = self, self.recorder != nil && !Task.isCancelled {
                     if let startTime = self.recordingStartTime {
-                        // No need for MainActor.run - this task is already @MainActor
                         self.recordingDuration = Date().timeIntervalSince(startTime)
                     }
                     try? await Task.sleep(nanoseconds: 100_000_000) // Update every 0.1 seconds
                 }
             }
             
-            audioLevelCheckTask = Task { [weak self] @MainActor in
+            audioLevelCheckTask = Task { [weak self] in
                 let notificationChecks: [TimeInterval] = [5.0, 12.0]
 
                 for delay in notificationChecks {
