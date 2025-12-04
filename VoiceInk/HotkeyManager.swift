@@ -148,9 +148,9 @@ class HotkeyManager: ObservableObject {
             }
         }
         
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 100_000_000)
-            self.setupHotkeyMonitoring()
+            self?.setupHotkeyMonitoring()
         }
     }
     
@@ -190,15 +190,16 @@ class HotkeyManager: ObservableObject {
             guard let self = self, event.buttonNumber == 2 else { return }
 
             self.middleClickTask?.cancel()
-            self.middleClickTask = Task {
+            self.middleClickTask = Task { [weak self] in
                 do {
+                    guard let self = self else { return }
                     let delay = UInt64(self.middleClickActivationDelay) * 1_000_000 // ms to ns
                     try await Task.sleep(nanoseconds: delay)
                     
                     guard self.isMiddleClickToggleEnabled, !Task.isCancelled else { return }
                     
-                    Task { @MainActor in
-                        guard self.canProcessHotkeyAction else { return }
+                    Task { @MainActor [weak self] in
+                        guard let self = self, self.canProcessHotkeyAction else { return }
                         await self.whisperState.handleToggleMiniRecorder()
                     }
                 } catch {
@@ -296,9 +297,10 @@ class HotkeyManager: ObservableObject {
             // Debounce Fn key
             pendingFnKeyState = isKeyPressed
             fnDebounceTask?.cancel()
-            fnDebounceTask = Task { [pendingState = isKeyPressed] in
+            fnDebounceTask = Task { [weak self, pendingState = isKeyPressed] in
                 try? await Task.sleep(nanoseconds: 75_000_000) // 75ms
-                if pendingFnKeyState == pendingState {
+                guard let self = self else { return }
+                if self.pendingFnKeyState == pendingState {
                     await self.processKeyPress(isKeyPressed: pendingState)
                 }
             }
@@ -409,8 +411,21 @@ class HotkeyManager: ObservableObject {
     }
     
     deinit {
-        Task { @MainActor in
-            removeAllMonitoring()
+        // Direct cleanup without Task - deinit is nonisolated and cannot call @MainActor methods
+        // NSEvent.removeMonitor is thread-safe and can be called from any thread
+        if let monitor = globalEventMonitor {
+            NSEvent.removeMonitor(monitor)
         }
+        if let monitor = localEventMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        for monitor in middleClickMonitors {
+            if let monitor = monitor {
+                NSEvent.removeMonitor(monitor)
+            }
+        }
+        // Task.cancel() is thread-safe
+        middleClickTask?.cancel()
+        fnDebounceTask?.cancel()
     }
 }

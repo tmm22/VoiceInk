@@ -1,7 +1,8 @@
 import SwiftUI
 import AppKit
 
-class WindowManager: NSObject {
+@MainActor
+final class WindowManager: NSObject {
     static let shared = WindowManager()
     
     private static let mainWindowIdentifier = NSUserInterfaceItemIdentifier("com.prakashjoshipax.voiceink.mainWindow")

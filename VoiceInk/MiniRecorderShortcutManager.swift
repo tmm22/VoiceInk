@@ -54,36 +54,39 @@ class MiniRecorderShortcutManager: ObservableObject {
     }
     
     @objc private func settingsDidChange() {
-        Task {
-            if await whisperState.isMiniRecorderVisible {
+        Task { [weak self] in
+            guard let self = self else { return }
+            if await self.whisperState.isMiniRecorderVisible {
                 if EnhancementShortcutSettings.shared.isToggleEnhancementShortcutEnabled {
                     KeyboardShortcuts.setShortcut(.init(.e, modifiers: .command), for: .toggleEnhancement)
                 } else {
-                    removeEnhancementShortcut()
+                    self.removeEnhancementShortcut()
                 }
             }
         }
     }
 
     private func setupVisibilityObserver() {
-        visibilityTask = Task { @MainActor in
-            for await isVisible in whisperState.$isMiniRecorderVisible.values {
+        visibilityTask = Task { @MainActor [weak self] in
+            guard let self = self else { return }
+            for await isVisible in self.whisperState.$isMiniRecorderVisible.values {
+                guard !Task.isCancelled else { return }
                 if isVisible {
-                    activateEscapeShortcut()
-                    activateCancelShortcut()
+                    self.activateEscapeShortcut()
+                    self.activateCancelShortcut()
                     if EnhancementShortcutSettings.shared.isToggleEnhancementShortcutEnabled {
                         KeyboardShortcuts.setShortcut(.init(.e, modifiers: .command), for: .toggleEnhancement)
                     } else {
-                        removeEnhancementShortcut()
+                        self.removeEnhancementShortcut()
                     }
-                    setupPromptShortcuts()
-                    setupPowerModeShortcuts()
+                    self.setupPromptShortcuts()
+                    self.setupPowerModeShortcuts()
                 } else {
-                    deactivateEscapeShortcut()
-                    deactivateCancelShortcut()
-                    removeEnhancementShortcut()
-                    removePromptShortcuts()
-                    removePowerModeShortcuts()
+                    self.deactivateEscapeShortcut()
+                    self.deactivateCancelShortcut()
+                    self.removeEnhancementShortcut()
+                    self.removePromptShortcuts()
+                    self.removePowerModeShortcuts()
                 }
             }
         }
@@ -295,13 +298,12 @@ class MiniRecorderShortcutManager: ObservableObject {
     }
     
     deinit {
+        // Direct cleanup without Task - deinit is nonisolated and cannot call @MainActor methods
+        // Task.cancel() is thread-safe
         visibilityTask?.cancel()
+        escapeTimeoutTask?.cancel()
         NotificationCenter.default.removeObserver(self)
-        Task { @MainActor in
-            deactivateEscapeShortcut()
-            deactivateCancelShortcut()
-            removeEnhancementShortcut()
-            removePowerModeShortcuts()
-        }
+        // Note: KeyboardShortcuts cleanup will happen automatically when shortcuts go out of scope
+        // We cannot call @MainActor methods like deactivateEscapeShortcut() from deinit
     }
 } 

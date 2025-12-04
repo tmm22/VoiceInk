@@ -1,15 +1,20 @@
 import SwiftUI
 import AppKit
 
-class NotificationManager {
+@MainActor
+final class NotificationManager {
     static let shared = NotificationManager()
 
     private var notificationWindow: NSPanel?
     private var dismissTimer: Timer?
 
     private init() {}
+    
+    deinit {
+        dismissTimer?.invalidate()
+        dismissTimer = nil
+    }
 
-    @MainActor
     func showNotification(
         title: String,
         type: AppNotificationView.NotificationType,
@@ -74,11 +79,12 @@ class NotificationManager {
             withTimeInterval: duration,
             repeats: false
         ) { [weak self] _ in
-            self?.dismissNotification()
+            Task { @MainActor in
+                self?.dismissNotification()
+            }
         }
     }
 
-    @MainActor
     private func positionWindow(_ window: NSWindow) {
         let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
         let screenRect = activeScreen.visibleFrame
@@ -96,7 +102,6 @@ class NotificationManager {
         window.setFrameOrigin(NSPoint(x: notificationX, y: notificationY))
     }
 
-    @MainActor
     func dismissNotification() {
         guard let window = notificationWindow else { return }
         
