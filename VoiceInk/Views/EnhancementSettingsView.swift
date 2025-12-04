@@ -8,6 +8,20 @@ struct EnhancementSettingsView: View {
     @State private var selectedPromptForEdit: CustomPrompt?
     @AppStorage("enableAIEnhancementFeatures") private var enableAIEnhancementFeatures = false
     
+    /// Formats the timeout value for display (e.g., "30s" or "2m 30s")
+    private func formatTimeout(_ seconds: TimeInterval) -> String {
+        let totalSeconds = Int(seconds)
+        if totalSeconds >= 60 {
+            let minutes = totalSeconds / 60
+            let remainingSeconds = totalSeconds % 60
+            if remainingSeconds == 0 {
+                return "\(minutes)m"
+            }
+            return "\(minutes)m \(remainingSeconds)s"
+        }
+        return "\(totalSeconds)s"
+    }
+    
     var body: some View {
         ScrollView {
             VStack(spacing: VoiceInkSpacing.xl) {
@@ -76,6 +90,42 @@ struct EnhancementSettingsView: View {
                                 .voiceInkHeadline()
                             
                             APIKeyManagementView()
+                            
+                            Divider()
+                                .padding(.vertical, VoiceInkSpacing.sm)
+                            
+                            // Request Timeout Setting
+                            VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
+                                HStack {
+                                    Text("Request Timeout")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                    
+                                    InfoTip(
+                                        title: "Request Timeout",
+                                        message: "Maximum time to wait for AI enhancement responses. Increase this value for slower connections, complex prompts, or when using models that require more processing time."
+                                    )
+                                    
+                                    Spacer()
+                                }
+                                
+                                HStack(spacing: VoiceInkSpacing.md) {
+                                    Slider(
+                                        value: $enhancementService.requestTimeout,
+                                        in: AIEnhancementService.minimumTimeout...AIEnhancementService.maximumTimeout,
+                                        step: 5
+                                    )
+                                    .frame(maxWidth: .infinity)
+                                    
+                                    Text(formatTimeout(enhancementService.requestTimeout))
+                                        .font(.system(.body, design: .monospaced))
+                                        .foregroundColor(.secondary)
+                                        .frame(width: 60, alignment: .trailing)
+                                }
+                                
+                                Text("Default: 30 seconds")
+                                    .voiceInkCaptionStyle()
+                            }
                         }
                         .padding(VoiceInkSpacing.lg)
                         .background(

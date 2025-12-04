@@ -645,10 +645,10 @@ class AIService: ObservableObject {
         return ollamaService.availableModels
     }
     
-    func enhanceWithOllama(text: String, systemPrompt: String) async throws -> String {
+    func enhanceWithOllama(text: String, systemPrompt: String, timeout: TimeInterval? = nil) async throws -> String {
         logger.notice("🔄 Sending transcription to Ollama for enhancement (model: \(self.ollamaService.selectedModel))")
         do {
-            let result = try await ollamaService.enhance(text, withSystemPrompt: systemPrompt)
+            let result = try await ollamaService.enhance(text, withSystemPrompt: systemPrompt, timeout: timeout)
             logger.notice("✅ Ollama enhancement completed successfully (\(result.count) characters)")
             return result
         } catch {

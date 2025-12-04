@@ -152,7 +152,7 @@ class OllamaService: ObservableObject {
         #endif
     }
     
-    func enhance(_ text: String, withSystemPrompt systemPrompt: String? = nil) async throws -> String {
+    func enhance(_ text: String, withSystemPrompt systemPrompt: String? = nil, timeout: TimeInterval? = nil) async throws -> String {
         guard let base = URL(string: baseURL),
               let url = URL(string: "api/generate", relativeTo: base) else {
             throw LocalAIError.invalidURL
@@ -161,6 +161,11 @@ class OllamaService: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Apply custom timeout if provided
+        if let timeout = timeout {
+            request.timeoutInterval = timeout
+        }
         
         guard let systemPrompt = systemPrompt else {
             throw LocalAIError.invalidRequest

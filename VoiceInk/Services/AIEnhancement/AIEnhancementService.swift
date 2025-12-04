@@ -57,6 +57,18 @@ class AIEnhancementService: ObservableObject {
 
     @Published var lastSystemMessageSent: String?
     @Published var lastUserMessageSent: String?
+    
+    @Published var requestTimeout: TimeInterval {
+        didSet {
+            UserDefaults.standard.set(requestTimeout, forKey: "aiEnhancementTimeout")
+            NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
+        }
+    }
+    
+    // Timeout configuration constants
+    static let defaultTimeout: TimeInterval = 30
+    static let minimumTimeout: TimeInterval = 10
+    static let maximumTimeout: TimeInterval = 300  // 5 minutes
 
     var activePrompt: CustomPrompt? {
         allPrompts.first { $0.id == selectedPromptId }
@@ -69,7 +81,6 @@ class AIEnhancementService: ObservableObject {
     private let aiService: AIService
     private let screenCaptureService: ScreenCaptureService
     private let customVocabularyService: CustomVocabularyService
-    private let baseTimeout: TimeInterval = 30
     private let rateLimitInterval: TimeInterval = 1.0
     private var lastRequestTime: Date?
     private let modelContext: ModelContext
@@ -86,6 +97,10 @@ class AIEnhancementService: ObservableObject {
         self.isEnhancementEnabled = UserDefaults.standard.bool(forKey: "isAIEnhancementEnabled")
         self.useClipboardContext = UserDefaults.standard.bool(forKey: "useClipboardContext")
         self.useScreenCaptureContext = UserDefaults.standard.bool(forKey: "useScreenCaptureContext")
+        
+        // Load timeout setting, defaulting to 30 seconds
+        let savedTimeout = UserDefaults.standard.double(forKey: "aiEnhancementTimeout")
+        self.requestTimeout = savedTimeout > 0 ? savedTimeout : Self.defaultTimeout
 
         if let savedPromptsData = UserDefaults.standard.data(forKey: "customPrompts"),
            let decodedPrompts = try? JSONDecoder().decode([CustomPrompt].self, from: savedPromptsData) {
@@ -230,7 +245,7 @@ class AIEnhancementService: ObservableObject {
 
         if aiService.selectedProvider == .ollama {
             do {
-                let result = try await aiService.enhanceWithOllama(text: formattedText, systemPrompt: systemMessage)
+                let result = try await aiService.enhanceWithOllama(text: formattedText, systemPrompt: systemMessage, timeout: requestTimeout)
                 let filteredResult = AIEnhancementOutputFilter.filter(result)
                 return filteredResult
             } catch {
@@ -263,7 +278,7 @@ class AIEnhancementService: ObservableObject {
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
             request.addValue(aiService.apiKey, forHTTPHeaderField: "x-api-key")
             request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-            request.timeoutInterval = baseTimeout
+            request.timeoutInterval = requestTimeout
             do {
                 request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
             } catch {
@@ -313,7 +328,7 @@ class AIEnhancementService: ObservableObject {
             request.httpMethod = "POST"
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
             request.addValue("Bearer \(aiService.apiKey)", forHTTPHeaderField: "Authorization")
-            request.timeoutInterval = baseTimeout
+            request.timeoutInterval = requestTimeout
 
             let messages: [[String: Any]] = [
                 ["role": "system", "content": systemMessage],
