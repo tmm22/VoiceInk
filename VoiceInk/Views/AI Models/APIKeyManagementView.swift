@@ -11,7 +11,6 @@ struct APIKeyManagementView: View {
     @State private var selectedOllamaModel: String = UserDefaults.standard.string(forKey: "ollamaSelectedModel") ?? "mistral"
     @State private var isCheckingOllama = false
     @State private var isEditingURL = false
-    @State private var assemblyAIKey: String = ""
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -416,6 +415,8 @@ struct APIKeyManagementView: View {
                                             "https://console.deepgram.com/api-keys"
                                         case .soniox:
                                             "https://console.soniox.com/"
+                                        case .assemblyAI:
+                                            "https://www.assemblyai.com/app/api-keys"
                                         case .openRouter:
                                             "https://openrouter.ai/keys"
                                         case .cerebras:
@@ -443,39 +444,6 @@ struct APIKeyManagementView: View {
                 }
             }
             
-            // AssemblyAI Cloud Transcription Section
-            GroupBox {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Image(systemName: "waveform.badge.mic")
-                            .foregroundColor(.blue)
-                        Text("AssemblyAI")
-                            .font(.headline)
-                    }
-                    
-                    SecureField("API Key", text: $assemblyAIKey)
-                        .textFieldStyle(.roundedBorder)
-                        .onChange(of: assemblyAIKey) { _, newValue in
-                            saveAPIKey(newValue, for: "AssemblyAI")
-                        }
-                    
-                    HStack {
-                        Text("Best-in-class speaker diarization. Get your API key at")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        Button("assemblyai.com") {
-                            if let url = URL(string: "https://www.assemblyai.com/app/api-keys") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
-                        .font(.caption)
-                        .buttonStyle(.plain)
-                        .foregroundColor(.accentColor)
-                    }
-                }
-                .padding()
-            }
         }
         .alert("Error", isPresented: $showAlert) {
             Button("OK", role: .cancel) { }
@@ -486,15 +454,6 @@ struct APIKeyManagementView: View {
             if aiService.selectedProvider == .ollama {
                 checkOllamaConnection()
             }
-            assemblyAIKey = KeychainManager.shared.getAPIKey(for: "AssemblyAI") ?? ""
-        }
-    }
-    
-    private func saveAPIKey(_ key: String, for provider: String) {
-        if key.isEmpty {
-            try? KeychainManager.shared.deleteAPIKey(for: provider)
-        } else {
-            KeychainManager.shared.saveAPIKey(key, for: provider)
         }
     }
     

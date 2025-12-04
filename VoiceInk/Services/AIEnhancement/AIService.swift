@@ -27,6 +27,7 @@ enum AIProvider: String, CaseIterable {
     case elevenLabs = "ElevenLabs"
     case deepgram = "Deepgram"
     case soniox = "Soniox"
+    case assemblyAI = "AssemblyAI"
     case ollama = "Ollama"
     case custom = "Custom"
     
@@ -53,6 +54,8 @@ enum AIProvider: String, CaseIterable {
             return "https://api.deepgram.com/v1/listen"
         case .soniox:
             return "https://api.soniox.com/v1"
+        case .assemblyAI:
+            return "https://api.assemblyai.com/v2"
         case .ollama:
             // NOTE: Ollama runs locally, so http://localhost is acceptable for local development
             return UserDefaults.standard.string(forKey: "ollamaBaseURL") ?? "http://localhost:11434"
@@ -109,6 +112,8 @@ enum AIProvider: String, CaseIterable {
             return "whisper-1"
         case .soniox:
             return "stt-async-v3"
+        case .assemblyAI:
+            return "best"
         case .ollama:
             return UserDefaults.standard.string(forKey: "ollamaSelectedModel") ?? "mistral"
         case .custom:
@@ -174,6 +179,8 @@ enum AIProvider: String, CaseIterable {
             return ["whisper-1"]
         case .soniox:
             return ["stt-async-v3"]
+        case .assemblyAI:
+            return ["best", "nano"]
         case .ollama:
             return []
         case .custom:
@@ -368,6 +375,8 @@ class AIService: ObservableObject {
             verifyMistralAPIKey(key, completion: completion)
         case .soniox:
             verifySonioxAPIKey(key, completion: completion)
+        case .assemblyAI:
+            verifyAssemblyAIAPIKey(key, completion: completion)
         default:
             verifyOpenAICompatibleAPIKey(key, completion: completion)
         }
@@ -574,6 +583,39 @@ class AIService: ObservableObject {
             
             if let httpResponse = response as? HTTPURLResponse {
                 completion(httpResponse.statusCode == 200)
+            } else {
+                completion(false)
+            }
+        }.resume()
+    }
+    
+    private func verifyAssemblyAIAPIKey(_ key: String, completion: @escaping (Bool) -> Void) {
+        guard let url = URL(string: "https://api.assemblyai.com/v2/transcript") else {
+            logger.error("Invalid AssemblyAI API URL")
+            completion(false)
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.addValue(key, forHTTPHeaderField: "authorization")
+        
+        session.dataTask(with: request) { data, response, error in
+            if let error = error {
+                self.logger.error("AssemblyAI API key verification failed: \(error.localizedDescription)")
+                completion(false)
+                return
+            }
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                // AssemblyAI returns 200 for valid API keys (returns list of transcripts)
+                // Returns 401 for invalid keys
+                let isValid = httpResponse.statusCode == 200
+                if !isValid {
+                    if let data = data, let body = String(data: data, encoding: .utf8) {
+                        self.logger.error("AssemblyAI API key verification failed with status \(httpResponse.statusCode): \(body)")
+                    }
+                }
+                completion(isValid)
             } else {
                 completion(false)
             }
