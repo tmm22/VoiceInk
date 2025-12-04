@@ -117,7 +117,11 @@ class AIEnhancementService: ObservableObject {
     }
 
     @objc private func handleAPIKeyChange() {
-        DispatchQueue.main.async {
+        // No need for DispatchQueue.main - this class is already @MainActor
+        // NotificationCenter callbacks are delivered on the posting thread,
+        // but @MainActor ensures we're on the main thread
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
             self.objectWillChange.send()
             if !self.aiService.isAPIKeyValid {
                 self.isEnhancementEnabled = false
@@ -216,10 +220,9 @@ class AIEnhancementService: ObservableObject {
         let systemMessage = await getSystemMessage(for: mode)
         
         // Persist the exact payload being sent (also used for UI)
-        await MainActor.run {
-            self.lastSystemMessageSent = systemMessage
-            self.lastUserMessageSent = formattedText
-        }
+        // No need for MainActor.run - this class is already @MainActor
+        self.lastSystemMessageSent = systemMessage
+        self.lastUserMessageSent = formattedText
 
         // Log the message being sent to AI enhancement
         logger.notice("AI Enhancement - System Message: \(systemMessage, privacy: .public)")
@@ -438,10 +441,9 @@ class AIEnhancementService: ObservableObject {
             return
         }
 
-        if let capturedText = await screenCaptureService.captureAndExtractText() {
-            await MainActor.run {
-                self.objectWillChange.send()
-            }
+        if await screenCaptureService.captureAndExtractText() != nil {
+            // No need for MainActor.run - this class is already @MainActor
+            self.objectWillChange.send()
         }
     }
 

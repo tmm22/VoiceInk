@@ -43,9 +43,8 @@ class AudioTranscriptionService: ObservableObject {
             throw TranscriptionError.noAudioFile
         }
         
-        await MainActor.run {
-            isTranscribing = true
-        }
+        // No need for MainActor.run - this class is already @MainActor
+        isTranscribing = true
         
         do {
             // Delegate transcription to appropriate service
@@ -149,9 +148,8 @@ class AudioTranscriptionService: ObservableObject {
                         await promptDetectionService.restoreOriginalSettings(result, to: enhancementService)
                     }
 
-                    await MainActor.run {
-                        isTranscribing = false
-                    }
+                    // No need for MainActor.run - this class is already @MainActor
+                    isTranscribing = false
 
                     return newTranscription
                 } catch {
@@ -173,9 +171,8 @@ class AudioTranscriptionService: ObservableObject {
                         logger.error("❌ Failed to save transcription: \(error.localizedDescription)")
                     }
                     
-                    await MainActor.run {
-                        isTranscribing = false
-                    }
+                    // No need for MainActor.run - this class is already @MainActor
+                    isTranscribing = false
                     
                     return newTranscription
                 }
@@ -197,9 +194,8 @@ class AudioTranscriptionService: ObservableObject {
                     logger.error("❌ Failed to save transcription: \(error.localizedDescription)")
                 }
                 
-                await MainActor.run {
-                    isTranscribing = false
-                }
+                // No need for MainActor.run - this class is already @MainActor
+                isTranscribing = false
                 
                 return newTranscription
             }

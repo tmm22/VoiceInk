@@ -106,9 +106,8 @@ class ScreenCaptureService: ObservableObject {
         
         isCapturing = true
         defer { 
-            DispatchQueue.main.async {
-                self.isCapturing = false
-            }
+            // No need for DispatchQueue.main - this class is already @MainActor
+            self.isCapturing = false
         }
 
         guard let windowInfo = getActiveWindowInfo() else {
@@ -136,9 +135,8 @@ class ScreenCaptureService: ObservableObject {
                 logger.notice("📸 No text extracted from window")
             }
             
-            await MainActor.run {
-                self.lastCapturedText = contextText
-            }
+            // No need for MainActor.run - this class is already @MainActor
+            self.lastCapturedText = contextText
             
             return contextText
         }

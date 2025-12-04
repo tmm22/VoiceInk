@@ -1,7 +1,8 @@
 import Foundation
 import OSLog
 
-class VADModelManager {
+@MainActor
+final class VADModelManager {
     static let shared = VADModelManager()
     private let logger = Logger(subsystem: "VADModelManager", category: "ModelManagement")
     

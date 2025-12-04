@@ -194,7 +194,12 @@ class PowerModeManager: ObservableObject {
                 for urlConfig in urlConfigs {
                     let configURL = cleanURL(urlConfig.url)
                     
-                    if cleanedURL.contains(configURL) {
+                    // More precise domain matching to avoid false positives
+                    // e.g., "google.com" should not match "notgoogle.com"
+                    if cleanedURL == configURL ||
+                       cleanedURL.hasPrefix(configURL + "/") ||
+                       cleanedURL.hasSuffix("." + configURL) ||
+                       cleanedURL.contains("." + configURL + "/") {
                         return config
                     }
                 }
