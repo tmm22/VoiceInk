@@ -17,7 +17,9 @@ final class TranscriptionAutoCleanupService {
     private init() {}
     
     deinit {
-        stopMonitoring()
+        // Direct cleanup - NotificationCenter.removeObserver is thread-safe
+        // Cannot call @MainActor method stopMonitoring() from nonisolated deinit
+        NotificationCenter.default.removeObserver(self)
     }
 
     func startMonitoring(modelContext: ModelContext) {

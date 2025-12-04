@@ -96,6 +96,7 @@ actor TranscriptionQueue {
 - ⛔ Never block the main thread
 - ⛔ Avoid completion handlers (use async/await instead)
 - ⛔ Never call `@MainActor` methods from `deinit` (use direct cleanup instead)
+- ⛔ Never use `MainActor.run` or `DispatchQueue.main.async` inside `@MainActor` classes (redundant)
 
 **ObservableObject Requirements:**
 
@@ -158,6 +159,50 @@ Every class with cleanup requirements should verify these in `deinit`:
 - [ ] **Combine**: Clear `cancellables.removeAll()` or let them deallocate
 - [ ] **Audio**: Stop audio engines directly if stored as properties
 - [ ] **KVO**: Remove any KVO observers
+
+### Redundant `MainActor.run` in `@MainActor` Classes
+
+> **Context:** The 2025-12-05 code review found 17+ instances of redundant `MainActor.run` and `DispatchQueue.main.async` calls inside classes already marked `@MainActor`. This adds unnecessary overhead and clutters code.
+
+**Rule: Never use `MainActor.run` or `DispatchQueue.main.async` inside `@MainActor` classes.**
+
+```swift
+@MainActor
+class MyService: ObservableObject {
+    @Published var data: String = ""
+    
+    // ⛔ WRONG: Redundant MainActor.run - already on MainActor!
+    func updateData() async {
+        await MainActor.run {
+            self.data = "updated"
+        }
+    }
+    
+    // ⛔ WRONG: Redundant DispatchQueue.main
+    func handleCallback() {
+        DispatchQueue.main.async {
+            self.data = "updated"
+        }
+    }
+    
+    // ✅ CORRECT: Direct assignment - class is already @MainActor
+    func updateData() async {
+        self.data = "updated"
+    }
+    
+    // ✅ CORRECT: For @objc callbacks, use Task
+    @objc func handleNotification() {
+        Task { @MainActor [weak self] in
+            self?.data = "updated"
+        }
+    }
+}
+```
+
+**When IS `MainActor.run` needed:**
+- In nonisolated functions that need to update `@MainActor` state
+- In detached Tasks that need to call back to the main actor
+- NOT inside `@MainActor` classes or their methods
 
 ---
 
@@ -606,7 +651,7 @@ class AudioPlayerService: ObservableObject {
 
 ### Closures and Callbacks
 
-**Rule: Long-lived closures (stored callbacks, notification handlers) MUST use `[weak self]`.**
+**Rule: Long-lived closures (stored callbacks, notification handlers) MUST use `[weak self]}` for classes.**
 
 ```swift
 // ✅ Good: Combine sink with [weak self]
@@ -617,7 +662,7 @@ NotificationCenter.default
     }
     .store(in: &cancellables)
 
-// ✅ Good: Timer with [weak self]
+// ✅ Good: Timer with [weak self] in a CLASS
 Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
     self?.updateUI()
 }
@@ -632,6 +677,49 @@ audioEngine.onComplete = {
     self.handleCompletion()  // Retain cycle!
 }
 ```
+
+### SwiftUI Structs and `[weak self]`
+
+> **Context:** The 2025-12-05 code review found a build error caused by using `[weak self]` in a SwiftUI View struct. Value types cannot use weak references.
+
+**Rule: `[weak self]` is ONLY for classes. SwiftUI Views are structs.**
+
+```swift
+// ⛔ WRONG: SwiftUI View is a struct - this causes a compiler error!
+struct NotificationView: View {
+    @State private var timer: Timer?
+    
+    func startTimer() {
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            // ERROR: 'weak' may only be applied to class and class-bound protocol types
+            self?.updateProgress()
+        }
+    }
+}
+
+// ✅ CORRECT: For structs, rely on SwiftUI lifecycle (onDisappear) for cleanup
+struct NotificationView: View {
+    @State private var timer: Timer?
+    @State private var progress: Double = 1.0
+    
+    var body: some View {
+        ProgressView(value: progress)
+            .onAppear { startTimer() }
+            .onDisappear { timer?.invalidate() }  // Cleanup on view removal
+    }
+    
+    func startTimer() {
+        // No [weak self] needed - structs are value types
+        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            if progress > 0 {
+                progress -= 0.01
+            }
+        }
+    }
+}
+```
+
+**Key Insight:** SwiftUI manages View lifecycle. Use `onDisappear` to invalidate timers and clean up resources in Views.
 
 ### Nonisolated Methods Creating Tasks
 
@@ -812,6 +900,41 @@ guard KeychainManager.isValidAPIKey(key, for: "OpenAI") else {
     throw ValidationError.invalidKeyFormat
 }
 ```
+
+### 6. URL Domain Matching
+
+> **Context:** The 2025-12-05 code review found that simple `contains()` string matching for URL domains causes false positives (e.g., "google.com" matching "notgoogle.com").
+
+**Rule: Use precise domain matching, not substring matching.**
+
+```swift
+// ⛔ WRONG: Simple contains() causes false positives
+func matchesURL(_ url: String, pattern: String) -> Bool {
+    return url.contains(pattern)  // "notgoogle.com" matches "google.com"!
+}
+
+// ✅ CORRECT: Precise domain matching
+func matchesURL(_ url: String, pattern: String) -> Bool {
+    let cleanedURL = cleanURL(url)
+    let configURL = cleanURL(pattern)
+    
+    // Exact match or proper subdomain/path matching
+    return cleanedURL == configURL ||
+           cleanedURL.hasPrefix(configURL + "/") ||
+           cleanedURL.hasSuffix("." + configURL) ||
+           cleanedURL.contains("." + configURL + "/")
+}
+
+func cleanURL(_ url: String) -> String {
+    return url.lowercased()
+        .replacingOccurrences(of: "https://", with: "")
+        .replacingOccurrences(of: "http://", with: "")
+        .replacingOccurrences(of: "www.", with: "")
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+}
+```
+
+**Why This Matters:** Incorrect URL matching in Power Mode could apply wrong settings or prompts based on unintended URL matches.
 
 ### 6. Temporary Files
 
@@ -1028,6 +1151,15 @@ open VoiceInk.xcodeproj
 
 # Or build from command line
 xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug build
+
+# Debug build WITHOUT code signing (for testing)
+xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug build \
+    CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+```
+
+The built app will be located at:
+```
+~/Library/Developer/Xcode/DerivedData/VoiceInk-*/Build/Products/Debug/VoiceLink Community.app
 ```
 
 **See `BUILDING.md` for detailed build instructions.**
@@ -1489,11 +1621,18 @@ This guide is a living document. If you find errors, outdated information, or ha
 
 ---
 
-**Last Updated:** December 3, 2025  
+**Last Updated:** December 5, 2025  
 **Maintained By:** VoiceInk Community  
 **License:** GPL v3 (same as project)
 
 **Recent Updates:**
+- **v1.5** (2025-12-05) - Build Fixes and SwiftUI Struct Guidance
+  - Added **SwiftUI Structs and `[weak self]`** section explaining value type limitations
+  - Added **Redundant `MainActor.run`** section with examples of what to avoid
+  - Added **URL Domain Matching** section to Security Guidelines
+  - Added **Debug build without code signing** command to Build & Run section
+  - Updated Critical Rules to prohibit redundant `MainActor.run` in `@MainActor` classes
+  - Clarified that `[weak self]` in Timer closures only applies to classes, not structs
 - **v1.4** (2025-12-03) - Comprehensive Code Review Guidelines
   - Added new **Memory Management** section with Task lifecycle rules
   - Added `[weak self]` requirements for ALL stored Tasks and closures
