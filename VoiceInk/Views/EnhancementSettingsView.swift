@@ -95,18 +95,16 @@ struct EnhancementSettingsView: View {
                                 .padding(.vertical, VoiceInkSpacing.sm)
                             
                             // Request Timeout Setting
-                            VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
-                                HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: VoiceInkSpacing.xs) {
                                     Text("Request Timeout")
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
+                                        .voiceInkSubheadline()
+                                        .foregroundStyle(.primary)
                                     
                                     InfoTip(
                                         title: "Request Timeout",
                                         message: "Maximum time to wait for AI enhancement responses. Increase this value for slower connections, complex prompts, or when using models that require more processing time."
                                     )
-                                    
-                                    Spacer()
                                 }
                                 
                                 HStack(spacing: VoiceInkSpacing.md) {
@@ -118,13 +116,14 @@ struct EnhancementSettingsView: View {
                                     .frame(maxWidth: .infinity)
                                     
                                     Text(formatTimeout(enhancementService.requestTimeout))
-                                        .font(.system(.body, design: .monospaced))
-                                        .foregroundColor(.secondary)
+                                        .voiceInkCaptionStyle()
+                                        .monospacedDigit()
                                         .frame(width: 60, alignment: .trailing)
                                 }
                                 
                                 Text("Default: 30 seconds")
                                     .voiceInkCaptionStyle()
+                                    .foregroundStyle(.secondary)
                             }
                         }
                         .padding(VoiceInkSpacing.lg)
