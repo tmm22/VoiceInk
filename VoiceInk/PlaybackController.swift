@@ -49,6 +49,12 @@ class PlaybackController: ObservableObject {
         mediaController.onListenerTerminated = { }
     }
     
+    deinit {
+        mediaController.stopListening()
+        mediaController.onTrackInfoReceived = nil
+        mediaController.onListenerTerminated = nil
+    }
+    
     private func startMediaTracking() {
         mediaController.startListening()
     }

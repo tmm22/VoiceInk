@@ -177,10 +177,12 @@ class CustomModelManager: ObservableObject {
     }
     
     private func isValidURL(_ string: String) -> Bool {
-        if let url = URL(string: string) {
-            return url.scheme != nil && url.host != nil
-        }
-        return false
+        guard let url = URL(string: string) else { return false }
+        // CRITICAL: Enforce HTTPS for URLs that carry API credentials
+        // This prevents credentials from being sent over unencrypted connections
+        guard url.scheme?.lowercased() == "https" else { return false }
+        guard url.host != nil, !url.host!.isEmpty else { return false }
+        return true
     }
 }
 

@@ -44,9 +44,8 @@ extension WhisperState {
 
             await toggleRecord()
 
-            await MainActor.run {
-                isMiniRecorderVisible = true // This will call showRecorderPanel() via didSet
-            }
+            // No need for MainActor.run - WhisperState is already @MainActor
+            isMiniRecorderVisible = true // This will call showRecorderPanel() via didSet
         }
     }
     
@@ -55,9 +54,8 @@ extension WhisperState {
 
         let wasRecording = recordingState == .recording
  
-        await MainActor.run {
-            self.recordingState = .busy
-        }
+        // No need for MainActor.run - WhisperState is already @MainActor
+        self.recordingState = .busy
         
         if wasRecording {
             await recorder.stopRecording()
@@ -67,39 +65,34 @@ extension WhisperState {
         
         // Clear captured context when the recorder is dismissed
         if let enhancementService = enhancementService {
-            await MainActor.run {
-                enhancementService.clearCapturedContexts()
-            }
+            // No need for MainActor.run - WhisperState is already @MainActor
+            enhancementService.clearCapturedContexts()
         }
         
-        await MainActor.run {
-            isMiniRecorderVisible = false
-        }
+        // No need for MainActor.run - WhisperState is already @MainActor
+        isMiniRecorderVisible = false
         
         await cleanupModelResources()
         
         if UserDefaults.standard.bool(forKey: PowerModeDefaults.autoRestoreKey) {
             await PowerModeSessionManager.shared.endSession()
-            await MainActor.run {
-                PowerModeManager.shared.setActiveConfiguration(nil)
-            }
+            // No need for MainActor.run - WhisperState is already @MainActor
+            PowerModeManager.shared.setActiveConfiguration(nil)
         }
         
-        await MainActor.run {
-            recordingState = .idle
-        }
+        // No need for MainActor.run - WhisperState is already @MainActor
+        recordingState = .idle
     }
     
     func resetOnLaunch() async {
         logger.notice("🔄 Resetting recording state on launch")
         await recorder.stopRecording()
         hideRecorderPanel()
-        await MainActor.run {
-            isMiniRecorderVisible = false
-            shouldCancelRecording = false
-            miniRecorderError = nil
-            recordingState = .idle
-        }
+        // No need for MainActor.run - WhisperState is already @MainActor
+        isMiniRecorderVisible = false
+        shouldCancelRecording = false
+        miniRecorderError = nil
+        recordingState = .idle
         await cleanupModelResources()
     }
     

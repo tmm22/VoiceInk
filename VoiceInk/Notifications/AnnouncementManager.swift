@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 
+@MainActor
 final class AnnouncementManager {
     static let shared = AnnouncementManager()
 
@@ -8,7 +9,6 @@ final class AnnouncementManager {
 
     private init() {}
 
-    @MainActor
     func showAnnouncement(title: String, description: String?, learnMoreURL: URL?, onDismiss: @escaping () -> Void) {
         dismiss()
 
@@ -59,7 +59,6 @@ final class AnnouncementManager {
         }
     }
 
-    @MainActor
     func dismiss() {
         guard let panel = panel else { return }
         self.panel = nil
@@ -72,7 +71,6 @@ final class AnnouncementManager {
         })
     }
 
-    @MainActor
     private func position(_ panel: NSPanel) {
         let screen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
         let visibleFrame = screen.visibleFrame

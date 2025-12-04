@@ -60,7 +60,8 @@ class AudioTranscriptionManager: ObservableObject {
         processingPhase = .loading
         errorMessage = nil
         
-        currentTask = Task {
+        currentTask = Task { [weak self] in
+            guard let self = self else { return }
             do {
                 guard let currentModel = whisperState.currentTranscriptionModel else {
                     throw TranscriptionError.noModelSelected

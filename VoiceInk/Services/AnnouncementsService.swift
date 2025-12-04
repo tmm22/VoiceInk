@@ -6,6 +6,11 @@ final class AnnouncementsService {
     static let shared = AnnouncementsService()
 
     private init() {}
+    
+    deinit {
+        timer?.invalidate()
+        timer = nil
+    }
 
     // MARK: - Configuration
 

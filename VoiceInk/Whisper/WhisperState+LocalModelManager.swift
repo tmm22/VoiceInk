@@ -331,9 +331,8 @@ extension WhisperState {
         }
 
         // Ensure UI reflects removal of imported models as well
-        await MainActor.run {
-            self.refreshAllAvailableModels()
-        }
+        // No need for MainActor.run - WhisperState is already @MainActor
+        self.refreshAllAvailableModels()
     }
     
     func unloadModel() {

@@ -128,9 +128,13 @@ struct AppNotificationView: View {
         let totalSteps = duration / updateInterval
         let stepDecrement = 1.0 / totalSteps
         
-        timer = Timer.scheduledTimer(withTimeInterval: updateInterval, repeats: true) { [self] timerInstance in
-            if progress > 0 {
-                progress = max(0, progress - stepDecrement)
+        timer = Timer.scheduledTimer(withTimeInterval: updateInterval, repeats: true) { [weak self] timerInstance in
+            guard let self = self else {
+                timerInstance.invalidate()
+                return
+            }
+            if self.progress > 0 {
+                self.progress = max(0, self.progress - stepDecrement)
             } else {
                 timerInstance.invalidate()
             }

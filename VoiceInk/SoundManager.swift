@@ -13,16 +13,16 @@ class SoundManager: ObservableObject {
     @Published var settings: AudioFeedbackSettings {
         didSet {
             saveSettings()
-            Task {
-                await reloadSounds()
+            Task { [weak self] in
+                await self?.reloadSounds()
             }
         }
     }
     
     private init() {
         self.settings = Self.loadSettings()
-        Task(priority: .background) {
-            await setupSounds()
+        Task(priority: .background) { [weak self] in
+            await self?.setupSounds()
         }
     }
     

@@ -15,6 +15,8 @@ final class ManagedProvisioningPreferences {
         get {
             guard let urlString = UserDefaults.standard.string(forKey: Keys.baseURL),
                   let url = URL(string: urlString),
+                  // SECURITY: Enforce HTTPS for URLs that carry credentials
+                  url.scheme?.lowercased() == "https",
                   let accountId = UserDefaults.standard.string(forKey: Keys.accountId),
                   let planTier = UserDefaults.standard.string(forKey: Keys.planTier),
                   let planStatus = UserDefaults.standard.string(forKey: Keys.planStatus) else {
@@ -24,6 +26,13 @@ final class ManagedProvisioningPreferences {
         }
         set {
             if let newValue {
+                // SECURITY: Only allow HTTPS URLs for managed provisioning
+                guard newValue.baseURL.scheme?.lowercased() == "https" else {
+                    #if DEBUG
+                    print("ManagedProvisioningPreferences: Rejecting non-HTTPS URL")
+                    #endif
+                    return
+                }
                 UserDefaults.standard.set(newValue.baseURL.absoluteString, forKey: Keys.baseURL)
                 UserDefaults.standard.set(newValue.accountId, forKey: Keys.accountId)
                 UserDefaults.standard.set(newValue.planTier, forKey: Keys.planTier)

@@ -39,9 +39,9 @@ class WhisperState: NSObject, ObservableObject {
                     miniWindowManager?.hide()
                     miniWindowManager = nil
                 }
-                Task { @MainActor in
+                Task { @MainActor [weak self] in
                     try? await Task.sleep(nanoseconds: 50_000_000)
-                    showRecorderPanel()
+                    self?.showRecorderPanel()
                 }
             }
             UserDefaults.standard.set(recorderType, forKey: "RecorderType")
@@ -192,7 +192,8 @@ class WhisperState: NSObject, ObservableObject {
             requestRecordPermission { [weak self] granted in
                 guard let self else { return }
                 if granted {
-                    Task {
+                    Task { [weak self] in
+                        guard let self = self else { return }
                         do {
                             // --- Prepare permanent file URL ---
                             let fileName = "\(UUID().uuidString).wav"
@@ -241,7 +242,18 @@ class WhisperState: NSObject, ObservableObject {
     }
     
     private func requestRecordPermission(response: @escaping (Bool) -> Void) {
-        response(true)
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            response(true)
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .audio) { granted in
+                response(granted)
+            }
+        case .denied, .restricted:
+            response(false)
+        @unknown default:
+            response(false)
+        }
     }
     
     private func transcribeAudio(on transcription: Transcription) async {
@@ -264,7 +276,8 @@ class WhisperState: NSObject, ObservableObject {
         recordingState = .transcribing
 
         // Play stop sound when transcription starts with a small delay
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard self != nil else { return }
             let isSystemMuteEnabled = UserDefaults.standard.bool(forKey: "isSystemMuteEnabled")
             if isSystemMuteEnabled {
                 try? await Task.sleep(nanoseconds: 200_000_000) // 200 milliseconds delay
@@ -274,8 +287,8 @@ class WhisperState: NSObject, ObservableObject {
 
         defer {
             if shouldCancelRecording {
-                Task {
-                    await cleanupModelResources()
+                Task { [weak self] in
+                    await self?.cleanupModelResources()
                 }
             }
         }
@@ -402,7 +415,8 @@ class WhisperState: NSObject, ObservableObject {
             }
 
             // Use Task with sleep instead of DispatchQueue.main.asyncAfter to maintain actor isolation
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
+                guard self != nil else { return }
                 try? await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
                 CursorPaster.pasteAtCursor(textToPaste)
 

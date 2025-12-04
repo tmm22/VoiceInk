@@ -175,10 +175,11 @@ class Recorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
         recordingDuration = 0
         recordingStartTime = nil
         
-        Task {
-            await mediaController.unmuteSystemAudio()
+        Task { [weak self] in
+            guard let self = self else { return }
+            await self.mediaController.unmuteSystemAudio()
             try? await Task.sleep(nanoseconds: 100_000_000)
-            await playbackController.resumeMedia()
+            await self.playbackController.resumeMedia()
         }
         deviceManager.isRecordingActive = false
     }

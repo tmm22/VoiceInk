@@ -191,12 +191,12 @@ class PowerModeSessionManager {
     }
     
     private func recoverSession() {
-        guard let session = loadSession() else { return }
+        guard let _ = loadSession() else { return }
         #if DEBUG
         print("Recovering abandoned Power Mode session.")
         #endif
-        Task {
-            await endSession()
+        Task { [weak self] in
+            await self?.endSession()
         }
     }
 
