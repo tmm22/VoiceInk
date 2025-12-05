@@ -139,6 +139,48 @@ struct EnhancementSettingsView: View {
                                 isEditingPrompt = true
                             }
                         )
+                        
+                        Divider()
+                            .padding(.vertical, VoiceInkSpacing.sm)
+                        
+                        // Personal Context Section
+                        VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
+                            HStack {
+                                Text("Personal Context")
+                                    .voiceInkSubheadline()
+                                    .foregroundStyle(.primary)
+                                
+                                InfoTip(
+                                    title: "Personal Context",
+                                    message: "This bio is sent with every request. Use it to define your role, preferred tone, or specific instructions."
+                                )
+                            }
+                            
+                            Text("Tell the AI who you are, your role, and your preferred writing style.")
+                                .voiceInkCaptionStyle()
+                            
+                            TextEditor(text: $enhancementService.contextSettings.userBio)
+                                .font(.body)
+                                .frame(height: 100)
+                                .padding(VoiceInkSpacing.sm)
+                                .background(VoiceInkTheme.Palette.canvas)
+                                .cornerRadius(VoiceInkRadius.small)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: VoiceInkRadius.small)
+                                        .stroke(VoiceInkTheme.Palette.outline, lineWidth: 1)
+                                )
+                                .overlay(
+                                    Group {
+                                        if enhancementService.contextSettings.userBio.isEmpty {
+                                            Text("Example: I am a software engineer. I prefer concise bullet points...")
+                                                .foregroundColor(.secondary.opacity(0.5))
+                                                .padding(VoiceInkSpacing.md)
+                                                .allowsHitTesting(false)
+                                        }
+                                    },
+                                    alignment: .topLeading
+                                )
+                        }
                     }
                     .padding(VoiceInkSpacing.lg)
                     .voiceInkCardBackground()
