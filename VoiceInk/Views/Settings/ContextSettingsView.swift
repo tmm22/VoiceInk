@@ -3,6 +3,16 @@ import SwiftUI
 struct ContextSettingsView: View {
     @Binding var settings: AIContextSettings
     
+    // Derived state for the current level
+    private var currentLevel: ContextAwarenessLevel? {
+        for level in ContextAwarenessLevel.allCases {
+            if settings.matchesLevel(level) {
+                return level
+            }
+        }
+        return nil // Custom
+    }
+    
     var body: some View {
         VStack(spacing: VoiceInkSpacing.lg) {
             // MARK: - Operational Context Card
@@ -21,6 +31,56 @@ struct ContextSettingsView: View {
                 Divider()
                     .padding(.vertical, VoiceInkSpacing.xs)
                 
+                // Tiered Selection
+                VStack(spacing: 12) {
+                    HStack(spacing: 8) {
+                        ForEach(ContextAwarenessLevel.allCases) { level in
+                            let isSelected = currentLevel == level
+                            Button {
+                                withAnimation {
+                                    settings.applyLevel(level)
+                                    // Handle side effects like permissions
+                                    if level == .maximum {
+                                        Task { _ = await CalendarService.shared.requestAccess() }
+                                    }
+                                }
+                            } label: {
+                                VStack(spacing: 4) {
+                                    Text(level.displayName)
+                                        .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
+                                    Text(level.tradeOff)
+                                        .font(.system(size: 9))
+                                        .opacity(0.8)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(isSelected ? VoiceInkTheme.Palette.accent.opacity(0.15) : Color.clear)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(isSelected ? VoiceInkTheme.Palette.accent : Color.secondary.opacity(0.2), lineWidth: 1)
+                                )
+                                .foregroundColor(isSelected ? VoiceInkTheme.Palette.accent : .primary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    
+                    if currentLevel == nil {
+                        Text("Custom Configuration Active")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.top, 4)
+                    }
+                }
+                .padding(.bottom, 8)
+                
+                Divider()
+                
+                // Granular Toggles (Collapsible or just always shown)
                 VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
                     contextToggle(
                         title: "Application Info",

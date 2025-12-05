@@ -1,5 +1,37 @@
 import Foundation
 
+enum ContextAwarenessLevel: String, CaseIterable, Identifiable, Codable {
+    case minimal
+    case balanced
+    case maximum
+    
+    var id: String { rawValue }
+    
+    var displayName: String {
+        switch self {
+        case .minimal: return "Minimal"
+        case .balanced: return "Balanced"
+        case .maximum: return "Maximum"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .minimal: return "Basic context only. Best for privacy and speed."
+        case .balanced: return "Standard context. Good balance of smarts and performance."
+        case .maximum: return "Full environment awareness. Best accuracy, higher latency."
+        }
+    }
+    
+    var tradeOff: String {
+        switch self {
+        case .minimal: return "Fastest • Least Context"
+        case .balanced: return "Standard Speed • Standard Context"
+        case .maximum: return "Slower • Full Context"
+        }
+    }
+}
+
 struct AIContextSettings: Codable {
     var includeClipboard: Bool = true
     var includeScreenCapture: Bool = true
@@ -27,6 +59,65 @@ struct AIContextSettings: Codable {
         .screenCapture: 4,
         .conversationHistory: 5
     ]
+    
+    mutating func applyLevel(_ level: ContextAwarenessLevel) {
+        switch level {
+        case .minimal:
+            includeApplicationContext = true
+            includeTemporalContext = true
+            includeSelectedText = true
+            includeFocusedElement = true
+            
+            includeClipboard = false
+            includeScreenCapture = false
+            includeSelectedFiles = false
+            includeBrowserContent = false
+            includeCalendar = false
+            includeConversationHistory = false
+            
+        case .balanced:
+            includeApplicationContext = true
+            includeTemporalContext = true
+            includeSelectedText = true
+            includeFocusedElement = true
+            includeClipboard = true
+            includeSelectedFiles = true
+            includeBrowserContent = true
+            
+            includeScreenCapture = false
+            includeCalendar = false
+            includeConversationHistory = false
+            
+        case .maximum:
+            includeApplicationContext = true
+            includeTemporalContext = true
+            includeSelectedText = true
+            includeFocusedElement = true
+            includeClipboard = true
+            includeSelectedFiles = true
+            includeBrowserContent = true
+            includeScreenCapture = true
+            includeCalendar = true
+            includeConversationHistory = true
+        }
+    }
+    
+    func matchesLevel(_ level: ContextAwarenessLevel) -> Bool {
+        var temp = AIContextSettings()
+        temp.applyLevel(level)
+        
+        // Compare structural settings (ignoring bio and scalar values like max items)
+        return includeApplicationContext == temp.includeApplicationContext &&
+               includeTemporalContext == temp.includeTemporalContext &&
+               includeSelectedText == temp.includeSelectedText &&
+               includeFocusedElement == temp.includeFocusedElement &&
+               includeClipboard == temp.includeClipboard &&
+               includeScreenCapture == temp.includeScreenCapture &&
+               includeSelectedFiles == temp.includeSelectedFiles &&
+               includeBrowserContent == temp.includeBrowserContent &&
+               includeCalendar == temp.includeCalendar &&
+               includeConversationHistory == temp.includeConversationHistory
+    }
 }
 
 enum ContextType: String, Codable {
