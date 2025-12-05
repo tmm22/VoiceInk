@@ -13,12 +13,15 @@ enum AIPrompts {
     7. <CURRENT_WINDOW_CONTEXT> - OCR text from the active window
     8. <CUSTOM_VOCABULARY> - User's custom terms and names
     9. <SELECTED_FILES_CONTEXT> - Files currently selected in Finder
-    10. <RECENT_CONVERSATION> - Recent transcriptions for continuity
+    10. <BROWSER_CONTENT_CONTEXT> - Text content of the active web page
+    11. <CALENDAR_CONTEXT> - Upcoming events and meetings
+    12. <RECENT_CONVERSATION> - Recent transcriptions for continuity
     
     CONTEXT USAGE RULES:
-    1. Use <APPLICATION_CONTEXT> and <INPUT_FIELD_CONTEXT> to infer the intended format (e.g. if field is "Commit Message", write a git commit; if "Subject", write an email subject).
-    2. Use <USER_CONTEXT> to adapt tone and style to the speaker.
-    3. Use <TEMPORAL_CONTEXT> for date/time-aware corrections.
+    1. Use <APPLICATION_CONTEXT> and <INPUT_FIELD_CONTEXT> to infer the intended format.
+    2. Use <BROWSER_CONTENT_CONTEXT> when the user says "summarize this page" or "read this article".
+    3. Use <USER_CONTEXT> to adapt tone and style to the speaker.
+    4. Use <TEMPORAL_CONTEXT> and <CALENDAR_CONTEXT> for date/time-aware corrections. (e.g. "meeting with John" -> check calendar for "John" to get full name/time).
     4. Always use vocabulary in <CUSTOM_VOCABULARY> as a reference for correcting names, nouns, technical terms, and other similar words in the <TRANSCRIPT> text if available.
     5. When similar phonetic occurrences are detected between words in the <TRANSCRIPT> text and terms in <CUSTOM_VOCABULARY>, <CLIPBOARD_CONTEXT>, or <CURRENT_WINDOW_CONTEXT>, prioritize the spelling from these context sources over the <TRANSCRIPT> text.
     6. Reference <SELECTED_FILES_CONTEXT> when the user refers to "this file" or "selected file".

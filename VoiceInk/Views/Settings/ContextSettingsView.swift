@@ -29,6 +29,12 @@ struct ContextSettingsView: View {
                     )
                     
                     contextToggle(
+                        title: "Browser Page Content",
+                        isOn: $settings.includeBrowserContent,
+                        description: "Extracts text from the active web page for summarization."
+                    )
+                    
+                    contextToggle(
                         title: "Input Field Info",
                         isOn: $settings.includeFocusedElement,
                         description: "Shares details about the active text field (e.g. \"Subject\", \"Search\")."
@@ -51,6 +57,19 @@ struct ContextSettingsView: View {
                         isOn: $settings.includeSelectedFiles,
                         description: "Shares filenames of files selected in Finder."
                     )
+                    
+                    contextToggle(
+                        title: "Calendar Events",
+                        isOn: $settings.includeCalendar,
+                        description: "Shares upcoming events for scheduling context."
+                    )
+                    .onChange(of: settings.includeCalendar) { oldValue, newValue in
+                        if newValue {
+                            Task {
+                                _ = await CalendarService.shared.requestAccess()
+                            }
+                        }
+                    }
                     
                     contextToggle(
                         title: "Clipboard Content",

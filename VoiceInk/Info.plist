@@ -18,6 +18,8 @@
 	<string>VoiceInk Community needs to interact with your browser to detect the current website for applying website-specific configurations.</string>
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>VoiceInk Community needs screen recording access to understand context from your screen for improved transcription accuracy.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>VoiceInk Community needs calendar access to provide context about your upcoming meetings and events during transcription.</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

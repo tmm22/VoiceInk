@@ -7,7 +7,9 @@ struct AIContextSettings: Codable {
     var includeApplicationContext: Bool = true
     var includeFocusedElement: Bool = true
     var includeSelectedFiles: Bool = true
+    var includeBrowserContent: Bool = true
     var includeTemporalContext: Bool = true
+    var includeCalendar: Bool = false               // Opt-in due to permissions
     var includeConversationHistory: Bool = false    // Opt-in
     var maxConversationItems: Int = 3
     var conversationWindowMinutes: Int = 5

@@ -10,6 +10,8 @@ class AIContextBuilder {
     private let activeWindowService: ActiveWindowService
     private let focusedElementService: FocusedElementService
     private let selectedFileService: SelectedFileService
+    private let calendarService: CalendarService
+    private let browserContentService: BrowserContentService
     private let conversationHistoryService: ConversationHistoryService?
     private let tokenBudgetManager: TokenBudgetManager
     
@@ -19,6 +21,8 @@ class AIContextBuilder {
     private var capturedApplication: ApplicationContext?
     private var capturedFocusedElement: FocusedElementContext?
     private var capturedFiles: [FileContext]?
+    private var capturedCalendar: CalendarContext?
+    private var capturedBrowserContent: BrowserContentContext?
     
     init(
         screenCaptureService: ScreenCaptureService? = nil,
@@ -26,6 +30,8 @@ class AIContextBuilder {
         activeWindowService: ActiveWindowService = ActiveWindowService.shared,
         focusedElementService: FocusedElementService = FocusedElementService.shared,
         selectedFileService: SelectedFileService = SelectedFileService.shared,
+        calendarService: CalendarService = CalendarService.shared,
+        browserContentService: BrowserContentService = BrowserContentService.shared,
         modelContext: ModelContext? = nil
     ) {
         self.screenCaptureService = screenCaptureService ?? ScreenCaptureService()
@@ -33,6 +39,8 @@ class AIContextBuilder {
         self.activeWindowService = activeWindowService
         self.focusedElementService = focusedElementService
         self.selectedFileService = selectedFileService
+        self.calendarService = calendarService
+        self.browserContentService = browserContentService
         if let context = modelContext {
             self.conversationHistoryService = ConversationHistoryService(modelContext: context)
         } else {
@@ -77,6 +85,17 @@ class AIContextBuilder {
         // Capture selected files (Finder)
         let files = await selectedFileService.getSelectedFinderFiles()
         self.capturedFiles = !files.isEmpty ? files : nil
+        
+        // Capture calendar (if authorized and relevant)
+        if CalendarService.shared.isAuthorized {
+            let events = await calendarService.getUpcomingEvents()
+            self.capturedCalendar = !events.isEmpty ? CalendarContext(upcomingEvents: events) : nil
+        } else {
+            self.capturedCalendar = nil
+        }
+        
+        // Capture browser content
+        self.capturedBrowserContent = await browserContentService.captureCurrentBrowserContent()
         
         // Capture screen content (OCR)
         // Note: This is resource intensive, so we do it last in this block
@@ -124,6 +143,12 @@ class AIContextBuilder {
         
         // Selected Files (from capture)
         let selectedFilesContext = settings.includeSelectedFiles ? capturedFiles : nil
+        
+        // Calendar (from capture)
+        let calendarContext = settings.includeCalendar ? capturedCalendar : nil
+        
+        // Browser Content (from capture)
+        let browserContentContext = settings.includeBrowserContent ? capturedBrowserContent : nil
         
         // Vocabulary
         let vocabulary = customVocabularyService.getCustomVocabulary().components(separatedBy: ", ")
@@ -235,7 +260,9 @@ class AIContextBuilder {
             customVocabulary: vocabulary,
             focusedElement: focusedElementContext,
             selectedFiles: selectedFilesContext,
+            browserContent: browserContentContext,
             application: applicationContext,
+            calendar: calendarContext,
             temporal: temporalContext,
             session: sessionContext,
             powerMode: powerMode,

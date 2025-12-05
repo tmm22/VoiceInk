@@ -9,9 +9,11 @@ struct AIContext: Codable {
     let customVocabulary: [String]
     let focusedElement: FocusedElementContext?
     let selectedFiles: [FileContext]?
+    let browserContent: BrowserContentContext?
     
     // Operational contexts
     let application: ApplicationContext?
+    let calendar: CalendarContext?
     let temporal: TemporalContext
     let session: SessionContext
     let powerMode: PowerModeContext?
@@ -89,4 +91,8 @@ struct TranscriptionSummary: Codable {
     let text: String              // Truncated to ~200 chars
     let timestamp: Date
     let wasEnhanced: Bool
+}
+
+struct CalendarContext: Codable {
+    let upcomingEvents: [CalendarEventContext]
 }

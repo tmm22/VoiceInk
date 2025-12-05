@@ -30,6 +30,16 @@ class AIContextRenderer {
             sections.append(renderSelectedFilesContext(files))
         }
         
+        // Browser Content (NEW - Web reading)
+        if let browser = context.browserContent {
+            sections.append(renderBrowserContentContext(browser))
+        }
+        
+        // Calendar context (NEW)
+        if let calendar = context.calendar, !calendar.upcomingEvents.isEmpty {
+            sections.append(renderCalendarContext(calendar))
+        }
+        
         // Temporal context (NEW)
         sections.append(renderTemporalContext(context.temporal))
         
@@ -100,12 +110,34 @@ class AIContextRenderer {
         return lines.joined(separator: "\n")
     }
     
+    private func renderBrowserContentContext(_ browser: BrowserContentContext) -> String {
+        """
+        <BROWSER_CONTENT_CONTEXT>
+        Page Title: \(browser.title)
+        URL: \(browser.url)
+        Browser: \(browser.browserName)
+        
+        Content Snippet:
+        \(browser.contentSnippet)
+        </BROWSER_CONTENT_CONTEXT>
+        """
+    }
+    
     private func renderSelectedFilesContext(_ files: [FileContext]) -> String {
         var lines = ["<SELECTED_FILES_CONTEXT>"]
         for file in files {
             lines.append(file.formattedDescription)
         }
         lines.append("</SELECTED_FILES_CONTEXT>")
+        return lines.joined(separator: "\n")
+    }
+    
+    private func renderCalendarContext(_ calendar: CalendarContext) -> String {
+        var lines = ["<CALENDAR_CONTEXT>"]
+        for event in calendar.upcomingEvents {
+            lines.append(event.formattedDescription)
+        }
+        lines.append("</CALENDAR_CONTEXT>")
         return lines.joined(separator: "\n")
     }
     
