@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContextSettingsView: View {
     @Binding var settings: AIContextSettings
+    @State private var isAdvancedExpanded: Bool = false
     
     // Derived state for the current level
     private var currentLevel: ContextAwarenessLevel? {
@@ -43,6 +44,8 @@ struct ContextSettingsView: View {
                                     if level == .maximum {
                                         Task { _ = await CalendarService.shared.requestAccess() }
                                     }
+                                    // Collapse advanced settings when picking a preset
+                                    isAdvancedExpanded = false
                                 }
                             } label: {
                                 VStack(spacing: 4) {
@@ -92,69 +95,84 @@ struct ContextSettingsView: View {
                 
                 Divider()
                 
-                // Granular Toggles (Collapsible or just always shown)
-                VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
-                    contextToggle(
-                        title: "Application Info",
-                        isOn: $settings.includeApplicationContext,
-                        description: "Shares the active application name and URL (if browser)."
-                    )
-                    
-                    contextToggle(
-                        title: "Browser Page Content",
-                        isOn: $settings.includeBrowserContent,
-                        description: "Extracts text from the active web page for summarization."
-                    )
-                    
-                    contextToggle(
-                        title: "Input Field Info",
-                        isOn: $settings.includeFocusedElement,
-                        description: "Shares details about the active text field (e.g. \"Subject\", \"Search\")."
-                    )
-                    
-                    contextToggle(
-                        title: "Date & Time",
-                        isOn: $settings.includeTemporalContext,
-                        description: "Shares current date, time, and timezone."
-                    )
-                    
-                    contextToggle(
-                        title: "Selected Text",
-                        isOn: $settings.includeSelectedText,
-                        description: "Shares text you have selected in other apps."
-                    )
-                    
-                    contextToggle(
-                        title: "Selected Files",
-                        isOn: $settings.includeSelectedFiles,
-                        description: "Shares filenames of files selected in Finder."
-                    )
-                    
-                    contextToggle(
-                        title: "Calendar Events",
-                        isOn: $settings.includeCalendar,
-                        description: "Shares upcoming events for scheduling context."
-                    )
-                    .onChange(of: settings.includeCalendar) { oldValue, newValue in
-                        if newValue {
-                            Task {
-                                _ = await CalendarService.shared.requestAccess()
+                // Advanced Customization (Hidden by default)
+                DisclosureGroup(
+                    isExpanded: $isAdvancedExpanded,
+                    content: {
+                        VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
+                            Divider()
+                                .opacity(0) // Spacer
+                            
+                            contextToggle(
+                                title: "Application Info",
+                                isOn: $settings.includeApplicationContext,
+                                description: "Shares the active application name and URL (if browser)."
+                            )
+                            
+                            contextToggle(
+                                title: "Browser Page Content",
+                                isOn: $settings.includeBrowserContent,
+                                description: "Extracts text from the active web page for summarization."
+                            )
+                            
+                            contextToggle(
+                                title: "Input Field Info",
+                                isOn: $settings.includeFocusedElement,
+                                description: "Shares details about the active text field (e.g. \"Subject\", \"Search\")."
+                            )
+                            
+                            contextToggle(
+                                title: "Date & Time",
+                                isOn: $settings.includeTemporalContext,
+                                description: "Shares current date, time, and timezone."
+                            )
+                            
+                            contextToggle(
+                                title: "Selected Text",
+                                isOn: $settings.includeSelectedText,
+                                description: "Shares text you have selected in other apps."
+                            )
+                            
+                            contextToggle(
+                                title: "Selected Files",
+                                isOn: $settings.includeSelectedFiles,
+                                description: "Shares filenames of files selected in Finder."
+                            )
+                            
+                            contextToggle(
+                                title: "Calendar Events",
+                                isOn: $settings.includeCalendar,
+                                description: "Shares upcoming events for scheduling context."
+                            )
+                            .onChange(of: settings.includeCalendar) { oldValue, newValue in
+                                if newValue {
+                                    Task {
+                                        _ = await CalendarService.shared.requestAccess()
+                                    }
+                                }
                             }
+                            
+                            contextToggle(
+                                title: "Clipboard Content",
+                                isOn: $settings.includeClipboard,
+                                description: "Shares your clipboard content."
+                            )
+                            
+                            contextToggle(
+                                title: "Screen Content (OCR)",
+                                isOn: $settings.includeScreenCapture,
+                                description: "Captures text from the active window to correct terms."
+                            )
                         }
+                        .padding(.top, VoiceInkSpacing.sm)
+                    },
+                    label: {
+                        Text("Advanced Configuration")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
                     }
-                    
-                    contextToggle(
-                        title: "Clipboard Content",
-                        isOn: $settings.includeClipboard,
-                        description: "Shares your clipboard content."
-                    )
-                    
-                    contextToggle(
-                        title: "Screen Content (OCR)",
-                        isOn: $settings.includeScreenCapture,
-                        description: "Captures text from the active window to correct terms."
-                    )
-                }
+                )
             }
             .padding(VoiceInkSpacing.lg)
             .voiceInkCardBackground()
