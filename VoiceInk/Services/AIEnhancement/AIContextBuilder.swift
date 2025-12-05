@@ -14,6 +14,7 @@ class AIContextBuilder {
     private let browserContentService: BrowserContentService
     private let conversationHistoryService: ConversationHistoryService?
     private let tokenBudgetManager: TokenBudgetManager
+    private let cacheManager = ContextCacheManager.shared
     
     // State
     private var capturedClipboard: ContextSection?
@@ -76,7 +77,7 @@ class AIContextBuilder {
                 self.capturedApplication = await self.activeWindowService.captureApplicationContext()
             }
             
-            // 3. Focused Element
+            // 3. Focused Element (Fast, usually no cache needed)
             group.addTask { @MainActor in
                 if let info = await self.focusedElementService.getFocusedElementInfo(timeout: 1.0) {
                     if !info.isEmpty {
@@ -100,30 +101,94 @@ class AIContextBuilder {
                 }
             }
             
-            // 4. Selected Files
+            // 4. Selected Files (Fast)
             group.addTask { @MainActor in
                 let files = await self.selectedFileService.getSelectedFinderFiles(timeout: 2.0)
                 self.capturedFiles = !files.isEmpty ? files : nil
             }
             
-            // 5. Calendar
+            // 5. Calendar (Cacheable)
             group.addTask { @MainActor in
+                // Check Cache
+                if let cached = self.cacheManager.getCalendarContext() {
+                    self.capturedCalendar = cached
+                    return
+                }
+                
+                // Fetch
                 if CalendarService.shared.isAuthorized {
                     let events = await self.calendarService.getUpcomingEvents(timeout: 2.0)
-                    self.capturedCalendar = !events.isEmpty ? CalendarContext(upcomingEvents: events) : nil
+                    if !events.isEmpty {
+                        let context = CalendarContext(upcomingEvents: events)
+                        self.capturedCalendar = context
+                        self.cacheManager.cacheCalendarContext(context)
+                    } else {
+                        self.capturedCalendar = nil
+                    }
                 } else {
                     self.capturedCalendar = nil
                 }
             }
             
-            // 6. Browser Content
+            // 6. Browser Content (Cacheable, Heavy)
             group.addTask { @MainActor in
-                self.capturedBrowserContent = await self.browserContentService.captureCurrentBrowserContent(timeout: 2.0)
+                // We need the URL to validate the cache accurately.
+                // The URL is captured in 'capturedApplication' in step 2.
+                // However, these tasks run concurrently, so we can't rely on self.capturedApplication being ready.
+                // We will do a lightweight check here.
+                
+                let currentApp = NSWorkspace.shared.frontmostApplication
+                let bundleId = currentApp?.bundleIdentifier ?? ""
+                
+                // If not a browser, skip
+                if !["com.apple.Safari", "com.google.Chrome", "com.brave.Browser", "company.thebrowser.Browser"].contains(bundleId) {
+                     self.capturedBrowserContent = nil
+                     return
+                }
+                
+                // For "Best in Class" accuracy, we MUST validate the URL.
+                // If we can't get the URL cheaply, we should arguably skip cache or force fetch.
+                // Fortunately, ApplicationContext capture (step 2) fetches the URL.
+                // We can re-fetch just the URL here (it's relatively cheap compared to content extraction).
+                
+                var currentURL: String? = nil
+                if let browserType = BrowserType.allCases.first(where: { $0.bundleIdentifier == bundleId }) {
+                    currentURL = try? await BrowserURLService.shared.getCurrentURL(from: browserType)
+                }
+                
+                // Check Cache with URL validation
+                if let cached = self.cacheManager.getBrowserContext(validatingWith: currentURL) {
+                    self.capturedBrowserContent = cached
+                    return
+                }
+                
+                // Fetch Fresh
+                if let fresh = await self.browserContentService.captureCurrentBrowserContent(timeout: 2.0) {
+                    self.capturedBrowserContent = fresh
+                    self.cacheManager.cacheBrowserContext(fresh)
+                } else {
+                    self.capturedBrowserContent = nil
+                }
             }
             
-            // 7. Screen Capture (Heaviest, keep last in group logic if limits existed, but here parallel is fine)
+            // 7. Screen Capture (Cacheable, Very Heavy)
             group.addTask { @MainActor in
-                self.capturedScreen = await self.screenCaptureService.captureStructured()
+                // Validate against current window title/owner to ensure we don't serve stale OCR
+                let currentWindowId = await self.screenCaptureService.getWindowContextIdentifier()
+                
+                // Check Cache
+                if let cached = self.cacheManager.getScreenContext(validatingWith: currentWindowId) {
+                    self.capturedScreen = cached
+                    return
+                }
+                
+                // Fetch Fresh
+                if let fresh = await self.screenCaptureService.captureStructured() {
+                    self.capturedScreen = fresh
+                    self.cacheManager.cacheScreenContext(fresh)
+                } else {
+                    self.capturedScreen = nil
+                }
             }
         }
     }

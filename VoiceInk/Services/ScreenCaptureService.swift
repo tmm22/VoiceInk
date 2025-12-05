@@ -99,6 +99,11 @@ class ScreenCaptureService: ObservableObject {
         }
     }
     
+    func getWindowContextIdentifier() async -> String? {
+        guard let windowInfo = getActiveWindowInfo() else { return nil }
+        return "\(windowInfo.ownerName):\(windowInfo.title)"
+    }
+    
     func captureStructured() async -> ScreenCaptureContext? {
         guard !isCapturing else { return nil }
         

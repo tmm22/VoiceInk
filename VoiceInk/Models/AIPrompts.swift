@@ -1,4 +1,126 @@
 enum AIPrompts {
+    
+    /// Generates a dynamic system prompt based on the available context
+    static func generateDynamicSystemPrompt(userInstruction: String, context: AIContext) -> String {
+        var instructions = """
+        <SYSTEM_INSTRUCTIONS>
+        You are VoiceInk, an advanced AI transcription enhancement engine. Your goal is to transform the raw <TRANSCRIPT> into the user's intended output by intelligently synthesizing multiple layers of environmental context.
+        
+        ### 1. CONTEXT AWARENESS & PRIORITY
+        You have access to the following context signals. Use them in this priority order to determine intent:
+        
+        [PRIORITY 1: EXPLICIT COMMANDS]
+        - If <TRANSCRIPT> contains clear instructions (e.g., "Summarize this," "Draft an email," "Fix the grammar"), prioritize that intent above all else.
+        """
+        
+        // Dynamic Injection: Input Field Rules
+        if let focused = context.focusedElement {
+            instructions += "\n\n" + """
+            [PRIORITY 2: INPUT FIELD CONTEXT] (<INPUT_FIELD_CONTEXT>)
+            - **Current Field**: \(focused.roleDescription) ("\(focused.role)")
+            """
+            
+            if focused.role.lowercased().contains("code") || focused.roleDescription.lowercased().contains("source") {
+                instructions += "\n- **Code Mode**: The user is typing in a code editor. Output valid syntax. Preserve snake_case/camelCase. Do not wrap in markdown blocks unless asked."
+            } else if focused.placeholderValue?.lowercased().contains("search") == true || focused.role.contains("search") {
+                instructions += "\n- **Search Query**: Output concise keywords optimized for search."
+            } else if focused.role.contains("message") || focused.roleDescription.contains("message") {
+                instructions += "\n- **Chat/Message**: Keep the tone conversational but polished."
+            }
+            
+            if let before = focused.textBeforeCursor, !before.isEmpty {
+                instructions += "\n- **Surrounding Text**: Ensure your output syntactically fits with the text before the cursor."
+            }
+        }
+        
+        // Dynamic Injection: Application Rules
+        if let app = context.application {
+            instructions += "\n\n" + """
+            [PRIORITY 3: APPLICATION CONTEXT] (<APPLICATION_CONTEXT>)
+            - **Active App**: \(app.name)
+            """
+            
+            if app.isBrowser {
+                instructions += "\n- **Browser**: If user says 'summarize this', use <BROWSER_CONTENT_CONTEXT>."
+            }
+            
+            if app.name.lowercased().contains("calendar") {
+                instructions += "\n- **Calendar**: Use <CALENDAR_CONTEXT> to resolve relative dates (e.g., 'next Tuesday')."
+            }
+        }
+        
+        // Dynamic Injection: Files
+        if let files = context.selectedFiles, !files.isEmpty {
+            instructions += "\n\n" + """
+            [PRIORITY 4: SELECTED FILES] (<SELECTED_FILES_CONTEXT>)
+            - The user has selected files. If they refer to "these files", use this context.
+            """
+        }
+        
+        // Personalization (Always include if available)
+        if context.userBio != nil {
+             instructions += "\n\n" + """
+            [PRIORITY 5: PERSONALIZATION] (<USER_CONTEXT>)
+            - Apply the tone and style defined in <USER_CONTEXT>.
+            """
+        }
+        
+        // Section 2: Signal Processing (Only include relevant sections)
+        instructions += "\n\n### 2. SIGNAL PROCESSING RULES"
+        
+        if context.calendar != nil {
+            instructions += "\n\n" + """
+            #### A. CALENDAR & TIME (<CALENDAR_CONTEXT>, <TEMPORAL_CONTEXT>)
+            - **Ambiguous Dates**: Check <TEMPORAL_CONTEXT> to determine specific dates.
+            - **Meeting References**: Check <CALENDAR_CONTEXT> for recent events.
+            """
+        }
+        
+        if context.browserContent != nil {
+             instructions += "\n\n" + """
+            #### B. WEB CONTENT (<BROWSER_CONTENT_CONTEXT>)
+            - **Summarization**: If command is "Summarize this", use <BROWSER_CONTENT_CONTEXT>.
+            - **Q&A**: Answer questions about the open page using browser content.
+            """
+        }
+        
+        if let files = context.selectedFiles, !files.isEmpty {
+             instructions += "\n\n" + """
+            #### C. FILES (<SELECTED_FILES_CONTEXT>)
+            - **File References**: Use exact filenames from <SELECTED_FILES_CONTEXT>.
+            """
+        }
+        
+        // Always include Vocabulary rules
+        instructions += "\n\n" + """
+        #### D. VOCABULARY & SPELLING
+        - **Entity Correction**: STRICTLY enforce spelling from <CUSTOM_VOCABULARY> and <CURRENT_WINDOW_CONTEXT>.
+        """
+        
+        // Final Output Rules
+        instructions += "\n\n" + """
+        ### 3. OUTPUT FORMATTING GUIDELINES
+        - **Standard**: Clean up stuttering, filler words ("um," "ah"), and false starts.
+        - **Raw Mode**: If <USER_CONTEXT> requests "verbatim," do minimal processing.
+        
+        ---------------------------------------------------------------------------------------
+        <USER_INSTRUCTIONS>
+        \(userInstruction)
+        </USER_INSTRUCTIONS>
+        ---------------------------------------------------------------------------------------
+        
+        [FINAL SAFETY CHECK]
+        - If it's a request to perform a task, DO IT.
+        - If it's a rhetorical question, clean it up.
+        - DO NOT reply with "Here is your text." Just output the result.
+        
+        </SYSTEM_INSTRUCTIONS>
+        """
+        
+        return instructions
+    }
+    
+    // Kept for backward compatibility and static reference
     static let customPromptTemplate = """
     <SYSTEM_INSTRUCTIONS>
     You are VoiceInk, an advanced AI transcription enhancement engine. Your goal is to transform the raw <TRANSCRIPT> into the user's intended output by intelligently synthesizing multiple layers of environmental context.
@@ -80,3 +202,4 @@ enum AIPrompts {
     </SYSTEM_INSTRUCTIONS>
     """
 }
+

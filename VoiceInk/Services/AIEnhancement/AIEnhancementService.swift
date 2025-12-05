@@ -205,23 +205,29 @@ class AIEnhancementService: ObservableObject {
         
         let contextXML = contextRenderer.render(context)
         
+        // Use Dynamic Prompt Generation for Intent Awareness
         if let activePrompt = activePrompt {
             if activePrompt.id == PredefinedPrompts.assistantPromptId {
+                // Assistant mode is special, keep it as is or migrate later
                 return activePrompt.promptText + "\n\n" + contextXML
             } else {
-                return activePrompt.finalPromptText + "\n\n" + contextXML
+                // Use dynamic generation if system instructions are enabled
+                if activePrompt.useSystemInstructions {
+                    return AIPrompts.generateDynamicSystemPrompt(
+                        userInstruction: activePrompt.promptText,
+                        context: context
+                    ) + "\n\n" + contextXML
+                } else {
+                    return activePrompt.promptText + "\n\n" + contextXML
+                }
             }
         } else {
-            let defaultPrompt = allPrompts.first(where: { $0.id == PredefinedPrompts.defaultPromptId }) 
-                ?? allPrompts.first 
-                ?? CustomPrompt(
-                    title: "Enhance",
-                    promptText: "Enhance the following text.",
-                    icon: "wand.and.stars",
-                    description: "Default enhancement prompt",
-                    isPredefined: true
-                )
-            return defaultPrompt.finalPromptText + "\n\n" + contextXML
+            // Default prompt logic
+            let defaultPromptText = "Enhance the following text."
+            return AIPrompts.generateDynamicSystemPrompt(
+                userInstruction: defaultPromptText,
+                context: context
+            ) + "\n\n" + contextXML
         }
     }
 

@@ -1,11 +1,10 @@
 import Foundation
 
 struct TokenBudget {
-    let provider: String  // Using String to avoid circular dependency if AIProvider isn't available
+    let provider: String
     let model: String
     
     var maxInputTokens: Int {
-        // Provider-specific limits (approximations)
         let providerLower = provider.lowercased()
         let modelLower = model.lowercased()
         
@@ -17,15 +16,14 @@ struct TokenBudget {
         } else if providerLower.contains("anthropic") {
             return 200_000
         } else if providerLower.contains("ollama") {
-            return 8_000  // Conservative default for local models
+            return 8_000
         } else {
             return 8_000
         }
     }
     
-    // Reserve tokens for system prompt and response
     var availableForContext: Int {
-        return max(1000, maxInputTokens - 4000)  // Ensure at least 1000 tokens, reserve 4k
+        return max(1000, maxInputTokens - 4000)
     }
 }
 
@@ -41,53 +39,30 @@ class TokenBudgetManager {
         priorities: [ContextType: Int],
         budget: Int
     ) -> [ContextSection] {
-        var currentTokens = sections.reduce(0) { $0 + estimateTokens($1.content) }
-        
-        if currentTokens <= budget {
-            return sections
+        // Sort sections: Priority 1 (High) -> Priority 5 (Low)
+        let sortedSections = sections.sorted { section1, section2 in
+            let p1 = getPriority(section1, map: priorities)
+            let p2 = getPriority(section2, map: priorities)
+            return p1 < p2
         }
-        
-        // Sort sections by priority (higher int value = lower priority, so we truncate those first)
-        // Priorities map: lower Int = higher priority.
-        // We want to truncate lower priority items first (higher Int value).
-        
-        var mutableSections = sections
-        
-        // Helper to get priority
-        func getPriority(_ section: ContextSection) -> Int {
-            // Map section source string to ContextType to get priority
-            // This requires the source string to match ContextType raw values or similar
-            // For now, default to medium priority if unknown
-            if let type = ContextType(rawValue: section.source) {
-                return priorities[type] ?? 100
-            }
-            return 100
-        }
-        
-        // Sort by priority descending (highest number = lowest priority = first to truncate)
-        mutableSections.sort { getPriority($0) > getPriority($1) }
         
         var finalSections: [ContextSection] = []
         var budgetRemaining = budget
         
-        // Iterate through sorted sections (lowest priority first)
-        // Actually, wait. We want to KEEP high priority items.
-        // If we process from High Priority to Low Priority, we fill the budget with High Priority stuff first.
-        
-        mutableSections.sort { getPriority($0) < getPriority($1) } // Ascending: 1, 2, 3... (High to Low priority)
-        
-        for section in mutableSections {
-            let tokens = estimateTokens(section.content)
-            if budgetRemaining >= tokens {
+        for section in sortedSections {
+            let estimatedCost = estimateTokens(section.content)
+            
+            if budgetRemaining >= estimatedCost {
+                // Fits entirely
                 finalSections.append(section)
-                budgetRemaining -= tokens
-            } else if budgetRemaining > 100 {
-                // Truncate if we have some budget left
+                budgetRemaining -= estimatedCost
+            } else if budgetRemaining > 50 { // Only include if we can fit at least ~200 chars
+                // Needs truncation
                 let allowedChars = budgetRemaining * 4
-                let truncatedContent = String(section.content.prefix(allowedChars)) + "\n...[TRUNCATED]"
+                let truncatedContent = smartTruncate(section.content, maxLength: allowedChars)
                 
                 finalSections.append(ContextSection(
-                    content: truncatedContent,
+                    content: truncatedContent + "\n...[TRUNCATED]",
                     source: section.source,
                     capturedAt: section.capturedAt,
                     characterCount: truncatedContent.count,
@@ -95,11 +70,49 @@ class TokenBudgetManager {
                 ))
                 budgetRemaining = 0
             } else {
-                // Skip entirely if not enough budget
+                // Skip entirely
                 continue 
             }
         }
         
         return finalSections
+    }
+    
+    private func getPriority(_ section: ContextSection, map: [ContextType: Int]) -> Int {
+        if let type = ContextType(rawValue: section.source) {
+            return map[type] ?? 100
+        }
+        return 100
+    }
+    
+    /// Truncates text at the nearest semantic boundary (paragraph, sentence, word)
+    private func smartTruncate(_ text: String, maxLength: Int) -> String {
+        if text.count <= maxLength { return text }
+        
+        let targetEndIndex = text.index(text.startIndex, offsetBy: maxLength)
+        let slice = text[..<targetEndIndex]
+        
+        // 1. Try cutting at last paragraph (double newline)
+        if let lastParagraph = slice.range(of: "\n\n", options: .backwards) {
+            return String(text[..<lastParagraph.lowerBound])
+        }
+        
+        // 2. Try cutting at last newline
+        if let lastNewline = slice.range(of: "\n", options: .backwards) {
+            return String(text[..<lastNewline.lowerBound])
+        }
+        
+        // 3. Try cutting at last sentence (. )
+        if let lastSentence = slice.range(of: ". ", options: .backwards) {
+            return String(text[..<lastSentence.upperBound])
+        }
+        
+        // 4. Fallback: Cut at last space to avoid splitting words
+        if let lastSpace = slice.range(of: " ", options: .backwards) {
+            return String(text[..<lastSpace.lowerBound])
+        }
+        
+        // 5. Hard limit
+        return String(slice)
     }
 }
