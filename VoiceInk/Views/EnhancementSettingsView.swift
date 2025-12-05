@@ -54,25 +54,10 @@ struct EnhancementSettingsView: View {
                                 .scaleEffect(1.2)
                         }
                         
-                        HStack(spacing: 20) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Toggle("Clipboard Context", isOn: $enhancementService.useClipboardContext)
-                                    .toggleStyle(.switch)
-                                    .disabled(!enhancementService.isEnhancementEnabled)
-                                Text("Use text from clipboard to understand the context")
-                                    .voiceInkCaptionStyle()
-                                    .foregroundColor(enhancementService.isEnhancementEnabled ? .secondary : .secondary.opacity(0.5))
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Toggle("Context Awareness", isOn: $enhancementService.useScreenCaptureContext)
-                                    .toggleStyle(.switch)
-                                    .disabled(!enhancementService.isEnhancementEnabled)
-                                Text("Learn what is on the screen to understand the context")
-                                    .voiceInkCaptionStyle()
-                                    .foregroundColor(enhancementService.isEnhancementEnabled ? .secondary : .secondary.opacity(0.5))
-                            }
-                        }
+                        // Context Settings
+                        ContextSettingsView(settings: $enhancementService.contextSettings)
+                            .disabled(!enhancementService.isEnhancementEnabled)
+                            .opacity(enhancementService.isEnhancementEnabled ? 1 : 0.6)
                     }
                     .padding(VoiceInkSpacing.lg)
                     .background(

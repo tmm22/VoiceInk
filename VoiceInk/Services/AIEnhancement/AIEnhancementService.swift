@@ -23,17 +23,23 @@ class AIEnhancementService: ObservableObject {
         }
     }
 
-    @Published var useClipboardContext: Bool {
+    @Published var contextSettings: AIContextSettings {
         didSet {
-            UserDefaults.standard.set(useClipboardContext, forKey: "useClipboardContext")
+            if let encoded = try? JSONEncoder().encode(contextSettings) {
+                UserDefaults.standard.set(encoded, forKey: "aiContextSettings")
+            }
         }
     }
+    
+    // Backward compatibility properties (mapped to contextSettings)
+    var useClipboardContext: Bool {
+        get { contextSettings.includeClipboard }
+        set { contextSettings.includeClipboard = newValue }
+    }
 
-    @Published var useScreenCaptureContext: Bool {
-        didSet {
-            UserDefaults.standard.set(useScreenCaptureContext, forKey: "useScreenCaptureContext")
-            NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
-        }
+    var useScreenCaptureContext: Bool {
+        get { contextSettings.includeScreenCapture }
+        set { contextSettings.includeScreenCapture = newValue }
     }
 
     @Published var customPrompts: [CustomPrompt] {
@@ -57,6 +63,7 @@ class AIEnhancementService: ObservableObject {
 
     @Published var lastSystemMessageSent: String?
     @Published var lastUserMessageSent: String?
+    @Published var lastCapturedContextJSON: String?
     
     @Published var requestTimeout: TimeInterval {
         didSet {
@@ -79,24 +86,36 @@ class AIEnhancementService: ObservableObject {
     }
 
     private let aiService: AIService
-    private let screenCaptureService: ScreenCaptureService
     private let customVocabularyService: CustomVocabularyService
     private let rateLimitInterval: TimeInterval = 1.0
     private var lastRequestTime: Date?
     private let modelContext: ModelContext
     private let session = SecureURLSession.makeEphemeral()
     
-    @Published var lastCapturedClipboard: String?
+    // New Context Components
+    let contextBuilder: AIContextBuilder
+    let contextRenderer: AIContextRenderer
 
     init(aiService: AIService? = nil, modelContext: ModelContext) {
         self.aiService = aiService ?? AIService()
         self.modelContext = modelContext
-        self.screenCaptureService = ScreenCaptureService()
         self.customVocabularyService = CustomVocabularyService.shared
+        self.contextBuilder = AIContextBuilder(modelContext: modelContext)
+        self.contextRenderer = AIContextRenderer()
 
         self.isEnhancementEnabled = UserDefaults.standard.bool(forKey: "isAIEnhancementEnabled")
-        self.useClipboardContext = UserDefaults.standard.bool(forKey: "useClipboardContext")
-        self.useScreenCaptureContext = UserDefaults.standard.bool(forKey: "useScreenCaptureContext")
+        
+        // Load Context Settings
+        if let data = UserDefaults.standard.data(forKey: "aiContextSettings"),
+           let settings = try? JSONDecoder().decode(AIContextSettings.self, from: data) {
+            self.contextSettings = settings
+        } else {
+            // Migration from legacy keys
+            var settings = AIContextSettings()
+            settings.includeClipboard = UserDefaults.standard.bool(forKey: "useClipboardContext")
+            settings.includeScreenCapture = UserDefaults.standard.bool(forKey: "useScreenCaptureContext")
+            self.contextSettings = settings
+        }
         
         // Load timeout setting, defaulting to 30 seconds
         let savedTimeout = UserDefaults.standard.double(forKey: "aiEnhancementTimeout")
@@ -132,9 +151,6 @@ class AIEnhancementService: ObservableObject {
     }
 
     @objc private func handleAPIKeyChange() {
-        // No need for DispatchQueue.main - this class is already @MainActor
-        // NotificationCenter callbacks are delivered on the posting thread,
-        // but @MainActor ensures we're on the main thread
         Task { @MainActor [weak self] in
             guard let self = self else { return }
             self.objectWillChange.send()
@@ -162,51 +178,38 @@ class AIEnhancementService: ObservableObject {
         lastRequestTime = Date()
     }
 
-    private func getSystemMessage(for mode: EnhancementPrompt) async -> String {
-        let selectedTextContext: String
-        if AXIsProcessTrusted() {
-            if let selectedText = await SelectedTextService.fetchSelectedText(), !selectedText.isEmpty {
-                selectedTextContext = "\n\n<CURRENTLY_SELECTED_TEXT>\n\(selectedText)\n</CURRENTLY_SELECTED_TEXT>"
-            } else {
-                selectedTextContext = ""
-            }
-        } else {
-            selectedTextContext = ""
+    private func getSystemMessage(
+        for mode: EnhancementPrompt,
+        transcriptionModel: String,
+        recordingDuration: TimeInterval,
+        language: String
+    ) async -> String {
+        
+        let promptName = activePrompt?.title
+        
+        let context = await contextBuilder.buildContext(
+            settings: contextSettings,
+            recordingDuration: recordingDuration,
+            transcriptionModel: transcriptionModel,
+            language: language,
+            provider: aiService.selectedProvider.rawValue,
+            model: aiService.currentModel,
+            promptName: promptName
+        )
+        
+        // Serialize context for debugging/storage
+        if let jsonData = try? JSONEncoder().encode(context),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            self.lastCapturedContextJSON = jsonString
         }
-
-        let clipboardContext = if useClipboardContext,
-                              let clipboardText = lastCapturedClipboard,
-                              !clipboardText.isEmpty {
-            "\n\n<CLIPBOARD_CONTEXT>\n\(clipboardText)\n</CLIPBOARD_CONTEXT>"
-        } else {
-            ""
-        }
-
-        let screenCaptureContext = if useScreenCaptureContext,
-                                   let capturedText = screenCaptureService.lastCapturedText,
-                                   !capturedText.isEmpty {
-            "\n\n<CURRENT_WINDOW_CONTEXT>\n\(capturedText)\n</CURRENT_WINDOW_CONTEXT>"
-        } else {
-            ""
-        }
-
-        let customVocabulary = customVocabularyService.getCustomVocabulary()
-
-        let allContextSections = selectedTextContext + clipboardContext + screenCaptureContext
-
-        let customVocabularySection = if !customVocabulary.isEmpty {
-            "\n\n<CUSTOM_VOCABULARY>\(customVocabulary)\n</CUSTOM_VOCABULARY>"
-        } else {
-            ""
-        }
-
-        let finalContextSection = allContextSections + customVocabularySection
-
+        
+        let contextXML = contextRenderer.render(context)
+        
         if let activePrompt = activePrompt {
             if activePrompt.id == PredefinedPrompts.assistantPromptId {
-                return activePrompt.promptText + finalContextSection
+                return activePrompt.promptText + "\n\n" + contextXML
             } else {
-                return activePrompt.finalPromptText + finalContextSection
+                return activePrompt.finalPromptText + "\n\n" + contextXML
             }
         } else {
             let defaultPrompt = allPrompts.first(where: { $0.id == PredefinedPrompts.defaultPromptId }) 
@@ -218,31 +221,39 @@ class AIEnhancementService: ObservableObject {
                     description: "Default enhancement prompt",
                     isPredefined: true
                 )
-            return defaultPrompt.finalPromptText + finalContextSection
+            return defaultPrompt.finalPromptText + "\n\n" + contextXML
         }
     }
 
-    private func makeRequest(text: String, mode: EnhancementPrompt) async throws -> String {
+    private func makeRequest(
+        text: String,
+        mode: EnhancementPrompt,
+        transcriptionModel: String,
+        recordingDuration: TimeInterval,
+        language: String
+    ) async throws -> String {
         guard isConfigured else {
             throw EnhancementError.notConfigured
         }
 
         guard !text.isEmpty else {
-            return "" // Silently return empty string instead of throwing error
+            return ""
         }
 
         let formattedText = "\n<TRANSCRIPT>\n\(text)\n</TRANSCRIPT>"
-        let systemMessage = await getSystemMessage(for: mode)
         
-        // Persist the exact payload being sent (also used for UI)
-        // No need for MainActor.run - this class is already @MainActor
+        let systemMessage = await getSystemMessage(
+            for: mode,
+            transcriptionModel: transcriptionModel,
+            recordingDuration: recordingDuration,
+            language: language
+        )
+        
         self.lastSystemMessageSent = systemMessage
         self.lastUserMessageSent = formattedText
 
-        // Log the message being sent to AI enhancement
         logger.notice("AI Enhancement - System Message: \(systemMessage, privacy: .public)")
-        logger.notice("AI Enhancement - User Message: \(formattedText, privacy: .public)")
-
+        
         if aiService.selectedProvider == .ollama {
             do {
                 let result = try await aiService.enhanceWithOllama(text: formattedText, systemPrompt: systemMessage, timeout: requestTimeout)
@@ -282,7 +293,6 @@ class AIEnhancementService: ObservableObject {
             do {
                 request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
             } catch {
-                logger.error("Failed to serialize Anthropic request body: \(error.localizedDescription)")
                 throw EnhancementError.customError("Failed to prepare request: \(error.localizedDescription)")
             }
 
@@ -342,7 +352,6 @@ class AIEnhancementService: ObservableObject {
                 "stream": false
             ]
 
-            // Add reasoning_effort parameter if the model supports it
             if let reasoningEffort = ReasoningConfig.getReasoningParameter(for: aiService.currentModel) {
                 requestBody["reasoning_effort"] = reasoningEffort
             }
@@ -350,7 +359,6 @@ class AIEnhancementService: ObservableObject {
             do {
                 request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
             } catch {
-                logger.error("Failed to serialize OpenAI-compatible request body: \(error.localizedDescription)")
                 throw EnhancementError.customError("Failed to prepare request: \(error.localizedDescription)")
             }
 
@@ -380,7 +388,6 @@ class AIEnhancementService: ObservableObject {
                     let errorString = String(data: data, encoding: .utf8) ?? "Could not decode error response."
                     throw EnhancementError.customError("HTTP \(httpResponse.statusCode): \(errorString)")
                 }
-
             } catch let error as EnhancementError {
                 throw error
             } catch let error as URLError {
@@ -391,13 +398,27 @@ class AIEnhancementService: ObservableObject {
         }
     }
 
-    private func makeRequestWithRetry(text: String, mode: EnhancementPrompt, maxRetries: Int = 3, initialDelay: TimeInterval = 1.0) async throws -> String {
+    private func makeRequestWithRetry(
+        text: String,
+        mode: EnhancementPrompt,
+        transcriptionModel: String,
+        recordingDuration: TimeInterval,
+        language: String,
+        maxRetries: Int = 3,
+        initialDelay: TimeInterval = 1.0
+    ) async throws -> String {
         var retries = 0
         var currentDelay = initialDelay
 
         while retries < maxRetries {
             do {
-                return try await makeRequest(text: text, mode: mode)
+                return try await makeRequest(
+                    text: text,
+                    mode: mode,
+                    transcriptionModel: transcriptionModel,
+                    recordingDuration: recordingDuration,
+                    language: language
+                )
             } catch let error as EnhancementError {
                 switch error {
                 case .networkError, .serverError, .rateLimitExceeded:
@@ -405,25 +426,22 @@ class AIEnhancementService: ObservableObject {
                     if retries < maxRetries {
                         logger.warning("Request failed, retrying in \(currentDelay)s... (Attempt \(retries)/\(maxRetries))")
                         try await Task.sleep(nanoseconds: UInt64(currentDelay * 1_000_000_000))
-                        currentDelay *= 2 // Exponential backoff
+                        currentDelay *= 2
                     } else {
-                        logger.error("Request failed after \(maxRetries) retries.")
                         throw error
                     }
                 default:
                     throw error
                 }
             } catch {
-                // For other errors, check if it's a network-related URLError
                 let nsError = error as NSError
                 if nsError.domain == NSURLErrorDomain && [NSURLErrorNotConnectedToInternet, NSURLErrorTimedOut, NSURLErrorNetworkConnectionLost].contains(nsError.code) {
                     retries += 1
                     if retries < maxRetries {
                         logger.warning("Request failed with network error, retrying in \(currentDelay)s... (Attempt \(retries)/\(maxRetries))")
                         try await Task.sleep(nanoseconds: UInt64(currentDelay * 1_000_000_000))
-                        currentDelay *= 2 // Exponential backoff
+                        currentDelay *= 2
                     } else {
-                        logger.error("Request failed after \(maxRetries) retries with network error.")
                         throw EnhancementError.networkError
                     }
                 } else {
@@ -431,18 +449,27 @@ class AIEnhancementService: ObservableObject {
                 }
             }
         }
-
-        // This part should ideally not be reached, but as a fallback:
         throw EnhancementError.enhancementFailed
     }
 
-    func enhance(_ text: String) async throws -> (String, TimeInterval, String?) {
+    func enhance(
+        _ text: String,
+        transcriptionModel: String = "Unknown",
+        recordingDuration: TimeInterval = 0,
+        language: String = "en"
+    ) async throws -> (String, TimeInterval, String?) {
         let startTime = Date()
         let enhancementPrompt: EnhancementPrompt = .transcriptionEnhancement
         let promptName = activePrompt?.title
 
         do {
-            let result = try await makeRequestWithRetry(text: text, mode: enhancementPrompt)
+            let result = try await makeRequestWithRetry(
+                text: text,
+                mode: enhancementPrompt,
+                transcriptionModel: transcriptionModel,
+                recordingDuration: recordingDuration,
+                language: language
+            )
             let endTime = Date()
             let duration = endTime.timeIntervalSince(startTime)
             return (result, duration, promptName)
@@ -451,24 +478,26 @@ class AIEnhancementService: ObservableObject {
         }
     }
 
+    func captureContext() async {
+        await contextBuilder.captureImmediateContext()
+        self.objectWillChange.send()
+    }
+    
+    // Deprecated methods kept for compatibility but redirected
     func captureScreenContext() async {
-        guard CGPreflightScreenCaptureAccess() else {
-            return
-        }
-
-        if await screenCaptureService.captureAndExtractText() != nil {
-            // No need for MainActor.run - this class is already @MainActor
-            self.objectWillChange.send()
-        }
+        await contextBuilder.captureImmediateContext()
+        self.objectWillChange.send()
     }
 
     func captureClipboardContext() {
-        lastCapturedClipboard = NSPasteboard.general.string(forType: .string)
+        Task {
+            await contextBuilder.captureImmediateContext()
+        }
     }
     
     func clearCapturedContexts() {
-        lastCapturedClipboard = nil
-        screenCaptureService.lastCapturedText = nil
+        // Implementation for clearing would go here if ContextBuilder supports it
+        // For now, it's state is overwritten on next capture
     }
 
     func addPrompt(title: String, promptText: String, icon: PromptIcon = "doc.text.fill", description: String? = nil, triggerWords: [String] = [], useSystemInstructions: Bool = true) {

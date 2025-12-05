@@ -63,4 +63,27 @@ class ActiveWindowService: ObservableObject {
             // If no config found, keep the current active configuration (don't clear it)
         }
     }
+    
+    func captureApplicationContext() async -> ApplicationContext? {
+        guard let frontmostApp = NSWorkspace.shared.frontmostApplication,
+              let bundleIdentifier = frontmostApp.bundleIdentifier else {
+            return nil
+        }
+        
+        let isBrowser = BrowserType.allCases.contains { $0.bundleIdentifier == bundleIdentifier }
+        var currentURL: String? = nil
+        
+        if isBrowser, let browserType = BrowserType.allCases.first(where: { $0.bundleIdentifier == bundleIdentifier }) {
+            // Best effort to capture URL, don't fail context if it fails
+            currentURL = try? await browserURLService.getCurrentURL(from: browserType)
+        }
+        
+        return ApplicationContext(
+            name: frontmostApp.localizedName ?? "Unknown",
+            bundleIdentifier: bundleIdentifier,
+            isBrowser: isBrowser,
+            currentURL: currentURL,
+            pageTitle: nil
+        )
+    }
 } 

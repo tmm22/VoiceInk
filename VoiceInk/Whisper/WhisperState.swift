@@ -372,7 +372,13 @@ class WhisperState: NSObject, ObservableObject {
                 let textForAI = promptDetectionResult?.processedText ?? text
                 
                 do {
-                    let (enhancedText, enhancementDuration, promptName) = try await enhancementService.enhance(textForAI)
+                    let selectedLanguage = UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "en"
+                    let (enhancedText, enhancementDuration, promptName) = try await enhancementService.enhance(
+                        textForAI,
+                        transcriptionModel: model.displayName,
+                        recordingDuration: transcription.duration,
+                        language: selectedLanguage
+                    )
                     logger.notice("📝 AI enhancement: \(enhancedText, privacy: .public)")
                     transcription.enhancedText = enhancedText
                     transcription.aiEnhancementModelName = enhancementService.getAIService()?.currentModel
@@ -380,6 +386,7 @@ class WhisperState: NSObject, ObservableObject {
                     transcription.enhancementDuration = enhancementDuration
                     transcription.aiRequestSystemMessage = enhancementService.lastSystemMessageSent
                     transcription.aiRequestUserMessage = enhancementService.lastUserMessageSent
+                    transcription.aiContextJSON = enhancementService.lastCapturedContextJSON
                     finalPastedText = enhancedText
                 } catch {
                     transcription.enhancedText = "Enhancement failed: \(error)"

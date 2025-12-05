@@ -99,6 +99,31 @@ class ScreenCaptureService: ObservableObject {
         }
     }
     
+    func captureStructured() async -> ScreenCaptureContext? {
+        guard !isCapturing else { return nil }
+        
+        isCapturing = true
+        defer { 
+            // No need for DispatchQueue.main - this class is already @MainActor
+            self.isCapturing = false
+        }
+        
+        guard let windowInfo = getActiveWindowInfo() else { return nil }
+        
+        var ocrText: String? = nil
+        if let image = await captureActiveWindow() {
+            ocrText = await extractText(from: image)
+        }
+        
+        return ScreenCaptureContext(
+            windowTitle: windowInfo.title,
+            applicationName: windowInfo.ownerName,
+            ocrText: ocrText,
+            capturedAt: Date(),
+            wasTruncated: false
+        )
+    }
+    
     func captureAndExtractText() async -> String? {
         guard !isCapturing else { 
             return nil 

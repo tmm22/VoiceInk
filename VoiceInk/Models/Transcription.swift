@@ -22,6 +22,7 @@ final class Transcription {
     var enhancementDuration: TimeInterval?
     var aiRequestSystemMessage: String?
     var aiRequestUserMessage: String?
+    var aiContextJSON: String?
     var powerModeName: String?
     var powerModeEmoji: String?
     var transcriptionStatus: String?
@@ -41,6 +42,7 @@ final class Transcription {
          enhancementDuration: TimeInterval? = nil,
          aiRequestSystemMessage: String? = nil,
          aiRequestUserMessage: String? = nil,
+         aiContextJSON: String? = nil,
          powerModeName: String? = nil,
          powerModeEmoji: String? = nil,
          transcriptionStatus: TranscriptionStatus = .pending) {
@@ -57,6 +59,7 @@ final class Transcription {
         self.enhancementDuration = enhancementDuration
         self.aiRequestSystemMessage = aiRequestSystemMessage
         self.aiRequestUserMessage = aiRequestUserMessage
+        self.aiContextJSON = aiContextJSON
         self.powerModeName = powerModeName
         self.powerModeEmoji = powerModeEmoji
         self.transcriptionStatus = transcriptionStatus.rawValue
