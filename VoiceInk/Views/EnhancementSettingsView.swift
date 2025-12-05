@@ -60,14 +60,7 @@ struct EnhancementSettingsView: View {
                             .opacity(enhancementService.isEnhancementEnabled ? 1 : 0.6)
                     }
                     .padding(VoiceInkSpacing.lg)
-                    .background(
-                        RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                            .fill(VoiceInkTheme.Card.background)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                                    .stroke(VoiceInkTheme.Card.stroke, lineWidth: 1)
-                            )
-                    )
+                    .voiceInkCardBackground()
                     
                     if enableAIEnhancementFeatures {
                         VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
@@ -112,14 +105,7 @@ struct EnhancementSettingsView: View {
                             }
                         }
                         .padding(VoiceInkSpacing.lg)
-                        .background(
-                            RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                                .fill(VoiceInkTheme.Card.background)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                                        .stroke(VoiceInkTheme.Card.stroke, lineWidth: 1)
-                                )
-                        )
+                        .voiceInkCardBackground()
                     } else {
                         VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
                             Label("Local-Only Enhancement", systemImage: "lock.shield")
@@ -130,14 +116,7 @@ struct EnhancementSettingsView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         .padding(VoiceInkSpacing.lg)
-                        .background(
-                            RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                                .fill(VoiceInkTheme.Card.background)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                                        .stroke(VoiceInkTheme.Card.stroke, lineWidth: 1)
-                                )
-                        )
+                        .voiceInkCardBackground()
                     }
                     
                     VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
@@ -162,14 +141,7 @@ struct EnhancementSettingsView: View {
                         )
                     }
                     .padding(VoiceInkSpacing.lg)
-                    .background(
-                        RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                            .fill(VoiceInkTheme.Card.background)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                                        .stroke(VoiceInkTheme.Card.stroke, lineWidth: 1)
-                            )
-                    )
+                    .voiceInkCardBackground()
                     
                     EnhancementShortcutsSection()
                 }
