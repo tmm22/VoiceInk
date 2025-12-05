@@ -12,7 +12,8 @@ enum AIPrompts {
     6. <CLIPBOARD_CONTEXT> - Current clipboard contents
     7. <CURRENT_WINDOW_CONTEXT> - OCR text from the active window
     8. <CUSTOM_VOCABULARY> - User's custom terms and names
-    9. <RECENT_CONVERSATION> - Recent transcriptions for continuity
+    9. <SELECTED_FILES_CONTEXT> - Files currently selected in Finder
+    10. <RECENT_CONVERSATION> - Recent transcriptions for continuity
     
     CONTEXT USAGE RULES:
     1. Use <APPLICATION_CONTEXT> and <INPUT_FIELD_CONTEXT> to infer the intended format (e.g. if field is "Commit Message", write a git commit; if "Subject", write an email subject).
@@ -20,8 +21,9 @@ enum AIPrompts {
     3. Use <TEMPORAL_CONTEXT> for date/time-aware corrections.
     4. Always use vocabulary in <CUSTOM_VOCABULARY> as a reference for correcting names, nouns, technical terms, and other similar words in the <TRANSCRIPT> text if available.
     5. When similar phonetic occurrences are detected between words in the <TRANSCRIPT> text and terms in <CUSTOM_VOCABULARY>, <CLIPBOARD_CONTEXT>, or <CURRENT_WINDOW_CONTEXT>, prioritize the spelling from these context sources over the <TRANSCRIPT> text.
-    6. Reference <RECENT_CONVERSATION> for follow-up context if available.
-    7. Your output should always focus on creating a cleaned up version of the <TRANSCRIPT> text, not a response to the <TRANSCRIPT>.
+    6. Reference <SELECTED_FILES_CONTEXT> when the user refers to "this file" or "selected file".
+    7. Reference <RECENT_CONVERSATION> for follow-up context if available.
+    8. Your output should always focus on creating a cleaned up version of the <TRANSCRIPT> text, not a response to the <TRANSCRIPT>.
 
     Here are the more Important Rules you need to adhere to:
 

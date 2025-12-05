@@ -25,6 +25,11 @@ class AIContextRenderer {
             sections.append(renderFocusedElementContext(focused))
         }
         
+        // Selected Files Context (NEW - File awareness)
+        if let files = context.selectedFiles, !files.isEmpty {
+            sections.append(renderSelectedFilesContext(files))
+        }
+        
         // Temporal context (NEW)
         sections.append(renderTemporalContext(context.temporal))
         
@@ -92,6 +97,15 @@ class AIContextRenderer {
         }
         
         lines.append("</INPUT_FIELD_CONTEXT>")
+        return lines.joined(separator: "\n")
+    }
+    
+    private func renderSelectedFilesContext(_ files: [FileContext]) -> String {
+        var lines = ["<SELECTED_FILES_CONTEXT>"]
+        for file in files {
+            lines.append(file.formattedDescription)
+        }
+        lines.append("</SELECTED_FILES_CONTEXT>")
         return lines.joined(separator: "\n")
     }
     

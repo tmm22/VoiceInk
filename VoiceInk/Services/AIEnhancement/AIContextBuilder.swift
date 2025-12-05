@@ -9,6 +9,7 @@ class AIContextBuilder {
     private let customVocabularyService: CustomVocabularyService
     private let activeWindowService: ActiveWindowService
     private let focusedElementService: FocusedElementService
+    private let selectedFileService: SelectedFileService
     private let conversationHistoryService: ConversationHistoryService?
     private let tokenBudgetManager: TokenBudgetManager
     
@@ -17,18 +18,21 @@ class AIContextBuilder {
     private var capturedScreen: ScreenCaptureContext?
     private var capturedApplication: ApplicationContext?
     private var capturedFocusedElement: FocusedElementContext?
+    private var capturedFiles: [FileContext]?
     
     init(
         screenCaptureService: ScreenCaptureService? = nil,
         customVocabularyService: CustomVocabularyService = CustomVocabularyService.shared,
         activeWindowService: ActiveWindowService = ActiveWindowService.shared,
         focusedElementService: FocusedElementService = FocusedElementService.shared,
+        selectedFileService: SelectedFileService = SelectedFileService.shared,
         modelContext: ModelContext? = nil
     ) {
         self.screenCaptureService = screenCaptureService ?? ScreenCaptureService()
         self.customVocabularyService = customVocabularyService
         self.activeWindowService = activeWindowService
         self.focusedElementService = focusedElementService
+        self.selectedFileService = selectedFileService
         if let context = modelContext {
             self.conversationHistoryService = ConversationHistoryService(modelContext: context)
         } else {
@@ -69,6 +73,10 @@ class AIContextBuilder {
         } else {
             self.capturedFocusedElement = nil
         }
+        
+        // Capture selected files (Finder)
+        let files = await selectedFileService.getSelectedFinderFiles()
+        self.capturedFiles = !files.isEmpty ? files : nil
         
         // Capture screen content (OCR)
         // Note: This is resource intensive, so we do it last in this block
@@ -113,6 +121,9 @@ class AIContextBuilder {
         
         // Focused Element (from capture)
         let focusedElementContext = settings.includeFocusedElement ? capturedFocusedElement : nil
+        
+        // Selected Files (from capture)
+        let selectedFilesContext = settings.includeSelectedFiles ? capturedFiles : nil
         
         // Vocabulary
         let vocabulary = customVocabularyService.getCustomVocabulary().components(separatedBy: ", ")
@@ -223,6 +234,7 @@ class AIContextBuilder {
             screenCapture: finalScreen,
             customVocabulary: vocabulary,
             focusedElement: focusedElementContext,
+            selectedFiles: selectedFilesContext,
             application: applicationContext,
             temporal: temporalContext,
             session: sessionContext,

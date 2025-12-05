@@ -6,6 +6,7 @@ struct AIContextSettings: Codable {
     var includeSelectedText: Bool = true
     var includeApplicationContext: Bool = true
     var includeFocusedElement: Bool = true
+    var includeSelectedFiles: Bool = true
     var includeTemporalContext: Bool = true
     var includeConversationHistory: Bool = false    // Opt-in
     var maxConversationItems: Int = 3
@@ -30,4 +31,5 @@ enum ContextType: String, Codable {
     case customVocabulary
     case conversationHistory
     case focusedElement
+    case selectedFiles
 }

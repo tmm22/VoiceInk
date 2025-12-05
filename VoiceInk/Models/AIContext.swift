@@ -8,6 +8,7 @@ struct AIContext: Codable {
     let screenCapture: ScreenCaptureContext?
     let customVocabulary: [String]
     let focusedElement: FocusedElementContext?
+    let selectedFiles: [FileContext]?
     
     // Operational contexts
     let application: ApplicationContext?

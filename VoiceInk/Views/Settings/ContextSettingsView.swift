@@ -47,6 +47,12 @@ struct ContextSettingsView: View {
                     )
                     
                     contextToggle(
+                        title: "Selected Files",
+                        isOn: $settings.includeSelectedFiles,
+                        description: "Shares filenames of files selected in Finder."
+                    )
+                    
+                    contextToggle(
                         title: "Clipboard Content",
                         isOn: $settings.includeClipboard,
                         description: "Shares your clipboard content."
