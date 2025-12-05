@@ -76,6 +76,9 @@ class AIContextBuilder {
                 description: info.description,
                 placeholderValue: info.placeholderValue,
                 valueSnippet: info.value,
+                textBeforeCursor: info.textBeforeCursor,
+                textAfterCursor: info.textAfterCursor,
+                nearbyLabels: info.nearbyLabels,
                 capturedAt: Date()
             )
         } else {

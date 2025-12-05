@@ -10,12 +10,16 @@ struct FocusedElementInfo: Codable {
     let description: String?
     let placeholderValue: String?
     let value: String?
+    let textBeforeCursor: String?
+    let textAfterCursor: String?
+    let nearbyLabels: [String]
     
     var isEmpty: Bool {
         return (title?.isEmpty ?? true) && 
                (description?.isEmpty ?? true) && 
                (placeholderValue?.isEmpty ?? true) &&
-               (value?.isEmpty ?? true)
+               (value?.isEmpty ?? true) &&
+               nearbyLabels.isEmpty
     }
 }
 
@@ -53,8 +57,41 @@ class FocusedElementService {
         // Be careful with value - it might be large text content
         // We grab a snippet to help understand context (e.g. existing code in editor)
         var value = getStringAttribute(element, attribute: kAXValueAttribute)
+        
+        // Try to get precise cursor context
+        var textBefore: String? = nil
+        var textAfter: String? = nil
+        
+        if let fullText = value, !fullText.isEmpty {
+            if let range = getSelectedRange(element) {
+                // Safe slicing
+                let location = max(0, min(range.location, fullText.count))
+                // let length = range.length // We ignore length for insertion point (length 0) logic usually
+                
+                let startIndex = fullText.index(fullText.startIndex, offsetBy: location)
+                
+                // Get up to 500 chars before
+                let beforeStart = fullText.index(startIndex, offsetBy: -min(500, location))
+                textBefore = String(fullText[beforeStart..<startIndex])
+                
+                // Get up to 500 chars after
+                // If selection length > 0, it's "selected text", but here we care about context *surrounding* the insertion point
+                // So we start after the selection
+                let selectionEndIndex = fullText.index(startIndex, offsetBy: range.length)
+                let remainingCount = fullText.distance(from: selectionEndIndex, to: fullText.endIndex)
+                let afterEnd = fullText.index(selectionEndIndex, offsetBy: min(500, remainingCount))
+                textAfter = String(fullText[selectionEndIndex..<afterEnd])
+            }
+        }
+        
         if let val = value, val.count > 500 {
             value = String(val.prefix(500)) + "..."
+        }
+        
+        // Find nearby labels if we don't have a good title/description
+        var nearbyLabels: [String] = []
+        if (title?.isEmpty ?? true) && (description?.isEmpty ?? true) {
+            nearbyLabels = getSiblingLabels(element)
         }
         
         return FocusedElementInfo(
@@ -63,8 +100,51 @@ class FocusedElementService {
             title: title,
             description: description,
             placeholderValue: placeholder,
-            value: value
+            value: value,
+            textBeforeCursor: textBefore,
+            textAfterCursor: textAfter,
+            nearbyLabels: nearbyLabels
         )
+    }
+    
+    private func getSelectedRange(_ element: AXUIElement) -> CFRange? {
+        var valueRef: AnyObject?
+        let result = AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &valueRef)
+        
+        if result == .success, CFGetTypeID(valueRef) == AXValueGetTypeID() {
+            let axValue = valueRef as! AXValue
+            if AXValueGetType(axValue) == .cfRange {
+                var range = CFRange()
+                if AXValueGetValue(axValue, .cfRange, &range) {
+                    return range
+                }
+            }
+        }
+        return nil
+    }
+    
+    private func getSiblingLabels(_ element: AXUIElement) -> [String] {
+        var parentRef: AnyObject?
+        let result = AXUIElementCopyAttributeValue(element, kAXParentAttribute as CFString, &parentRef)
+        
+        guard result == .success, let parent = parentRef as! AXUIElement? else { return [] }
+        
+        var childrenRef: AnyObject?
+        let childrenResult = AXUIElementCopyAttributeValue(parent, kAXChildrenAttribute as CFString, &childrenRef)
+        
+        guard childrenResult == .success, let children = childrenRef as? [AXUIElement] else { return [] }
+        
+        // Filter for static text elements that are NOT the element itself
+        // Limit to 5 labels to avoid noise
+        return children.prefix(10).compactMap { child in
+            if CFEqual(child, element) { return nil }
+            
+            let role = getStringAttribute(child, attribute: kAXRoleAttribute)
+            if role == "AXStaticText" {
+                return getStringAttribute(child, attribute: kAXValueAttribute)
+            }
+            return nil
+        }
     }
     
     private func getStringAttribute(_ element: AXUIElement, attribute: String) -> String? {

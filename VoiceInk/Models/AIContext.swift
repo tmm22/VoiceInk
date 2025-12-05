@@ -48,6 +48,9 @@ struct FocusedElementContext: Codable {
     let description: String?
     let placeholderValue: String?
     let valueSnippet: String?
+    let textBeforeCursor: String?
+    let textAfterCursor: String?
+    let nearbyLabels: [String]
     let capturedAt: Date
 }
 

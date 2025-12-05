@@ -106,6 +106,18 @@ class AIContextRenderer {
             lines.append("Current Value Snippet: \(value)")
         }
         
+        if let before = focused.textBeforeCursor, !before.isEmpty {
+            lines.append("Text Before Cursor: ...\(before)")
+        }
+        
+        if let after = focused.textAfterCursor, !after.isEmpty {
+            lines.append("Text After Cursor: \(after)...")
+        }
+        
+        if !focused.nearbyLabels.isEmpty {
+            lines.append("Nearby Labels: \(focused.nearbyLabels.joined(separator: ", "))")
+        }
+        
         lines.append("</INPUT_FIELD_CONTEXT>")
         return lines.joined(separator: "\n")
     }
