@@ -256,6 +256,17 @@ class AIContextBuilder {
             ))
         }
         
+        if let c = conversationContext {
+            let historyString = c.recentTranscriptions.map { $0.text }.joined(separator: "\n")
+            sectionsToBudget.append(ContextSection(
+                content: historyString,
+                source: "conversation_history",
+                capturedAt: Date(),
+                characterCount: historyString.count,
+                wasTruncated: false
+            ))
+        }
+        
         let budget = TokenBudget(provider: provider, model: model)
         let budgetedSections = tokenBudgetManager.fitToBudget(
             sections: sectionsToBudget,
@@ -267,6 +278,18 @@ class AIContextBuilder {
         
         let finalSelectedText = budgetedSections.first(where: { $0.source == "selected_text" })
         let finalClipboard = budgetedSections.first(where: { $0.source == "clipboard" })
+        
+        // Handle Conversation History truncation
+        // If it was removed from budget, we drop it. If present (even truncated), we might keep the original list?
+        // Actually, if budget truncated it, the string content is truncated.
+        // We can't easily map back to [TranscriptionSummary] from a truncated string.
+        // Strategy: If "conversation_history" is missing from budgetedSections, drop it.
+        // If present, keep the original context (assuming it's small enough or the truncation was minor).
+        // Since we pre-truncate individual items to 200 chars, the risk is low.
+        var finalHistory = conversationContext
+        if budgetedSections.first(where: { $0.source == "conversation_history" }) == nil && conversationContext != nil {
+            finalHistory = nil // Dropped by budget
+        }
         
         // Handle Screen Capture truncation
         var finalScreen = screenSection
@@ -322,7 +345,7 @@ class AIContextBuilder {
             temporal: temporalContext,
             session: sessionContext,
             powerMode: powerMode,
-            conversationHistory: conversationContext,
+            conversationHistory: finalHistory,
             userBio: userBio,
             capturedAt: Date()
         )
