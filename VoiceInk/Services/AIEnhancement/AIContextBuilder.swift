@@ -51,58 +51,81 @@ class AIContextBuilder {
     
     /// Capture context that must be grabbed immediately (e.g. at recording start)
     func captureImmediateContext() async {
-        // Capture clipboard
-        if let clipboardString = NSPasteboard.general.string(forType: .string), !clipboardString.isEmpty {
-            self.capturedClipboard = ContextSection(
-                content: clipboardString,
-                source: "clipboard",
-                capturedAt: Date(),
-                characterCount: clipboardString.count,
-                wasTruncated: false
-            )
-        } else {
-            self.capturedClipboard = nil
+        // Run independent capture tasks in parallel
+        // We use a task group to ensure we wait for all of them, but they run concurrently
+        // Note: Services are responsible for backgrounding their heavy work
+        
+        await withTaskGroup(of: Void.self) { group in
+            // 1. Clipboard
+            group.addTask { @MainActor in
+                if let clipboardString = NSPasteboard.general.string(forType: .string), !clipboardString.isEmpty {
+                    self.capturedClipboard = ContextSection(
+                        content: clipboardString,
+                        source: "clipboard",
+                        capturedAt: Date(),
+                        characterCount: clipboardString.count,
+                        wasTruncated: false
+                    )
+                } else {
+                    self.capturedClipboard = nil
+                }
+            }
+            
+            // 2. Application Info
+            group.addTask { @MainActor in
+                self.capturedApplication = await self.activeWindowService.captureApplicationContext()
+            }
+            
+            // 3. Focused Element
+            group.addTask { @MainActor in
+                if let info = await self.focusedElementService.getFocusedElementInfo(timeout: 1.0) {
+                    if !info.isEmpty {
+                        self.capturedFocusedElement = FocusedElementContext(
+                            role: info.role,
+                            roleDescription: info.roleDescription,
+                            title: info.title,
+                            description: info.description,
+                            placeholderValue: info.placeholderValue,
+                            valueSnippet: info.value,
+                            textBeforeCursor: info.textBeforeCursor,
+                            textAfterCursor: info.textAfterCursor,
+                            nearbyLabels: info.nearbyLabels,
+                            capturedAt: Date()
+                        )
+                    } else {
+                        self.capturedFocusedElement = nil
+                    }
+                } else {
+                    self.capturedFocusedElement = nil
+                }
+            }
+            
+            // 4. Selected Files
+            group.addTask { @MainActor in
+                let files = await self.selectedFileService.getSelectedFinderFiles(timeout: 2.0)
+                self.capturedFiles = !files.isEmpty ? files : nil
+            }
+            
+            // 5. Calendar
+            group.addTask { @MainActor in
+                if CalendarService.shared.isAuthorized {
+                    let events = await self.calendarService.getUpcomingEvents(timeout: 2.0)
+                    self.capturedCalendar = !events.isEmpty ? CalendarContext(upcomingEvents: events) : nil
+                } else {
+                    self.capturedCalendar = nil
+                }
+            }
+            
+            // 6. Browser Content
+            group.addTask { @MainActor in
+                self.capturedBrowserContent = await self.browserContentService.captureCurrentBrowserContent(timeout: 2.0)
+            }
+            
+            // 7. Screen Capture (Heaviest, keep last in group logic if limits existed, but here parallel is fine)
+            group.addTask { @MainActor in
+                self.capturedScreen = await self.screenCaptureService.captureStructured()
+            }
         }
-        
-        // Capture application info
-        self.capturedApplication = await activeWindowService.captureApplicationContext()
-        
-        // Capture focused element (UI intent)
-        if let info = focusedElementService.getFocusedElementInfo(), !info.isEmpty {
-            self.capturedFocusedElement = FocusedElementContext(
-                role: info.role,
-                roleDescription: info.roleDescription,
-                title: info.title,
-                description: info.description,
-                placeholderValue: info.placeholderValue,
-                valueSnippet: info.value,
-                textBeforeCursor: info.textBeforeCursor,
-                textAfterCursor: info.textAfterCursor,
-                nearbyLabels: info.nearbyLabels,
-                capturedAt: Date()
-            )
-        } else {
-            self.capturedFocusedElement = nil
-        }
-        
-        // Capture selected files (Finder)
-        let files = await selectedFileService.getSelectedFinderFiles()
-        self.capturedFiles = !files.isEmpty ? files : nil
-        
-        // Capture calendar (if authorized and relevant)
-        if CalendarService.shared.isAuthorized {
-            let events = await calendarService.getUpcomingEvents()
-            self.capturedCalendar = !events.isEmpty ? CalendarContext(upcomingEvents: events) : nil
-        } else {
-            self.capturedCalendar = nil
-        }
-        
-        // Capture browser content
-        self.capturedBrowserContent = await browserContentService.captureCurrentBrowserContent()
-        
-        // Capture screen content (OCR)
-        // Note: This is resource intensive, so we do it last in this block
-        self.capturedScreen = await screenCaptureService.captureStructured()
     }
     
     /// Build complete context for AI request
@@ -118,7 +141,7 @@ class AIContextBuilder {
         
         // 1. Gather all potential contexts
         
-        // Selected Text (fetched now)
+        // Selected Text (fetched now, usually fast)
         var selectedTextSection: ContextSection? = nil
         if settings.includeSelectedText && AXIsProcessTrusted() {
             if let selectedText = await SelectedTextService.fetchSelectedText(), !selectedText.isEmpty {
@@ -132,25 +155,13 @@ class AIContextBuilder {
             }
         }
         
-        // Clipboard (from capture)
+        // Retrieve captured state
         let clipboardSection = settings.includeClipboard ? capturedClipboard : nil
-        
-        // Screen (from capture)
         let screenSection = settings.includeScreenCapture ? capturedScreen : nil
-        
-        // Application (from capture)
         let applicationContext = settings.includeApplicationContext ? capturedApplication : nil
-        
-        // Focused Element (from capture)
         let focusedElementContext = settings.includeFocusedElement ? capturedFocusedElement : nil
-        
-        // Selected Files (from capture)
         let selectedFilesContext = settings.includeSelectedFiles ? capturedFiles : nil
-        
-        // Calendar (from capture)
         let calendarContext = settings.includeCalendar ? capturedCalendar : nil
-        
-        // Browser Content (from capture)
         let browserContentContext = settings.includeBrowserContent ? capturedBrowserContent : nil
         
         // Vocabulary
@@ -158,7 +169,7 @@ class AIContextBuilder {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         
-        // Temporal
+        // Temporal & Session & PowerMode & UserBio (Low token usage, pass through)
         let now = Date()
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .full
@@ -168,12 +179,11 @@ class AIContextBuilder {
         let temporalContext = TemporalContext(
             date: dateFormatter.string(from: now),
             time: timeFormatter.string(from: now),
-            dayOfWeek: Calendar.current.component(.weekday, from: now).description, // Simplified
+            dayOfWeek: Calendar.current.component(.weekday, from: now).description,
             timezone: TimeZone.current.identifier,
             isWeekend: Calendar.current.isDateInWeekend(now)
         )
         
-        // Session
         let sessionContext = SessionContext(
             recordingDuration: recordingDuration,
             transcriptionModel: transcriptionModel,
@@ -182,7 +192,6 @@ class AIContextBuilder {
             promptName: promptName
         )
         
-        // Conversation History
         var conversationContext: ConversationContext? = nil
         if settings.includeConversationHistory, let historyService = conversationHistoryService {
             let history = historyService.getRecentTranscriptions(
@@ -197,36 +206,54 @@ class AIContextBuilder {
             }
         }
         
-        // Power Mode
         let powerMode = PowerModeManager.shared.currentActiveConfiguration.map { config in
             PowerModeContext(
                 configName: config.name,
                 emoji: config.emoji,
-                matchedBy: "unknown", // Logic to determine match type could be added here
+                matchedBy: "unknown",
                 matchedPattern: nil
             )
         }
         
-        // User Bio
         let userBio = !settings.userBio.isEmpty ? settings.userBio : nil
         
         // 2. Apply Token Budget
-        // For now, we only budget "heavy" text sections: selectedText, clipboard, screen
+        // We convert bulky items to ContextSection for the budget manager, then map back
         
         var sectionsToBudget: [ContextSection] = []
+        
         if let s = selectedTextSection { sectionsToBudget.append(s) }
         if let c = clipboardSection { sectionsToBudget.append(c) }
-        if let s = screenSection {
-            // Convert ScreenCaptureContext to ContextSection for budgeting purposes
-            if let ocr = s.ocrText {
-                sectionsToBudget.append(ContextSection(
-                    content: ocr,
-                    source: "screen_capture",
-                    capturedAt: s.capturedAt,
-                    characterCount: ocr.count,
-                    wasTruncated: s.wasTruncated
-                ))
-            }
+        
+        if let s = screenSection, let ocr = s.ocrText {
+            sectionsToBudget.append(ContextSection(
+                content: ocr,
+                source: "screen_capture",
+                capturedAt: s.capturedAt,
+                characterCount: ocr.count,
+                wasTruncated: s.wasTruncated
+            ))
+        }
+        
+        if let b = browserContentContext {
+            sectionsToBudget.append(ContextSection(
+                content: b.contentSnippet,
+                source: "browser_content", // Must match enum key or manual mapping
+                capturedAt: Date(), // Approximate
+                characterCount: b.contentSnippet.count,
+                wasTruncated: false
+            ))
+        }
+        
+        if let f = selectedFilesContext {
+            let fileListString = f.map { $0.formattedDescription }.joined(separator: "\n")
+            sectionsToBudget.append(ContextSection(
+                content: fileListString,
+                source: "selected_files",
+                capturedAt: Date(),
+                characterCount: fileListString.count,
+                wasTruncated: false
+            ))
         }
         
         let budget = TokenBudget(provider: provider, model: model)
@@ -236,14 +263,14 @@ class AIContextBuilder {
             budget: budget.availableForContext
         )
         
-        // Re-assemble after budgeting
-        // Map back to specific properties
+        // 3. Re-assemble after budgeting
+        
         let finalSelectedText = budgetedSections.first(where: { $0.source == "selected_text" })
         let finalClipboard = budgetedSections.first(where: { $0.source == "clipboard" })
         
+        // Handle Screen Capture truncation
         var finalScreen = screenSection
         if let screenBudgeted = budgetedSections.first(where: { $0.source == "screen_capture" }) {
-            // Update OCR text with potentially truncated version
             finalScreen = ScreenCaptureContext(
                 windowTitle: screenSection?.windowTitle ?? "",
                 applicationName: screenSection?.applicationName ?? "",
@@ -252,8 +279,34 @@ class AIContextBuilder {
                 wasTruncated: screenBudgeted.wasTruncated
             )
         } else if screenSection?.ocrText != nil {
-            // It was removed entirely by budget
-            finalScreen = nil
+            finalScreen = nil // Removed by budget
+        }
+        
+        // Handle Browser Content truncation
+        var finalBrowser = browserContentContext
+        if let browserBudgeted = budgetedSections.first(where: { $0.source == "browser_content" }) {
+            finalBrowser = BrowserContentContext(
+                url: browserContentContext?.url ?? "",
+                title: browserContentContext?.title ?? "",
+                contentSnippet: browserBudgeted.content,
+                browserName: browserContentContext?.browserName ?? ""
+            )
+        } else if browserContentContext != nil {
+            finalBrowser = nil // Removed by budget
+        }
+        
+        // Handle Files truncation (if we really have too many files)
+        // Note: Re-hydrating [FileContext] from a truncated string is hard. 
+        // If truncated, we might just drop it or pass the truncated string?
+        // Since FileContext is structured, if the budget removes it, we nil it out. 
+        // If it truncates it... we probably lose structure. 
+        // Strategy: If "selected_files" is present in budgetedSections, we keep the original list (assuming budget logic didn't mangle it too badly, OR we rely on the fact that file lists are usually small).
+        // If TokenBudgetManager truncates, it adds "...[TRUNCATED]".
+        // For structured data, we might just accept "all or nothing" or simple truncation.
+        // Let's go with: if it exists in budget, keep it. If fully removed, drop it.
+        var finalFiles = selectedFilesContext
+        if budgetedSections.first(where: { $0.source == "selected_files" }) == nil && selectedFilesContext != nil {
+            finalFiles = nil // Dropped
         }
         
         return AIContext(
@@ -262,8 +315,8 @@ class AIContextBuilder {
             screenCapture: finalScreen,
             customVocabulary: vocabulary,
             focusedElement: focusedElementContext,
-            selectedFiles: selectedFilesContext,
-            browserContent: browserContentContext,
+            selectedFiles: finalFiles,
+            browserContent: finalBrowser,
             application: applicationContext,
             calendar: calendarContext,
             temporal: temporalContext,

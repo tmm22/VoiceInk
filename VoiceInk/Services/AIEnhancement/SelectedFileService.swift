@@ -19,7 +19,7 @@ class SelectedFileService {
     static let shared = SelectedFileService()
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "SelectedFileService")
     
-    func getSelectedFinderFiles() async -> [FileContext] {
+    func getSelectedFinderFiles(timeout: TimeInterval = 2.0) async -> [FileContext] {
         let scriptSource = """
         tell application "Finder"
             set selectedItems to selection
@@ -32,9 +32,30 @@ class SelectedFileService {
         end tell
         """
         
+        return await withTaskGroup(of: [FileContext].self) { group in
+            group.addTask {
+                let task = Task.detached {
+                    return self.executeScript(source: scriptSource)
+                }
+                return await task.value
+            }
+            
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                return [] // Timeout returns empty list
+            }
+            
+            if let result = await group.next(), !result.isEmpty {
+                return result
+            }
+            return []
+        }
+    }
+    
+    private func executeScript(source: String) -> [FileContext] {
         var fileContexts: [FileContext] = []
         
-        guard let script = NSAppleScript(source: scriptSource) else {
+        guard let script = NSAppleScript(source: source) else {
             logger.error("Failed to create AppleScript for Finder selection")
             return []
         }
@@ -43,7 +64,7 @@ class SelectedFileService {
         let result = script.executeAndReturnError(&errorDict)
         
         if let error = errorDict {
-            logger.error("AppleScript error: \(error)")
+            // Log but don't error out - Finder might just not have selection
             return []
         }
         

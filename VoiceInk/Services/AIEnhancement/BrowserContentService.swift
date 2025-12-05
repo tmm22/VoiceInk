@@ -41,12 +41,13 @@ class BrowserContentService {
     end tell
     """
     
-    func captureCurrentBrowserContent() async -> BrowserContentContext? {
-        guard let app = NSWorkspace.shared.frontmostApplication,
+    func captureCurrentBrowserContent(timeout: TimeInterval = 2.0) async -> BrowserContentContext? {
+        // Capture app info on MainActor before detaching
+        guard let app = await MainActor.run(body: { NSWorkspace.shared.frontmostApplication }),
               let bundleId = app.bundleIdentifier else { return nil }
         
-        let scriptSource: String
         let browserName = app.localizedName ?? "Browser"
+        let scriptSource: String
         
         if bundleId == "com.apple.Safari" {
             scriptSource = safariScript
@@ -56,13 +57,35 @@ class BrowserContentService {
             return nil
         }
         
+        // Execute on background thread with timeout
+        return await withTaskGroup(of: BrowserContentContext?.self) { group in
+            group.addTask {
+                let task = Task.detached {
+                    return self.executeScript(source: scriptSource, browserName: browserName)
+                }
+                return await task.value
+            }
+            
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                return nil // Timeout
+            }
+            
+            if let result = await group.next() {
+                return result
+            }
+            return nil
+        }
+    }
+    
+    private func executeScript(source: String, browserName: String) -> BrowserContentContext? {
         var error: NSDictionary?
-        guard let script = NSAppleScript(source: scriptSource) else { return nil }
+        guard let script = NSAppleScript(source: source) else { return nil }
         
         let result = script.executeAndReturnError(&error)
         
         if let error = error {
-            logger.debug("Browser content capture failed: \(error)")
+            // Ignore common "user cancelled" or "timeout" errors from AppleEvents
             return nil
         }
         
@@ -72,8 +95,7 @@ class BrowserContentService {
            let url = result.atIndex(2)?.stringValue,
            let content = result.atIndex(3)?.stringValue {
             
-            // Truncate content to avoid token explosion (e.g. 2000 chars)
-            // The TokenBudgetManager will handle final truncation, but let's be reasonable here
+            // Truncate content to avoid token explosion (e.g. 5000 chars)
             let truncatedContent = content.count > 5000 ? String(content.prefix(5000)) + "..." : content
             
             return BrowserContentContext(
@@ -83,7 +105,6 @@ class BrowserContentService {
                 browserName: browserName
             )
         }
-        
         return nil
     }
 }

@@ -27,23 +27,55 @@ class FocusedElementService {
     static let shared = FocusedElementService()
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "FocusedElementService")
     
-    func getFocusedElementInfo() -> FocusedElementInfo? {
-        // Check accessibility permissions first
+    func getFocusedElementInfo(timeout: TimeInterval = 1.0) async -> FocusedElementInfo? {
+        // Check accessibility permissions first (fast check)
         guard AXIsProcessTrusted() else {
             logger.warning("Accessibility permissions not granted. Cannot fetch focused element.")
             return nil
         }
         
-        let systemWideElement = AXUIElementCreateSystemWide()
-        var focusedElement: AnyObject?
-        
-        let result = AXUIElementCopyAttributeValue(systemWideElement, kAXFocusedUIElementAttribute as CFString, &focusedElement)
-        
-        guard result == .success, let element = focusedElement as! AXUIElement? else {
-            logger.debug("No focused element found.")
+        return await withTaskGroup(of: FocusedElementInfo?.self) { group in
+            group.addTask {
+                let task = Task.detached { [weak self] () -> FocusedElementInfo? in
+                    guard let self = self else { return nil }
+                    let systemWideElement = AXUIElementCreateSystemWide()
+                    var focusedElement: AnyObject?
+                    
+                    let result = AXUIElementCopyAttributeValue(systemWideElement, kAXFocusedUIElementAttribute as CFString, &focusedElement)
+                    
+                    guard result == .success, let element = focusedElement as! AXUIElement? else {
+                        self.logger.debug("No focused element found.")
+                        return nil
+                    }
+                    
+                    return self.extractInfo(from: element)
+                }
+                return await task.value
+            }
+            
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                return nil // Timeout
+            }
+            
+            if let result = await group.next() {
+                return result
+            }
             return nil
         }
+    }
+    
+    // Kept for backward compatibility if needed, but redirects to async
+    func getFocusedElementInfo() -> FocusedElementInfo? {
+        logger.warning("Synchronous getFocusedElementInfo called. This may block the main thread. Use async version.")
+        // Check permissions
+        guard AXIsProcessTrusted() else { return nil }
         
+        let systemWideElement = AXUIElementCreateSystemWide()
+        var focusedElement: AnyObject?
+        let result = AXUIElementCopyAttributeValue(systemWideElement, kAXFocusedUIElementAttribute as CFString, &focusedElement)
+        
+        guard result == .success, let element = focusedElement as! AXUIElement? else { return nil }
         return extractInfo(from: element)
     }
     

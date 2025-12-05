@@ -20,9 +20,12 @@ struct AIContextSettings: Codable {
     // Priority order for truncation (lower = higher priority)
     var contextPriorities: [ContextType: Int] = [
         .selectedText: 1,
+        .focusedElement: 1,
         .clipboard: 2,
-        .screenCapture: 3,
-        .conversationHistory: 4
+        .selectedFiles: 3,
+        .browserContent: 3,
+        .screenCapture: 4,
+        .conversationHistory: 5
     ]
 }
 
@@ -34,4 +37,5 @@ enum ContextType: String, Codable {
     case conversationHistory
     case focusedElement
     case selectedFiles
+    case browserContent
 }
