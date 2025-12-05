@@ -14,10 +14,11 @@ This document provides comprehensive guidance for AI coding assistants (Claude, 
 6. [Production Standards](#production-standards)
 7. [Security Guidelines](#security-guidelines)
 8. [Common Patterns](#common-patterns)
-9. [Testing & Quality](#testing--quality)
-10. [Working with Features](#working-with-features)
-11. [Troubleshooting](#troubleshooting)
-12. [Contributing Workflow](#contributing-workflow)
+9. [AI Context System](#ai-context-system)
+10. [Testing & Quality](#testing--quality)
+11. [Working with Features](#working-with-features)
+12. [Troubleshooting](#troubleshooting)
+13. [Contributing Workflow](#contributing-workflow)
 
 ---
 
@@ -1077,13 +1078,52 @@ class AudioDeviceManager: ObservableObject {
 
 ---
 
+## AI Context System
+
+The AI enhancement engine (v2) uses a structured pipeline to gather "Maximum Context" from the user's environment. This context is injected into LLM prompts to enable intelligent, situation-aware transcription.
+
+### Architecture
+
+1.  **AIContext**: A comprehensive struct (`VoiceInk/Models/AIContext.swift`) holding all context data.
+2.  **AIContextBuilder**: A service (`VoiceInk/Services/AIEnhancement/AIContextBuilder.swift`) that aggregates data from multiple specialized services.
+3.  **AIContextRenderer**: A utility (`VoiceInk/Services/AIEnhancement/AIContextRenderer.swift`) that formats the `AIContext` into XML tags for the prompt.
+
+### Context Sources & Services
+
+| Service | Context Type | XML Tag | Description |
+|---------|--------------|---------|-------------|
+| `SelectedFileService` | Finder Selection | `<SELECTED_FILES_CONTEXT>` | File names, paths, sizes of selected files |
+| `FocusedElementService` | Input Field | `<INPUT_FIELD_CONTEXT>` | Input role, placeholder, surrounding text |
+| `CalendarService` | Schedule | `<CALENDAR_CONTEXT>` | Upcoming events (Title, Time) |
+| `BrowserContentService` | Web Content | `<BROWSER_CONTENT_CONTEXT>` | Text content of active web page |
+| `ActiveWindowService` | Application | `<APPLICATION_CONTEXT>` | Active app name, bundle ID, URL |
+| `CustomVocabularyService` | Vocabulary | `<CUSTOM_VOCABULARY>` | User-defined terms |
+| *Settings* | User Bio | `<USER_CONTEXT>` | User persona and style preferences |
+
+### Adding New Context
+
+1.  **Define Model**: Add fields to `AIContext` struct.
+2.  **Create Service**: Implement a service to fetch the data (e.g. `MyNewService.swift`).
+3.  **Update Builder**: Inject service into `AIContextBuilder` and capture data in `captureImmediateContext()` or `buildContext()`.
+4.  **Update Renderer**: Add rendering logic in `AIContextRenderer` to output new XML tag.
+5.  **Update Prompts**: Document the new tag usage in `AIPrompts.swift`.
+6.  **Update Settings**: Add toggle in `ContextSettingsView`.
+
+### Privacy Considerations
+
+*   **Opt-In**: High-privacy sources like Calendar and Browser Content must be opt-in via `AIContextSettings`.
+*   **Token Limits**: `TokenBudgetManager` truncates context to fit LLM limits.
+*   **Local Processing**: All context gathering happens locally. Data is only sent to the AI provider during the enhancement request.
+
+---
+
 ## Testing & Quality
 
 ### Testing Strategy
 
-1. **Automated First**: Run `./run_tests.sh` before every commit.
-2. **Unit Tests**: Required for all business logic (Services, ViewModels).
-3. **Manual Verification**: Use only for UI interactions that XCTest cannot cover.
+1.  **Automated First**: Run `./run_tests.sh` before every commit.
+2.  **Unit Tests**: Required for all business logic (Services, ViewModels).
+3.  **Manual Verification**: Use only for UI interactions that XCTest cannot cover.
 
 ### SwiftUI Preview Guidelines
 
@@ -1626,6 +1666,11 @@ This guide is a living document. If you find errors, outdated information, or ha
 **License:** GPL v3 (same as project)
 
 **Recent Updates:**
+- **v1.6** (2025-12-05) - AI Context Awareness System
+  - Added **AI Context System** section documenting the new v2 architecture
+  - Detailed the structured context pipeline (`AIContext`, `Builder`, `Renderer`)
+  - Documented new context sources: Calendar, Browser, Files, Input Field, User Bio
+  - Defined protocol for adding new context types
 - **v1.5** (2025-12-05) - Build Fixes and SwiftUI Struct Guidance
   - Added **SwiftUI Structs and `[weak self]`** section explaining value type limitations
   - Added **Redundant `MainActor.run`** section with examples of what to avoid
