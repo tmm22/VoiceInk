@@ -1,37 +1,32 @@
 Command line invocation:
-    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug clean build
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug build CODE_SIGN_IDENTITY= CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+
+Build settings from command line:
+    CODE_SIGN_IDENTITY = 
+    CODE_SIGNING_ALLOWED = NO
+    CODE_SIGNING_REQUIRED = NO
 
 Resolve Package Graph
 
 
 Resolved source packages:
-  Zip: https://github.com/marmelroy/Zip @ 2.1.2
-  SelectedTextKit: https://github.com/tisfeng/SelectedTextKit @ f6c1574
   LaunchAtLogin: https://github.com/sindresorhus/LaunchAtLogin-Modern @ main (a04ec1c)
-  KeySender: https://github.com/jordanbaird/KeySender @ 0.0.5
-  MediaRemoteAdapter: https://github.com/ejbills/mediaremote-adapter @ master (3529aa2)
-  KeyboardShortcuts: https://github.com/sindresorhus/KeyboardShortcuts @ 2.4.0
-  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.0
+  SelectedTextKit: https://github.com/tisfeng/SelectedTextKit @ f6c1574
+  Zip: https://github.com/marmelroy/Zip @ 2.1.2
   AXSwift: https://github.com/clavierorg/AXSwift.git @ 0.3.5
   FluidAudio: https://github.com/FluidInference/FluidAudio @ main (8136bd0)
+  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.0
+  MediaRemoteAdapter: https://github.com/ejbills/mediaremote-adapter @ master (3529aa2)
+  onnxruntime: https://github.com/microsoft/onnxruntime-swift-package-manager @ 1.20.0
+  KeyboardShortcuts: https://github.com/sindresorhus/KeyboardShortcuts @ 2.4.0
   Sparkle: https://github.com/sparkle-project/Sparkle @ 2.8.0
+  KeySender: https://github.com/jordanbaird/KeySender @ 0.0.5
 
 --- xcodebuild: WARNING: Using the first of multiple matching destinations:
 { platform:macOS, arch:arm64, id:00008103-0005645C36E0801E, name:My Mac }
 { platform:macOS, arch:x86_64, id:00008103-0005645C36E0801E, name:My Mac }
 { platform:macOS, name:Any Mac }
-CreateBuildRequest
-
-SendProjectDescription
-
-CreateBuildOperation
-
-** CLEAN SUCCEEDED **
-
---- xcodebuild: WARNING: Using the first of multiple matching destinations:
-{ platform:macOS, arch:arm64, id:00008103-0005645C36E0801E, name:My Mac }
-{ platform:macOS, arch:x86_64, id:00008103-0005645C36E0801E, name:My Mac }
-{ platform:macOS, name:Any Mac }
+note: Using codesigning identity override: 
 ComputePackagePrebuildTargetDependencyGraph
 
 Prepare packages
@@ -44,9 +39,10 @@ CreateBuildOperation
 
 ComputeTargetDependencyGraph
 note: Building targets in dependency order
-note: Target dependency graph (26 targets)
+note: Target dependency graph (28 targets)
     Target 'VoiceInk' in project 'VoiceInk'
         ➜ Explicit dependency on target 'MediaRemoteAdapter' in project 'MediaRemoteAdapter'
+        ➜ Explicit dependency on target 'onnxruntime' in project 'onnxruntime'
         ➜ Explicit dependency on target 'Atomics' in project 'swift-atomics'
         ➜ Explicit dependency on target 'Zip' in project 'Zip'
         ➜ Explicit dependency on target 'LaunchAtLogin' in project 'LaunchAtLogin'
@@ -95,6 +91,9 @@ note: Target dependency graph (26 targets)
     Target 'Atomics' in project 'swift-atomics'
         ➜ Explicit dependency on target '_AtomicsShims' in project 'swift-atomics'
     Target '_AtomicsShims' in project 'swift-atomics' (no dependencies)
+    Target 'onnxruntime' in project 'onnxruntime'
+        ➜ Explicit dependency on target 'OnnxRuntimeBindings' in project 'onnxruntime'
+    Target 'OnnxRuntimeBindings' in project 'onnxruntime' (no dependencies)
     Target 'MediaRemoteAdapter' in project 'MediaRemoteAdapter'
         ➜ Explicit dependency on target 'MediaRemoteAdapter' in project 'MediaRemoteAdapter'
         ➜ Explicit dependency on target 'MediaRemoteAdapter_MediaRemoteAdapter' in project 'MediaRemoteAdapter'
@@ -115,6 +114,8 @@ ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeD
 
 ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
 
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -x objective-c++ -c /dev/null
+
 ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -x c -c /dev/null
 
 ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -x c++ -c /dev/null
@@ -125,13 +126,33 @@ ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --
 
 ReadFileContents /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/share/docc/features.json
 
-Build description signature: 4be44df045e100324ba66ab3120ce49c
-Build description path: /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Intermediates.noindex/XCBuildData/4be44df045e100324ba66ab3120ce49c.xcbuilddata
-/Users/deborahmangan/Desktop/Prototypes/dev/untitled folder 3/VoiceInk.xcodeproj: error: No profiles for 'com.tmm22.VoiceLinkCommunity' were found: Xcode couldn't find any Mac App Development provisioning profiles matching 'com.tmm22.VoiceLinkCommunity'. Automatic signing is disabled and unable to generate a profile. To enable automatic signing, pass -allowProvisioningUpdates to xcodebuild. (in target 'VoiceInk' from project 'VoiceInk')
+Build description signature: 0e813fcfedfc1e64d58d965a97149673
+Build description path: /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Intermediates.noindex/XCBuildData/0e813fcfedfc1e64d58d965a97149673.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk /Users/deborahmangan/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx26.1-25B74-3ae1261907bdadc328169391a47051a6.sdkstatcache
+    cd /Users/deborahmangan/Desktop/Prototypes/dev/untitled\ folder\ 3/VoiceInk.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -o /Users/deborahmangan/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx26.1-25B74-3ae1261907bdadc328169391a47051a6.sdkstatcache
+
+ProcessInfoPlistFile /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/KeyboardShortcuts_KeyboardShortcuts.bundle/Contents/Info.plist /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Intermediates.noindex/KeyboardShortcuts.build/Debug/KeyboardShortcuts_KeyboardShortcuts.build/empty-KeyboardShortcuts_KeyboardShortcuts.plist (in target 'KeyboardShortcuts_KeyboardShortcuts' from project 'KeyboardShortcuts')
+    cd /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/SourcePackages/checkouts/KeyboardShortcuts
+    builtin-infoPlistUtility /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Intermediates.noindex/KeyboardShortcuts.build/Debug/KeyboardShortcuts_KeyboardShortcuts.build/empty-KeyboardShortcuts_KeyboardShortcuts.plist -producttype com.apple.product-type.bundle -expandbuildsettings -platform macosx -o /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/KeyboardShortcuts_KeyboardShortcuts.bundle/Contents/Info.plist
+
+ProcessInfoPlistFile /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/MediaRemoteAdapter_MediaRemoteAdapter.bundle/Contents/Info.plist /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Intermediates.noindex/MediaRemoteAdapter.build/Debug/MediaRemoteAdapter_MediaRemoteAdapter.build/empty-MediaRemoteAdapter_MediaRemoteAdapter.plist (in target 'MediaRemoteAdapter_MediaRemoteAdapter' from project 'MediaRemoteAdapter')
+    cd /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/SourcePackages/checkouts/mediaremote-adapter
+    builtin-infoPlistUtility /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Intermediates.noindex/MediaRemoteAdapter.build/Debug/MediaRemoteAdapter_MediaRemoteAdapter.build/empty-MediaRemoteAdapter_MediaRemoteAdapter.plist -producttype com.apple.product-type.bundle -expandbuildsettings -platform macosx -o /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/MediaRemoteAdapter_MediaRemoteAdapter.bundle/Contents/Info.plist
+
+ProcessInfoPlistFile /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/PackageFrameworks/MediaRemoteAdapter.framework/Versions/A/Resources/Info.plist /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Intermediates.noindex/MediaRemoteAdapter.build/Debug/MediaRemoteAdapter\ product.build/empty-MediaRemoteAdapter.plist (in target 'MediaRemoteAdapter' from project 'MediaRemoteAdapter')
+    cd /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/SourcePackages/checkouts/mediaremote-adapter
+    builtin-infoPlistUtility /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Intermediates.noindex/MediaRemoteAdapter.build/Debug/MediaRemoteAdapter\ product.build/empty-MediaRemoteAdapter.plist -producttype com.apple.product-type.framework -expandbuildsettings -platform macosx -o /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/PackageFrameworks/MediaRemoteAdapter.framework/Versions/A/Resources/Info.plist
+
 /Users/deborahmangan/Desktop/Prototypes/dev/untitled folder 3/VoiceInk.xcodeproj: warning: The Copy Bundle Resources build phase contains this target's Info.plist file '/Users/deborahmangan/Desktop/Prototypes/dev/untitled folder 3/VoiceInk/Info.plist'. (in target 'VoiceInk' from project 'VoiceInk')
-** BUILD FAILED **
+ProcessInfoPlistFile /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/VoiceLink\ Community.app/Contents/Info.plist /Users/deborahmangan/Desktop/Prototypes/dev/untitled\ folder\ 3/VoiceInk/Info.plist (in target 'VoiceInk' from project 'VoiceInk')
+    cd /Users/deborahmangan/Desktop/Prototypes/dev/untitled\ folder\ 3
+    builtin-infoPlistUtility /Users/deborahmangan/Desktop/Prototypes/dev/untitled\ folder\ 3/VoiceInk/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/VoiceLink\ Community.app/Contents/PkgInfo -expandbuildsettings -platform macosx -additionalcontentfile /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Intermediates.noindex/VoiceInk.build/Debug/VoiceInk.build/assetcatalog_generated_info.plist -scanforprivacyfile /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/VoiceLink\ Community.app/Contents/Frameworks/ESpeakNG.framework -scanforprivacyfile /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/VoiceLink\ Community.app/Contents/Frameworks/MediaRemoteAdapter.framework -scanforprivacyfile /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/VoiceLink\ Community.app/Contents/Frameworks/Sparkle.framework -scanforprivacyfile /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/VoiceLink\ Community.app/Contents/Frameworks/onnxruntime.framework -scanforprivacyfile /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/VoiceLink\ Community.app/Contents/Frameworks/whisper.framework -scanforprivacyfile /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/VoiceLink\ Community.app/Contents/Resources/KeyboardShortcuts_KeyboardShortcuts.bundle -scanforprivacyfile /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/VoiceLink\ Community.app/Contents/Resources/MediaRemoteAdapter_MediaRemoteAdapter.bundle -o /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/VoiceLink\ Community.app/Contents/Info.plist
 
+CopySwiftLibs /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/VoiceLink\ Community.app (in target 'VoiceInk' from project 'VoiceInk')
+    cd /Users/deborahmangan/Desktop/Prototypes/dev/untitled\ folder\ 3
+    builtin-swiftStdLibTool --copy --verbose --scan-executable /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/VoiceLink\ Community.app/Contents/MacOS/VoiceLink\ Community.debug.dylib --scan-folder /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/VoiceLink\ Community.app/Contents/Frameworks --scan-folder /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/VoiceLink\ Community.app/Contents/PlugIns --scan-folder /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/VoiceLink\ Community.app/Contents/Library/SystemExtensions --scan-folder /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/VoiceLink\ Community.app/Contents/Extensions --scan-folder /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/PackageFrameworks/MediaRemoteAdapter.framework --platform macosx --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Products/Debug/VoiceLink\ Community.app/Contents/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/deborahmangan/Library/Developer/Xcode/DerivedData/VoiceInk-eemogpngnlfwrxdjpxgajwlrwcvv/Build/Intermediates.noindex/VoiceInk.build/Debug/VoiceInk.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+Ignoring --strip-bitcode because --sign was not passed
 
-The following build commands failed:
-	Building project VoiceInk with scheme VoiceInk and configuration Debug
-(1 failure)
+** BUILD SUCCEEDED **
+

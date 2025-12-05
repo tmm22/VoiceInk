@@ -17,17 +17,17 @@ enum ContextAwarenessLevel: String, CaseIterable, Identifiable, Codable {
     
     var description: String {
         switch self {
-        case .minimal: return "Basic context only. Best for privacy and speed."
-        case .balanced: return "Standard context. Good balance of smarts and performance."
-        case .maximum: return "Full environment awareness. Best accuracy, higher latency."
+        case .minimal: return "Optimized for lightning-fast dictation. Only essential signals (App & Time) are sent, ensuring maximum privacy and zero processing delay."
+        case .balanced: return "The sweet spot for productivity. Enables web summarization, file awareness, and clipboard context without the performance cost of visual processing."
+        case .maximum: return "Complete environmental awareness. The AI 'sees' your screen and checks your calendar to provide deeply contextualized assistance, with slightly increased processing time."
         }
     }
     
     var tradeOff: String {
         switch self {
-        case .minimal: return "Fastest • Least Context"
-        case .balanced: return "Standard Speed • Standard Context"
-        case .maximum: return "Slower • Full Context"
+        case .minimal: return "Instant • Max Privacy"
+        case .balanced: return "Smart • Fast"
+        case .maximum: return "Deep Context • Slower"
         }
     }
 }

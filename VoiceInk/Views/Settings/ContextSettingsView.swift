@@ -68,6 +68,18 @@ struct ContextSettingsView: View {
                         }
                     }
                     
+                    if let description = currentLevel?.description {
+                        Text(description)
+                            .voiceInkCaptionStyle()
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 4)
+                            .padding(.bottom, 4)
+                            // Use id to force transition when text changes
+                            .id("desc-\(currentLevel?.id ?? "custom")")
+                            .transition(.opacity)
+                    }
+                    
                     if currentLevel == nil {
                         Text("Custom Configuration Active")
                             .font(.caption)
