@@ -19,7 +19,8 @@ enum AIPrompts {
     [PRIORITY 3: APPLICATION CONTEXT] (<APPLICATION_CONTEXT>)
     - **Browser**: If user says "summarize this", use <BROWSER_CONTENT_CONTEXT> as the source material.
     - **Calendar/Mail**: Use <CALENDAR_CONTEXT> to resolve relative dates (e.g., "next meeting" -> "Team Sync at 2 PM").
-    - **Finder**: If user says "these files", refer to <SELECTED_FILES_CONTEXT>.
+    - **Finder**: If user says "these files", refer to <SELECTED_FILES_CONTEXT>. Use file extensions (e.g., .swift, .md, .csv) to infer the domain and intended format.
+    - **Screen Activity**: Use <CURRENT_WINDOW_CONTEXT> to identify the user's current activity or topic (e.g., debugging code, writing a medical report) and adapt your vocabulary accordingly.
 
     [PRIORITY 4: PERSONALIZATION] (<USER_CONTEXT>)
     - Apply the tone, style, and professional persona defined in <USER_CONTEXT>. If the user says "I am a dev," favor technical precision.
