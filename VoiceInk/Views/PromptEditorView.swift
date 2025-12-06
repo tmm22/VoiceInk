@@ -179,6 +179,33 @@ struct PromptEditorView: View {
                                 .font(.headline)
                                 .foregroundColor(.secondary)
                             
+                            // Display User Persona Context if available
+                            if !enhancementService.contextSettings.userBio.isEmpty {
+                                HStack(alignment: .top, spacing: 8) {
+                                    Image(systemName: "person.text.rectangle")
+                                        .foregroundStyle(.secondary)
+                                        .font(.caption)
+                                        .padding(.top, 2)
+                                    
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Active Persona:")
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                            .foregroundStyle(.secondary)
+                                        
+                                        Text(enhancementService.contextSettings.userBio)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(2)
+                                    }
+                                }
+                                .padding(8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color.secondary.opacity(0.05))
+                                .cornerRadius(6)
+                                .padding(.bottom, 4)
+                            }
+                            
                             Text("Define how AI should enhance your transcriptions")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
