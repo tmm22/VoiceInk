@@ -140,8 +140,14 @@ class AIContextBuilder {
                 let currentApp = NSWorkspace.shared.frontmostApplication
                 let bundleId = currentApp?.bundleIdentifier ?? ""
                 
-                // If not a browser, skip
-                if !["com.apple.Safari", "com.google.Chrome", "com.brave.Browser", "company.thebrowser.Browser"].contains(bundleId) {
+                // Use BrowserType enum to check if this is a supported browser
+                // This ensures consistency with BrowserURLService and BrowserContentService
+                // Full content support: Safari, Chrome, Brave, Arc, Edge, Opera, Vivaldi, Orion, Yandex
+                // Partial support (title only): Firefox, Zen
+                let isSupportedBrowser = BrowserType.allCases.contains { $0.bundleIdentifier == bundleId }
+                
+                // If not a supported browser, skip
+                if !isSupportedBrowser {
                      self.capturedBrowserContent = nil
                      return
                 }
@@ -223,11 +229,24 @@ class AIContextBuilder {
         // Retrieve captured state
         let clipboardSection = settings.includeClipboard ? capturedClipboard : nil
         let screenSection = settings.includeScreenCapture ? capturedScreen : nil
-        let applicationContext = settings.includeApplicationContext ? capturedApplication : nil
         let focusedElementContext = settings.includeFocusedElement ? capturedFocusedElement : nil
         let selectedFilesContext = settings.includeSelectedFiles ? capturedFiles : nil
         let calendarContext = settings.includeCalendar ? capturedCalendar : nil
         let browserContentContext = settings.includeBrowserContent ? capturedBrowserContent : nil
+        
+        // Populate pageTitle from browser content if available (fixes always-nil pageTitle issue)
+        var applicationContext = settings.includeApplicationContext ? capturedApplication : nil
+        if let app = applicationContext,
+           app.isBrowser,
+           let browserContent = browserContentContext {
+            applicationContext = ApplicationContext(
+                name: app.name,
+                bundleIdentifier: app.bundleIdentifier,
+                isBrowser: app.isBrowser,
+                currentURL: app.currentURL ?? (browserContent.url.isEmpty ? nil : browserContent.url),
+                pageTitle: browserContent.title.isEmpty ? nil : browserContent.title
+            )
+        }
         
         // Vocabulary
         let vocabulary = customVocabularyService.getCustomVocabulary().components(separatedBy: ", ")
