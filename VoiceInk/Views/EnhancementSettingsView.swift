@@ -120,48 +120,26 @@ struct EnhancementSettingsView: View {
                     }
                     
                     VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
-                        Text("Enhancement Prompt")
+                        Text("Enhancement Prompts & Persona")
                             .voiceInkHeadline()
                         
-                        // Reorderable prompts grid with drag-and-drop
-                        ReorderablePromptGrid(
-                            selectedPromptId: enhancementService.selectedPromptId,
-                            onPromptSelected: { prompt in
-                                enhancementService.setActivePrompt(prompt)
-                            },
-                            onEditPrompt: { prompt in
-                                selectedPromptForEdit = prompt
-                            },
-                            onDeletePrompt: { prompt in
-                                enhancementService.deletePrompt(prompt)
-                            },
-                            onAddNewPrompt: {
-                                isEditingPrompt = true
-                            }
-                        )
-                        
-                        Divider()
-                            .padding(.vertical, VoiceInkSpacing.sm)
-                        
-                        // Personal Context Section
+                        // Personal Context Section (Moved to top of card)
                         VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
                             HStack {
-                                Text("Personal Context")
-                                    .voiceInkSubheadline()
+                                Label("Global Personal Context", systemImage: "person.text.rectangle")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
                                     .foregroundStyle(.primary)
                                 
                                 InfoTip(
                                     title: "Personal Context",
-                                    message: "This bio is sent with every request. Use it to define your role, preferred tone, or specific instructions."
+                                    message: "This bio is persistently saved and sent with EVERY request to all prompts below. Use it to define your role, preferred tone, or specific constraints."
                                 )
                             }
                             
-                            Text("Tell the AI who you are, your role, and your preferred writing style.")
-                                .voiceInkCaptionStyle()
-                            
                             TextEditor(text: $enhancementService.contextSettings.userBio)
                                 .font(.body)
-                                .frame(height: 100)
+                                .frame(height: 80)
                                 .padding(VoiceInkSpacing.sm)
                                 .background(VoiceInkTheme.Palette.canvas)
                                 .cornerRadius(VoiceInkRadius.small)
@@ -181,6 +159,26 @@ struct EnhancementSettingsView: View {
                                     alignment: .topLeading
                                 )
                         }
+                        
+                        Divider()
+                            .padding(.vertical, VoiceInkSpacing.sm)
+                        
+                        // Reorderable prompts grid with drag-and-drop
+                        ReorderablePromptGrid(
+                            selectedPromptId: enhancementService.selectedPromptId,
+                            onPromptSelected: { prompt in
+                                enhancementService.setActivePrompt(prompt)
+                            },
+                            onEditPrompt: { prompt in
+                                selectedPromptForEdit = prompt
+                            },
+                            onDeletePrompt: { prompt in
+                                enhancementService.deletePrompt(prompt)
+                            },
+                            onAddNewPrompt: {
+                                isEditingPrompt = true
+                            }
+                        )
                     }
                     .padding(VoiceInkSpacing.lg)
                     .voiceInkCardBackground()
