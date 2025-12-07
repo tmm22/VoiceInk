@@ -297,10 +297,10 @@ struct APIKeyManagementView: View {
                             HStack {
                                 Button(action: {
                                     isVerifying = true
-                                    aiService.saveAPIKey(apiKey) { success in
+                                    aiService.saveAPIKey(apiKey) { success, errorMessage in
                                         isVerifying = false
                                         if !success {
-                                            alertMessage = "Invalid API key. Please check and try again."
+                                            alertMessage = errorMessage ?? "Verification failed"
                                             showAlert = true
                                         }
                                         apiKey = ""
@@ -364,10 +364,10 @@ struct APIKeyManagementView: View {
                         HStack {
                             Button(action: {
                                 isVerifying = true
-                                aiService.saveAPIKey(apiKey) { success in
+                                aiService.saveAPIKey(apiKey) { success, errorMessage in
                                     isVerifying = false
                                     if !success {
-                                        alertMessage = "Invalid API key. Please check and try again."
+                                        alertMessage = errorMessage ?? "Verification failed"
                                         showAlert = true
                                     }
                                     apiKey = ""

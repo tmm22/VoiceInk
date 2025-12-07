@@ -14,6 +14,7 @@ struct CloudModelCardView: View {
     @State private var isVerifying = false
     @State private var verificationStatus: VerificationStatus = .none
     @State private var isConfiguredState: Bool = false
+    @State private var verificationError: String? = nil
     
     enum VerificationStatus {
         case none, verifying, success, failure
@@ -249,9 +250,15 @@ struct CloudModelCardView: View {
             }
             
             if verificationStatus == .failure {
-                Text("Invalid API key. Please check your key and try again.")
-                    .font(.caption)
-                    .foregroundColor(Color(.systemRed))
+                if let error = verificationError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(Color(.systemRed))
+                } else {
+                    Text("Verification failed")
+                        .font(.caption)
+                        .foregroundColor(Color(.systemRed))
+                }
             } else if verificationStatus == .success {
                 Text("API key verified successfully!")
                     .font(.caption)
@@ -297,11 +304,12 @@ struct CloudModelCardView: View {
             return
         }
         
-        aiService.saveAPIKey(apiKey) { isValid in
+        aiService.saveAPIKey(apiKey) { isValid, errorMessage in
             DispatchQueue.main.async {
                 self.isVerifying = false
                 if isValid {
                     self.verificationStatus = .success
+                    self.verificationError = nil
                     // Save the API key
                     let keychain = KeychainManager()
                     keychain.saveAPIKey(self.apiKey, for: self.providerKey)
@@ -313,6 +321,7 @@ struct CloudModelCardView: View {
                     }
                 } else {
                     self.verificationStatus = .failure
+                    self.verificationError = errorMessage
                 }
                 
                 // Restore original provider
@@ -326,6 +335,7 @@ struct CloudModelCardView: View {
         try? keychain.deleteAPIKey(for: providerKey)
         apiKey = ""
         verificationStatus = .none
+        verificationError = nil
         isConfiguredState = false
         
         // If this model is currently the default, clear it
