@@ -18,7 +18,7 @@ struct ClipboardPasteSection: View {
 
                     InfoTip(
                         title: "Restore Clipboard",
-                        message: "When enabled, VoiceInk will restore your original clipboard content after pasting the transcription."
+                        message: "When enabled, \(AppBrand.communityName) will restore your original clipboard content after pasting the transcription."
                     )
                 }
 
