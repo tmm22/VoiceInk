@@ -237,6 +237,24 @@ class AudioDeviceManager: ObservableObject {
         }
     }
     
+    /// Selects a device and switches to custom input mode atomically to prevent race conditions.
+    /// This should be used when selecting a device from the menu bar to ensure both the mode
+    /// and device selection happen together on the main thread.
+    func selectDeviceAndSwitchToCustomMode(id: AudioDeviceID) {
+        if let deviceToSelect = availableDevices.first(where: { $0.id == id }) {
+            let uid = deviceToSelect.uid
+            // Already on MainActor, perform atomically
+            self.inputMode = .custom
+            self.selectedDeviceID = id
+            UserDefaults.standard.audioInputModeRawValue = AudioInputMode.custom.rawValue
+            UserDefaults.standard.selectedAudioDeviceUID = uid
+            self.notifyDeviceChange()
+        } else {
+            logger.error("Attempted to select unavailable device: \(id)")
+            fallbackToDefaultDevice()
+        }
+    }
+    
     func selectInputMode(_ mode: AudioInputMode) {
         inputMode = mode
         UserDefaults.standard.audioInputModeRawValue = mode.rawValue

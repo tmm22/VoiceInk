@@ -25,29 +25,7 @@ extension SettingsView {
             }
             
             if sectionMatches("Clipboard & Paste", in: .transcription) {
-                VoiceInkSection(
-                    icon: "doc.on.clipboard",
-                    title: "Clipboard & Paste",
-                    subtitle: "Choose how text is pasted and stored"
-                ) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Toggle(isOn: Binding(
-                            get: { UserDefaults.standard.bool(forKey: "preserveTranscriptInClipboard") },
-                            set: { UserDefaults.standard.set($0, forKey: "preserveTranscriptInClipboard") }
-                        )) {
-                            Text("Preserve transcript in clipboard")
-                        }
-                        .toggleStyle(.switch)
-                        .help("Keep the transcribed text in clipboard instead of restoring the original clipboard content")
-                        
-                        Toggle("Use AppleScript Paste Method", isOn: Binding(
-                            get: { UserDefaults.standard.bool(forKey: "UseAppleScriptPaste") },
-                            set: { UserDefaults.standard.set($0, forKey: "UseAppleScriptPaste") }
-                        ))
-                        .toggleStyle(.switch)
-                        .help("Use AppleScript if you have a non-standard keyboard layout")
-                    }
-                }
+                ClipboardPasteSection()
             }
             
             if sectionMatches("Recorder Style", in: .transcription) {

@@ -14,22 +14,59 @@ class ScreenCaptureService: ObservableObject {
         category: "aienhancement"
     )
     
+    /// Represents a candidate window for screen capture
+    private struct WindowCandidate {
+        let title: String
+        let ownerName: String
+        let windowID: CGWindowID
+        let ownerPID: pid_t
+        let layer: Int32
+    }
+    
     private func getActiveWindowInfo() -> (title: String, ownerName: String, windowID: CGWindowID)? {
+        let currentPID = ProcessInfo.processInfo.processIdentifier
+        let frontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
         let windowListInfo = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
-
-        if let frontWindow = windowListInfo.first(where: { info in
-            let layer = info[kCGWindowLayer as String] as? Int32 ?? 0
-            return layer == 0
-        }) {
-            guard let windowID = frontWindow[kCGWindowNumber as String] as? CGWindowID,
-                  let ownerName = frontWindow[kCGWindowOwnerName as String] as? String,
-                  let title = frontWindow[kCGWindowName as String] as? String else {
+        
+        let candidates = windowListInfo.compactMap { info -> WindowCandidate? in
+            guard let windowID = info[kCGWindowNumber as String] as? CGWindowID,
+                  let ownerName = info[kCGWindowOwnerName as String] as? String,
+                  let ownerPIDNumber = info[kCGWindowOwnerPID as String] as? NSNumber,
+                  let layer = info[kCGWindowLayer as String] as? Int32 else {
                 return nil
             }
-
-            return (title: title, ownerName: ownerName, windowID: windowID)
+            
+            let rawTitle = (info[kCGWindowName as String] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let resolvedTitle = rawTitle?.isEmpty == false ? rawTitle! : ownerName
+            
+            return WindowCandidate(
+                title: resolvedTitle,
+                ownerName: ownerName,
+                windowID: windowID,
+                ownerPID: ownerPIDNumber.int32Value,
+                layer: layer
+            )
         }
-
+        
+        func isEligible(_ candidate: WindowCandidate) -> Bool {
+            // Only consider layer-0 windows (normal windows, not overlays)
+            guard candidate.layer == 0 else { return false }
+            // Filter out VoiceInk's own windows to avoid capturing the status overlay
+            guard candidate.ownerPID != currentPID else { return false }
+            return true
+        }
+        
+        // First, try to find a window from the frontmost app
+        if let frontmostPID = frontmostPID,
+           let frontmostWindow = candidates.first(where: { isEligible($0) && $0.ownerPID == frontmostPID }) {
+            return (title: frontmostWindow.title, ownerName: frontmostWindow.ownerName, windowID: frontmostWindow.windowID)
+        }
+        
+        // Fallback to any eligible window
+        if let firstEligible = candidates.first(where: { isEligible($0) }) {
+            return (title: firstEligible.title, ownerName: firstEligible.ownerName, windowID: firstEligible.windowID)
+        }
+        
         return nil
     }
     

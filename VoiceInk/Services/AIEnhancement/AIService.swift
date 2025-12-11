@@ -97,13 +97,13 @@ enum AIProvider: String, CaseIterable {
         case .cerebras:
             return "gpt-oss-120b"
         case .groq:
-            return "qwen/qwen3-32b"
+            return "openai/gpt-oss-120b"
         case .gemini:
             return "gemini-2.5-flash-lite"
         case .anthropic:
-            return "claude-haiku-4-5"
+            return "claude-sonnet-4-5"
         case .openAI:
-            return "gpt-5-mini"
+            return "gpt-5.1"
         case .mistral:
             return "mistral-large-latest"
         case .elevenLabs:
@@ -127,9 +127,10 @@ enum AIProvider: String, CaseIterable {
         switch self {
         case .cerebras:
             return [
+                "gpt-oss-120b",
+                "llama-3.1-8b",
                 "llama-4-scout-17b-16e-instruct",
                 "llama-3.3-70b",
-                "gpt-oss-120b",
                 "qwen-3-32b",
                 "qwen-3-235b-a22b-instruct-2507"
             ]
@@ -153,14 +154,13 @@ enum AIProvider: String, CaseIterable {
             ]
         case .anthropic:
             return [
-                "claude-opus-4-0",
-                "claude-sonnet-4-0",
+                "claude-opus-4-5",
                 "claude-sonnet-4-5",
                 "claude-haiku-4-5"
             ]
         case .openAI:
             return [
-                "gpt-5",
+                "gpt-5.1",
                 "gpt-5-mini",
                 "gpt-5-nano",
                 "gpt-4.1",

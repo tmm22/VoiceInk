@@ -1,8 +1,80 @@
 # Upstream Integration Progress
 
 **Date Started:** December 8, 2025  
-**Date Completed:** December 8, 2025  
-**Objective:** Incorporate upstream fixes from `Beingpax/VoiceInk` commit `b6068bc` (Show raw API error responses on key verification failure)
+**Date Updated:** December 12, 2025  
+**Objective:** Incorporate upstream fixes from `Beingpax/VoiceInk` into VoiceLink Community fork
+
+---
+
+## Session 2: December 12, 2025
+
+**Commits Integrated:** 17 new commits since `8867636` (up to latest upstream/main)
+
+### Changes Implemented
+
+#### 1. TextInsertionFormatter Removal (upstream `b754f39`) - CRITICAL CRASH FIX
+- **Deleted:** `VoiceInk/Services/TextInsertionFormatter.swift`
+- **Updated:** `VoiceInk/CursorPaster.swift` - Removed TextInsertionFormatter usage
+
+#### 2. Audio Device Race Condition Fix (upstream `feea0d7`)
+- **Updated:** `VoiceInk/Services/AudioDeviceManager.swift`
+  - Added `selectDeviceAndSwitchToCustomMode()` method to atomically select device and switch to custom mode
+
+#### 3. OCR Window Detection Fix (upstream `3b043f4`/`d25ae52`)
+- **Updated:** `VoiceInk/Services/ScreenCaptureService.swift`
+  - Added `WindowCandidate` struct for better window sorting
+  - Filters out VoiceInk's own windows from OCR capture
+  - Prioritizes frontmost app windows
+
+#### 4. AI Model Updates (upstream `ea64ff3` + `8ce84e9`)
+- **Updated:** `VoiceInk/Services/AIEnhancement/AIService.swift`
+  - Default models: groq→`openai/gpt-oss-120b`, anthropic→`claude-sonnet-4-5`, openAI→`gpt-5.1`
+  - Cerebras models reordered, added `llama-3.1-8b`
+  - Anthropic: removed `claude-opus-4-0`, `claude-sonnet-4-0`; added `claude-opus-4-5`
+  - OpenAI: replaced `gpt-5` with `gpt-5.1`
+- **Updated:** `VoiceInk/Services/AIEnhancement/ReasoningConfig.swift`
+  - Added `cerebrasReasoningModels` set for reasoning model detection
+
+#### 5. Recorder Startup Optimization (upstream `85e2685`)
+- **Updated:** `VoiceInk/Whisper/WhisperState+UI.swift`
+  - Show recorder UI before starting recording for faster perceived startup
+- **Updated:** `VoiceInk/Whisper/WhisperState.swift`
+  - Model loading and context capture moved to `Task.detached` background task
+
+#### 6. Clipboard Preservation Change (upstream `baae439`)
+- **Updated:** `VoiceInk/CursorPaster.swift`
+  - Changed from `preserveTranscriptInClipboard` to `restoreClipboardAfterPaste`
+  - Added configurable `clipboardRestoreDelay` (default 1.5s)
+- **Updated:** `VoiceInk/Services/ImportExportService.swift`
+  - Added `restoreClipboardAfterPaste` and `clipboardRestoreDelay` to GeneralSettings struct
+  - Updated export/import logic for new settings
+- **Created:** `VoiceInk/Views/Settings/ClipboardPasteSection.swift`
+  - New reusable section view for clipboard settings
+  - Includes toggle for restore clipboard and delay picker (0.5s - 5.0s)
+- **Updated:** `VoiceInk/Views/Settings/SettingsView+Transcription.swift`
+  - Replaced inline clipboard settings with `ClipboardPasteSection()`
+
+### Files Modified (Session 2)
+
+| File | Action | Description |
+|------|--------|-------------|
+| `VoiceInk/Services/TextInsertionFormatter.swift` | DELETED | Removed problematic formatter |
+| `VoiceInk/CursorPaster.swift` | Modified | Removed formatter, added clipboard restore |
+| `VoiceInk/Services/AudioDeviceManager.swift` | Modified | Added atomic device selection method |
+| `VoiceInk/Services/ScreenCaptureService.swift` | Modified | Improved window detection for OCR |
+| `VoiceInk/Services/AIEnhancement/AIService.swift` | Modified | Updated AI models |
+| `VoiceInk/Services/AIEnhancement/ReasoningConfig.swift` | Modified | Added Cerebras reasoning models |
+| `VoiceInk/Whisper/WhisperState.swift` | Modified | Background model loading |
+| `VoiceInk/Whisper/WhisperState+UI.swift` | Modified | Faster recorder display |
+| `VoiceInk/Services/ImportExportService.swift` | Modified | New clipboard settings |
+| `VoiceInk/Views/Settings/ClipboardPasteSection.swift` | CREATED | New clipboard settings UI |
+| `VoiceInk/Views/Settings/SettingsView+Transcription.swift` | Modified | Use ClipboardPasteSection |
+
+---
+
+## Session 1: December 8, 2025
+
+**Objective:** Incorporate upstream commit `b6068bc` (Show raw API error responses on key verification failure)
 
 ---
 
@@ -165,10 +237,25 @@ This implementation follows AGENTS.md coding standards:
 
 ## Related Upstream Commits
 
+### Session 2 Commits (December 12, 2025)
+
+| Commit | Description | Status in Fork |
+|--------|-------------|----------------|
+| `b754f39` | Remove TextInsertionFormatter (crash fix) | ✅ **APPLIED** |
+| `feea0d7` | Fix audio device race condition | ✅ **APPLIED** |
+| `3b043f4` | OCR window detection improvements | ✅ **APPLIED** |
+| `d25ae52` | Additional OCR window fixes | ✅ **APPLIED** |
+| `ea64ff3` | Update AI models (GPT-5.1, Claude) | ✅ **APPLIED** |
+| `8ce84e9` | Add Cerebras reasoning models | ✅ **APPLIED** |
+| `85e2685` | Recorder startup optimization | ✅ **APPLIED** |
+| `baae439` | Clipboard restore after paste | ✅ **APPLIED** |
+
+### Session 1 Commits (December 8, 2025)
+
 | Commit | Description | Status in Fork |
 |--------|-------------|----------------|
 | `cd503ac` | Refactor modifier key handling to use direct await calls | ✅ Already applied |
-| `b6068bc` | Show raw API error responses on key verification failure | ✅ **NOW APPLIED** |
+| `b6068bc` | Show raw API error responses on key verification failure | ✅ **APPLIED** |
 | `e16c84e` | Add accessibility permission check to prevent pop-up | ✅ Already covered (AIContextBuilder.swift:217) |
 | `1e612d9` | Support org.nspasteboard conventions for transient clipboard | ✅ Already applied |
 | `ac1a85c` | Improved text formatting during paste operation | ✅ Already applied |
@@ -177,4 +264,4 @@ This implementation follows AGENTS.md coding standards:
 
 ---
 
-**Implementation Complete** - Ready for testing and commit.
+**Status:** Ready for commit and push.

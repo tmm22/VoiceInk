@@ -26,6 +26,8 @@ struct GeneralSettings: Codable {
     let isPauseMediaEnabled: Bool?
     let isTextFormattingEnabled: Bool?
     let isExperimentalFeaturesEnabled: Bool?
+    let restoreClipboardAfterPaste: Bool?
+    let clipboardRestoreDelay: Double?
 }
 
 struct VoiceLinkCommunityExportedSettings: Codable {
@@ -107,7 +109,9 @@ class ImportExportService {
             isSystemMuteEnabled: mediaController.isSystemMuteEnabled,
             isPauseMediaEnabled: playbackController.isPauseMediaEnabled,
             isTextFormattingEnabled: UserDefaults.standard.object(forKey: keyIsTextFormattingEnabled) as? Bool ?? true,
-            isExperimentalFeaturesEnabled: UserDefaults.standard.bool(forKey: "isExperimentalFeaturesEnabled")
+            isExperimentalFeaturesEnabled: UserDefaults.standard.bool(forKey: "isExperimentalFeaturesEnabled"),
+            restoreClipboardAfterPaste: UserDefaults.standard.bool(forKey: "restoreClipboardAfterPaste"),
+            clipboardRestoreDelay: UserDefaults.standard.double(forKey: "clipboardRestoreDelay")
         )
 
         let exportedSettings = VoiceLinkCommunityExportedSettings(
@@ -281,6 +285,12 @@ class ImportExportService {
                         }
                         if let textFormattingEnabled = general.isTextFormattingEnabled {
                             UserDefaults.standard.set(textFormattingEnabled, forKey: self.keyIsTextFormattingEnabled)
+                        }
+                        if let restoreClipboard = general.restoreClipboardAfterPaste {
+                            UserDefaults.standard.set(restoreClipboard, forKey: "restoreClipboardAfterPaste")
+                        }
+                        if let clipboardDelay = general.clipboardRestoreDelay {
+                            UserDefaults.standard.set(clipboardDelay, forKey: "clipboardRestoreDelay")
                         }
                     }
 
