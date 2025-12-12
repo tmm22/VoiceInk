@@ -57,8 +57,6 @@ class AudioEngineRecorder: ObservableObject {
     }
 
     func startRecording(toOutputFile url: URL) throws {
-        logger.info("Starting recording to: \(url.path)")
-
         stopRecording()
 
         let engine = AVAudioEngine()
@@ -69,14 +67,12 @@ class AudioEngineRecorder: ObservableObject {
 
         let inputFormat = input.outputFormat(forBus: tapBusNumber)
 
-        logger.info("Input format - Sample Rate: \(inputFormat.sampleRate), Channels: \(inputFormat.channelCount)")
-
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
             logger.error("Invalid input format: sample rate or channel count is zero")
             throw AudioEngineRecorderError.invalidInputFormat
         }
 
-        // 16kHz, 16-bit PCM, mono
+        // 16kHz, 16-bit PCM, mono - required format for Whisper
         guard let desiredFormat = AVAudioFormat(
             commonFormat: .pcmFormatInt16,
             sampleRate: 16000.0,
@@ -87,22 +83,20 @@ class AudioEngineRecorder: ObservableObject {
             throw AudioEngineRecorderError.invalidRecordingFormat
         }
 
-        recordingFormat = desiredFormat
         recordingURL = url
 
+        let createdAudioFile: AVAudioFile
         do {
             if FileManager.default.fileExists(atPath: url.path) {
                 try FileManager.default.removeItem(at: url)
             }
 
-            audioFile = try AVAudioFile(
+            createdAudioFile = try AVAudioFile(
                 forWriting: url,
                 settings: desiredFormat.settings,
                 commonFormat: desiredFormat.commonFormat,
                 interleaved: desiredFormat.isInterleaved
             )
-
-            logger.info("Created audio file for writing")
         } catch {
             logger.error("Failed to create audio file: \(error.localizedDescription)")
             throw AudioEngineRecorderError.failedToCreateFile(error)
@@ -113,7 +107,12 @@ class AudioEngineRecorder: ObservableObject {
             throw AudioEngineRecorderError.failedToCreateConverter
         }
 
+        // Thread-safe assignment of shared resources
+        fileWriteLock.lock()
+        recordingFormat = desiredFormat
+        audioFile = createdAudioFile
         converter = audioConverter
+        fileWriteLock.unlock()
 
         input.installTap(onBus: tapBusNumber, bufferSize: tapBufferSize, format: inputFormat) { [weak self] (buffer, time) in
             guard let self = self else { return }
@@ -137,30 +136,28 @@ class AudioEngineRecorder: ObservableObject {
     }
 
     func stopRecording() {
-        logger.info("Stopping recording")
-
         guard isRecording else {
-            logger.info("Not currently recording, nothing to stop")
             return
         }
 
         if let input = inputNode {
             input.removeTap(onBus: tapBusNumber)
-            logger.info("Removed tap from input node")
         }
 
         audioEngine?.stop()
-        logger.info("Audio engine stopped")
+
+        // Wait for pending buffers to finish processing before clearing resources
+        audioProcessingQueue.sync { }
 
         fileWriteLock.lock()
         audioFile = nil
+        converter = nil
+        recordingFormat = nil
         fileWriteLock.unlock()
 
         audioEngine = nil
         inputNode = nil
-        recordingFormat = nil
         recordingURL = nil
-        converter = nil
         isRecording = false
 
         currentAveragePower = 0.0
@@ -170,15 +167,14 @@ class AudioEngineRecorder: ObservableObject {
     }
 
     private func restartRecordingPreservingFile() throws {
-        guard let url = recordingURL else {
-            throw AudioEngineRecorderError.invalidInputFormat
+        if let input = inputNode {
+            input.removeTap(onBus: tapBusNumber)
         }
-
-        // Remove old tap
-        inputNode?.removeTap(onBus: tapBusNumber)
         audioEngine?.stop()
 
-        // Create new engine
+        // Drain queue to prevent old-format buffers racing with new converter
+        audioProcessingQueue.sync { }
+
         let engine = AVAudioEngine()
         audioEngine = engine
 
@@ -186,20 +182,23 @@ class AudioEngineRecorder: ObservableObject {
         inputNode = input
 
         let inputFormat = input.outputFormat(forBus: tapBusNumber)
+        logger.info("Restarting with new input format - Sample Rate: \(inputFormat.sampleRate)")
 
-        guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
+        guard inputFormat.sampleRate > 0 else {
             throw AudioEngineRecorderError.invalidInputFormat
         }
 
-        guard let desiredFormat = recordingFormat else {
+        guard let format = recordingFormat else {
             throw AudioEngineRecorderError.invalidRecordingFormat
         }
 
-        guard let audioConverter = AVAudioConverter(from: inputFormat, to: desiredFormat) else {
+        guard let newConverter = AVAudioConverter(from: inputFormat, to: format) else {
             throw AudioEngineRecorderError.failedToCreateConverter
         }
 
-        converter = audioConverter
+        fileWriteLock.lock()
+        converter = newConverter
+        fileWriteLock.unlock()
 
         input.installTap(onBus: tapBusNumber, bufferSize: tapBufferSize, format: inputFormat) { [weak self] (buffer, time) in
             guard let self = self else { return }
@@ -210,8 +209,7 @@ class AudioEngineRecorder: ObservableObject {
 
         engine.prepare()
         try engine.start()
-
-        logger.info("✅ Audio engine restarted after configuration change")
+        logger.info("✅ Audio engine successfully restarted after configuration change")
     }
 
     nonisolated private func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
@@ -221,10 +219,11 @@ class AudioEngineRecorder: ObservableObject {
 
     nonisolated private func writeBufferToFile(_ buffer: AVAudioPCMBuffer) {
         fileWriteLock.lock()
+        defer { fileWriteLock.unlock() }
+        
         guard let audioFile = audioFile,
               let converter = converter,
               let format = recordingFormat else {
-            fileWriteLock.unlock()
             return
         }
 
@@ -234,30 +233,31 @@ class AudioEngineRecorder: ObservableObject {
         let outputCapacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio)
 
         guard let convertedBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: outputCapacity) else {
-            fileWriteLock.unlock()
-            logger.error("Failed to create converted buffer")
             return
         }
 
         var error: NSError?
+        var hasProvidedBuffer = false
 
         converter.convert(to: convertedBuffer, error: &error) { inNumPackets, outStatus in
-            outStatus.pointee = .haveData
-            return buffer
+            if hasProvidedBuffer {
+                outStatus.pointee = .noDataNow
+                return nil
+            } else {
+                hasProvidedBuffer = true
+                outStatus.pointee = .haveData
+                return buffer
+            }
         }
 
-        if let error = error {
-            fileWriteLock.unlock()
-            logger.error("Audio conversion error: \(error.localizedDescription)")
+        if error != nil {
             return
         }
 
         do {
             try audioFile.write(from: convertedBuffer)
-            fileWriteLock.unlock()
         } catch {
-            fileWriteLock.unlock()
-            logger.error("Failed to write buffer to file: \(error.localizedDescription)")
+            // Silently handle write errors to avoid log spam
         }
     }
 
