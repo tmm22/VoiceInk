@@ -15,6 +15,12 @@ struct MenuBarView: View {
     
     var body: some View {
         VStack {
+            Button("Toggle Recorder") {
+                whisperState.handleToggleMiniRecorder()
+            }
+
+            Divider()
+
             Menu {
                 ForEach(whisperState.usableModels, id: \.id) { model in
                     Button {
