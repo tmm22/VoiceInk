@@ -323,6 +323,9 @@ enum AudioEngineRecorderError: LocalizedError {
     case failedToCreateFile(Error)
     case failedToCreateConverter
     case failedToStartEngine(Error)
+    case bufferConversionFailed
+    case audioConversionError(Error)
+    case fileWriteFailed(Error)
 
     var errorDescription: String? {
         switch self {
@@ -336,6 +339,12 @@ enum AudioEngineRecorderError: LocalizedError {
             return "Failed to create audio format converter"
         case .failedToStartEngine(let error):
             return "Failed to start audio engine: \(error.localizedDescription)"
+        case .bufferConversionFailed:
+            return "Failed to create buffer for audio conversion"
+        case .audioConversionError(let error):
+            return "Audio format conversion failed: \(error.localizedDescription)"
+        case .fileWriteFailed(let error):
+            return "Failed to write audio data to file: \(error.localizedDescription)"
         }
     }
 }
