@@ -9,7 +9,7 @@ struct ReasoningConfig {
 
     static let openAIReasoningModels: Set<String> = [
         "gpt-5.2",
-        "gpt-5.2 pro",
+        "gpt-5.2-pro",
         "gpt-5-mini",
         "gpt-5-nano"
     ]
