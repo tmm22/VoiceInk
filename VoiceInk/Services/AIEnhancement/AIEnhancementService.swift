@@ -75,6 +75,9 @@ class AIEnhancementService: ObservableObject {
     @Published var reasoningEffort: ReasoningEffort {
         didSet {
             UserDefaults.standard.set(reasoningEffort.rawValue, forKey: "aiReasoningEffort")
+            #if DEBUG
+            print("🧠 Reasoning effort changed to: \(reasoningEffort.rawValue)")
+            #endif
             NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
         }
     }
@@ -135,8 +138,10 @@ class AIEnhancementService: ObservableObject {
         if let savedEffort = UserDefaults.standard.string(forKey: "aiReasoningEffort"),
            let effort = ReasoningEffort(rawValue: savedEffort) {
             self.reasoningEffort = effort
+            logger.notice("🧠 Loaded reasoning effort from UserDefaults: \(effort.rawValue, privacy: .public)")
         } else {
             self.reasoningEffort = Self.defaultReasoningEffort
+            logger.notice("🧠 No saved reasoning effort, using default: \(Self.defaultReasoningEffort.rawValue, privacy: .public)")
         }
 
         if let savedPromptsData = UserDefaults.standard.data(forKey: "customPrompts"),
@@ -378,6 +383,9 @@ class AIEnhancementService: ObservableObject {
 
             if let reasoningParam = ReasoningConfig.getReasoningParameter(for: aiService.currentModel, userPreference: reasoningEffort) {
                 requestBody["reasoning_effort"] = reasoningParam
+                logger.notice("🧠 Reasoning effort: \(reasoningParam, privacy: .public) (user setting: \(self.reasoningEffort.rawValue, privacy: .public)) for model: \(self.aiService.currentModel, privacy: .public)")
+            } else {
+                logger.notice("🧠 Model \(self.aiService.currentModel, privacy: .public) does not support reasoning_effort parameter")
             }
 
             do {
