@@ -390,6 +390,10 @@ class AIEnhancementService: ObservableObject {
 
             do {
                 request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+                // Log key request parameters for debugging
+                let effortValue = requestBody["reasoning_effort"] as? String ?? "NOT SET"
+                let modelValue = requestBody["model"] as? String ?? "unknown"
+                logger.notice("📤 API Request - model: \(modelValue, privacy: .public), reasoning_effort: \(effortValue, privacy: .public)")
             } catch {
                 throw EnhancementError.customError("Failed to prepare request: \(error.localizedDescription)")
             }
