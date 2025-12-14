@@ -389,8 +389,23 @@ class AIEnhancementService: ObservableObject {
             }
 
             do {
-                request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-                // Log key request parameters for debugging
+                let jsonData = try JSONSerialization.data(withJSONObject: requestBody, options: [.sortedKeys])
+                request.httpBody = jsonData
+                
+                // Log the ACTUAL JSON being sent (truncate messages for readability)
+                #if DEBUG
+                if let jsonString = String(data: jsonData, encoding: .utf8) {
+                    // Create a sanitized version that truncates the messages content
+                    var debugBody = requestBody
+                    debugBody["messages"] = "[TRUNCATED]"
+                    if let debugJson = try? JSONSerialization.data(withJSONObject: debugBody, options: [.sortedKeys, .prettyPrinted]),
+                       let debugString = String(data: debugJson, encoding: .utf8) {
+                        print("📤 OUTGOING REQUEST JSON (messages truncated):\n\(debugString)")
+                    }
+                }
+                #endif
+                
+                // Log key request parameters
                 let effortValue = requestBody["reasoning_effort"] as? String ?? "NOT SET"
                 let modelValue = requestBody["model"] as? String ?? "unknown"
                 logger.notice("📤 API Request - model: \(modelValue, privacy: .public), reasoning_effort: \(effortValue, privacy: .public)")
