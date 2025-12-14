@@ -22,7 +22,7 @@ struct ReasoningConfig {
         if geminiReasoningModels.contains(modelName) {
             return "low"
         } else if openAIReasoningModels.contains(modelName) {
-            return "minimal"
+            return "low"
         } else if cerebrasReasoningModels.contains(modelName) {
             return "low"
         }
