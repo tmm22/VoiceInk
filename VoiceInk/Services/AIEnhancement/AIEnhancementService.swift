@@ -72,10 +72,20 @@ class AIEnhancementService: ObservableObject {
         }
     }
     
+    @Published var reasoningEffort: ReasoningEffort {
+        didSet {
+            UserDefaults.standard.set(reasoningEffort.rawValue, forKey: "aiReasoningEffort")
+            NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
+        }
+    }
+    
     // Timeout configuration constants
     static let defaultTimeout: TimeInterval = 30
     static let minimumTimeout: TimeInterval = 10
     static let maximumTimeout: TimeInterval = 300  // 5 minutes
+    
+    // Default reasoning effort
+    static let defaultReasoningEffort: ReasoningEffort = .low
 
     var activePrompt: CustomPrompt? {
         allPrompts.first { $0.id == selectedPromptId }
@@ -120,6 +130,14 @@ class AIEnhancementService: ObservableObject {
         // Load timeout setting, defaulting to 30 seconds
         let savedTimeout = UserDefaults.standard.double(forKey: "aiEnhancementTimeout")
         self.requestTimeout = savedTimeout > 0 ? savedTimeout : Self.defaultTimeout
+        
+        // Load reasoning effort setting, defaulting to "low"
+        if let savedEffort = UserDefaults.standard.string(forKey: "aiReasoningEffort"),
+           let effort = ReasoningEffort(rawValue: savedEffort) {
+            self.reasoningEffort = effort
+        } else {
+            self.reasoningEffort = Self.defaultReasoningEffort
+        }
 
         if let savedPromptsData = UserDefaults.standard.data(forKey: "customPrompts"),
            let decodedPrompts = try? JSONDecoder().decode([CustomPrompt].self, from: savedPromptsData) {
@@ -358,8 +376,8 @@ class AIEnhancementService: ObservableObject {
                 "stream": false
             ]
 
-            if let reasoningEffort = ReasoningConfig.getReasoningParameter(for: aiService.currentModel) {
-                requestBody["reasoning_effort"] = reasoningEffort
+            if let reasoningParam = ReasoningConfig.getReasoningParameter(for: aiService.currentModel, userPreference: reasoningEffort) {
+                requestBody["reasoning_effort"] = reasoningParam
             }
 
             do {

@@ -103,6 +103,35 @@ struct EnhancementSettingsView: View {
                                     .voiceInkCaptionStyle()
                                     .foregroundStyle(.secondary)
                             }
+                            
+                            Divider()
+                                .padding(.vertical, VoiceInkSpacing.sm)
+                            
+                            // Reasoning Effort Setting
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: VoiceInkSpacing.xs) {
+                                    Text("Reasoning Effort")
+                                        .voiceInkSubheadline()
+                                        .foregroundStyle(.primary)
+                                    
+                                    InfoTip(
+                                        title: "Reasoning Effort",
+                                        message: "Controls how much reasoning the AI model performs. Higher levels produce better quality results but take longer. Only applies to models that support reasoning (GPT-5.2, Gemini 2.5+, etc.)."
+                                    )
+                                }
+                                
+                                Picker("", selection: $enhancementService.reasoningEffort) {
+                                    ForEach(ReasoningEffort.allCases, id: \.self) { effort in
+                                        Text(effort.displayName).tag(effort)
+                                    }
+                                }
+                                .pickerStyle(.segmented)
+                                .frame(maxWidth: 300)
+                                
+                                Text(enhancementService.reasoningEffort.description)
+                                    .voiceInkCaptionStyle()
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                         .padding(VoiceInkSpacing.lg)
                         .voiceInkCardBackground()
