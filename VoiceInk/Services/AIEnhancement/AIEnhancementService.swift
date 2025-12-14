@@ -75,9 +75,6 @@ class AIEnhancementService: ObservableObject {
     @Published var reasoningEffort: ReasoningEffort {
         didSet {
             UserDefaults.standard.set(reasoningEffort.rawValue, forKey: "aiReasoningEffort")
-            #if DEBUG
-            print("🧠 Reasoning effort changed to: \(reasoningEffort.rawValue)")
-            #endif
             NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
         }
     }
@@ -138,10 +135,8 @@ class AIEnhancementService: ObservableObject {
         if let savedEffort = UserDefaults.standard.string(forKey: "aiReasoningEffort"),
            let effort = ReasoningEffort(rawValue: savedEffort) {
             self.reasoningEffort = effort
-            logger.notice("🧠 Loaded reasoning effort from UserDefaults: \(effort.rawValue, privacy: .public)")
         } else {
             self.reasoningEffort = Self.defaultReasoningEffort
-            logger.notice("🧠 No saved reasoning effort, using default: \(Self.defaultReasoningEffort.rawValue, privacy: .public)")
         }
 
         if let savedPromptsData = UserDefaults.standard.data(forKey: "customPrompts"),
@@ -383,32 +378,10 @@ class AIEnhancementService: ObservableObject {
 
             if let reasoningParam = ReasoningConfig.getReasoningParameter(for: aiService.currentModel, userPreference: reasoningEffort) {
                 requestBody["reasoning_effort"] = reasoningParam
-                logger.notice("🧠 Reasoning effort: \(reasoningParam, privacy: .public) (user setting: \(self.reasoningEffort.rawValue, privacy: .public)) for model: \(self.aiService.currentModel, privacy: .public)")
-            } else {
-                logger.notice("🧠 Model \(self.aiService.currentModel, privacy: .public) does not support reasoning_effort parameter")
             }
 
             do {
-                let jsonData = try JSONSerialization.data(withJSONObject: requestBody, options: [.sortedKeys])
-                request.httpBody = jsonData
-                
-                // Log the ACTUAL JSON being sent (truncate messages for readability)
-                #if DEBUG
-                if let jsonString = String(data: jsonData, encoding: .utf8) {
-                    // Create a sanitized version that truncates the messages content
-                    var debugBody = requestBody
-                    debugBody["messages"] = "[TRUNCATED]"
-                    if let debugJson = try? JSONSerialization.data(withJSONObject: debugBody, options: [.sortedKeys, .prettyPrinted]),
-                       let debugString = String(data: debugJson, encoding: .utf8) {
-                        print("📤 OUTGOING REQUEST JSON (messages truncated):\n\(debugString)")
-                    }
-                }
-                #endif
-                
-                // Log key request parameters
-                let effortValue = requestBody["reasoning_effort"] as? String ?? "NOT SET"
-                let modelValue = requestBody["model"] as? String ?? "unknown"
-                logger.notice("📤 API Request - model: \(modelValue, privacy: .public), reasoning_effort: \(effortValue, privacy: .public)")
+                request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
             } catch {
                 throw EnhancementError.customError("Failed to prepare request: \(error.localizedDescription)")
             }
