@@ -266,7 +266,7 @@ struct ModelManagementView: View {
                 return model1.accuracy > model2.accuracy
             }
         case .cloud:
-            let cloudProviders: [ModelProvider] = [.groq, .elevenLabs, .deepgram, .mistral, .gemini, .soniox]
+            let cloudProviders: [ModelProvider] = [.groq, .elevenLabs, .deepgram, .mistral, .gemini, .soniox, .assemblyAI, .zai]
             return whisperState.allAvailableModels.filter { cloudProviders.contains($0.provider) }
                 .sorted { model1, model2 in
                     // Sort by: 1) Best balanced (fast + accurate) first, 2) Then by accuracy
