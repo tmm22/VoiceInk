@@ -42,6 +42,8 @@ struct CloudModelCardView: View {
             return "Gemini"
         case .soniox:
             return "Soniox"
+        case .zai:
+            return "ZAI"
         default:
             return model.provider.rawValue
         }
@@ -294,6 +296,8 @@ struct CloudModelCardView: View {
             aiService.selectedProvider = .gemini
         case .soniox:
             aiService.selectedProvider = .soniox
+        case .zai:
+            aiService.selectedProvider = .zai
         default:
             // This case should ideally not be hit for cloud models in this view
             #if DEBUG

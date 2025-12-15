@@ -453,6 +453,18 @@ import Foundation
             accuracy: 0.92,
             isMultilingual: true,
             supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .assemblyAI)
+        ),
+        
+        // Z.AI Models
+        CloudModel(
+            name: "glm-asr-2512",
+            displayName: "GLM-ASR-Nano (Z.AI)",
+            description: "Z.AI's open-source speech recognition model with exceptional accuracy (0.0717 CER). Optimized for Chinese, English, Cantonese, and 14+ languages. Max 30 seconds per request.",
+            provider: .zai,
+            speed: 0.85,
+            accuracy: 0.97,
+            isMultilingual: true,
+            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .zai)
         )
      ]
  

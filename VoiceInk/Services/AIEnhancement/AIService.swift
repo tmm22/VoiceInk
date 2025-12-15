@@ -28,6 +28,7 @@ enum AIProvider: String, CaseIterable {
     case deepgram = "Deepgram"
     case soniox = "Soniox"
     case assemblyAI = "AssemblyAI"
+    case zai = "ZAI"
     case ollama = "Ollama"
     case custom = "Custom"
     
@@ -56,6 +57,8 @@ enum AIProvider: String, CaseIterable {
             return "https://api.soniox.com/v1"
         case .assemblyAI:
             return "https://api.assemblyai.com/v2"
+        case .zai:
+            return "https://api.z.ai/api/paas/v4/chat/completions"
         case .ollama:
             // NOTE: Ollama runs locally, so http://localhost is acceptable for local development
             return UserDefaults.standard.string(forKey: "ollamaBaseURL") ?? "http://localhost:11434"
@@ -114,6 +117,8 @@ enum AIProvider: String, CaseIterable {
             return "stt-async-v3"
         case .assemblyAI:
             return "best"
+        case .zai:
+            return "glm-4.5-flash"
         case .ollama:
             return UserDefaults.standard.string(forKey: "ollamaSelectedModel") ?? "mistral"
         case .custom:
@@ -183,6 +188,14 @@ enum AIProvider: String, CaseIterable {
             return ["stt-async-v3"]
         case .assemblyAI:
             return ["best", "nano"]
+        case .zai:
+            return [
+                "glm-4.5-flash",        // Free tier
+                "glm-4.6",              // Latest flagship, 200K context
+                "glm-4.5",              // Previous flagship
+                "glm-4.5-air",          // Lightweight/faster
+                "glm-4-32b-0414-128k"   // Open weights model
+            ]
         case .ollama:
             return []
         case .custom:

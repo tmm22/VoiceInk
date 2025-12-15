@@ -39,6 +39,8 @@ extension WhisperState {
                 return keychain.hasAPIKey(for: "Soniox")
             case .assemblyAI:
                 return keychain.hasAPIKey(for: "AssemblyAI")
+            case .zai:
+                return keychain.hasAPIKey(for: "ZAI")
             case .custom:
                 // Custom models are always usable since they contain their own API keys
                 return true

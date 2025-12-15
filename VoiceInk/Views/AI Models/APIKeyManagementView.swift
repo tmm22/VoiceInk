@@ -388,7 +388,7 @@ struct APIKeyManagementView: View {
                             Spacer()
                             
                             HStack(spacing: 8) {
-                                Text((aiService.selectedProvider == .groq || aiService.selectedProvider == .gemini || aiService.selectedProvider == .cerebras) ? "Free" : "Paid")
+                                Text((aiService.selectedProvider == .groq || aiService.selectedProvider == .gemini || aiService.selectedProvider == .cerebras || aiService.selectedProvider == .zai) ? "Free" : "Paid")
                                     .font(.caption2)
                                     .foregroundColor(.secondary)
                                     .padding(.horizontal, 6)
@@ -421,6 +421,8 @@ struct APIKeyManagementView: View {
                                             "https://openrouter.ai/keys"
                                         case .cerebras:
                                             "https://cloud.cerebras.ai/"
+                                        case .zai:
+                                            "https://z.ai/manage-apikey/apikey-list"
                                         case .ollama, .custom:
                                             nil // This case should never be reached
                                         }

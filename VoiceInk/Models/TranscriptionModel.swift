@@ -13,6 +13,7 @@ enum ModelProvider: String, Codable, Hashable, CaseIterable {
     case gemini = "Gemini"
     case soniox = "Soniox"
     case assemblyAI = "AssemblyAI"
+    case zai = "Z.AI"
     case custom = "Custom"
     case nativeApple = "Native Apple"
 }
