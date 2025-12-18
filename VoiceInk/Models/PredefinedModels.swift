@@ -420,6 +420,16 @@ import Foundation
             accuracy: 0.94,
             isMultilingual: true,
             supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .gemini)
+        ),
+        CloudModel(
+            name: "gemini-3-flash-preview",
+            displayName: "Gemini 3 Flash",
+            description: "Google's fastest Gemini 3 model with frontier intelligence built for speed.",
+            provider: .gemini,
+            speed: 0.95,
+            accuracy: 0.95,
+            isMultilingual: true,
+            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .gemini)
         )
         ,
         CloudModel(
