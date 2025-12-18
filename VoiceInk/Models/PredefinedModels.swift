@@ -402,26 +402,6 @@ import Foundation
             supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .gemini)
         ),
         CloudModel(
-            name: "gemini-2.5-pro",
-            displayName: "Gemini 2.5 Pro",
-            description: "Google's advanced multimodal model with high-quality transcription capabilities.",
-            provider: .gemini,
-            speed: 0.7,
-            accuracy: 0.96,
-            isMultilingual: true,
-            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .gemini)
-        ),
-        CloudModel(
-            name: "gemini-2.5-flash",
-            displayName: "Gemini 2.5 Flash",
-            description: "Google's optimized model for low-latency transcription with multimodal support.",
-            provider: .gemini,
-            speed: 0.9,
-            accuracy: 0.94,
-            isMultilingual: true,
-            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .gemini)
-        ),
-        CloudModel(
             name: "gemini-3-flash-preview",
             displayName: "Gemini 3 Flash",
             description: "Google's fastest Gemini 3 model with frontier intelligence built for speed.",
