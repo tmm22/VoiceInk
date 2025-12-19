@@ -14,7 +14,7 @@ class GroqTranscriptionService {
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
         
-        let body = try createOpenAICompatibleRequestBody(audioURL: audioURL, modelName: config.modelName, boundary: boundary)
+        let body = try await createOpenAICompatibleRequestBody(audioURL: audioURL, modelName: config.modelName, boundary: boundary)
         
         let (data, response) = try await session.upload(for: request, from: body)
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -49,11 +49,13 @@ class GroqTranscriptionService {
         return APIConfig(url: apiURL, apiKey: apiKey, modelName: model.name)
     }
     
-    private func createOpenAICompatibleRequestBody(audioURL: URL, modelName: String, boundary: String) throws -> Data {
+    private func createOpenAICompatibleRequestBody(audioURL: URL, modelName: String, boundary: String) async throws -> Data {
         var body = Data()
         let crlf = "\r\n"
-        
-        guard let audioData = try? Data(contentsOf: audioURL) else {
+        let audioData: Data
+        do {
+            audioData = try await AudioFileLoader.loadData(from: audioURL)
+        } catch {
             throw CloudTranscriptionError.audioFileNotFound
         }
         

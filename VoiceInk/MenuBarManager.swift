@@ -26,12 +26,10 @@ class MenuBarManager: ObservableObject {
     
     func focusMainWindow() {
         applyActivationPolicy()
-        DispatchQueue.main.async {
-            if WindowManager.shared.showMainWindow() == nil {
-                #if DEBUG
-                print("MenuBarManager: Unable to locate main window to focus")
-                #endif
-            }
+        if WindowManager.shared.showMainWindow() == nil {
+            #if DEBUG
+            print("MenuBarManager: Unable to locate main window to focus")
+            #endif
         }
     }
     
@@ -48,11 +46,7 @@ class MenuBarManager: ObservableObject {
             }
         }
 
-        if Thread.isMainThread {
-            applyPolicy()
-        } else {
-            DispatchQueue.main.async(execute: applyPolicy)
-        }
+        applyPolicy()
     }
     
     func openMainWindowAndNavigate(to destination: String) {
@@ -65,40 +59,36 @@ class MenuBarManager: ObservableObject {
             #if DEBUG
             print("MenuBarManager: AI features disabled; navigation to \(destination) blocked")
             #endif
-            DispatchQueue.main.async {
-                let alert = NSAlert()
-                alert.messageText = "AI enhancements are disabled"
-                alert.informativeText = "Enable AI enhancement features in Settings before accessing this workspace."
-                alert.alertStyle = .informational
-                alert.addButton(withTitle: "OK")
-                alert.runModal()
-            }
+            let alert = NSAlert()
+            alert.messageText = "AI enhancements are disabled"
+            alert.informativeText = "Enable AI enhancement features in Settings before accessing this workspace."
+            alert.alertStyle = .informational
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
             return
         }
         
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            
-            self.applyActivationPolicy()
-            
-            guard WindowManager.shared.showMainWindow() != nil else {
-                #if DEBUG
-                print("MenuBarManager: Unable to show main window for navigation")
-                #endif
-                return
-            }
-            
-            // Post a notification to navigate to the desired destination
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                NotificationCenter.default.post(
-                    name: .navigateToDestination,
-                    object: nil,
-                    userInfo: ["destination": destination]
-                )
-                #if DEBUG
-                print("MenuBarManager: Posted navigation notification for \(destination)")
-                #endif
-            }
+        applyActivationPolicy()
+        
+        guard WindowManager.shared.showMainWindow() != nil else {
+            #if DEBUG
+            print("MenuBarManager: Unable to show main window for navigation")
+            #endif
+            return
+        }
+        
+        // Post a notification to navigate to the desired destination
+        Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(for: .milliseconds(100))
+            NotificationCenter.default.post(
+                name: .navigateToDestination,
+                object: nil,
+                userInfo: ["destination": destination]
+            )
+            #if DEBUG
+            print("MenuBarManager: Posted navigation notification for \(destination)")
+            #endif
         }
     }
 }

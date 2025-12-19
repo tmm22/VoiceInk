@@ -94,6 +94,7 @@ actor TranscriptionQueue {
 - ✅ Classes that access `@MainActor` singletons must also be `@MainActor`
 - ✅ Use `async/await` for network calls and file I/O
 - ✅ Use `Task` for background work
+- ✅ Avoid blocking file reads on the main actor (prefer `URLSession.upload(fromFile:)` or async loaders)
 - ⛔ Never block the main thread
 - ⛔ Avoid completion handlers (use async/await instead)
 - ⛔ Never call `@MainActor` methods from `deinit` (use direct cleanup instead)

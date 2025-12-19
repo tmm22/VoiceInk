@@ -81,7 +81,6 @@ class WhisperPrompt: ObservableObject {
     
     private func saveCustomPrompts() {
         UserDefaults.standard.set(customPrompts, forKey: customPromptsKey)
-        UserDefaults.standard.synchronize() // Force immediate synchronization
     }
     
     func updateTranscriptionPrompt() {
@@ -94,7 +93,6 @@ class WhisperPrompt: ObservableObject {
         
         transcriptionPrompt = prompt
         UserDefaults.standard.set(prompt, forKey: "TranscriptionPrompt")
-        UserDefaults.standard.synchronize() // Force immediate synchronization
         
         // Notify that the prompt has changed
         NotificationCenter.default.post(name: .promptDidChange, object: nil)

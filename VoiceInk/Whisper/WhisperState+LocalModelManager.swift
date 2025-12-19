@@ -185,10 +185,8 @@ extension WhisperState {
                     lastUpdateTime = currentTime
                     lastProgressValue = currentProgress
 
-                    DispatchQueue.main.async {
-                        self.downloadProgress[progressKey] = currentProgress
-                        progressUpdate?(currentProgress)
-                    }
+                    self.downloadProgress[progressKey] = currentProgress
+                    progressUpdate?(currentProgress)
                 }
             }
 

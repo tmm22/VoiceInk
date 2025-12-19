@@ -35,7 +35,7 @@ class SonioxTranscriptionService {
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         let boundary = "Boundary-\(UUID().uuidString)"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        let body = try createMultipartBody(fileURL: audioURL, boundary: boundary)
+        let body = try await createMultipartBody(fileURL: audioURL, boundary: boundary)
         let (data, response) = try await session.upload(for: request, from: body)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
@@ -156,10 +156,13 @@ class SonioxTranscriptionService {
         throw CloudTranscriptionError.noTranscriptionReturned
     }
     
-    private func createMultipartBody(fileURL: URL, boundary: String) throws -> Data {
+    private func createMultipartBody(fileURL: URL, boundary: String) async throws -> Data {
         var body = Data()
         let crlf = "\r\n"
-        guard let audioData = try? Data(contentsOf: fileURL) else {
+        let audioData: Data
+        do {
+            audioData = try await AudioFileLoader.loadData(from: fileURL)
+        } catch {
             throw CloudTranscriptionError.audioFileNotFound
         }
         body.append(Data("--\(boundary)\(crlf)".utf8))

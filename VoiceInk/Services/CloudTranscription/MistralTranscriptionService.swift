@@ -33,7 +33,10 @@ class MistralTranscriptionService {
         body.append(Data("\r\n".utf8))
 
         // Add file data - matching Python SDK structure (no language field as it's commented out in all Python examples)
-        guard let audioData = try? Data(contentsOf: audioURL) else {
+        let audioData: Data
+        do {
+            audioData = try await AudioFileLoader.loadData(from: audioURL)
+        } catch {
             throw CloudTranscriptionError.audioFileNotFound
         }
         body.append(Data("--\(boundary)\r\n".utf8))

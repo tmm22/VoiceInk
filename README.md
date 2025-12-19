@@ -46,6 +46,23 @@ Highlights of this fork:
 - [Building from Source](BUILDING.md) - Detailed instructions for building the project
 - [Contributing Guidelines](CONTRIBUTING.md) - How to contribute to VoiceLink Community
 - [Code of Conduct](CODE_OF_CONDUCT.md) - Our community standards
+- [Rectifications & Improvements](VOICELINK_COMMUNITY_REMEDIATIONS.md) - Security and performance fixes applied to the community edition
+- [Changelog](CHANGELOG.md) - Release-by-release changes
+
+## Rectifications & Improvements
+
+Recent stability, security, and performance improvements are documented in
+`VOICELINK_COMMUNITY_REMEDIATIONS.md`. Highlights include:
+
+- ✅ HTTPS validation for custom AI provider verification.
+- ✅ Non-blocking audio file handling for cloud transcription.
+- ✅ Reduced main-thread hopping in `@MainActor` classes.
+- ✅ Removal of forced `UserDefaults.synchronize()` in hot paths.
+
+### Recent Changes (2025-12-19)
+- Security: HTTPS validation for custom AI provider verification.
+- Performance: async audio file loading for cloud transcription uploads.
+- Concurrency: removed redundant main-thread hops in `@MainActor` classes.
 
 ## Contributing
 

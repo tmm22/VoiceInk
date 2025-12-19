@@ -16,6 +16,18 @@ Comprehensive audit of 220+ Swift files identified **11 issues**: 4 critical cra
 
 ---
 
+## 2025-12 Remediation Addendum (VoiceLink Community)
+
+The community edition has a consolidated remediation log in
+`VOICELINK_COMMUNITY_REMEDIATIONS.md`. Recent fixes include:
+
+- HTTPS enforcement for custom AI provider verification.
+- Async/non-blocking audio file handling for cloud transcription.
+- Removal of redundant main-thread hops in `@MainActor` classes.
+- Cleanup of forced `UserDefaults.synchronize()` calls.
+
+---
+
 ## 🔴 CRITICAL ISSUES (Priority: HIGH)
 
 ### 1. Implicitly Unwrapped Optional - Potential Crash

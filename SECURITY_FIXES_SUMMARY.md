@@ -126,6 +126,31 @@ guard let url = URL(string: trimmedURL), url.scheme?.lowercased() == "https" els
 
 ---
 
+## 2025-12 Community Edition Updates
+
+### ✅ HTTPS Enforcement for Custom AI Providers
+
+**Files:** `VoiceInk/Services/AIEnhancement/AIService.swift`
+
+**Issue:** Custom AI provider verification could run against non-HTTPS URLs.
+
+**Fix:** Enforced HTTPS validation for custom AI provider base URLs during API
+key verification (localhost allowed for Ollama).
+
+**Impact:** Prevents API keys from being transmitted over insecure connections.
+
+### ✅ Secure, Non-Blocking Audio Uploads
+
+**Files:** `VoiceInk/Services/CloudTranscription/*.swift`, `VoiceInk/Services/AudioFileLoader.swift`
+
+**Issue:** Synchronous file reads could block the main actor during cloud uploads.
+
+**Fix:** Introduced async file loading and upload-by-file where supported.
+
+**Impact:** Reduced UI stalls and improved responsiveness during large uploads.
+
+---
+
 ## Security Improvements Summary
 
 | Improvement | Priority | Status | File |

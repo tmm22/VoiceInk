@@ -40,11 +40,26 @@
 - Testing results
 - Next steps
 
+**[VOICELINK_COMMUNITY_REMEDIATIONS.md](./VOICELINK_COMMUNITY_REMEDIATIONS.md)**
+- Security and performance rectifications for the community edition
+- Async I/O guidance and main-thread cleanup summary
+
+**[CHANGELOG.md](./CHANGELOG.md)**
+- Release-by-release record of community edition changes
+
 **[QOL_IMPROVEMENTS_CHANGELOG.md](./QOL_IMPROVEMENTS_CHANGELOG.md)**
 - Detailed changelog with code examples
 - Technical implementation notes
 - Migration guides
 - Upstream PR preparation
+
+---
+
+## 📌 Recent Changes (2025-12-19)
+
+- Security: HTTPS validation for custom AI provider verification.
+- Performance: async audio file loading for cloud transcription uploads.
+- Concurrency: removed redundant main-thread hops in `@MainActor` classes.
 
 **[QUALITY_OF_LIFE_IMPROVEMENTS.md](./QUALITY_OF_LIFE_IMPROVEMENTS.md)**
 - Original comprehensive analysis

@@ -13,11 +13,17 @@ class DeepgramTranscriptionService {
         request.setValue("Token \(config.apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("audio/wav", forHTTPHeaderField: "Content-Type")
         
-        guard let audioData = try? Data(contentsOf: audioURL) else {
-            throw CloudTranscriptionError.audioFileNotFound
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.upload(for: request, fromFile: audioURL)
+        } catch {
+            if (error as NSError).domain == NSCocoaErrorDomain {
+                throw CloudTranscriptionError.audioFileNotFound
+            }
+            throw error
         }
-        
-        let (data, response) = try await session.upload(for: request, from: audioData)
+
         guard let httpResponse = response as? HTTPURLResponse else {
             throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
         }

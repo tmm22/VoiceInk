@@ -4,7 +4,7 @@ class ElevenLabsTranscriptionService {
     private let session = SecureURLSession.makeEphemeral()
     
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
-        let config = try prepareRequest(for: model, audioURL: audioURL)
+        let config = try await prepareRequest(for: model, audioURL: audioURL)
         
         let (data, response) = try await session.upload(for: config.request, from: config.body)
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -24,7 +24,7 @@ class ElevenLabsTranscriptionService {
         }
     }
     
-    private func prepareRequest(for model: any TranscriptionModel, audioURL: URL) throws -> APIConfig {
+    private func prepareRequest(for model: any TranscriptionModel, audioURL: URL) async throws -> APIConfig {
         let apiKey = try fetchAPIKey()
         let version = ElevenLabsModelVersion(modelName: model.name)
         let boundary = "Boundary-\(UUID().uuidString)"
@@ -35,7 +35,7 @@ class ElevenLabsTranscriptionService {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(apiKey, forHTTPHeaderField: "xi-api-key")
         
-        let body = try createRequestBody(
+        let body = try await createRequestBody(
             audioURL: audioURL,
             modelName: model.name,
             boundary: boundary,
@@ -50,11 +50,13 @@ class ElevenLabsTranscriptionService {
         modelName: String,
         boundary: String,
         version: ElevenLabsModelVersion
-    ) throws -> Data {
+    ) async throws -> Data {
         var body = Data()
         let crlf = "\r\n"
-        
-        guard let audioData = try? Data(contentsOf: audioURL) else {
+        let audioData: Data
+        do {
+            audioData = try await AudioFileLoader.loadData(from: audioURL)
+        } catch {
             throw CloudTranscriptionError.audioFileNotFound
         }
         

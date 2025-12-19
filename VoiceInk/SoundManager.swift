@@ -54,11 +54,9 @@ class SoundManager: ObservableObject {
         let currentSettings = settings
         
         if currentSettings.preset == .silent {
-            await MainActor.run {
-                startSound = nil
-                stopSound = nil
-                escSound = nil
-            }
+            startSound = nil
+            stopSound = nil
+            escSound = nil
             return
         }
         
@@ -109,19 +107,17 @@ class SoundManager: ObservableObject {
             let newStopSound = try AVAudioPlayer(contentsOf: stopURL)
             let newCancelSound = try AVAudioPlayer(contentsOf: cancelURL)
             
-            await MainActor.run {
-                self.startSound = newStartSound
-                self.stopSound = newStopSound
-                self.escSound = newCancelSound
-                
-                startSound?.prepareToPlay()
-                stopSound?.prepareToPlay()
-                escSound?.prepareToPlay()
-                
-                startSound?.volume = settings.volumes.start
-                stopSound?.volume = settings.volumes.stop
-                escSound?.volume = settings.volumes.cancel
-            }
+            self.startSound = newStartSound
+            self.stopSound = newStopSound
+            self.escSound = newCancelSound
+            
+            startSound?.prepareToPlay()
+            stopSound?.prepareToPlay()
+            escSound?.prepareToPlay()
+            
+            startSound?.volume = settings.volumes.start
+            stopSound?.volume = settings.volumes.stop
+            escSound?.volume = settings.volumes.cancel
         } catch {
             throw error
         }

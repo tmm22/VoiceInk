@@ -627,7 +627,13 @@ Task {
 // ❌ NEVER use completion handlers (use async/await)
 ```
 
-### 6.3 deinit Restrictions
+### 6.3 Community Edition I/O Standards
+
+- Prefer `async/await` for all network and file I/O.
+- Avoid blocking file reads on the main actor (use `URLSession.upload(fromFile:)` or async loaders).
+- Keep `@MainActor` classes free of redundant `DispatchQueue.main.async` hops.
+
+### 6.4 deinit Restrictions
 
 ```swift
 @MainActor

@@ -15,7 +15,10 @@ class GeminiTranscriptionService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(config.apiKey, forHTTPHeaderField: "x-goog-api-key")
         
-        guard let audioData = try? Data(contentsOf: audioURL) else {
+        let audioData: Data
+        do {
+            audioData = try await AudioFileLoader.loadData(from: audioURL)
+        } catch {
             throw CloudTranscriptionError.audioFileNotFound
         }
         

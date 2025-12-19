@@ -395,9 +395,15 @@ class AIService: ObservableObject {
     }
     
     private func verifyOpenAICompatibleAPIKey(_ key: String, completion: @escaping (Bool, String?) -> Void) {
-        guard let url = URL(string: self.selectedProvider.baseURL) else {
-            logger.error("Invalid base URL for provider: \(self.selectedProvider.baseURL)")
-            completion(false, "Invalid base URL for provider")
+        let baseURL = self.selectedProvider.baseURL
+        let allowLocalhost = self.selectedProvider == .ollama
+        let url: URL
+
+        do {
+            url = try AIProvider.validateSecureURL(baseURL, allowLocalhost: allowLocalhost)
+        } catch {
+            logger.error("Invalid or insecure base URL for provider: \(baseURL, privacy: .public)")
+            completion(false, error.localizedDescription)
             return
         }
         var request = URLRequest(url: url)
@@ -783,5 +789,4 @@ class AIService: ObservableObject {
         }
     }
 }
-
 

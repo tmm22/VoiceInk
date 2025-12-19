@@ -42,17 +42,21 @@ class AssemblyAITranscriptionService {
             throw CloudTranscriptionError.dataEncodingError
         }
         
-        // Read audio file data
-        guard let audioData = try? Data(contentsOf: audioURL) else {
-            throw CloudTranscriptionError.audioFileNotFound
-        }
-        
         var request = URLRequest(url: uploadEndpoint)
         request.httpMethod = "POST"
         request.setValue(apiKey, forHTTPHeaderField: "Authorization")
         request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
-        
-        let (data, response) = try await session.upload(for: request, from: audioData)
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.upload(for: request, fromFile: audioURL)
+        } catch {
+            if (error as NSError).domain == NSCocoaErrorDomain {
+                throw CloudTranscriptionError.audioFileNotFound
+            }
+            throw error
+        }
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
