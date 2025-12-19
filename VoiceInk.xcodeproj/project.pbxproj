@@ -656,7 +656,7 @@
 			repositoryURL = "https://github.com/FluidInference/FluidAudio";
 			requirement = {
 				kind = revision;
-				revision = 8136bd0642e7c5ce1f6f5b2931890266aeecb08c;
+				revision = 892da4f9a9815b812554d6801a1faae1a60b20c0;
 			};
 		};
 		E1342C1D2EB4844800CED8A2 /* XCRemoteSwiftPackageReference "swift-atomics" */ = {

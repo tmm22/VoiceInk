@@ -1,46 +1,82 @@
-# FluidAudio Update to v0.7.8 - Complete
+# FluidAudio Update to v0.8.0 - Complete
 
-**Date:** November 5, 2025  
-**Status:** ✅ Successfully Updated and Committed
+**Date:** December 19, 2025  
+**Status:** Successfully Updated and Verified
 
 ---
 
 ## Update Summary
 
-Successfully updated FluidAudio from **v0.7.7** to **v0.7.8** (latest release).
+Successfully updated FluidAudio from **v0.7.8** to **v0.8.0** (latest release).
 
 ### Version Change
-- **Previous**: v0.7.7 (commit `2dd0bd1849147f772167bc2f28535e614ca6dd53`)
-- **Current**: v0.7.8 (commit `8136bd0642e7c5ce1f6f5b2931890266aeecb08c`)
-- **Release Date**: November 4, 2025 (12 hours ago)
+- **Previous**: v0.7.8 (commit `8136bd0642e7c5ce1f6f5b2931890266aeecb08c`)
+- **Current**: v0.8.0 (commit `892da4f9a9815b812554d6801a1faae1a60b20c0`)
+- **Release Date**: December 17, 2025
 
 ---
 
-## Key Improvements
+## What's New in v0.8.0
 
-### Performance
-- ✅ **5% faster** ASR inference
-- ✅ **10% fewer missing words** on long audio files
-- ✅ **0.5% improved WER** (Word Error Rate) for v2 and v3 models
+### Major Feature: Streaming EOU ASR (#216)
 
-### Stability
-- ✅ **Fixed ANE concurrency crashes** (< 3% latency impact)
-- ✅ **Stateless ASR** for better batching support
-- ✅ **Improved concurrency safety** for multi-threaded usage
+New streaming ASR with End-of-Utterance (EOU) detection using NVIDIA's Parakeet EOU 120M model.
 
-### Developer Features
-- ✅ **Registry override support** - Can now programmatically set custom download registries (useful for mirrors like hf-mirror.com)
+**New Features:**
+- `StreamingEouAsrManager` - streaming pipeline with 160ms and 320ms chunk support
+- Real-time End-of-Utterance detection with configurable debounce (default 1280ms)
+- Native Swift `NeMoMelSpectrogram` with vDSP vectorization
+- `RnntDecoder` - RNN-T greedy decoder with EOU detection
+- Automatic model downloads from HuggingFace
+
+**Note:** These streaming features are available for future integration but do not affect existing batch transcription functionality.
+
+---
+
+## Cumulative Improvements (v0.7.8 → v0.8.0)
+
+### v0.7.9 (Nov 18, 2025)
+- macOS Catalyst support
+- SpeakerManager improvements
+- iOS 17.0+ availability annotations
+
+### v0.7.10 (Nov 29, 2025)
+- Word-level timestamps support in CLI
+- Optional TTS via `FluidAudioTTS` target (reduces binary size when TTS not needed)
+- Streaming chunk API exposure
+- ESpeakNG xcframework with dSYMs
+- Streaming diarization improvements
+
+### v0.7.11 (Dec 15, 2025)
+- Fixed eSpeak NG not found on iOS
+- Fixed AppLogger crash by adding error handling for stderr writes on iOS
+- Resolves regression from v0.7.10 that broke TTS on iOS
+
+### v0.7.12 (Dec 15, 2025)
+- Custom TTS pronunciation dictionaries (lexicon file support for Kokoro)
+- Hugging Face SDK integration for model fetching
+- Platform/model validation utilities (`SystemInfo.isIntelMac`, `AsrModels.isModelValid`)
+- Streaming decoder reuse
+- Non-contiguous stride handling
+
+### v0.8.0 (Dec 17, 2025)
+- **Streaming EOU ASR** - Real-time transcription with end-of-utterance detection
+- `StreamingEouAsrManager` for live transcription
+- NVIDIA Parakeet EOU 120M model support
 
 ---
 
 ## What Changed
 
 ### Files Modified
-1. **VoiceInk.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved**
-   - Updated FluidAudio revision from `2dd0bd1` → `8136bd0`
+1. **VoiceInk.xcodeproj/project.pbxproj**
+   - Updated FluidAudio revision from `8136bd0` → `892da4f`
+
+2. **VoiceInk.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved**
+   - Updated FluidAudio revision from `8136bd0` → `892da4f`
 
 ### Code Compatibility
-✅ **No code changes required** - Fully backward compatible
+**No code changes required** - Fully backward compatible
 
 **Current integration points remain unchanged:**
 - `AsrManager` - Same initialization and usage
@@ -48,11 +84,10 @@ Successfully updated FluidAudio from **v0.7.7** to **v0.7.8** (latest release).
 - `VadManager` - Same configuration pattern
 - All existing Parakeet transcription code works as-is
 
-### Files Using FluidAudio
-No changes needed to:
-- ✅ `VoiceInk/Services/ParakeetTranscriptionService.swift`
-- ✅ `VoiceInk/Whisper/WhisperState+Parakeet.swift`
-- ✅ `VoiceInk/VoiceInk.swift`
+### Files Using FluidAudio (unchanged)
+- `VoiceInk/Services/ParakeetTranscriptionService.swift`
+- `VoiceInk/Whisper/WhisperState+Parakeet.swift`
+- `VoiceInk/VoiceInk.swift`
 
 ---
 
@@ -60,38 +95,16 @@ No changes needed to:
 
 ### Package Resolution
 ```
-✅ Updating from https://github.com/FluidInference/FluidAudio
-✅ Checking out main (8136bd0) of package 'FluidAudio'
-✅ FluidAudio: https://github.com/FluidInference/FluidAudio @ main (8136bd0)
-✅ resolved source packages: KeyboardShortcuts, FluidAudio, AXSwift, KeySender, Sparkle, SelectedTextKit, swift-atomics, Zip, MediaRemoteAdapter, LaunchAtLogin
+Checking out 892da4f9a9815b812554d6801a1faae1a60b20c0 of package 'FluidAudio'
+FluidAudio: https://github.com/FluidInference/FluidAudio @ 892da4f
+resolved source packages: KeyboardShortcuts, FluidAudio, AXSwift, ... (11 packages)
 ```
 
 ### Build Status
-- ✅ FluidAudio package built successfully
-- ✅ No compilation errors related to FluidAudio
-- ✅ All dependencies resolved correctly
-- ✅ No API compatibility issues
-
----
-
-## Technical Details
-
-### Release Notes (v0.7.8)
-
-**Impact:**
-- Remove shared buffers for diarization pipeline that was causing concurrency crashes
-- Reduced missing words by 10% when running ASR on long audio files
-- Slightly improved WER for v2 and v3 (~0.5% on benchmarks) and ~5% faster
-- Programmatically override the default registry to download from
-
-**What's Changed:**
-- Make ANE Utils concurrency safe (#172)
-- Standardize registry override (#175)
-- Fix Outdated speakermanager doc (#176)
-- Switch ASR to stateless for batching (#177)
-
-**Full Changelog:**  
-https://github.com/FluidInference/FluidAudio/compare/v0.7.7...v0.7.8
+- FluidAudio package built successfully
+- No compilation errors
+- No API compatibility issues
+- **BUILD SUCCEEDED**
 
 ---
 
@@ -99,11 +112,16 @@ https://github.com/FluidInference/FluidAudio/compare/v0.7.7...v0.7.8
 
 ### For VoiceInk Users
 
-**Parakeet Transcription:**
-- ✅ More accurate transcriptions (10% fewer missing words)
-- ✅ Faster processing (5% speed improvement)
-- ✅ Better quality on long recordings
-- ✅ More stable concurrent operations
+**Automatic Improvements:**
+- All cumulative bug fixes and stability improvements from v0.7.9-v0.8.0
+- Better iOS compatibility (for future iOS port)
+- Improved model validation
+- Enhanced HuggingFace download reliability
+
+**Future Capabilities (not yet integrated):**
+- Streaming real-time transcription
+- End-of-utterance detection for natural conversation flow
+- Word-level timestamps
 
 **No User Action Required:**
 - Improvements are automatic
@@ -112,60 +130,65 @@ https://github.com/FluidInference/FluidAudio/compare/v0.7.7...v0.7.8
 
 ### For Developers
 
-**Integration:**
-- No code changes required
-- Same API surface
-- Better concurrency support
-- Optional registry override capability
+**New APIs Available:**
+- `StreamingEouAsrManager` - For real-time streaming transcription
+- `AsrModels.isModelValid()` - Validate downloaded models
+- `SystemInfo.isIntelMac` - Platform detection utility
+- Custom TTS lexicon support
 
 ---
 
-## Testing Recommendations
+## API Reference
 
-While the update is backward compatible, consider testing:
+### Existing APIs (unchanged, verified compatible)
 
-### Critical Scenarios
-1. **Basic Parakeet Transcription**
-   - Test v2 and v3 model downloads
-   - Verify transcription quality
-   - Check processing speed
+| API | Status |
+|-----|--------|
+| `AsrManager(config: .default)` | Compatible |
+| `AsrManager.initialize(models:)` | Compatible |
+| `AsrManager.transcribe(_:)` | Compatible |
+| `AsrManager.cleanup()` | Compatible |
+| `AsrModels.loadFromCache(configuration:version:)` | Compatible |
+| `AsrModels.downloadAndLoad(version:)` | Compatible |
+| `AsrModels.defaultCacheDirectory(for:)` | Compatible |
+| `VadManager()` | Compatible |
+| `VadManager(config:)` | Compatible |
+| `VadConfig(defaultThreshold:)` | Compatible |
+| `VadManager.segmentSpeechAudio(_:)` | Compatible |
+| `AsrModelVersion.v2`, `.v3` | Compatible |
+| `ASRError.notInitialized`, `.invalidAudioData` | Compatible |
 
-2. **Long Audio Files**
-   - Test files > 20 seconds (VAD enabled)
-   - Verify 10% improvement in word capture
-   - Check memory usage remains stable
+### New APIs (v0.8.0)
 
-3. **Concurrent Operations**
-   - Test multiple simultaneous transcriptions
-   - Verify no ANE concurrency crashes
-   - Check performance under load
+| API | Description |
+|-----|-------------|
+| `StreamingEouAsrManager` | Real-time streaming ASR with EOU detection |
+| `AsrModels.isModelValid()` | Validate model integrity |
+| `SystemInfo.isIntelMac` | Platform detection |
 
-4. **Model Management**
-   - Verify download and caching works
-   - Test model switching
-   - Check cleanup functionality
+---
 
-### Test Code
+## Future Integration Opportunities
+
+### Streaming Transcription
+
+The new `StreamingEouAsrManager` could enable:
+
+1. **Live Transcription** - Show text as user speaks
+2. **Natural Pauses** - Detect when user finishes speaking
+3. **Faster Feedback** - No need to wait for recording to end
+
+**Potential Implementation:**
 ```swift
-// 1. Test model download
-await whisperState.downloadParakeetModel(parakeetV3Model)
+// Future: StreamingParakeetTranscriptionService
+let streamingManager = StreamingEouAsrManager(config: .default)
+try await streamingManager.initialize(models: models)
 
-// 2. Test transcription
-let result = try await parakeetService.transcribe(
-    audioURL: audioURL, 
-    model: parakeetV3Model
-)
-
-// 3. Verify result quality
-XCTAssertFalse(result.isEmpty)
-XCTAssertTrue(result.count > previousWordCount) // Should have fewer missing words
-
-// 4. Test concurrent operations
-await withTaskGroup(of: String.self) { group in
-    for url in audioURLs {
-        group.addTask {
-            try await parakeetService.transcribe(audioURL: url, model: model)
-        }
+// Process audio chunks in real-time
+for await chunk in audioStream {
+    let result = try await streamingManager.processChunk(chunk)
+    if result.isEndOfUtterance {
+        // User finished speaking
     }
 }
 ```
@@ -176,24 +199,18 @@ await withTaskGroup(of: String.self) { group in
 
 If issues are discovered:
 
-1. **Revert the commit:**
+1. **Revert the commits:**
    ```bash
-   git revert 6980f19
+   git revert HEAD~2  # Reverts both file changes
    ```
 
-2. **Or manually revert Package.resolved:**
-   ```json
-   "revision": "2dd0bd1849147f772167bc2f28535e614ca6dd53"  // v0.7.7
-   ```
+2. **Or manually revert revisions:**
+   - Package.resolved: `8136bd0642e7c5ce1f6f5b2931890266aeecb08c`
+   - project.pbxproj: `8136bd0642e7c5ce1f6f5b2931890266aeecb08c`
 
-3. **Clean build:**
+3. **Clean and rebuild:**
    ```bash
    rm -rf ~/Library/Developer/Xcode/DerivedData
-   xcodebuild clean
-   ```
-
-4. **Resolve packages:**
-   ```bash
    xcodebuild -resolvePackageDependencies
    ```
 
@@ -202,37 +219,19 @@ If issues are discovered:
 ## Known Issues
 
 ### None Identified
-- ✅ No breaking changes
-- ✅ No API deprecations
-- ✅ No compatibility issues
-- ✅ Community tested (12 hours in production)
+- No breaking changes
+- No API deprecations  
+- No compatibility issues
+- Build verified successful
 
-### Simulator Warning (Harmless)
+### AXSwift Warning (Harmless)
 ```
-iOSSimulator: CoreSimulator is out of date
+Conflicting identity for axswift: dependency 'github.com/clavierorg/axswift' 
+and dependency 'github.com/tisfeng/axswift' both point to the same package identity
 ```
-- **Impact:** None (informational only)
-- **Reason:** Xcode version mismatch
-- **Action:** Can be ignored
-
----
-
-## Next Steps
-
-### Immediate
-- ✅ Update complete and committed
-- ✅ Changes pushed to fork
-- ✅ Ready for use
-
-### Recommended
-1. Test Parakeet transcription in development
-2. Monitor for any unexpected behavior
-3. Enjoy improved accuracy and performance!
-
-### Optional
-- Consider announcing the improvements to users
-- Update any documentation mentioning FluidAudio version
-- Test with your specific use cases
+- **Impact:** None (warning only)
+- **Reason:** Transitive dependency conflict from FluidAudio
+- **Action:** Can be ignored (SwiftPM resolves correctly)
 
 ---
 
@@ -240,30 +239,33 @@ iOSSimulator: CoreSimulator is out of date
 
 ### FluidAudio Links
 - **Repository:** https://github.com/FluidInference/FluidAudio
-- **v0.7.8 Release:** https://github.com/FluidInference/FluidAudio/releases/tag/v0.7.8
+- **v0.8.0 Release:** https://github.com/FluidInference/FluidAudio/releases/tag/v0.8.0
+- **Full Changelog (v0.7.8...v0.8.0):** https://github.com/FluidInference/FluidAudio/compare/v0.7.8...v0.8.0
 - **Documentation:** https://github.com/FluidInference/FluidAudio/tree/main/Documentation
 - **Discord:** https://discord.gg/WNsvaCtmDe
 
-### VoiceInk Integration
+### VoiceInk Integration Files
 - **ParakeetTranscriptionService:** `VoiceInk/Services/ParakeetTranscriptionService.swift`
 - **Parakeet Models:** `VoiceInk/Whisper/WhisperState+Parakeet.swift`
-- **Model Management:** `VoiceInk/Models/PredefinedModels.swift`
+- **Model Definitions:** `VoiceInk/Models/PredefinedModels.swift`
 
 ---
 
 ## Summary
 
-✅ **Update Complete**  
-✅ **No Code Changes Required**  
-✅ **Performance Improved**  
-✅ **Accuracy Enhanced**  
-✅ **Stability Increased**  
+| Metric | Value |
+|--------|-------|
+| Update Complete | Yes |
+| Code Changes Required | None |
+| Build Status | SUCCESS |
+| API Compatibility | 100% |
+| Breaking Changes | None |
+| Files Modified | 2 (Package.resolved, project.pbxproj) |
 
-**Result:** VoiceInk users will automatically benefit from 5% faster transcription and 10% better word capture on long audio files!
+**Result:** VoiceLink Community is now running FluidAudio v0.8.0 with access to all cumulative improvements since v0.7.8, including the new streaming ASR capabilities for future integration.
 
 ---
 
-**Commit:** `6980f19`  
-**Branch:** `custom-main-v2`  
-**Status:** Pushed to fork  
-**Ready:** Yes! ✅
+**Updated:** December 19, 2025  
+**FluidAudio Version:** v0.8.0 (892da4f)  
+**Status:** Production Ready
