@@ -83,6 +83,16 @@ cd VoiceInk
    - Build the project using Cmd+B or Product > Build
    - Run the project using Cmd+R or Product > Run
 
+### Command-Line Debug Build (Pinned Destination)
+
+Use a pinned destination to avoid the "multiple matching destinations" warning:
+
+```bash
+xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug build \
+  -destination 'platform=macOS,arch=arm64,name=My Mac' \
+  CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+```
+
 ## Development Setup
 
 1. **Xcode Configuration**

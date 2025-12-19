@@ -1196,6 +1196,11 @@ xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug bui
 # Debug build WITHOUT code signing (for testing)
 xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug build \
     CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+
+# Debug build with pinned destination (avoids multiple matching destinations warning)
+xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug build \
+    -destination 'platform=macOS,arch=arm64,name=My Mac' \
+    CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 ```
 
 The built app will be located at:
