@@ -1,5 +1,19 @@
 # Fork Differentiation Opportunities
 
+## Current Fork Differences (Shipped)
+- **Community edition unlock**: Removes paywall/trial gating and positions the app as a fully unlocked community build.  
+  **References**: `README.md`, `VoiceInk/Views/LicenseManagementView.swift`
+- **Bundled offline models**: Whisper (multiple sizes) and Parakeet ship with the app for offline-first transcription.  
+  **References**: `README.md`
+- **Text-to-Speech Workspace**: A dedicated TTS studio for generation, batch queueing, translation, and export.  
+  **References**: `VoiceInk/TTS`, `docs/TTS_WORKSPACE_GUIDE.md`
+- **Quick Rules and Dictionary tooling**: Predictable offline cleanup plus word replacements and custom vocabulary controls.  
+  **References**: `QUICK_RULES_USER_GUIDE.md`, `docs/DICTIONARY_GUIDE.md`
+- **Audio feedback customization**: Theme-based and custom sound controls for recording feedback.  
+  **References**: `docs/AUDIO_FEEDBACK_CUSTOMIZATION.md`
+- **Expanded user documentation**: Fork-specific feature guides and workflows.  
+  **References**: `docs/README.md`
+
 ## Platform Reach & Accessibility
 - **Current VoiceInk**: macOS-only app that depends on AppKit/SwiftUI infrastructure and officially targets macOS 14+.  
 - **Fork Angle**: Deliver a cross-platform or broader Apple ecosystem build (older macOS, Catalyst/iPad, iPhone companion, or a Swift/Flutter reimplementation for Windows/Linux) with shared preferences and model storage.  

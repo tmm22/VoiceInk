@@ -9,7 +9,7 @@
 
 ---
 
-VoiceLink Community is a maintained fork of the original VoiceInk project. It keeps the same fast, privacy-first transcription experience but removes the paywall, bundles offline models, and relaxes the contribution process so anyone can help shape the app.
+VoiceLink Community is a maintained fork of the original VoiceInk project focused on a fully unlocked, offline-first macOS transcription workflow. It keeps the privacy-first core, bundles local models, and adds community-friendly defaults for features like Power Mode, Text-to-Speech, and rapid keyboard control.
 
 Highlights of this fork:
 
@@ -44,6 +44,14 @@ Highlights of this fork:
 ## Documentation
 
 - [Building from Source](BUILDING.md) - Detailed instructions for building the project
+- [Documentation Index](docs/README.md) - Feature guides and workflows for day-to-day use
+- [Power Mode Guide](docs/POWER_MODE_GUIDE.md) - Context-aware automation by app or URL
+- [Text-to-Speech Workspace Guide](docs/TTS_WORKSPACE_GUIDE.md) - Narration, batch generation, and export
+- [AI Enhancement Guide](docs/AI_ENHANCEMENT_GUIDE.md) - Providers, prompts, and context settings
+- [Keyboard Shortcuts Guide](docs/KEYBOARD_SHORTCUTS_GUIDE.md) - Hotkeys, push-to-talk, and actions
+- [Dictionary Guide](docs/DICTIONARY_GUIDE.md) - Quick rules, replacements, and vocabulary
+- [Model Management Guide](docs/MODEL_MANAGEMENT_GUIDE.md) - Local, cloud, and custom models
+- [Data Management Guide](docs/DATA_MANAGEMENT_GUIDE.md) - History, export, and cleanup
 - [Contributing Guidelines](CONTRIBUTING.md) - How to contribute to VoiceLink Community
 - [Code of Conduct](CODE_OF_CONDUCT.md) - Our community standards
 - [Rectifications & Improvements](VOICELINK_COMMUNITY_REMEDIATIONS.md) - Security and performance fixes applied to the community edition
