@@ -1,13 +1,13 @@
 {
-  "originHash" : "144ae35ef0b62c92588dc767eb6b2d443797062688bf1347662bed55d75a7ec2",
+  "originHash" : "e9b5ada72ee2cc813907f11edcc5d95e81cf29ceab2d066f93b4c09ccbfcdf46",
   "pins" : [
     {
       "identity" : "axswift",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/clavierorg/AXSwift.git",
+      "location" : "https://github.com/tisfeng/AXSwift.git",
       "state" : {
-        "revision" : "2efa201fa18184de98674165592fd1ecb0c00a6d",
-        "version" : "0.3.5"
+        "branch" : "main",
+        "revision" : "2efa201fa18184de98674165592fd1ecb0c00a6d"
       }
     },
     {
@@ -15,7 +15,6 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/FluidInference/FluidAudio",
       "state" : {
-        "branch" : "main",
         "revision" : "8136bd0642e7c5ce1f6f5b2931890266aeecb08c"
       }
     },
