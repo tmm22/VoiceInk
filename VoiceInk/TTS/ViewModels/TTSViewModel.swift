@@ -253,6 +253,12 @@ class TTSViewModel: ObservableObject {
     }()
     
     let maxHistoryItems = 5
+    let historyMemoryLimitBytes = 2 * 1024 * 1024
+    let historyDiskLimitBytes = 50 * 1024 * 1024
+    let historyCacheDirectory: URL = {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        return base.appendingPathComponent("VoiceInk/RecentGenerations", isDirectory: true)
+    }()
     let snippetsKey = "textSnippets"
     let pronunciationKey = "pronunciationRules"
     let notificationsKey = "notificationsEnabled"
@@ -487,6 +493,8 @@ class TTSViewModel: ObservableObject {
         self.transcriptCleanupService = transcriptCleanupService ?? TranscriptCleanupService()
         self.managedProvisioningClient = managedProvisioningClient
         self.selectedTranscriptionProvider = defaultTranscriptionProvider
+
+        setupHistoryCache()
         
         setupAudioPlayer()
         setupPreviewPlayer()
@@ -570,6 +578,7 @@ class TTSViewModel: ObservableObject {
         elevenLabsVoiceTask?.cancel()
         managedProvisioningTask?.cancel()
         transcriptionTask?.cancel()
+        clearHistoryCacheDirectory()
         // Note: transcriptionRecorder.cancelRecording() cannot be called from deinit
         // as it may access @MainActor isolated state. Timer invalidation is safe.
         transcriptionRecordingTimer?.invalidate()

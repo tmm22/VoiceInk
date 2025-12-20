@@ -55,7 +55,7 @@ class AudioProcessor {
             throw AudioProcessingError.unsupportedFormat
         }
         
-        let chunkSize: AVAudioFrameCount = 50_000_000
+        let chunkSize: AVAudioFrameCount = 32_768
         var allSamples: [Float] = []
         var currentFrame: AVAudioFramePosition = 0
         
@@ -89,17 +89,13 @@ class AudioProcessor {
                 let status = converter.convert(
                     to: outputBuffer,
                     error: &error,
-                    withInputFrom: { inNumPackets, outStatus in
+                    withInputFrom: { _, outStatus in
                         outStatus.pointee = .haveData
                         return inputBuffer
                     }
                 )
                 
-                if let error = error {
-                    throw AudioProcessingError.conversionFailed
-                }
-                
-                if status == .error {
+                if error != nil || status == .error {
                     throw AudioProcessingError.conversionFailed
                 }
                 
@@ -120,26 +116,117 @@ class AudioProcessor {
         
         let channelCount = Int(buffer.format.channelCount)
         let frameLength = Int(buffer.frameLength)
-        var samples = Array(repeating: Float(0), count: frameLength)
+        var samples: [Float] = []
+        samples.reserveCapacity(frameLength)
         
+        var maxSample: Float = 0
         if channelCount == 1 {
-            samples = Array(UnsafeBufferPointer(start: channelData[0], count: frameLength))
+            let channel = channelData[0]
+            for frame in 0..<frameLength {
+                let value = channel[frame]
+                samples.append(value)
+                let absValue = abs(value)
+                if absValue > maxSample {
+                    maxSample = absValue
+                }
+            }
         } else {
             for frame in 0..<frameLength {
                 var sum: Float = 0
                 for channel in 0..<channelCount {
                     sum += channelData[channel][frame]
                 }
-                samples[frame] = sum / Float(channelCount)
+                let value = sum / Float(channelCount)
+                samples.append(value)
+                let absValue = abs(value)
+                if absValue > maxSample {
+                    maxSample = absValue
+                }
             }
         }
         
-        let maxSample = samples.map(abs).max() ?? 1
         if maxSample > 0 {
-            samples = samples.map { $0 / maxSample }
+            for index in samples.indices {
+                samples[index] /= maxSample
+            }
         }
         
         return samples
+    }
+
+    func transcodeToWhisperWav(from sourceURL: URL, to destinationURL: URL) async throws {
+        try await Task.detached(priority: .userInitiated) {
+            try Self.transcodeToWhisperWavSync(from: sourceURL, to: destinationURL)
+        }.value
+    }
+
+    private static func transcodeToWhisperWavSync(from sourceURL: URL, to destinationURL: URL) throws {
+        let inputFile = try AVAudioFile(forReading: sourceURL)
+        let inputFormat = inputFile.processingFormat
+        guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
+            throw AudioProcessingError.invalidAudioFile
+        }
+
+        guard let outputFormat = AVAudioFormat(
+            commonFormat: .pcmFormatInt16,
+            sampleRate: AudioFormat.targetSampleRate,
+            channels: AudioFormat.targetChannels,
+            interleaved: true
+        ) else {
+            throw AudioProcessingError.unsupportedFormat
+        }
+
+        if FileManager.default.fileExists(atPath: destinationURL.path) {
+            try FileManager.default.removeItem(at: destinationURL)
+        }
+
+        let outputFile = try AVAudioFile(
+            forWriting: destinationURL,
+            settings: outputFormat.settings,
+            commonFormat: .pcmFormatInt16,
+            interleaved: true
+        )
+
+        guard let converter = AVAudioConverter(from: inputFormat, to: outputFormat) else {
+            throw AudioProcessingError.conversionFailed
+        }
+
+        let inputFrameCapacity: AVAudioFrameCount = 32_768
+        guard let inputBuffer = AVAudioPCMBuffer(pcmFormat: inputFormat, frameCapacity: inputFrameCapacity) else {
+            throw AudioProcessingError.conversionFailed
+        }
+
+        let ratio = outputFormat.sampleRate / inputFormat.sampleRate
+        let outputFrameCapacity = AVAudioFrameCount(Double(inputFrameCapacity) * ratio) + 1
+        guard let outputBuffer = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: outputFrameCapacity) else {
+            throw AudioProcessingError.conversionFailed
+        }
+
+        while true {
+            try inputFile.read(into: inputBuffer, frameCount: inputFrameCapacity)
+            if inputBuffer.frameLength == 0 {
+                break
+            }
+
+            outputBuffer.frameLength = 0
+            var error: NSError?
+            var hasProvidedBuffer = false
+            let status = converter.convert(to: outputBuffer, error: &error) { _, outStatus in
+                if hasProvidedBuffer {
+                    outStatus.pointee = .noDataNow
+                    return nil
+                }
+                hasProvidedBuffer = true
+                outStatus.pointee = .haveData
+                return inputBuffer
+            }
+
+            if error != nil || status == .error {
+                throw AudioProcessingError.conversionFailed
+            }
+
+            try outputFile.write(from: outputBuffer)
+        }
     }
     func saveSamplesAsWav(samples: [Float], to url: URL) throws {
         let outputFormat = AVAudioFormat(
@@ -186,4 +273,3 @@ class AudioProcessor {
         try audioFile.write(from: buffer)
     }
 } 
-

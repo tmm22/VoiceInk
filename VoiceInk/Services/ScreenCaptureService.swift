@@ -8,6 +8,8 @@ import ScreenCaptureKit
 class ScreenCaptureService: ObservableObject {
     @Published var isCapturing = false
     @Published var lastCapturedText: String?
+
+    private let maxOCRCharacters = 5000
     
     private let logger = Logger(
         subsystem: "com.tmm22.voicelinkcommunity",
@@ -98,9 +100,9 @@ class ScreenCaptureService: ObservableObject {
         }
     }
     
-    private func extractText(from image: NSImage) async -> String? {
+    private func extractText(from image: NSImage) async -> (text: String?, wasTruncated: Bool) {
         guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            return nil
+            return (nil, false)
         }
         
         let result: Result<String?, Error> = await Task.detached(priority: .userInitiated) {
@@ -129,10 +131,15 @@ class ScreenCaptureService: ObservableObject {
         
         switch result {
         case .success(let text):
-            return text
+            guard let text, !text.isEmpty else {
+                return (nil, false)
+            }
+            let wasTruncated = text.count > maxOCRCharacters
+            let trimmedText = wasTruncated ? String(text.prefix(maxOCRCharacters)) + "..." : text
+            return (trimmedText, wasTruncated)
         case .failure(let error):
             logger.notice("📸 Text recognition failed: \(error.localizedDescription, privacy: .public)")
-            return nil
+            return (nil, false)
         }
     }
     
@@ -153,8 +160,11 @@ class ScreenCaptureService: ObservableObject {
         guard let windowInfo = getActiveWindowInfo() else { return nil }
         
         var ocrText: String? = nil
+        var wasTruncated = false
         if let image = await captureActiveWindow() {
-            ocrText = await extractText(from: image)
+            let result = await extractText(from: image)
+            ocrText = result.text
+            wasTruncated = result.wasTruncated
         }
         
         return ScreenCaptureContext(
@@ -162,7 +172,7 @@ class ScreenCaptureService: ObservableObject {
             applicationName: windowInfo.ownerName,
             ocrText: ocrText,
             capturedAt: Date(),
-            wasTruncated: false
+            wasTruncated: wasTruncated
         )
     }
     
@@ -191,9 +201,10 @@ class ScreenCaptureService: ObservableObject {
         """
 
         if let capturedImage = await captureActiveWindow() {
-            let extractedText = await extractText(from: capturedImage)
+            let extractedResult = await extractText(from: capturedImage)
+            let extractedText = extractedResult.text
             
-            if let extractedText = extractedText, !extractedText.isEmpty {
+            if let extractedText, !extractedText.isEmpty {
                 contextText += "Window Content:\n\(extractedText)"
                 let preview = String(extractedText.prefix(100))
                 logger.notice("📸 Text extracted: \(preview, privacy: .public)\(extractedText.count > 100 ? "..." : "")")

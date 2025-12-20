@@ -502,7 +502,7 @@ extension TTSViewModel {
             throw TTSError.apiError(error.localizedDescription)
         }
 
-        let data = try Data(contentsOf: outputURL)
+        let data = try await AudioFileLoader.loadData(from: outputURL)
         return (data, finalFormat)
     }
 }

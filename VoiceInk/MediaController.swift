@@ -25,8 +25,56 @@ class MediaController: ObservableObject {
         }
     }
     
+    /// Mutes system audio during recording
+    func muteSystemAudio() async -> Bool {
+        guard isSystemMuteEnabled else { return false }
+        
+        // Cancel any existing mute task and create a new one
+        currentMuteTask?.cancel()
+        
+        let task = Task.detached(priority: .utility) { [weak self] in
+            let wasMuted = Self.isSystemAudioMuted()
+            if wasMuted {
+                await self?.setMuteState(wasMutedBeforeRecording: true, didMuteAudio: false)
+                return true
+            }
+
+            let success = Self.executeAppleScript(command: "set volume with output muted")
+            await self?.setMuteState(wasMutedBeforeRecording: false, didMuteAudio: success)
+            return success
+        }
+        
+        currentMuteTask = task
+        return await task.value
+    }
+    
+    /// Restores system audio after recording
+    func unmuteSystemAudio() async {
+        guard isSystemMuteEnabled else { return }
+        
+        // Wait for any pending mute operation to complete first
+        if let muteTask = currentMuteTask {
+            _ = await muteTask.value
+        }
+        
+        let shouldUnmute = didMuteAudio && !wasAudioMutedBeforeRecording
+        didMuteAudio = false
+        currentMuteTask = nil
+
+        if shouldUnmute {
+            _ = await Task.detached(priority: .utility) {
+                Self.executeAppleScript(command: "set volume without output muted")
+            }.value
+        }
+    }
+    
+    private func setMuteState(wasMutedBeforeRecording: Bool, didMuteAudio: Bool) {
+        wasAudioMutedBeforeRecording = wasMutedBeforeRecording
+        self.didMuteAudio = didMuteAudio
+    }
+
     /// Checks if the system audio is currently muted using AppleScript
-    private func isSystemAudioMuted() -> Bool {
+    nonisolated private static func isSystemAudioMuted() -> Bool {
         let pipe = Pipe()
         let task = Process()
         task.launchPath = "/usr/bin/osascript"
@@ -47,52 +95,8 @@ class MediaController: ObservableObject {
         return false
     }
     
-    /// Mutes system audio during recording
-    func muteSystemAudio() async -> Bool {
-        guard isSystemMuteEnabled else { return false }
-        
-        // Cancel any existing mute task and create a new one
-        currentMuteTask?.cancel()
-        
-        let task = Task<Bool, Never> {
-            // First check if audio is already muted
-            wasAudioMutedBeforeRecording = isSystemAudioMuted()
-            
-            // If already muted, no need to mute it again
-            if wasAudioMutedBeforeRecording {
-                return true
-            }
-            
-            // Otherwise mute the audio
-            let success = executeAppleScript(command: "set volume with output muted")
-            didMuteAudio = success
-            return success
-        }
-        
-        currentMuteTask = task
-        return await task.value
-    }
-    
-    /// Restores system audio after recording
-    func unmuteSystemAudio() async {
-        guard isSystemMuteEnabled else { return }
-        
-        // Wait for any pending mute operation to complete first
-        if let muteTask = currentMuteTask {
-            _ = await muteTask.value
-        }
-        
-        // Only unmute if we actually muted it (and it wasn't already muted)
-        if didMuteAudio && !wasAudioMutedBeforeRecording {
-            _ = executeAppleScript(command: "set volume without output muted")
-        }
-        
-        didMuteAudio = false
-        currentMuteTask = nil
-    }
-    
     /// Executes an AppleScript command
-    private func executeAppleScript(command: String) -> Bool {
+    nonisolated private static func executeAppleScript(command: String) -> Bool {
         let task = Process()
         task.launchPath = "/usr/bin/osascript"
         task.arguments = ["-e", command]

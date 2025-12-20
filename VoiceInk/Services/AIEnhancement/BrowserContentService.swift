@@ -72,7 +72,7 @@ class BrowserContentService {
             tell active tab of front window
                 set pageTitle to title
                 set pageUrl to URL
-                set pageContent to execute javascript "document.body.innerText"
+                set pageContent to execute javascript "document.body && document.body.innerText ? document.body.innerText.substring(0, 5000) : ''"
                 return {pageTitle, pageUrl, pageContent}
             end tell
         end if
@@ -86,7 +86,7 @@ class BrowserContentService {
             tell front document
                 set pageTitle to name
                 set pageUrl to URL
-                set pageContent to text
+                set pageContent to do JavaScript "document.body && document.body.innerText ? document.body.innerText.substring(0, 5000) : ''"
                 return {pageTitle, pageUrl, pageContent}
             end tell
         end if
@@ -101,7 +101,7 @@ class BrowserContentService {
             tell active tab of front window
                 set pageTitle to title
                 set pageUrl to URL
-                set pageContent to execute javascript "document.body.innerText"
+                set pageContent to execute javascript "document.body && document.body.innerText ? document.body.innerText.substring(0, 5000) : ''"
                 return {pageTitle, pageUrl, pageContent}
             end tell
         end if
@@ -116,7 +116,7 @@ class BrowserContentService {
                 tell active tab
                     set pageTitle to name
                     set pageUrl to URL
-                    set pageContent to execute javascript "document.body.innerText"
+                    set pageContent to execute javascript "document.body && document.body.innerText ? document.body.innerText.substring(0, 5000) : ''"
                     return {pageTitle, pageUrl, pageContent}
                 end tell
             end tell

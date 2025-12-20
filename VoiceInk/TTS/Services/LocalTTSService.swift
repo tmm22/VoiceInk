@@ -67,9 +67,16 @@ final class LocalTTSService: NSObject, TTSProvider {
                         if pcmBuffer.frameLength == 0 {
                             hasCompleted = true
                             audioFile = nil
-                            let data = try Data(contentsOf: destinationURL)
-                            try FileManager.default.removeItem(at: destinationURL)
-                            continuation.resume(returning: data)
+                            Task {
+                                do {
+                                    let data = try await AudioFileLoader.loadData(from: destinationURL)
+                                    try? FileManager.default.removeItem(at: destinationURL)
+                                    continuation.resume(returning: data)
+                                } catch {
+                                    try? FileManager.default.removeItem(at: destinationURL)
+                                    continuation.resume(throwing: TTSError.apiError(error.localizedDescription))
+                                }
+                            }
                             return
                         }
 

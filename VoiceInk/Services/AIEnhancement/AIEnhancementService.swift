@@ -101,6 +101,8 @@ class AIEnhancementService: ObservableObject {
     private var lastRequestTime: Date?
     private let modelContext: ModelContext
     private let session = SecureURLSession.makeEphemeral()
+    private let maxStoredMessageCharacters = 50_000
+    private let maxStoredContextCharacters = 50_000
     
     // New Context Components
     let contextBuilder: AIContextBuilder
@@ -218,7 +220,7 @@ class AIEnhancementService: ObservableObject {
         // Serialize context for debugging/storage
         if let jsonData = try? JSONEncoder().encode(context),
            let jsonString = String(data: jsonData, encoding: .utf8) {
-            self.lastCapturedContextJSON = jsonString
+            self.lastCapturedContextJSON = truncateForStorage(jsonString, limit: maxStoredContextCharacters)
         }
         
         let contextXML = contextRenderer.render(context)
@@ -273,8 +275,8 @@ class AIEnhancementService: ObservableObject {
             language: language
         )
         
-        self.lastSystemMessageSent = systemMessage
-        self.lastUserMessageSent = formattedText
+        self.lastSystemMessageSent = truncateForStorage(systemMessage, limit: maxStoredMessageCharacters)
+        self.lastUserMessageSent = truncateForStorage(formattedText, limit: maxStoredMessageCharacters)
 
         logger.notice("AI Enhancement - System Message: \(systemMessage, privacy: .public)")
         
@@ -522,6 +524,11 @@ class AIEnhancementService: ObservableObject {
     func clearCapturedContexts() {
         // Implementation for clearing would go here if ContextBuilder supports it
         // For now, it's state is overwritten on next capture
+    }
+
+    private func truncateForStorage(_ text: String, limit: Int) -> String {
+        guard limit > 0, text.count > limit else { return text }
+        return String(text.prefix(limit)) + "...[TRUNCATED]"
     }
 
     func addPrompt(title: String, promptText: String, icon: PromptIcon = "doc.text.fill", description: String? = nil, triggerWords: [String] = [], useSystemInstructions: Bool = true) {

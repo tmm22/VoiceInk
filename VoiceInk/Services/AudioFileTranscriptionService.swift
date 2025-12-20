@@ -93,7 +93,12 @@ class AudioTranscriptionService: ObservableObject {
             let permanentURL = recordingsDirectory.appendingPathComponent(fileName)
             
             do {
-                try FileManager.default.copyItem(at: url, to: permanentURL)
+                try FileManager.default.createDirectory(at: recordingsDirectory, withIntermediateDirectories: true)
+                let standardizedSource = url.standardizedFileURL
+                let recordingsPath = recordingsDirectory.standardizedFileURL.path + "/"
+                let tempPath = FileManager.default.temporaryDirectory.standardizedFileURL.path + "/"
+                let allowLinking = standardizedSource.path.hasPrefix(recordingsPath) || standardizedSource.path.hasPrefix(tempPath)
+                try FileCopyUtilities.cloneOrCopyFile(from: standardizedSource, to: permanentURL, allowLinking: allowLinking)
             } catch {
                 logger.error("❌ Failed to create permanent copy of audio: \(error.localizedDescription)")
                 isTranscribing = false

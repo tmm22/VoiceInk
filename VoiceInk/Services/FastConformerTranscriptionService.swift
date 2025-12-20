@@ -198,43 +198,7 @@ final class FastConformerTranscriptionService: TranscriptionService {
 
     private func readAudioSamples(from url: URL) throws -> [Float] {
         do {
-            let handle = try FileHandle(forReadingFrom: url)
-            defer { try? handle.close() }
-
-            guard let header = try handle.read(upToCount: 44), header.count == 44 else {
-                return []
-            }
-
-            let chunkSize = 16_384
-            var samples: [Float] = []
-            var carryByte: UInt8?
-
-            while let chunk = try handle.read(upToCount: chunkSize), !chunk.isEmpty {
-                var data = chunk
-                if let carry = carryByte {
-                    data.insert(carry, at: 0)
-                    carryByte = nil
-                }
-                if data.count % 2 != 0 {
-                    carryByte = data.removeLast()
-                }
-                data.withUnsafeBytes { rawBuffer in
-                    guard let base = rawBuffer.bindMemory(to: Int16.self).baseAddress else { return }
-                    let count = rawBuffer.count / MemoryLayout<Int16>.size
-                    samples.reserveCapacity(samples.count + count)
-                    for index in 0..<count {
-                        let littleEndianSample = Int16(littleEndian: base[index])
-                        let normalized = Float(littleEndianSample) / Float(Int16.max)
-                        samples.append(max(-1.0, min(normalized, 1.0)))
-                    }
-                }
-            }
-
-            if carryByte != nil {
-                carryByte = nil
-            }
-
-            return samples
+            return try AudioSampleReader.readPCM16LE(from: url)
         } catch {
             throw WhisperStateError.transcriptionFailed
         }

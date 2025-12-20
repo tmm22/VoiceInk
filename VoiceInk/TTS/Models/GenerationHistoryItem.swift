@@ -11,7 +11,9 @@ struct GenerationHistoryItem: Identifiable, Equatable {
     let voice: VoiceSnapshot
     let format: AudioSettings.AudioFormat
     let text: String
-    let audioData: Data
+    let audioData: Data?
+    let audioFileURL: URL?
+    let audioSizeBytes: Int
     let duration: TimeInterval
     let transcript: TranscriptBundle?
     let createdAt: Date
@@ -20,7 +22,9 @@ struct GenerationHistoryItem: Identifiable, Equatable {
          voice: VoiceSnapshot,
          format: AudioSettings.AudioFormat,
          text: String,
-         audioData: Data,
+         audioData: Data?,
+         audioFileURL: URL? = nil,
+         audioSizeBytes: Int? = nil,
          duration: TimeInterval,
          transcript: TranscriptBundle? = nil,
          createdAt: Date = Date()) {
@@ -30,6 +34,8 @@ struct GenerationHistoryItem: Identifiable, Equatable {
         self.format = format
         self.text = text
         self.audioData = audioData
+        self.audioFileURL = audioFileURL
+        self.audioSizeBytes = audioSizeBytes ?? audioData?.count ?? 0
         self.duration = duration
         self.transcript = transcript
         self.createdAt = createdAt

@@ -84,7 +84,6 @@ class AudioTranscriptionManager: ObservableObject {
                 
                 // Process audio file
                 processingPhase = .processingAudio
-                let samples = try await audioProcessor.processAudioToSamples(url)
                 
                 // Get audio duration
                 let audioAsset = AVURLAsset(url: url)
@@ -99,7 +98,7 @@ class AudioTranscriptionManager: ObservableObject {
                 let permanentURL = recordingsDirectory.appendingPathComponent(fileName)
                 
                 try FileManager.default.createDirectory(at: recordingsDirectory, withIntermediateDirectories: true)
-                try audioProcessor.saveSamplesAsWav(samples: samples, to: permanentURL)
+                try await audioProcessor.transcodeToWhisperWav(from: url, to: permanentURL)
                 
                 // Transcribe using appropriate service
                 processingPhase = .transcribing

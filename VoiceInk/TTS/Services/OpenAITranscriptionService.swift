@@ -37,7 +37,6 @@ final class OpenAITranscriptionService: AudioTranscribing {
     }
 
     func transcribe(fileURL: URL, languageHint: String? = nil) async throws -> (text: String, language: String?, duration: TimeInterval, segments: [TranscriptionSegment]) {
-        let fileData = try Data(contentsOf: fileURL)
         let filename = fileURL.lastPathComponent
         let mimeType = Self.mimeType(for: fileURL)
 
@@ -50,16 +49,26 @@ final class OpenAITranscriptionService: AudioTranscribing {
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 90
 
-        let body = try makeBody(boundary: boundary,
-                                fileData: fileData,
-                                filename: filename,
-                                mimeType: mimeType,
-                                languageHint: languageHint)
+        let bodyURL = try await Task.detached(priority: .utility) {
+            try Self.makeBodyFile(
+                boundary: boundary,
+                model: model,
+                fileURL: fileURL,
+                filename: filename,
+                mimeType: mimeType,
+                languageHint: languageHint
+            )
+        }.value
+        defer {
+            try? FileManager.default.removeItem(at: bodyURL)
+        }
 
-        request.httpBody = body
+        if let fileSize = (try? FileManager.default.attributesOfItem(atPath: bodyURL.path)[.size] as? Int64) {
+            request.setValue(String(fileSize), forHTTPHeaderField: "Content-Length")
+        }
 
         do {
-            let (data, response) = try await session.data(for: request)
+            let (data, response) = try await session.upload(for: request, fromFile: bodyURL)
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw TTSError.networkError("Invalid response")
             }
@@ -133,48 +142,64 @@ private extension OpenAITranscriptionService {
         return "audio/wav"
     }
 
-    func makeBody(boundary: String,
-                  fileData: Data,
-                  filename: String,
-                  mimeType: String,
-                  languageHint: String?) throws -> Data {
-        var body = Data()
+    nonisolated static func makeBodyFile(boundary: String,
+                                         model: String,
+                                         fileURL: URL,
+                                         filename: String,
+                                         mimeType: String,
+                                         languageHint: String?) throws -> URL {
+        let bodyURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("multipart")
 
-        func append(_ string: String) {
-            if let data = string.data(using: .utf8) {
-                body.append(data)
+        FileManager.default.createFile(atPath: bodyURL.path, contents: nil)
+
+        do {
+            let bodyHandle = try FileHandle(forWritingTo: bodyURL)
+            defer { try? bodyHandle.close() }
+
+            func append(_ string: String) {
+                bodyHandle.write(Data(string.utf8))
             }
-        }
 
-        append("--\(boundary)\r\n")
-        append("Content-Disposition: form-data; name=\"model\"\r\n\r\n")
-        append("\(model)\r\n")
-
-        append("--\(boundary)\r\n")
-        append("Content-Disposition: form-data; name=\"response_format\"\r\n\r\n")
-        append("verbose_json\r\n")
-
-        append("--\(boundary)\r\n")
-        append("Content-Disposition: form-data; name=\"temperature\"\r\n\r\n")
-        append("0\r\n")
-
-        append("--\(boundary)\r\n")
-        append("Content-Disposition: form-data; name=\"timestamp_granularities[]\"\r\n\r\nsegment\r\n")
-
-        if let languageHint {
             append("--\(boundary)\r\n")
-            append("Content-Disposition: form-data; name=\"language\"\r\n\r\n")
-            append("\(languageHint)\r\n")
+            append("Content-Disposition: form-data; name=\"model\"\r\n\r\n")
+            append("\(model)\r\n")
+
+            append("--\(boundary)\r\n")
+            append("Content-Disposition: form-data; name=\"response_format\"\r\n\r\n")
+            append("verbose_json\r\n")
+
+            append("--\(boundary)\r\n")
+            append("Content-Disposition: form-data; name=\"temperature\"\r\n\r\n")
+            append("0\r\n")
+
+            append("--\(boundary)\r\n")
+            append("Content-Disposition: form-data; name=\"timestamp_granularities[]\"\r\n\r\nsegment\r\n")
+
+            if let languageHint {
+                append("--\(boundary)\r\n")
+                append("Content-Disposition: form-data; name=\"language\"\r\n\r\n")
+                append("\(languageHint)\r\n")
+            }
+
+            append("--\(boundary)\r\n")
+            append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n")
+            append("Content-Type: \(mimeType)\r\n\r\n")
+
+            let inputHandle = try FileHandle(forReadingFrom: fileURL)
+            defer { try? inputHandle.close() }
+            while let chunk = try inputHandle.read(upToCount: 64 * 1024), !chunk.isEmpty {
+                bodyHandle.write(chunk)
+            }
+
+            append("\r\n")
+            append("--\(boundary)--\r\n")
+        } catch {
+            throw TTSError.apiError("Failed to prepare transcription request: \(error.localizedDescription)")
         }
 
-        append("--\(boundary)\r\n")
-        append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n")
-        append("Content-Type: \(mimeType)\r\n\r\n")
-        body.append(fileData)
-        append("\r\n")
-
-        append("--\(boundary)--\r\n")
-        return body
+        return bodyURL
     }
 
     static func toMilliseconds(_ value: Double?) -> TimeInterval {

@@ -4,7 +4,7 @@ import AVFoundation
 @MainActor
 final class GoogleTranscriptionService: AudioTranscribing {
     private struct RecognizeRequest: Encodable {
-        struct Config: Encodable {
+        struct Config: Encodable, Sendable {
             let encoding: String?
             let sampleRateHertz: Int?
             let languageCode: String
@@ -13,7 +13,7 @@ final class GoogleTranscriptionService: AudioTranscribing {
             let enableWordTimeOffsets: Bool
         }
 
-        struct Audio: Encodable {
+        struct Audio: Encodable, Sendable {
             let content: String
         }
 
@@ -86,23 +86,21 @@ final class GoogleTranscriptionService: AudioTranscribing {
             throw TTSError.invalidAPIKey
         }
 
-        let audioData = try Data(contentsOf: fileURL)
-        let base64Audio = audioData.base64EncodedString()
-
         let audioMetrics = Self.extractAudioMetrics(from: fileURL)
-        let requestPayload = RecognizeRequest(
-            config: .init(
-                encoding: Self.encoding(for: fileURL),
-                sampleRateHertz: audioMetrics.sampleRate,
-                languageCode: (languageHint ?? "en-US").lowercased(),
-                model: model,
-                enableAutomaticPunctuation: true,
-                enableWordTimeOffsets: true
-            ),
-            audio: .init(content: base64Audio)
+        let config = RecognizeRequest.Config(
+            encoding: Self.encoding(for: fileURL),
+            sampleRateHertz: audioMetrics.sampleRate,
+            languageCode: (languageHint ?? "en-US").lowercased(),
+            model: model,
+            enableAutomaticPunctuation: true,
+            enableWordTimeOffsets: true
         )
-
-        let requestData = try JSONEncoder().encode(requestPayload)
+        let bodyURL = try await Task.detached(priority: .utility) {
+            try Self.makeRequestBodyFile(config: config, audioFileURL: fileURL)
+        }.value
+        defer {
+            try? FileManager.default.removeItem(at: bodyURL)
+        }
         guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false) else {
             throw TTSError.apiError("Invalid transcription endpoint")
         }
@@ -119,11 +117,13 @@ final class GoogleTranscriptionService: AudioTranscribing {
         var request = URLRequest(url: requestURL)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = requestData
         request.timeoutInterval = 90
+        if let fileSize = (try? FileManager.default.attributesOfItem(atPath: bodyURL.path)[.size] as? Int64) {
+            request.setValue(String(fileSize), forHTTPHeaderField: "Content-Length")
+        }
 
         do {
-            let (data, response) = try await session.data(for: request)
+            let (data, response) = try await session.upload(for: request, fromFile: bodyURL)
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw TTSError.networkError("Invalid response")
             }
@@ -198,6 +198,64 @@ private extension GoogleTranscriptionService {
             return "MULAW"
         default:
             return nil
+        }
+    }
+
+    nonisolated static func makeRequestBodyFile(config: RecognizeRequest.Config, audioFileURL: URL) throws -> URL {
+        let bodyURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("json")
+
+        FileManager.default.createFile(atPath: bodyURL.path, contents: nil)
+
+        do {
+            let bodyHandle = try FileHandle(forWritingTo: bodyURL)
+            defer { try? bodyHandle.close() }
+
+            let configData = try JSONEncoder().encode(config)
+            guard let configString = String(data: configData, encoding: .utf8) else {
+                throw TTSError.apiError("Failed to encode transcription config")
+            }
+
+            bodyHandle.write(Data("{\"config\":".utf8))
+            bodyHandle.write(Data(configString.utf8))
+            bodyHandle.write(Data(",\"audio\":{\"content\":\"".utf8))
+
+            let inputHandle = try FileHandle(forReadingFrom: audioFileURL)
+            defer { try? inputHandle.close() }
+            try writeBase64(from: inputHandle, to: bodyHandle)
+
+            bodyHandle.write(Data("\"}}".utf8))
+        } catch let error as TTSError {
+            throw error
+        } catch {
+            throw TTSError.apiError("Failed to prepare transcription request: \(error.localizedDescription)")
+        }
+
+        return bodyURL
+    }
+
+    nonisolated static func writeBase64(from inputHandle: FileHandle, to outputHandle: FileHandle) throws {
+        let chunkSize = 48 * 1024
+        var carry = Data()
+
+        while let chunk = try inputHandle.read(upToCount: chunkSize), !chunk.isEmpty {
+            var buffer = carry
+            buffer.append(chunk)
+
+            let remainder = buffer.count % 3
+            let encodeLength = buffer.count - remainder
+            if encodeLength > 0 {
+                let toEncode = buffer.prefix(encodeLength)
+                outputHandle.write(toEncode.base64EncodedData())
+                carry = buffer.suffix(remainder)
+            } else {
+                carry = buffer
+            }
+        }
+
+        if !carry.isEmpty {
+            outputHandle.write(carry.base64EncodedData())
         }
     }
 
