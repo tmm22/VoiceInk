@@ -55,11 +55,11 @@
 
 ---
 
-## 📌 Recent Changes (2025-12-19)
+## 📌 Recent Changes (2025-12-20)
 
-- Security: HTTPS validation for custom AI provider verification.
-- Performance: async audio file loading for cloud transcription uploads.
-- Concurrency: removed redundant main-thread hops in `@MainActor` classes.
+- Performance: streamed audio preprocessing and transcription uploads.
+- Memory: capped OCR/browser context and stored AI request payloads.
+- Storage: cached recent TTS history audio on disk with size limits.
 
 **[QUALITY_OF_LIFE_IMPROVEMENTS.md](./QUALITY_OF_LIFE_IMPROVEMENTS.md)**
 - Original comprehensive analysis

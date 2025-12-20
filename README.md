@@ -66,11 +66,13 @@ Recent stability, security, and performance improvements are documented in
 - ✅ Non-blocking audio file handling for cloud transcription.
 - ✅ Reduced main-thread hopping in `@MainActor` classes.
 - ✅ Removal of forced `UserDefaults.synchronize()` in hot paths.
+- ✅ Streamed audio preprocessing and transcription uploads to reduce memory.
+- ✅ Disk-cached recent TTS history audio with size limits and cleanup.
 
-### Recent Changes (2025-12-19)
-- Security: HTTPS validation for custom AI provider verification.
-- Performance: async audio file loading for cloud transcription uploads.
-- Concurrency: removed redundant main-thread hops in `@MainActor` classes.
+### Recent Changes (2025-12-20)
+- Performance: streamed audio preprocessing and transcription uploads.
+- Memory: capped OCR/browser context and stored AI request payloads.
+- Storage: cached recent TTS history audio on disk with size limits.
 
 ## Contributing
 
