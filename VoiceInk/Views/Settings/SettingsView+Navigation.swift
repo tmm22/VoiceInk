@@ -92,12 +92,16 @@ struct SettingsRailItem: View {
             .padding(.vertical, VoiceInkSpacing.sm)
             .background(
                 RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                    .fill(isSelected ? VoiceInkTheme.Palette.elevatedSurface : (isHovering ? VoiceInkTheme.Palette.surface.opacity(0.5) : Color.clear))
+                    .fill(isSelected ? VoiceInkTheme.Palette.accent.opacity(0.12) : (isHovering ? VoiceInkTheme.Palette.surface.opacity(0.5) : Color.clear))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
+                            .stroke(isSelected ? VoiceInkTheme.Card.selectedStroke : Color.clear, lineWidth: 1)
+                    )
             )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundColor(isSelected ? .primary : .secondary)
+        .foregroundColor(isSelected ? VoiceInkTheme.Palette.accent : .secondary)
         .opacity(dimmed ? 0.4 : 1.0)
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.1)) {
