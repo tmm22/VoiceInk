@@ -160,15 +160,7 @@ extension TTSViewModel {
     }
 
     func clearHistoryCacheDirectory() {
-        guard FileManager.default.fileExists(atPath: historyCacheDirectory.path) else { return }
-        do {
-            let contents = try FileManager.default.contentsOfDirectory(at: historyCacheDirectory, includingPropertiesForKeys: nil)
-            for url in contents {
-                try? FileManager.default.removeItem(at: url)
-            }
-        } catch {
-            AppLogger.storage.error("Failed to clear history cache directory: \(error.localizedDescription)")
-        }
+        Self.clearHistoryCacheDirectory(at: historyCacheDirectory)
     }
 
     private func storeHistoryAudio(_ audioData: Data, format: AudioSettings.AudioFormat) -> (data: Data?, url: URL?, sizeBytes: Int) {
@@ -214,6 +206,18 @@ extension TTSViewModel {
                     return result + item.audioSizeBytes
                 }
             }
+        }
+    }
+
+    nonisolated static func clearHistoryCacheDirectory(at url: URL) {
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        do {
+            let contents = try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
+            for fileURL in contents {
+                try? FileManager.default.removeItem(at: fileURL)
+            }
+        } catch {
+            AppLogger.storage.error("Failed to clear history cache directory: \(error.localizedDescription)")
         }
     }
 }

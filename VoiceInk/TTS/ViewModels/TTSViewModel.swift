@@ -578,7 +578,7 @@ class TTSViewModel: ObservableObject {
         elevenLabsVoiceTask?.cancel()
         managedProvisioningTask?.cancel()
         transcriptionTask?.cancel()
-        clearHistoryCacheDirectory()
+        Self.clearHistoryCacheDirectory(at: historyCacheDirectory)
         // Note: transcriptionRecorder.cancelRecording() cannot be called from deinit
         // as it may access @MainActor isolated state. Timer invalidation is safe.
         transcriptionRecordingTimer?.invalidate()
