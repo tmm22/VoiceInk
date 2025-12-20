@@ -2,6 +2,11 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2025-12-21
+
+### UI
+- Aligned Settings navigation selection highlight with app accent styling.
+
 ## 2025-12-20
 
 ### Performance
