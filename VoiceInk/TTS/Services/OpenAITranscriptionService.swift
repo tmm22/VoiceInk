@@ -49,10 +49,11 @@ final class OpenAITranscriptionService: AudioTranscribing {
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 90
 
+        let modelName = self.model
         let bodyURL = try await Task.detached(priority: .utility) {
             try Self.makeBodyFile(
                 boundary: boundary,
-                model: model,
+                model: modelName,
                 fileURL: fileURL,
                 filename: filename,
                 mimeType: mimeType,

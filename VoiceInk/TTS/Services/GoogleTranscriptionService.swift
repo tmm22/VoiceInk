@@ -201,7 +201,7 @@ private extension GoogleTranscriptionService {
         }
     }
 
-    nonisolated static func makeRequestBodyFile(config: RecognizeRequest.Config, audioFileURL: URL) throws -> URL {
+    private nonisolated static func makeRequestBodyFile(config: RecognizeRequest.Config, audioFileURL: URL) throws -> URL {
         let bodyURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension("json")
