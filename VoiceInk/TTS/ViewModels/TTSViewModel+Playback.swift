@@ -1,8 +1,73 @@
 import SwiftUI
 import AVFoundation
+import Combine
 
-// MARK: - Audio Playback Controls
+// MARK: - Audio Playback Setup & Controls
 extension TTSViewModel {
+    
+    // MARK: - Audio Player Setup
+    
+    func setupAudioPlayer() {
+        audioPlayer.$currentTime
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$currentTime)
+
+        audioPlayer.$duration
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$duration)
+
+        audioPlayer.$isPlaying
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$isPlaying)
+
+        // Handle loop mode
+        audioPlayer.didFinishPlaying = { [weak self] in
+            guard let self = self else { return }
+            if self.isLoopEnabled {
+                Task {
+                    await self.play()
+                }
+            }
+        }
+    }
+
+    func setupPreviewPlayer() {
+        previewPlayer.$isPlaying
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] playing in
+                guard let self else { return }
+                self.isPreviewing = playing && self.previewingVoiceID != nil
+            }
+            .store(in: &cancellables)
+
+        previewPlayer.$isBuffering
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] buffering in
+                guard let self else { return }
+                if self.previewingVoiceID == nil {
+                    self.isPreviewLoading = false
+                } else {
+                    self.isPreviewLoading = buffering
+                }
+            }
+            .store(in: &cancellables)
+
+        previewPlayer.$error
+            .compactMap { $0 }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] error in
+                self?.handlePreviewError(error, voiceName: nil)
+            }
+            .store(in: &cancellables)
+
+        previewPlayer.didFinishPlaying = { [weak self] in
+            guard let self else { return }
+            self.resetPreviewState()
+        }
+    }
+    
+    // MARK: - Playback Controls
+    
     func play() async {
         stopPreview()
         applyPlaybackSettings()
