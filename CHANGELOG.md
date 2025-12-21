@@ -7,6 +7,21 @@ All notable changes to the VoiceLink Community application are documented here.
 ### UI
 - Aligned Settings navigation selection highlight with app accent styling.
 
+### Refactoring
+- Decomposed 7 large files into modular extensions following the `Type+Feature.swift`
+  pattern from AGENTS.md to comply with the 500-line guideline.
+- Created 22 new extension files to improve code organization and maintainability.
+- Achieved 62.2% total line reduction in main files (4,340 → 1,641 lines).
+- Files refactored:
+  - `AIService.swift`: 792 → 192 lines (75.8% reduction, 4 extensions)
+  - `TTSViewModel+Helpers.swift`: 672 → 185 lines (72.5% reduction, 4 extensions)
+  - `AIEnhancementService.swift`: 613 → 331 lines (46.0% reduction, 3 extensions)
+  - `TTSSettingsView.swift`: 604 → 235 lines (61.1% reduction, 4 extensions)
+  - `TTSViewModel.swift`: 587 → 311 lines (47.0% reduction, 3 extensions)
+  - `PredefinedModels.swift`: 564 → 39 lines (93.1% reduction, 3 extensions)
+  - `TTSViewModel+SpeechGeneration.swift`: 508 → 348 lines (31.5% reduction, 1 extension)
+- All changes verified to compile successfully.
+
 ## 2025-12-20
 
 ### Performance
