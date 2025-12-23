@@ -22,15 +22,16 @@ final class WhisperModelWarmupCoordinator: ObservableObject {
         warmingModels.insert(model.name)
         
         Task { [weak self] in
+            guard let self else { return }
             do {
-                try await runWarmup(for: model, whisperState: whisperState)
+                try await self.runWarmup(for: model, whisperState: whisperState)
             } catch {
                 // No need for MainActor.run - this class is already @MainActor
                 whisperState.logger.error("Warmup failed for \(model.name): \(error.localizedDescription)")
             }
             
             // No need for MainActor.run - this class is already @MainActor
-            self?.warmingModels.remove(model.name)
+            self.warmingModels.remove(model.name)
         }
     }
     

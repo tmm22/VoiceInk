@@ -1,6 +1,6 @@
 import SwiftUI
 
-extension String: Identifiable {
+extension String: @retroactive Identifiable {
     public var id: String { self }
 }
 
@@ -20,12 +20,12 @@ enum SortColumn {
 class WordReplacementManager: ObservableObject {
     @Published var replacements: [String: String] {
         didSet {
-            UserDefaults.standard.set(replacements, forKey: "wordReplacements")
+            AppSettings.Dictionary.wordReplacements = replacements
         }
     }
 
     init() {
-        self.replacements = UserDefaults.standard.dictionary(forKey: "wordReplacements") as? [String: String] ?? [:]
+        self.replacements = AppSettings.Dictionary.wordReplacements
     }
     
     func addReplacement(original: String, replacement: String) {
@@ -58,7 +58,7 @@ struct WordReplacementView: View {
     @State private var sortMode: SortMode = .originalAsc
     
     init() {
-        if let savedSort = UserDefaults.standard.string(forKey: "wordReplacementSortMode"),
+        if let savedSort = AppSettings.Dictionary.wordReplacementSortMode,
            let mode = SortMode(rawValue: savedSort) {
             _sortMode = State(initialValue: mode)
         }
@@ -86,7 +86,7 @@ struct WordReplacementView: View {
         case .replacement:
             sortMode = (sortMode == .replacementAsc) ? .replacementDesc : .replacementAsc
         }
-        UserDefaults.standard.set(sortMode.rawValue, forKey: "wordReplacementSortMode")
+        AppSettings.Dictionary.wordReplacementSortMode = sortMode.rawValue
     }
     
     var body: some View {

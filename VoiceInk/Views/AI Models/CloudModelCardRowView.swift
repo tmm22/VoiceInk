@@ -316,7 +316,14 @@ struct CloudModelCardView: View {
                     self.verificationError = nil
                     // Save the API key
                     let keychain = KeychainManager()
-                    keychain.saveAPIKey(self.apiKey, for: self.providerKey)
+                    do {
+                        try keychain.saveAPIKey(self.apiKey, for: self.providerKey)
+                    } catch {
+                        AppLogger.storage.error("Failed to save API key for \(self.providerKey, privacy: .public): \(error.localizedDescription)")
+                        self.verificationStatus = .failure
+                        self.verificationError = "Failed to save API key. Please try again."
+                        return
+                    }
                     self.isConfiguredState = true
                     
                     // Collapse the configuration section after successful verification
@@ -347,7 +354,7 @@ struct CloudModelCardView: View {
             Task {
                 await MainActor.run {
                     whisperState.currentTranscriptionModel = nil
-                    UserDefaults.standard.removeObject(forKey: "CurrentTranscriptionModel")
+                    AppSettings.TranscriptionSettings.currentTranscriptionModel = nil
                 }
             }
         }

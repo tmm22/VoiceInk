@@ -265,10 +265,9 @@
 				E1D7EF972E35E16C00640029 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */,
 				E1ECEC142E44590200DFFBA8 /* XCRemoteSwiftPackageReference "Zip" */,
 				E11BBA4C2E5DC555000AB839 /* XCRemoteSwiftPackageReference "FluidAudio" */,
-				E1BBBDCA2EB0DF6700C3ABFE /* XCRemoteSwiftPackageReference "SelectedTextKit" */,
+				E1BBBDCA2EB0DF6700C3ABFE /* XCLocalSwiftPackageReference "SelectedTextKit" */,
 				E1342C1D2EB4844800CED8A2 /* XCRemoteSwiftPackageReference "swift-atomics" */,
 				E1F6A7A02F39D4E2007B5F42 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */,
-				E1AXSWFT2E5DC556000AB840 /* XCRemoteSwiftPackageReference "AXSwift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E11473B12CBE0F0A00318EE4 /* Products */;
@@ -491,6 +490,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.60;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tmm22.VoiceLinkCommunity;
+				PRODUCT_MODULE_NAME = VoiceInk;
 				PRODUCT_NAME = "VoiceLink Community";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG ENABLE_NATIVE_SPEECH_ANALYZER $(inherited)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -526,6 +526,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.60;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tmm22.VoiceLinkCommunity;
+				PRODUCT_MODULE_NAME = VoiceInk;
 				PRODUCT_NAME = "VoiceLink Community";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "ENABLE_NATIVE_SPEECH_ANALYZER $(inherited)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -547,7 +548,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/$(FULL_PRODUCT_NAME)/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/$(EXECUTABLE_NAME)";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VoiceLink Community.app/Contents/MacOS/VoiceLink Community";
 			};
 			name = Debug;
 		};
@@ -565,7 +566,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/$(FULL_PRODUCT_NAME)/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/$(EXECUTABLE_NAME)";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VoiceLink Community.app/Contents/MacOS/VoiceLink Community";
 			};
 			name = Release;
 		};
@@ -643,14 +644,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		E1AXSWFT2E5DC556000AB840 /* XCRemoteSwiftPackageReference "AXSwift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/tisfeng/AXSwift.git";
-			requirement = {
-				branch = main;
-				kind = branch;
-			};
-		};
 		E11BBA4C2E5DC555000AB839 /* XCRemoteSwiftPackageReference "FluidAudio" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/FluidInference/FluidAudio";
@@ -691,13 +684,9 @@
 				minimumVersion = 2.7.0;
 			};
 		};
-		E1BBBDCA2EB0DF6700C3ABFE /* XCRemoteSwiftPackageReference "SelectedTextKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/tisfeng/SelectedTextKit";
-			requirement = {
-				kind = revision;
-				revision = f6c1574ad6f747e1110b544c35e6ec64ed6f52f1;
-			};
+		E1BBBDCA2EB0DF6700C3ABFE /* XCLocalSwiftPackageReference "SelectedTextKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/SelectedTextKit;
 		};
 		E1D7EF972E35E16C00640029 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -753,7 +742,7 @@
 		};
 		E1BBBDCB2EB0DF6700C3ABFE /* SelectedTextKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E1BBBDCA2EB0DF6700C3ABFE /* XCRemoteSwiftPackageReference "SelectedTextKit" */;
+			package = E1BBBDCA2EB0DF6700C3ABFE /* XCLocalSwiftPackageReference "SelectedTextKit" */;
 			productName = SelectedTextKit;
 		};
 		E1D7EF982E35E16C00640029 /* MediaRemoteAdapter */ = {

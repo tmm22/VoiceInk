@@ -1,10 +1,17 @@
 import SwiftUI
+import SwiftData
 
 // MARK: - Configuration View
 
 /// Configuration view for creating and editing Power Mode configurations.
 /// Component views are organized in extension files:
-/// - PowerModeConfigView+Sections.swift - Header, main input, trigger, transcription, AI enhancement, advanced, and save button sections
+/// - PowerModeConfigView+HeaderSection.swift
+/// - PowerModeConfigView+MainInputSection.swift
+/// - PowerModeConfigView+TriggerSection.swift
+/// - PowerModeConfigView+TranscriptionSection.swift
+/// - PowerModeConfigView+AIEnhancementSection.swift
+/// - PowerModeConfigView+AdvancedSection.swift
+/// - PowerModeConfigView+SaveButtonSection.swift
 /// - PowerModeConfigView+Helpers.swift - Helper methods for app loading, website management, validation, and saving
 
 struct ConfigurationView: View {
@@ -16,7 +23,7 @@ struct ConfigurationView: View {
     @FocusState var isNameFieldFocused: Bool
     
     // State for configuration
-    @State var configName: String = "New Power Mode"
+    @State var configName: String = Localization.PowerMode.addNewPowerModeLabel
     @State var selectedEmoji: String = "💼"
     @State var isShowingEmojiPicker = false
     @State var isShowingAppPicker = false
@@ -69,7 +76,7 @@ struct ConfigurationView: View {
             _isAutoSendEnabled = State(initialValue: false)
             _isDefault = State(initialValue: false)
             // Default to current global AI provider/model for new configurations - use UserDefaults only
-            _selectedAIProvider = State(initialValue: UserDefaults.standard.string(forKey: "selectedAIProvider"))
+            _selectedAIProvider = State(initialValue: AppSettings.AI.selectedProviderRawValue)
             _selectedAIModel = State(initialValue: nil) // Initialize to nil and set it after view appears
         case .edit(let config):
             // Get the latest version of this config from PowerModeManager
@@ -141,5 +148,28 @@ struct ConfigurationView: View {
                 selectedPromptId = enhancementService.allPrompts.first?.id
             }
         }
+    }
+}
+
+@MainActor
+struct ConfigurationView_Previews: PreviewProvider {
+    static var previews: some View {
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container: ModelContainer
+        do {
+            container = try ModelContainer(for: Transcription.self, configurations: configuration)
+        } catch {
+            fatalError("Failed to create preview container: \(error)")
+        }
+
+        let aiService = AIService()
+        let enhancementService = AIEnhancementService(aiService: aiService, modelContext: container.mainContext)
+        let whisperState = WhisperState(modelContext: container.mainContext, enhancementService: enhancementService)
+
+        return ConfigurationView(mode: .add, powerModeManager: .shared)
+            .environmentObject(enhancementService)
+            .environmentObject(aiService)
+            .environmentObject(whisperState)
+            .frame(width: 900, height: 700)
     }
 }

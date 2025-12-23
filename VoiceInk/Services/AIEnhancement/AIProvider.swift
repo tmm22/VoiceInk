@@ -60,9 +60,9 @@ enum AIProvider: String, CaseIterable {
             return "https://api.z.ai/api/paas/v4/chat/completions"
         case .ollama:
             // NOTE: Ollama runs locally, so http://localhost is acceptable for local development
-            return UserDefaults.standard.string(forKey: "ollamaBaseURL") ?? "http://localhost:11434"
+            return AppSettings.Ollama.baseURL
         case .custom:
-            return UserDefaults.standard.string(forKey: "customProviderBaseURL") ?? ""
+            return AppSettings.AI.customProviderBaseURL
         }
     }
     
@@ -119,9 +119,9 @@ enum AIProvider: String, CaseIterable {
         case .zai:
             return "glm-4.5-flash"
         case .ollama:
-            return UserDefaults.standard.string(forKey: "ollamaSelectedModel") ?? "mistral"
+            return AppSettings.Ollama.selectedModel
         case .custom:
-            return UserDefaults.standard.string(forKey: "customProviderModel") ?? ""
+            return AppSettings.AI.customProviderModel
         case .openRouter:
             return "openai/gpt-oss-120b"
         }

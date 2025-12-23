@@ -235,7 +235,7 @@ struct ContentView: View {
         case .settings:
             SettingsView(selectedTab: .general)
                 .environmentObject(whisperState)
-        case .community, .permissions, .audioInput, .dictionary:
+        case .community, .permissions:
              // These are now handled within Settings or removed from top-level
              SettingsView(selectedTab: settingsTab(for: selectedView))
                  .environmentObject(whisperState)

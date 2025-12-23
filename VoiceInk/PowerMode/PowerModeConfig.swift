@@ -36,10 +36,10 @@ struct PowerModeConfig: Codable, Identifiable, Equatable {
         self.selectedPrompt = selectedPrompt
         self.useScreenCapture = useScreenCapture
         self.isAutoSendEnabled = isAutoSendEnabled
-        self.selectedAIProvider = selectedAIProvider ?? UserDefaults.standard.string(forKey: "selectedAIProvider")
+        self.selectedAIProvider = selectedAIProvider ?? AppSettings.AI.selectedProviderRawValue
         self.selectedAIModel = selectedAIModel
-        self.selectedTranscriptionModelName = selectedTranscriptionModelName ?? UserDefaults.standard.string(forKey: "CurrentTranscriptionModel")
-        self.selectedLanguage = selectedLanguage ?? UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "en"
+        self.selectedTranscriptionModelName = selectedTranscriptionModelName ?? AppSettings.TranscriptionSettings.currentTranscriptionModel
+        self.selectedLanguage = selectedLanguage ?? AppSettings.TranscriptionSettings.selectedLanguage ?? "en"
         self.isEnabled = isEnabled
         self.isDefault = isDefault
     }
@@ -131,13 +131,10 @@ class PowerModeManager: ObservableObject {
     @Published var configurations: [PowerModeConfig] = []
     @Published var activeConfiguration: PowerModeConfig?
 
-    private let configKey = "powerModeConfigurationsV2"
-    private let activeConfigIdKey = "activeConfigurationId"
-
     private init() {
         loadConfigurations()
 
-        if let activeConfigIdString = UserDefaults.standard.string(forKey: activeConfigIdKey),
+        if let activeConfigIdString = AppSettings.PowerMode.activeConfigurationId,
            let activeConfigId = UUID(uuidString: activeConfigIdString) {
             activeConfiguration = configurations.first { $0.id == activeConfigId }
         } else {
@@ -146,15 +143,20 @@ class PowerModeManager: ObservableObject {
     }
 
     private func loadConfigurations() {
-        if let data = UserDefaults.standard.data(forKey: configKey),
-           let configs = try? JSONDecoder().decode([PowerModeConfig].self, from: data) {
-            configurations = configs
+        guard let data = AppSettings.PowerMode.configurationsData else { return }
+        do {
+            configurations = try JSONDecoder().decode([PowerModeConfig].self, from: data)
+        } catch {
+            AppLogger.storage.error("Failed to decode Power Mode configs: \(error.localizedDescription)")
         }
     }
 
     func saveConfigurations() {
-        if let data = try? JSONEncoder().encode(configurations) {
-            UserDefaults.standard.set(data, forKey: configKey)
+        do {
+            let data = try JSONEncoder().encode(configurations)
+            AppSettings.PowerMode.configurationsData = data
+        } catch {
+            AppLogger.storage.error("Failed to encode Power Mode configs: \(error.localizedDescription)")
         }
     }
 
@@ -301,7 +303,7 @@ class PowerModeManager: ObservableObject {
 
     func setActiveConfiguration(_ config: PowerModeConfig?) {
         activeConfiguration = config
-        UserDefaults.standard.set(config?.id.uuidString, forKey: activeConfigIdKey)
+        AppSettings.PowerMode.activeConfigurationId = config?.id.uuidString
         self.objectWillChange.send()
     }
 

@@ -48,6 +48,7 @@ final class WorkflowIntegrationTests: XCTestCase {
         // Skip if no models available
         guard let model = whisperState.allAvailableModels.first else {
             XCTSkip("No transcription models available")
+            return
         }
         
         whisperState.currentTranscriptionModel = model
@@ -78,6 +79,7 @@ final class WorkflowIntegrationTests: XCTestCase {
     func testRecordingCancellationWorkflow() async throws {
         guard let model = whisperState.allAvailableModels.first else {
             XCTSkip("No models available")
+            return
         }
         
         whisperState.currentTranscriptionModel = model
@@ -105,6 +107,7 @@ final class WorkflowIntegrationTests: XCTestCase {
     func testDeviceSwitchDuringRecording() async throws {
         guard let model = whisperState.allAvailableModels.first else {
             XCTSkip("No models available")
+            return
         }
         
         whisperState.currentTranscriptionModel = model
@@ -140,6 +143,7 @@ final class WorkflowIntegrationTests: XCTestCase {
         
         guard availableModels.count >= 2 else {
             XCTSkip("Need at least 2 models for switching test")
+            return
         }
         
         // Switch between models
@@ -159,6 +163,7 @@ final class WorkflowIntegrationTests: XCTestCase {
     func testMultipleRecordingSessions() async throws {
         guard let model = whisperState.allAvailableModels.first else {
             XCTSkip("No models available")
+            return
         }
         
         whisperState.currentTranscriptionModel = model
@@ -225,6 +230,7 @@ final class WorkflowIntegrationTests: XCTestCase {
     func testConcurrentModelAndRecordingOperations() async throws {
         guard whisperState.allAvailableModels.count >= 2 else {
             XCTSkip("Need multiple models")
+            return
         }
         
         let models = whisperState.allAvailableModels
@@ -255,6 +261,7 @@ final class WorkflowIntegrationTests: XCTestCase {
     func testResourceCleanupAfterMultipleSessions() async throws {
         guard let model = whisperState.allAvailableModels.first else {
             XCTSkip("No models available")
+            return
         }
         
         whisperState.currentTranscriptionModel = model
@@ -283,6 +290,7 @@ final class WorkflowIntegrationTests: XCTestCase {
     func testStateConsistencyAcrossWorkflow() async throws {
         guard let model = whisperState.allAvailableModels.first else {
             XCTSkip("No models available")
+            return
         }
         
         whisperState.currentTranscriptionModel = model
@@ -320,6 +328,7 @@ final class WorkflowIntegrationTests: XCTestCase {
     func testTranscriptionNotifications() async throws {
         guard let model = whisperState.allAvailableModels.first else {
             XCTSkip("No models available")
+            return
         }
         
         whisperState.currentTranscriptionModel = model
@@ -355,7 +364,7 @@ final class WorkflowIntegrationTests: XCTestCase {
     func testMemoryStabilityAcrossWorkflow() async throws {
         weak var weakState: WhisperState?
         
-        await autoreleasepool {
+        do {
             let container = try? ModelContainer.createInMemoryContainer()
             guard let container = container else { return }
             
@@ -390,6 +399,7 @@ final class WorkflowIntegrationTests: XCTestCase {
     func testRapidStartStopCycles() async throws {
         guard let model = whisperState.allAvailableModels.first else {
             XCTSkip("No models available")
+            return
         }
         
         whisperState.currentTranscriptionModel = model

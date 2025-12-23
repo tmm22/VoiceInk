@@ -12,16 +12,16 @@ class MediaController: ObservableObject {
     private var wasAudioMutedBeforeRecording = false
     private var currentMuteTask: Task<Bool, Never>?
     
-    @Published var isSystemMuteEnabled: Bool = UserDefaults.standard.bool(forKey: "isSystemMuteEnabled") {
+    @Published var isSystemMuteEnabled: Bool = AppSettings.Audio.isSystemMuteEnabled {
         didSet {
-            UserDefaults.standard.set(isSystemMuteEnabled, forKey: "isSystemMuteEnabled")
+            AppSettings.Audio.isSystemMuteEnabled = isSystemMuteEnabled
         }
     }
     
     private init() {
         // Set default if not already set
-        if !UserDefaults.standard.contains(key: "isSystemMuteEnabled") {
-            UserDefaults.standard.set(true, forKey: "isSystemMuteEnabled")
+        if !AppSettings.contains(key: AppSettings.Keys.isSystemMuteEnabled) {
+            AppSettings.Audio.isSystemMuteEnabled = true
         }
     }
     
@@ -121,7 +121,7 @@ extension UserDefaults {
     }
     
     var isSystemMuteEnabled: Bool {
-        get { bool(forKey: "isSystemMuteEnabled") }
-        set { set(newValue, forKey: "isSystemMuteEnabled") }
+        get { AppSettings.Audio.isSystemMuteEnabled }
+        set { AppSettings.Audio.isSystemMuteEnabled = newValue }
     }
 }

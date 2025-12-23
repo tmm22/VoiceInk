@@ -112,6 +112,7 @@ struct ModelSettingsView: View {
             if isEditing {
                 customPrompt = whisperPrompt.getLanguagePrompt(for: selectedLanguage)
             }
+            AppSettings.notifyChange()
         }
     }
 } 

@@ -13,7 +13,7 @@ extension TTSSettingsView {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
                         Text("Default Speed:")
-                        Picker("", selection: $viewModel.playbackSpeed) {
+                        Picker("", selection: $playback.playbackSpeed) {
                             Text("0.5×").tag(0.5)
                             Text("0.75×").tag(0.75)
                             Text("1.0×").tag(1.0)
@@ -24,26 +24,26 @@ extension TTSSettingsView {
                         }
                         .pickerStyle(MenuPickerStyle())
                         .frame(width: 100)
-                        .onChange(of: viewModel.playbackSpeed) {
-                            viewModel.applyPlaybackSpeed(save: true)
+                        .onChange(of: playback.playbackSpeed) {
+                            playback.applyPlaybackSpeed(save: true)
                         }
                         Spacer()
                     }
                     
                     HStack {
                         Text("Default Volume:")
-                        Slider(value: $viewModel.volume, in: 0...1)
-                            .onChange(of: viewModel.volume) {
-                                viewModel.applyPlaybackVolume(save: true)
+                        Slider(value: $playback.volume, in: 0...1)
+                            .onChange(of: playback.volume) {
+                                playback.applyPlaybackVolume(save: true)
                             }
                             .frame(width: 200)
-                        Text("\(Int(viewModel.volume * 100))%")
+                        Text("\(Int(playback.volume * 100))%")
                             .frame(width: 50)
                             .monospacedDigit()
                         Spacer()
                     }
                     
-                    Toggle("Enable Loop by Default", isOn: $viewModel.isLoopEnabled)
+                    Toggle("Enable Loop by Default", isOn: $playback.isLoopEnabled)
                 }
                 .padding(.vertical, 8)
             }

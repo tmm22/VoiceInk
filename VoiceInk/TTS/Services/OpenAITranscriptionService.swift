@@ -23,10 +23,10 @@ final class OpenAITranscriptionService: AudioTranscribing {
 
     init(session: URLSession = SecureURLSession.makeEphemeral(),
          keychain: KeychainManager = KeychainManager(),
-         managedProvisioningClient: ManagedProvisioningClient = .shared) {
+         managedProvisioningClient: ManagedProvisioningClient? = nil) {
         self.session = session
         self.keychain = keychain
-        self.managedProvisioningClient = managedProvisioningClient
+        self.managedProvisioningClient = managedProvisioningClient ?? .shared
     }
 
     func hasCredentials() -> Bool {
@@ -70,45 +70,37 @@ final class OpenAITranscriptionService: AudioTranscribing {
 
         do {
             let (data, response) = try await session.upload(for: request, fromFile: bodyURL)
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw TTSError.networkError("Invalid response")
-            }
 
-            switch httpResponse.statusCode {
-            case 200:
-                let payload = try JSONDecoder().decode(ResponsePayload.self, from: data)
-                let segments = payload.segments?.enumerated().map { index, segment in
-                    TranscriptionSegment(
-                        id: segment.id ?? index,
-                        text: segment.text,
-                        startTime: Self.toMilliseconds(segment.start) / 1000,
-                        endTime: Self.toMilliseconds(segment.end) / 1000,
-                        confidence: segment.avgLogprob
-                    )
-                } ?? []
+            let responseData = try HTTPResponseHandler.handleResponse(
+                response,
+                data: data,
+                onUnauthorized: {
+                    if authorization.usedManagedCredential {
+                        self.managedProvisioningClient.invalidateCredential(for: .openAI)
+                        self.activeManagedCredential = nil
+                    }
+                },
+                errorMessageDecoder: Self.decodeAPIError,
+                clientErrorFormat: "Transcription request failed (%d)",
+                serverErrorFormat: "Transcription service unavailable (%d)",
+                unexpectedFormat: "Unexpected response: %d"
+            )
 
-                return (payload.text ?? "",
-                        payload.language,
-                        Self.toMilliseconds(payload.duration) / 1000,
-                        segments)
-            case 401:
-                if authorization.usedManagedCredential {
-                    managedProvisioningClient.invalidateCredential(for: .openAI)
-                    activeManagedCredential = nil
-                }
-                throw TTSError.invalidAPIKey
-            case 429:
-                throw TTSError.quotaExceeded
-            case 400...499:
-                if let message = Self.decodeAPIError(from: data) {
-                    throw TTSError.apiError(message)
-                }
-                throw TTSError.apiError("Transcription request failed (\(httpResponse.statusCode))")
-            case 500...599:
-                throw TTSError.apiError("Transcription service unavailable (\(httpResponse.statusCode))")
-            default:
-                throw TTSError.apiError("Unexpected response: \(httpResponse.statusCode)")
-            }
+            let payload = try JSONDecoder().decode(ResponsePayload.self, from: responseData)
+            let segments = payload.segments?.enumerated().map { index, segment in
+                TranscriptionSegment(
+                    id: segment.id ?? index,
+                    text: segment.text,
+                    startTime: Self.toMilliseconds(segment.start) / 1000,
+                    endTime: Self.toMilliseconds(segment.end) / 1000,
+                    confidence: segment.avgLogprob
+                )
+            } ?? []
+
+            return (payload.text ?? "",
+                    payload.language,
+                    Self.toMilliseconds(payload.duration) / 1000,
+                    segments)
         } catch let error as TTSError {
             throw error
         } catch {
@@ -118,12 +110,6 @@ final class OpenAITranscriptionService: AudioTranscribing {
 }
 
 private extension OpenAITranscriptionService {
-    struct AuthorizationHeader {
-        let header: String
-        let value: String
-        let usedManagedCredential: Bool
-    }
-
     func authorizationHeader() async throws -> AuthorizationHeader {
         if let key = keychain.getAPIKey(for: "OpenAI"), !key.isEmpty {
             return AuthorizationHeader(header: "Authorization", value: "Bearer \(key)", usedManagedCredential: false)

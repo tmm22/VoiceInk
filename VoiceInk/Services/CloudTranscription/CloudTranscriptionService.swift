@@ -34,49 +34,30 @@ enum CloudTranscriptionError: Error, LocalizedError {
 }
 
 class CloudTranscriptionService: TranscriptionService {
-    
-    private lazy var groqService = GroqTranscriptionService()
-    private lazy var elevenLabsService = ElevenLabsTranscriptionService()
-    private lazy var deepgramService = DeepgramTranscriptionService()
-    private lazy var mistralService = MistralTranscriptionService()
-    private lazy var geminiService = GeminiTranscriptionService()
-    private lazy var openAICompatibleService = OpenAICompatibleTranscriptionService()
-    private lazy var sonioxService = SonioxTranscriptionService()
-    private lazy var assemblyAIService = AssemblyAITranscriptionService()
-    private lazy var zaiService = ZAITranscriptionService()
-    
-    func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
-        var text: String
-        
-        switch model.provider {
-        case .groq:
-            text = try await groqService.transcribe(audioURL: audioURL, model: model)
-        case .elevenLabs:
-            text = try await elevenLabsService.transcribe(audioURL: audioURL, model: model)
-        case .deepgram:
-            text = try await deepgramService.transcribe(audioURL: audioURL, model: model)
-        case .mistral:
-            text = try await mistralService.transcribe(audioURL: audioURL, model: model)
-        case .gemini:
-            text = try await geminiService.transcribe(audioURL: audioURL, model: model)
-        case .soniox:
-            text = try await sonioxService.transcribe(audioURL: audioURL, model: model)
-        case .assemblyAI:
-            text = try await assemblyAIService.transcribe(audioURL: audioURL, model: model)
-        case .zai:
-            text = try await zaiService.transcribe(audioURL: audioURL, model: model)
-        case .custom:
-            guard let customModel = model as? CustomCloudModel else {
-                throw CloudTranscriptionError.unsupportedProvider
-            }
-            text = try await openAICompatibleService.transcribe(audioURL: audioURL, model: customModel)
-        default:
-            throw CloudTranscriptionError.unsupportedProvider
-        }
-        
-        return text
+    private var providers: [ModelProvider: any CloudTranscriptionProvider] = [:]
+
+    init(providers: [any CloudTranscriptionProvider] = [
+        GroqTranscriptionService(),
+        ElevenLabsTranscriptionService(),
+        DeepgramTranscriptionService(),
+        MistralTranscriptionService(),
+        GeminiTranscriptionService(),
+        SonioxTranscriptionService(),
+        AssemblyAITranscriptionService(),
+        ZAITranscriptionService(),
+        OpenAICompatibleTranscriptionService()
+    ]) {
+        providers.forEach { register($0) }
     }
 
+    func register(_ provider: any CloudTranscriptionProvider) {
+        providers[provider.supportedProvider] = provider
+    }
     
-
-} 
+    func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
+        guard let provider = providers[model.provider] else {
+            throw CloudTranscriptionError.unsupportedProvider
+        }
+        return try await provider.transcribe(audioURL: audioURL, model: model)
+    }
+}

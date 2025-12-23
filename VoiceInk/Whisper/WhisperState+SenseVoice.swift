@@ -66,9 +66,9 @@ extension WhisperState {
             downloadProgress.removeValue(forKey: model.name + "_sensevoice_model")
             downloadProgress.removeValue(forKey: model.name + "_sensevoice_tokens")
             senseVoiceDownloadProgress[model.name] = 1.0
-            UserDefaults.standard.set(true, forKey: senseVoiceDefaultsKey(for: model.name))
+            AppSettings.setValue(true, forKey: senseVoiceDefaultsKey(for: model.name))
             senseVoiceTranscriptionService.invalidateSession(for: model.name)
-            await NotificationManager.shared.showNotification(
+            NotificationManager.shared.showNotification(
                 title: Localization.Models.downloadSuccess,
                 type: .success,
                 duration: 3.0
@@ -77,8 +77,8 @@ extension WhisperState {
             downloadProgress.removeValue(forKey: model.name + "_sensevoice_model")
             downloadProgress.removeValue(forKey: model.name + "_sensevoice_tokens")
             senseVoiceDownloadProgress[model.name] = nil
-            UserDefaults.standard.set(false, forKey: senseVoiceDefaultsKey(for: model.name))
-            await NotificationManager.shared.showNotification(
+            AppSettings.setValue(false, forKey: senseVoiceDefaultsKey(for: model.name))
+            NotificationManager.shared.showNotification(
                 title: Localization.Models.downloadFailed,
                 type: .error,
                 duration: 4.0
@@ -93,13 +93,13 @@ extension WhisperState {
            currentModel.provider == .senseVoice,
            currentModel.name == model.name {
             currentTranscriptionModel = nil
-            UserDefaults.standard.removeObject(forKey: "CurrentTranscriptionModel")
+            AppSettings.TranscriptionSettings.currentTranscriptionModel = nil
         }
         
         let directory = senseVoiceModelDirectory(for: model)
         try? FileManager.default.removeItem(at: directory)
         senseVoiceDownloadProgress[model.name] = nil
-        UserDefaults.standard.set(false, forKey: senseVoiceDefaultsKey(for: model.name))
+        AppSettings.setValue(false, forKey: senseVoiceDefaultsKey(for: model.name))
         senseVoiceTranscriptionService.invalidateSession(for: model.name)
     }
 

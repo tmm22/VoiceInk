@@ -16,10 +16,10 @@ final class TranscriptCleanupService: TranscriptCleanupServicing {
 
     init(session: URLSession = SecureURLSession.makeEphemeral(),
          keychain: KeychainManager = KeychainManager(),
-         managedProvisioningClient: ManagedProvisioningClient = .shared) {
+         managedProvisioningClient: ManagedProvisioningClient? = nil) {
         self.session = session
         self.keychain = keychain
-        self.managedProvisioningClient = managedProvisioningClient
+        self.managedProvisioningClient = managedProvisioningClient ?? .shared
     }
 
     func clean(transcript: String, instruction: String, label: String?) async throws -> TranscriptCleanupResult {
@@ -49,33 +49,26 @@ final class TranscriptCleanupService: TranscriptCleanupServicing {
         do {
             let (data, response) = try await session.data(for: request)
 
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw TTSError.networkError("Invalid response")
-            }
+            let responseData = try HTTPResponseHandler.handleResponse(
+                response,
+                data: data,
+                onUnauthorized: {
+                    if authorization.usedManagedCredential {
+                        self.managedProvisioningClient.invalidateCredential(for: .openAI)
+                        self.activeManagedCredential = nil
+                    }
+                },
+                clientErrorFormat: "Cleanup request failed (%d)",
+                serverErrorFormat: "Cleanup service unavailable (%d)",
+                unexpectedFormat: "Unexpected response: %d"
+            )
 
-            switch httpResponse.statusCode {
-            case 200:
-                let payload = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
-                guard let output = payload.choices.first?.message.content?.trimmingCharacters(in: .whitespacesAndNewlines),
-                      !output.isEmpty else {
-                    throw TTSError.apiError("Cleanup response missing content")
-                }
-                return TranscriptCleanupResult(instruction: trimmedInstruction, label: label, output: output)
-            case 401:
-                if authorization.usedManagedCredential {
-                    managedProvisioningClient.invalidateCredential(for: .openAI)
-                    activeManagedCredential = nil
-                }
-                throw TTSError.invalidAPIKey
-            case 429:
-                throw TTSError.quotaExceeded
-            case 400...499:
-                throw TTSError.apiError("Cleanup request failed (\(httpResponse.statusCode))")
-            case 500...599:
-                throw TTSError.apiError("Cleanup service unavailable (\(httpResponse.statusCode))")
-            default:
-                throw TTSError.apiError("Unexpected response: \(httpResponse.statusCode)")
+            let payload = try JSONDecoder().decode(ChatCompletionResponse.self, from: responseData)
+            guard let output = payload.choices.first?.message.content?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !output.isEmpty else {
+                throw TTSError.apiError("Cleanup response missing content")
             }
+            return TranscriptCleanupResult(instruction: trimmedInstruction, label: label, output: output)
         } catch let error as TTSError {
             throw error
         } catch {
@@ -85,12 +78,6 @@ final class TranscriptCleanupService: TranscriptCleanupServicing {
 }
 
 private extension TranscriptCleanupService {
-    struct AuthorizationHeader {
-        let header: String
-        let value: String
-        let usedManagedCredential: Bool
-    }
-
     func authorizationHeader() async throws -> AuthorizationHeader {
         if let key = keychain.getAPIKey(for: "OpenAI"), !key.isEmpty {
             return AuthorizationHeader(header: "Authorization", value: "Bearer \(key)", usedManagedCredential: false)

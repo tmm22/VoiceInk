@@ -13,26 +13,25 @@ class AIService: ObservableObject {
     // MARK: - Internal Properties (accessible by extensions)
     let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "AIService")
     let session = SecureURLSession.makeEphemeral()
-    let userDefaults = UserDefaults.standard
     let keychain = KeychainManager()
-    lazy var ollamaService = OllamaService()
+    lazy var ollamaService = OllamaAIService()
     
     // MARK: - Published Properties
     @Published var apiKey: String = ""
     @Published var isAPIKeyValid: Bool = false
-    @Published var customBaseURL: String = UserDefaults.standard.string(forKey: "customProviderBaseURL") ?? "" {
+    @Published var customBaseURL: String = AppSettings.AI.customProviderBaseURL {
         didSet {
-            userDefaults.set(customBaseURL, forKey: "customProviderBaseURL")
+            AppSettings.AI.customProviderBaseURL = customBaseURL
         }
     }
-    @Published var customModel: String = UserDefaults.standard.string(forKey: "customProviderModel") ?? "" {
+    @Published var customModel: String = AppSettings.AI.customProviderModel {
         didSet {
-            userDefaults.set(customModel, forKey: "customProviderModel")
+            AppSettings.AI.customProviderModel = customModel
         }
     }
     @Published var selectedProvider: AIProvider {
         didSet {
-            userDefaults.set(selectedProvider.rawValue, forKey: "selectedAIProvider")
+            AppSettings.AI.selectedProviderRawValue = selectedProvider.rawValue
             if selectedProvider.requiresAPIKey {
                 // Try Keychain first
                 if let savedKey = keychain.getAPIKey(for: selectedProvider.rawValue) {
@@ -52,7 +51,6 @@ class AIService: ObservableObject {
                     }
                 }
             }
-            NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
         }
     }
     
@@ -91,7 +89,7 @@ class AIService: ObservableObject {
     
     // MARK: - Initialization
     init() {
-        if let savedProvider = userDefaults.string(forKey: "selectedAIProvider"),
+        if let savedProvider = AppSettings.AI.selectedProviderRawValue,
            let provider = AIProvider(rawValue: savedProvider) {
             self.selectedProvider = provider
         } else {
@@ -117,15 +115,14 @@ class AIService: ObservableObject {
         guard !model.isEmpty else { return }
         
         selectedModels[selectedProvider] = model
-        let key = "\(selectedProvider.rawValue)SelectedModel"
-        userDefaults.set(model, forKey: key)
+        let key = AppSettings.AI.selectedModelKey(for: selectedProvider.rawValue)
+        AppSettings.setValue(model, forKey: key)
         
         if selectedProvider == .ollama {
             updateSelectedOllamaModel(model)
         }
         
         objectWillChange.send()
-        NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
     }
     
     // MARK: - API Key Management
@@ -140,10 +137,18 @@ class AIService: ObservableObject {
             // Use Task to properly hop back to MainActor instead of DispatchQueue.main.async
             Task { @MainActor in
                 if isValid {
-                    self.apiKey = key
-                    self.isAPIKeyValid = true
-                    self.keychain.saveAPIKey(key, for: self.selectedProvider.rawValue)
-                    NotificationCenter.default.post(name: .aiProviderKeyChanged, object: nil)
+                    do {
+                        try self.keychain.saveAPIKey(key, for: self.selectedProvider.rawValue)
+                        self.apiKey = key
+                        self.isAPIKeyValid = true
+                        NotificationCenter.default.post(name: .aiProviderKeyChanged, object: nil)
+                    } catch {
+                        self.isAPIKeyValid = false
+                        let message = "Failed to save API key. Please try again."
+                        self.logger.error("Failed to save API key for \(self.selectedProvider.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                        completion(false, message)
+                        return
+                    }
                 } else {
                     self.isAPIKeyValid = false
                 }
@@ -157,6 +162,7 @@ class AIService: ObservableObject {
         
         apiKey = ""
         isAPIKeyValid = false
+        // Best-effort cleanup; key may already be missing.
         try? keychain.deleteAPIKey(for: selectedProvider.rawValue)
         NotificationCenter.default.post(name: .aiProviderKeyChanged, object: nil)
     }
@@ -164,22 +170,21 @@ class AIService: ObservableObject {
     // MARK: - Private Methods
     private func loadSavedModelSelections() {
         for provider in AIProvider.allCases {
-            let key = "\(provider.rawValue)SelectedModel"
-            if let savedModel = userDefaults.string(forKey: key), !savedModel.isEmpty {
+            let key = AppSettings.AI.selectedModelKey(for: provider.rawValue)
+            let savedModel = AppSettings.string(forKey: key, default: "")
+            if !savedModel.isEmpty {
                 selectedModels[provider] = savedModel
             }
         }
     }
     
     private func loadSavedOpenRouterModels() {
-        if let savedModels = userDefaults.array(forKey: "openRouterModels") as? [String] {
-            openRouterModels = savedModels
-        }
+        openRouterModels = AppSettings.AI.openRouterModels
     }
     
     // MARK: - Internal Methods (for extensions)
     func saveOpenRouterModels() {
-        userDefaults.set(openRouterModels, forKey: "openRouterModels")
+        AppSettings.AI.openRouterModels = openRouterModels
     }
     
     func setOpenRouterModels(_ models: [String]) {

@@ -529,7 +529,7 @@ class TTSViewModel: ObservableObject {
 }
 
 @MainActor
-class ElevenLabsService: TTSProvider {
+class ElevenLabsTTSService: TTSProvider {
     // Service operations isolated to main actor
 }
 ```

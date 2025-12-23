@@ -1,9 +1,9 @@
 import Foundation
 import os
 
-class GeminiTranscriptionService {
+class GeminiTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProvider {
+    let supportedProvider: ModelProvider = .gemini
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "GeminiService")
-    private let session = SecureURLSession.makeEphemeral()
     
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         let config = try getAPIConfig(for: model)
@@ -15,12 +15,7 @@ class GeminiTranscriptionService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(config.apiKey, forHTTPHeaderField: "x-goog-api-key")
         
-        let audioData: Data
-        do {
-            audioData = try await AudioFileLoader.loadData(from: audioURL)
-        } catch {
-            throw CloudTranscriptionError.audioFileNotFound
-        }
+        let audioData = try await loadAudioData(from: audioURL)
         
         logger.notice("Audio file loaded, size: \(audioData.count) bytes")
         
@@ -52,18 +47,10 @@ class GeminiTranscriptionService {
         }
         
         let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
-        }
-        
-        if !(200...299).contains(httpResponse.statusCode) {
-            let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-            logger.error("Gemini API request failed with status \(httpResponse.statusCode): \(errorMessage, privacy: .public)")
-            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
-        }
+        let responseData = try validateResponse(response, data: data, logger: logger, providerName: "Gemini")
         
         do {
-            let transcriptionResponse = try JSONDecoder().decode(GeminiResponse.self, from: data)
+            let transcriptionResponse = try JSONDecoder().decode(GeminiResponse.self, from: responseData)
             guard let candidate = transcriptionResponse.candidates.first,
                   let part = candidate.content.parts.first,
                   !part.text.isEmpty else {

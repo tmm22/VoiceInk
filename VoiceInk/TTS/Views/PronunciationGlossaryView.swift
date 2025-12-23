@@ -2,11 +2,12 @@ import SwiftUI
 
 struct PronunciationGlossaryView: View {
     @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var settings: TTSSettingsViewModel
     @State private var isPresentingSheet = false
     @State private var ruleToEdit: PronunciationRule?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: viewModel.isMinimalistMode ? 8 : 12) {
+        VStack(alignment: .leading, spacing: settings.isMinimalistMode ? 8 : 12) {
             HStack {
                 Label("Pronunciation Glossary", systemImage: "character.book.closed")
                     .font(.headline)
@@ -17,7 +18,7 @@ struct PronunciationGlossaryView: View {
                     ruleToEdit = nil
                     isPresentingSheet = true
                 } label: {
-                    if viewModel.isMinimalistMode {
+                    if settings.isMinimalistMode {
                         Image(systemName: "plus")
                             .imageScale(.large)
                             .accessibilityLabel("Add Rule")
@@ -28,12 +29,12 @@ struct PronunciationGlossaryView: View {
                 .buttonStyle(.borderedProminent)
             }
 
-            if viewModel.pronunciationRules.isEmpty {
+            if settings.pronunciationRules.isEmpty {
                 Text("Define substitutions to improve pronunciation. Apply globally or per provider.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             } else {
-                ForEach(viewModel.pronunciationRules) { rule in
+                ForEach(settings.pronunciationRules) { rule in
                     RuleRow(rule: rule, onEdit: {
                         ruleToEdit = rule
                         isPresentingSheet = true
@@ -41,12 +42,12 @@ struct PronunciationGlossaryView: View {
                 }
             }
         }
-        .padding(viewModel.isMinimalistMode ? 10 : 14)
+        .padding(settings.isMinimalistMode ? 10 : 14)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(Color(NSColor.controlBackgroundColor))
         )
-        .animation(.easeInOut(duration: 0.2), value: viewModel.pronunciationRules)
+        .animation(.easeInOut(duration: 0.2), value: settings.pronunciationRules)
         .sheet(isPresented: $isPresentingSheet) {
             PronunciationRuleEditor(rule: $ruleToEdit)
                 .environmentObject(viewModel)
@@ -191,8 +192,10 @@ private struct PronunciationRuleEditor: View {
 
 struct PronunciationGlossaryView_Previews: PreviewProvider {
     static var previews: some View {
+        let viewModel = TTSViewModel()
         PronunciationGlossaryView()
-            .environmentObject(TTSViewModel())
+            .environmentObject(viewModel)
+            .environmentObject(viewModel.settings)
             .padding()
             .frame(width: 600)
     }

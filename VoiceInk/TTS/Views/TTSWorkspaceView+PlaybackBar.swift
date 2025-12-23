@@ -5,6 +5,9 @@ import AppKit
 
 struct PlaybackBarView: View {
     @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var settings: TTSSettingsViewModel
+    @EnvironmentObject var playback: TTSPlaybackViewModel
+    @EnvironmentObject var generation: TTSSpeechGenerationViewModel
     @State private var isScrubbing = false
     @State private var temporaryTime: TimeInterval = 0
     @State private var showSegmentMarkers = false
@@ -40,7 +43,7 @@ struct PlaybackBarView: View {
             }
 
             if showSegmentMarkers {
-                SegmentMarkersView(items: viewModel.batchItems)
+                SegmentMarkersView(items: generation.batchItems)
             }
         }
         .padding(.horizontal, horizontalPadding)
@@ -50,7 +53,7 @@ struct PlaybackBarView: View {
     private var transportControls: some View {
         HStack(spacing: 12) {
             Button(action: {
-                viewModel.skipBackward()
+                playback.skipBackward()
             }) {
                 Image(systemName: "gobackward.10")
             }
@@ -60,9 +63,9 @@ struct PlaybackBarView: View {
             .help("Skip backward 10 seconds (⌘←)")
 
             Button(action: {
-                viewModel.togglePlayPause()
+                playback.togglePlayPause()
             }) {
-                Image(systemName: viewModel.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                Image(systemName: playback.isPlaying ? "pause.circle.fill" : "play.circle.fill")
                     .font(.system(size: 28))
                     .foregroundColor(.accentColor)
             }
@@ -72,7 +75,7 @@ struct PlaybackBarView: View {
             .help("Play or pause (Space)")
 
             Button(action: {
-                viewModel.skipForward()
+                playback.skipForward()
             }) {
                 Image(systemName: "goforward.10")
             }
@@ -81,11 +84,11 @@ struct PlaybackBarView: View {
             .keyboardShortcut(.rightArrow, modifiers: .command)
             .help("Skip forward 10 seconds (⌘→)")
 
-            Button(action: viewModel.stop) {
+            Button(action: playback.stop) {
                 Image(systemName: "stop.circle")
             }
             .buttonStyle(.plain)
-            .disabled(viewModel.audioData == nil || !viewModel.isPlaying)
+            .disabled(viewModel.audioData == nil || !playback.isPlaying)
             .keyboardShortcut(".", modifiers: .command)
             .help("Stop playback (⌘.)")
         }
@@ -93,7 +96,7 @@ struct PlaybackBarView: View {
 
     private var timeline: some View {
         HStack(spacing: 10) {
-            Text(formatTime(isScrubbing ? temporaryTime : viewModel.currentTime))
+            Text(formatTime(isScrubbing ? temporaryTime : playback.currentTime))
                 .font(.system(size: 12, design: .monospaced))
                 .frame(width: 60, alignment: .trailing)
 
@@ -104,13 +107,13 @@ struct PlaybackBarView: View {
                         .frame(height: 6)
 
                     Capsule()
-                        .fill(Color.accentColor)
-                        .frame(
-                            width: viewModel.duration > 0 ? geometry.size.width * CGFloat(progressValue) : 0,
-                            height: 6
-                        )
+                            .fill(Color.accentColor)
+                            .frame(
+                            width: playback.duration > 0 ? geometry.size.width * CGFloat(progressValue) : 0,
+                                height: 6
+                            )
 
-                    if viewModel.duration > 0 {
+                    if playback.duration > 0 {
                         Circle()
                             .fill(Color.accentColor)
                             .frame(width: 14, height: 14)
@@ -120,12 +123,12 @@ struct PlaybackBarView: View {
                                     .onChanged { value in
                                         isScrubbing = true
                                         let ratio = min(max(value.location.x / geometry.size.width, 0), 1)
-                                        temporaryTime = TimeInterval(ratio) * viewModel.duration
+                                        temporaryTime = TimeInterval(ratio) * playback.duration
                                     }
                                     .onEnded { value in
                                         let ratio = min(max(value.location.x / geometry.size.width, 0), 1)
-                                        let newTime = TimeInterval(ratio) * viewModel.duration
-                                        viewModel.seek(to: newTime)
+                                        let newTime = TimeInterval(ratio) * playback.duration
+                                        playback.seek(to: newTime)
                                         isScrubbing = false
                                     }
                             )
@@ -134,7 +137,7 @@ struct PlaybackBarView: View {
             }
             .frame(height: 18)
 
-            Text(formatTime(viewModel.duration))
+            Text(formatTime(playback.duration))
                 .font(.system(size: 12, design: .monospaced))
                 .frame(width: 60, alignment: .leading)
         }
@@ -143,12 +146,12 @@ struct PlaybackBarView: View {
 
     private var loopToggle: some View {
         Button {
-            viewModel.isLoopEnabled.toggle()
-            viewModel.saveSettings()
+            playback.isLoopEnabled.toggle()
+            settings.saveSettings()
         } label: {
-            Image(systemName: viewModel.isLoopEnabled ? "repeat.circle.fill" : "repeat")
+            Image(systemName: playback.isLoopEnabled ? "repeat.circle.fill" : "repeat")
                 .imageScale(.large)
-                .foregroundColor(viewModel.isLoopEnabled ? .accentColor : .secondary)
+                .foregroundColor(playback.isLoopEnabled ? .accentColor : .secondary)
         }
         .buttonStyle(.plain)
         .help("Toggle loop playback")
@@ -158,12 +161,12 @@ struct PlaybackBarView: View {
         Menu {
             ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0], id: \.self) { speed in
                 Button("\(speed, specifier: "%.2g")×") {
-                    viewModel.playbackSpeed = speed
-                    viewModel.applyPlaybackSpeed(save: true)
+                    playback.playbackSpeed = speed
+                    playback.applyPlaybackSpeed(save: true)
                 }
             }
         } label: {
-            Label("\(viewModel.playbackSpeed, specifier: "%.2g")×", systemImage: "speedometer")
+            Label("\(playback.playbackSpeed, specifier: "%.2g")×", systemImage: "speedometer")
                 .labelStyle(.titleAndIcon)
         }
         .help("Playback speed")
@@ -172,12 +175,12 @@ struct PlaybackBarView: View {
     private var volumeSlider: some View {
         HStack(spacing: 8) {
             Button {
-                if viewModel.volume > 0 {
-                    viewModel.volume = 0
+                if playback.volume > 0 {
+                    playback.volume = 0
                 } else {
-                    viewModel.volume = 0.75
+                    playback.volume = 0.75
                 }
-                viewModel.applyPlaybackVolume(save: true)
+                playback.applyPlaybackVolume(save: true)
             } label: {
                 Image(systemName: volumeIcon)
                     .imageScale(.large)
@@ -186,14 +189,14 @@ struct PlaybackBarView: View {
             .help("Toggle mute")
 
             Slider(value: Binding(
-                get: { viewModel.volume },
+                get: { playback.volume },
                 set: { newValue in
-                    viewModel.volume = newValue
-                    viewModel.applyPlaybackVolume()
+                    playback.volume = newValue
+                    playback.applyPlaybackVolume()
                 }
             ), in: 0...1) { editing in
                 if !editing {
-                    viewModel.applyPlaybackVolume(save: true)
+                    playback.applyPlaybackVolume(save: true)
                 }
             }
             .frame(width: 120)
@@ -202,19 +205,19 @@ struct PlaybackBarView: View {
 
     private var progressValue: Double {
         if isScrubbing {
-            guard viewModel.duration > 0 else { return 0 }
-            return temporaryTime / viewModel.duration
+            guard playback.duration > 0 else { return 0 }
+            return temporaryTime / playback.duration
         }
-        guard viewModel.duration > 0 else { return 0 }
-        return viewModel.currentTime / viewModel.duration
+        guard playback.duration > 0 else { return 0 }
+        return playback.currentTime / playback.duration
     }
 
     private var volumeIcon: String {
-        if viewModel.volume == 0 {
+        if playback.volume == 0 {
             return "speaker.slash.fill"
-        } else if viewModel.volume < 0.33 {
+        } else if playback.volume < 0.33 {
             return "speaker.wave.1.fill"
-        } else if viewModel.volume < 0.66 {
+        } else if playback.volume < 0.66 {
             return "speaker.wave.2.fill"
         }
         return "speaker.wave.3.fill"

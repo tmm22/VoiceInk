@@ -28,7 +28,7 @@ class AIContextBuilder {
     init(
         screenCaptureService: ScreenCaptureService? = nil,
         customVocabularyService: CustomVocabularyService = CustomVocabularyService.shared,
-        activeWindowService: ActiveWindowService = ActiveWindowService.shared,
+        activeWindowService: ActiveWindowService? = nil,
         focusedElementService: FocusedElementService = FocusedElementService.shared,
         selectedFileService: SelectedFileService = SelectedFileService.shared,
         calendarService: CalendarService = CalendarService.shared,
@@ -37,7 +37,7 @@ class AIContextBuilder {
     ) {
         self.screenCaptureService = screenCaptureService ?? ScreenCaptureService()
         self.customVocabularyService = customVocabularyService
-        self.activeWindowService = activeWindowService
+        self.activeWindowService = activeWindowService ?? ActiveWindowService.shared
         self.focusedElementService = focusedElementService
         self.selectedFileService = selectedFileService
         self.calendarService = calendarService

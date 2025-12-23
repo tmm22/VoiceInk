@@ -3,32 +3,6 @@ import AVFoundation
 import AppKit
 import KeyboardShortcuts
 
-struct OnboardingPermission: Identifiable {
-    let id = UUID()
-    let title: String
-    let description: String
-    let icon: String
-    let type: PermissionType
-    
-    enum PermissionType {
-        case microphone
-        case audioDeviceSelection
-        case accessibility
-        case screenRecording
-        case keyboardShortcut
-        
-        var systemName: String {
-            switch self {
-            case .microphone: return "mic"
-            case .audioDeviceSelection: return "headphones"
-            case .accessibility: return "accessibility"
-            case .screenRecording: return "rectangle.inset.filled.and.person.filled"
-            case .keyboardShortcut: return "keyboard"
-            }
-        }
-    }
-}
-
 struct OnboardingPermissionsView: View {
     @Binding var hasCompletedOnboarding: Bool
     @EnvironmentObject private var hotkeyManager: HotkeyManager
@@ -494,7 +468,7 @@ struct OnboardingPermissionsView: View {
                 .controlSize(.large)
             }
         }
-        .onChange(of: binding.wrappedValue) { newValue in
+        .onChange(of: binding.wrappedValue) { _, newValue in
             onConfigured(newValue != .none)
         }
     }

@@ -88,7 +88,7 @@ final class RecorderTests: XCTestCase {
     func testRecorderDoesNotLeakAfterMultipleSessions() async {
         weak var weakRecorder: Recorder?
         
-        await autoreleasepool {
+        do {
             let tempRecorder = Recorder()
             weakRecorder = tempRecorder
             

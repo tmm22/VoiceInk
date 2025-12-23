@@ -24,9 +24,7 @@ struct MenuBarView: View {
             Menu {
                 ForEach(whisperState.usableModels, id: \.id) { model in
                     Button {
-                        Task {
-                            await whisperState.setDefaultTranscriptionModel(model)
-                        }
+                        whisperState.setDefaultTranscriptionModel(model)
                     } label: {
                         HStack {
                             Text(model.displayName)

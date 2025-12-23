@@ -5,14 +5,14 @@ import AppKit
 class MenuBarManager: ObservableObject {
     @Published var isMenuBarOnly: Bool {
         didSet {
-            UserDefaults.standard.set(isMenuBarOnly, forKey: "IsMenuBarOnly")
+            AppSettings.General.isMenuBarOnly = isMenuBarOnly
             updateAppActivationPolicy()
         }
     }
     
     
     init() {
-        self.isMenuBarOnly = UserDefaults.standard.bool(forKey: "IsMenuBarOnly")
+        self.isMenuBarOnly = AppSettings.General.isMenuBarOnly ?? false
         updateAppActivationPolicy()
     }
     
@@ -42,7 +42,7 @@ class MenuBarManager: ObservableObject {
                 WindowManager.shared.hideMainWindow()
             } else {
                 application.setActivationPolicy(.regular)
-                WindowManager.shared.showMainWindow()
+                _ = WindowManager.shared.showMainWindow()
             }
         }
 
@@ -54,7 +54,7 @@ class MenuBarManager: ObservableObject {
         print("MenuBarManager: Navigating to \(destination)")
         #endif
 
-        let aiFeaturesEnabled = UserDefaults.standard.bool(forKey: "enableAIEnhancementFeatures")
+        let aiFeaturesEnabled = AppSettings.General.enableAIEnhancementFeatures ?? false
         if !aiFeaturesEnabled && (destination == "AI Models" || destination == "Enhancement" || destination == "Text to Speech") {
             #if DEBUG
             print("MenuBarManager: AI features disabled; navigation to \(destination) blocked")
@@ -78,8 +78,7 @@ class MenuBarManager: ObservableObject {
         }
         
         // Post a notification to navigate to the desired destination
-        Task { [weak self] in
-            guard let self else { return }
+        Task {
             try? await Task.sleep(for: .milliseconds(100))
             NotificationCenter.default.post(
                 name: .navigateToDestination,

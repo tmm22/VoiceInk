@@ -35,14 +35,13 @@ struct Obfuscator {
         }
         
         // Fallback to stored UUID
-        let defaults = UserDefaults.standard
-        if let storedId = defaults.string(forKey: "VoiceInkDeviceIdentifier") {
+        if let storedId = AppSettings.Device.identifier {
             return storedId
         }
-        
+
         // Create and store new UUID
         let newId = UUID().uuidString
-        defaults.set(newId, forKey: "VoiceInkDeviceIdentifier")
+        AppSettings.Device.identifier = newId
         return newId
     }
     

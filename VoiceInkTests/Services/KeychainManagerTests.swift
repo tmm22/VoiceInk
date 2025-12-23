@@ -11,8 +11,8 @@ final class KeychainManagerTests: XCTestCase {
     let testProvider = "TestProvider"
     let testAPIKey = "test-api-key-12345678901234567890"
     
-    override func setUp() throws {
-        try super.setUp()
+    override func setUp() {
+        super.setUp()
         // Use unique service name for testing to avoid conflicts
         keychainManager = KeychainManager(service: "com.test.VoiceInk.KeychainTests")
         
@@ -20,18 +20,18 @@ final class KeychainManagerTests: XCTestCase {
         try? keychainManager.deleteAllAPIKeys()
     }
     
-    override func tearDown() throws {
+    override func tearDown() {
         // Clean up test keys
         try? keychainManager.deleteAllAPIKeys()
         keychainManager = nil
-        try super.tearDown()
+        super.tearDown()
     }
     
     // MARK: - Save/Retrieve Tests
     
     func testSaveAndRetrieveAPIKey() {
         // Save API key
-        keychainManager.saveAPIKey(testAPIKey, for: testProvider)
+        try? keychainManager.saveAPIKey(testAPIKey, for: testProvider)
         
         // Retrieve API key
         let retrieved = keychainManager.getAPIKey(for: testProvider)
@@ -47,7 +47,7 @@ final class KeychainManagerTests: XCTestCase {
     
     func testSaveEmptyKey() {
         // Save empty key
-        keychainManager.saveAPIKey("", for: testProvider)
+        try? keychainManager.saveAPIKey("", for: testProvider)
         
         // Should still save it
         let retrieved = keychainManager.getAPIKey(for: testProvider)
@@ -58,11 +58,11 @@ final class KeychainManagerTests: XCTestCase {
     
     func testUpdateExistingKey() {
         // Save initial key
-        keychainManager.saveAPIKey(testAPIKey, for: testProvider)
+        try? keychainManager.saveAPIKey(testAPIKey, for: testProvider)
         
         // Update with new key
         let newKey = "updated-api-key-09876543210987654321"
-        keychainManager.saveAPIKey(newKey, for: testProvider)
+        try? keychainManager.saveAPIKey(newKey, for: testProvider)
         
         // Verify update
         let retrieved = keychainManager.getAPIKey(for: testProvider)
@@ -73,7 +73,7 @@ final class KeychainManagerTests: XCTestCase {
         // Save and update multiple times
         for i in 1...5 {
             let key = "api-key-version-\(i)"
-            keychainManager.saveAPIKey(key, for: testProvider)
+            try? keychainManager.saveAPIKey(key, for: testProvider)
             
             let retrieved = keychainManager.getAPIKey(for: testProvider)
             XCTAssertEqual(retrieved, key, "Should handle update \(i)")
@@ -84,7 +84,7 @@ final class KeychainManagerTests: XCTestCase {
     
     func testDeleteAPIKey() throws {
         // Save key
-        keychainManager.saveAPIKey(testAPIKey, for: testProvider)
+        try? keychainManager.saveAPIKey(testAPIKey, for: testProvider)
         XCTAssertNotNil(keychainManager.getAPIKey(for: testProvider))
         
         // Delete key
@@ -103,9 +103,9 @@ final class KeychainManagerTests: XCTestCase {
     
     func testDeleteAllAPIKeys() throws {
         // Save multiple keys
-        keychainManager.saveAPIKey("key1", for: "Provider1")
-        keychainManager.saveAPIKey("key2", for: "Provider2")
-        keychainManager.saveAPIKey("key3", for: "Provider3")
+        try? keychainManager.saveAPIKey("key1", for: "Provider1")
+        try? keychainManager.saveAPIKey("key2", for: "Provider2")
+        try? keychainManager.saveAPIKey("key3", for: "Provider3")
         
         // Delete all
         try keychainManager.deleteAllAPIKeys()
@@ -120,10 +120,10 @@ final class KeychainManagerTests: XCTestCase {
     
     func testHandlesDuplicateItemError() {
         // This is handled internally by checking if key exists first
-        keychainManager.saveAPIKey(testAPIKey, for: testProvider)
+        try? keychainManager.saveAPIKey(testAPIKey, for: testProvider)
         
         // Save again (should update, not error)
-        keychainManager.saveAPIKey(testAPIKey, for: testProvider)
+        try? keychainManager.saveAPIKey(testAPIKey, for: testProvider)
         
         let retrieved = keychainManager.getAPIKey(for: testProvider)
         XCTAssertEqual(retrieved, testAPIKey, "Should handle duplicate save")
@@ -144,7 +144,7 @@ final class KeychainManagerTests: XCTestCase {
         // Save keys for all providers
         for (index, provider) in providers.enumerated() {
             let key = "api-key-\(provider)-\(index)"
-            keychainManager.saveAPIKey(key, for: provider)
+            try? keychainManager.saveAPIKey(key, for: provider)
         }
         
         // Verify all keys
@@ -157,9 +157,9 @@ final class KeychainManagerTests: XCTestCase {
     
     func testGetAllProviders() {
         // Save keys for multiple providers
-        keychainManager.saveAPIKey("key1", for: "Provider1")
-        keychainManager.saveAPIKey("key2", for: "Provider2")
-        keychainManager.saveAPIKey("key3", for: "Provider3")
+        try? keychainManager.saveAPIKey("key1", for: "Provider1")
+        try? keychainManager.saveAPIKey("key2", for: "Provider2")
+        try? keychainManager.saveAPIKey("key3", for: "Provider3")
         
         // Get all providers
         let providers = keychainManager.getAllProviders()
@@ -175,7 +175,7 @@ final class KeychainManagerTests: XCTestCase {
     func testHasAPIKey() {
         XCTAssertFalse(keychainManager.hasAPIKey(for: testProvider), "Should not have key initially")
         
-        keychainManager.saveAPIKey(testAPIKey, for: testProvider)
+        try? keychainManager.saveAPIKey(testAPIKey, for: testProvider)
         
         XCTAssertTrue(keychainManager.hasAPIKey(for: testProvider), "Should have key after saving")
     }
@@ -247,7 +247,7 @@ final class KeychainManagerTests: XCTestCase {
                 group.addTask {
                     let provider = "Provider\(i % 5)" // 5 different providers
                     let key = "key-\(i)"
-                    self.keychainManager.saveAPIKey(key, for: provider)
+                    try? self.keychainManager.saveAPIKey(key, for: provider)
                 }
             }
             await group.waitForAll()
@@ -260,7 +260,7 @@ final class KeychainManagerTests: XCTestCase {
     
     func testConcurrentReadOperations() async {
         // Save a key first
-        keychainManager.saveAPIKey(testAPIKey, for: testProvider)
+        try? keychainManager.saveAPIKey(testAPIKey, for: testProvider)
         
         // Read concurrently
         await withTaskGroup(of: String?.self) { group in
@@ -284,7 +284,7 @@ final class KeychainManagerTests: XCTestCase {
     func testConcurrentDeleteOperations() async {
         // Save multiple keys
         for i in 0..<10 {
-            keychainManager.saveAPIKey("key\(i)", for: "Provider\(i)")
+            try? keychainManager.saveAPIKey("key\(i)", for: "Provider\(i)")
         }
         
         // Delete concurrently
@@ -306,7 +306,7 @@ final class KeychainManagerTests: XCTestCase {
     
     func testSaveSpecialCharacters() {
         let specialKey = "test!@#$%^&*()_+-=[]{}|;:',.<>?/~`"
-        keychainManager.saveAPIKey(specialKey, for: testProvider)
+        try? keychainManager.saveAPIKey(specialKey, for: testProvider)
         
         let retrieved = keychainManager.getAPIKey(for: testProvider)
         XCTAssertEqual(retrieved, specialKey, "Should handle special characters")
@@ -314,7 +314,7 @@ final class KeychainManagerTests: XCTestCase {
     
     func testSaveUnicodeCharacters() {
         let unicodeKey = "test-🔑-emoji-키-中文"
-        keychainManager.saveAPIKey(unicodeKey, for: testProvider)
+        try? keychainManager.saveAPIKey(unicodeKey, for: testProvider)
         
         let retrieved = keychainManager.getAPIKey(for: testProvider)
         XCTAssertEqual(retrieved, unicodeKey, "Should handle unicode characters")
@@ -322,7 +322,7 @@ final class KeychainManagerTests: XCTestCase {
     
     func testSaveLongKey() {
         let longKey = String(repeating: "a", count: 200) // Max length
-        keychainManager.saveAPIKey(longKey, for: testProvider)
+        try? keychainManager.saveAPIKey(longKey, for: testProvider)
         
         let retrieved = keychainManager.getAPIKey(for: testProvider)
         XCTAssertEqual(retrieved, longKey, "Should handle long keys")
@@ -332,7 +332,7 @@ final class KeychainManagerTests: XCTestCase {
     
     func testKeyPersistsAcrossInstances() {
         // Save with first instance
-        keychainManager.saveAPIKey(testAPIKey, for: testProvider)
+        try? keychainManager.saveAPIKey(testAPIKey, for: testProvider)
         
         // Create new instance with same service
         let newManager = KeychainManager(service: "com.test.VoiceInk.KeychainTests")

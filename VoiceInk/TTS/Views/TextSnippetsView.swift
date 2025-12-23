@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TextSnippetsView: View {
     @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var settings: TTSSettingsViewModel
     @State private var isPresentingAddSheet = false
     @State private var snippetName: String = ""
 
@@ -13,7 +14,7 @@ struct TextSnippetsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: viewModel.isMinimalistMode ? 8 : 12) {
+        VStack(alignment: .leading, spacing: settings.isMinimalistMode ? 8 : 12) {
             HStack {
                 Label("Saved Snippets", systemImage: "text.append")
                     .font(.headline)
@@ -24,7 +25,7 @@ struct TextSnippetsView: View {
                     snippetName = defaultSnippetName
                     isPresentingAddSheet = true
                 } label: {
-                    if viewModel.isMinimalistMode {
+                    if settings.isMinimalistMode {
                         Label("Save Current Text", systemImage: "plus")
                             .labelStyle(.iconOnly)
                     } else {
@@ -35,24 +36,24 @@ struct TextSnippetsView: View {
                 .disabled(viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
 
-            if viewModel.textSnippets.isEmpty {
+            if settings.textSnippets.isEmpty {
                 Text("Store frequently used scripts here for instant reuse.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             } else {
-                ForEach(viewModel.textSnippets) { snippet in
+                ForEach(settings.textSnippets) { snippet in
                     SnippetRow(snippet: snippet)
                         .environmentObject(viewModel)
                         .transition(.opacity)
                 }
             }
         }
-        .padding(viewModel.isMinimalistMode ? 10 : 14)
+        .padding(settings.isMinimalistMode ? 10 : 14)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(Color(NSColor.controlBackgroundColor))
         )
-        .animation(.easeInOut(duration: 0.2), value: viewModel.textSnippets)
+        .animation(.easeInOut(duration: 0.2), value: settings.textSnippets)
         .sheet(isPresented: $isPresentingAddSheet) {
             AddSnippetSheet(isPresented: $isPresentingAddSheet, snippetName: snippetName)
                 .environmentObject(viewModel)
@@ -187,8 +188,10 @@ private struct AddSnippetSheet: View {
 
 struct TextSnippetsView_Previews: PreviewProvider {
     static var previews: some View {
+        let viewModel = TTSViewModel()
         TextSnippetsView()
-            .environmentObject(TTSViewModel())
+            .environmentObject(viewModel)
+            .environmentObject(viewModel.settings)
             .padding()
             .frame(width: 600)
     }

@@ -1,9 +1,9 @@
 import Foundation
 import os
 
-class DeepgramTranscriptionService {
+class DeepgramTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProvider {
+    let supportedProvider: ModelProvider = .deepgram
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "DeepgramService")
-    private let session = SecureURLSession.makeEphemeral()
     
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         let config = try getAPIConfig(for: model)
@@ -24,18 +24,10 @@ class DeepgramTranscriptionService {
             throw error
         }
 
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
-        }
-        
-        if !(200...299).contains(httpResponse.statusCode) {
-            let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-            logger.error("Deepgram API request failed with status \(httpResponse.statusCode): \(errorMessage, privacy: .public)")
-            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
-        }
+        let responseData = try validateResponse(response, data: data, logger: logger, providerName: "Deepgram")
         
         do {
-            let transcriptionResponse = try JSONDecoder().decode(DeepgramResponse.self, from: data)
+            let transcriptionResponse = try JSONDecoder().decode(DeepgramResponse.self, from: responseData)
             
             // If diarization is enabled and we have utterances, format with speaker labels
             if config.diarizeEnabled, let utterances = transcriptionResponse.results.utterances, !utterances.isEmpty {
@@ -87,7 +79,7 @@ class DeepgramTranscriptionService {
         var queryItems: [URLQueryItem] = []
         
         // Add language parameter if not auto-detect
-        let selectedLanguage = UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "auto"
+        let selectedLanguage = AppSettings.TranscriptionSettings.selectedLanguage ?? "auto"
         
         // Choose model based on language and model name
         let deepgramModel: String
@@ -148,7 +140,7 @@ class DeepgramTranscriptionService {
     }
     
     private func getCustomDictionaryTerms() -> [String] {
-        guard let data = UserDefaults.standard.data(forKey: "CustomVocabularyItems") else {
+        guard let data = AppSettings.Dictionary.customVocabularyItemsData else {
             return []
         }
         

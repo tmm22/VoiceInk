@@ -58,7 +58,7 @@ class LocalTranscriptionService: TranscriptionService {
         let data = try readAudioSamples(audioURL)
         
         // Set prompt
-        let currentPrompt = UserDefaults.standard.string(forKey: "TranscriptionPrompt") ?? ""
+        let currentPrompt = AppSettings.TranscriptionSettings.prompt ?? ""
         await whisperContext.setPrompt(currentPrompt)
         
         // Transcribe
@@ -69,7 +69,7 @@ class LocalTranscriptionService: TranscriptionService {
             throw WhisperStateError.whisperCoreFailed
         }
         
-        var text = await whisperContext.getTranscription()
+        let text = await whisperContext.getTranscription()
 
         logger.notice("✅ Local transcription completed successfully.")
         

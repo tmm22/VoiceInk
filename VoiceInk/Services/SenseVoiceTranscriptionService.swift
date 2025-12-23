@@ -233,7 +233,7 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
     // Maps user's selected language to SenseVoice language ID
     // SenseVoice language IDs: 0=zh, 1=yue, 2=en, 3=ja, 4=ko
     private func senseVoiceLanguageId() -> Int32 {
-        let selectedLanguage = UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "en"
+        let selectedLanguage = AppSettings.TranscriptionSettings.selectedLanguage ?? "en"
         
         switch selectedLanguage.lowercased() {
         case "zh", "zh-cn", "zh-tw", "chinese":

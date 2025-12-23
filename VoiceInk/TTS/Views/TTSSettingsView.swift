@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct TTSSettingsView: View {
-    @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var settings: TTSSettingsViewModel
+    @EnvironmentObject var playback: TTSPlaybackViewModel
     @Environment(\.dismiss) private var dismiss
     
     // MARK: - API Key State
@@ -17,8 +18,6 @@ struct TTSSettingsView: View {
     @State private var showingSaveAlert = false
 
     @State private var selectedTab = "api"
-
-    let keychainManager = KeychainManager()
 
     // MARK: - Managed Provisioning State
     @State var managedBaseURL: String = ""
@@ -61,10 +60,10 @@ struct TTSSettingsView: View {
             loadAPIKeys()
             loadManagedProvisioning()
         }
-        .onChange(of: viewModel.managedProvisioningConfiguration) {
+        .onChange(of: settings.managedProvisioningConfiguration) {
             loadManagedProvisioning()
         }
-        .onChange(of: viewModel.managedProvisioningEnabled) {
+        .onChange(of: settings.managedProvisioningEnabled) {
             loadManagedProvisioning()
         }
         .alert("Settings Saved", isPresented: $showingSaveAlert) {
@@ -131,13 +130,13 @@ struct TTSSettingsView: View {
     
     // MARK: - Helper Methods
     func loadAPIKeys() {
-        elevenLabsKey = keychainManager.getAPIKey(for: "ElevenLabs") ?? ""
-        openAIKey = keychainManager.getAPIKey(for: "OpenAI") ?? ""
-        googleKey = keychainManager.getAPIKey(for: "Google") ?? ""
+        elevenLabsKey = settings.getAPIKey(for: .elevenLabs) ?? ""
+        openAIKey = settings.getAPIKey(for: .openAI) ?? ""
+        googleKey = settings.getAPIKey(for: .google) ?? ""
     }
 
     func loadManagedProvisioning() {
-        if let config = viewModel.managedProvisioningConfiguration {
+        if let config = settings.managedProvisioningConfiguration {
             managedBaseURL = config.baseURL.absoluteString
             managedAccountId = config.accountId
             managedPlanTier = config.planTier
@@ -148,14 +147,14 @@ struct TTSSettingsView: View {
             managedPlanTier = ""
             managedPlanStatus = ""
         }
-        managedProvisioningEnabledToggle = viewModel.managedProvisioningEnabled
+        managedProvisioningEnabledToggle = settings.managedProvisioningEnabled
     }
     
     private func saveSettings() {
         // Validate and save API keys
         if !elevenLabsKey.isEmpty {
             if KeychainManager.isValidAPIKey(elevenLabsKey, for: "ElevenLabs") {
-                viewModel.saveAPIKey(elevenLabsKey, for: .elevenLabs)
+                settings.saveAPIKey(elevenLabsKey, for: .elevenLabs)
             } else {
                 saveMessage = "Invalid ElevenLabs API key format. Please check and try again."
                 showingSaveAlert = true
@@ -164,7 +163,7 @@ struct TTSSettingsView: View {
         }
         if !openAIKey.isEmpty {
             if KeychainManager.isValidAPIKey(openAIKey, for: "OpenAI") {
-                viewModel.saveAPIKey(openAIKey, for: .openAI)
+                settings.saveAPIKey(openAIKey, for: .openAI)
             } else {
                 saveMessage = "Invalid OpenAI API key format. Keys should start with 'sk-'."
                 showingSaveAlert = true
@@ -173,7 +172,7 @@ struct TTSSettingsView: View {
         }
         if !googleKey.isEmpty {
             if KeychainManager.isValidAPIKey(googleKey, for: "Google") {
-                viewModel.saveAPIKey(googleKey, for: .google)
+                settings.saveAPIKey(googleKey, for: .google)
             } else {
                 saveMessage = "Invalid Google Cloud API key format. Please check and try again."
                 showingSaveAlert = true
@@ -182,14 +181,14 @@ struct TTSSettingsView: View {
         }
 
         // Save other settings
-        viewModel.saveSettings()
+        settings.saveSettings()
 
         // Validate and save managed provisioning configuration
         let trimmedURL = managedBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedAccount = managedAccountId.trimmingCharacters(in: .whitespacesAndNewlines)
         
         if trimmedURL.isEmpty || trimmedAccount.isEmpty {
-            viewModel.clearManagedProvisioning()
+            settings.clearManagedProvisioning()
         } else {
             // Validate HTTPS for managed provisioning
             guard let url = URL(string: trimmedURL), url.scheme?.lowercased() == "https" else {
@@ -198,7 +197,7 @@ struct TTSSettingsView: View {
                 return
             }
             
-            viewModel.updateManagedProvisioningConfiguration(
+            settings.updateManagedProvisioningConfiguration(
                 baseURL: trimmedURL,
                 accountId: trimmedAccount,
                 planTier: managedPlanTier.isEmpty ? "free" : managedPlanTier,
@@ -218,10 +217,10 @@ struct TTSSettingsView: View {
     }
     
     private func resetToDefaults() {
-        viewModel.playbackSpeed = 1.0
-        viewModel.volume = 0.75
-        viewModel.isLoopEnabled = false
-        viewModel.clearManagedProvisioning()
+        playback.playbackSpeed = 1.0
+        playback.volume = 0.75
+        playback.isLoopEnabled = false
+        settings.clearManagedProvisioning()
         loadManagedProvisioning()
     }
 }
@@ -229,7 +228,9 @@ struct TTSSettingsView: View {
 // MARK: - Preview
 struct TTSSettingsView_Previews: PreviewProvider {
     static var previews: some View {
+        let viewModel = TTSViewModel()
         TTSSettingsView()
-            .environmentObject(TTSViewModel())
+            .environmentObject(viewModel.settings)
+            .environmentObject(viewModel.playback)
     }
 }

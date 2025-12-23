@@ -116,3 +116,8 @@ Release/
 
 # Test Results
 TestResults*
+
+# Local build logs and screenshots
+*.log
+build*.log
+Screenshot*.png

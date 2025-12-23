@@ -1,8 +1,8 @@
 import Foundation
 
-class SonioxTranscriptionService {
+class SonioxTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProvider {
+    let supportedProvider: ModelProvider = .soniox
     private let apiBase = "https://api.soniox.com/v1"
-    private let session = SecureURLSession.makeEphemeral()
     
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         let config = try getAPIConfig(for: model)
@@ -33,19 +33,14 @@ class SonioxTranscriptionService {
         var request = URLRequest(url: apiURL)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        let boundary = "Boundary-\(UUID().uuidString)"
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        let body = try await createMultipartBody(fileURL: audioURL, boundary: boundary)
+        var formData = MultipartFormDataBuilder()
+        request.setValue(formData.contentType, forHTTPHeaderField: "Content-Type")
+        try await createMultipartBody(fileURL: audioURL, formData: &formData)
+        let body = formData.finalize()
         let (data, response) = try await session.upload(for: request, from: body)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
-        }
-        if !(200...299).contains(httpResponse.statusCode) {
-            let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
-        }
+        let responseData = try validateResponse(response, data: data, providerName: "Soniox")
         do {
-            let uploadResponse = try JSONDecoder().decode(FileUploadResponse.self, from: data)
+            let uploadResponse = try JSONDecoder().decode(FileUploadResponse.self, from: responseData)
             return uploadResponse.id
         } catch {
             throw CloudTranscriptionError.noTranscriptionReturned
@@ -73,21 +68,15 @@ class SonioxTranscriptionService {
                 "terms": dictionaryTerms
             ]
         }
-        let selectedLanguage = UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "auto"
+        let selectedLanguage = AppSettings.TranscriptionSettings.selectedLanguage ?? "auto"
         if selectedLanguage != "auto" && !selectedLanguage.isEmpty {
             payload["language_hints"] = [selectedLanguage]
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
         let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
-        }
-        if !(200...299).contains(httpResponse.statusCode) {
-            let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
-        }
+        let responseData = try validateResponse(response, data: data, providerName: "Soniox")
         do {
-            let createResponse = try JSONDecoder().decode(CreateTranscriptionResponse.self, from: data)
+            let createResponse = try JSONDecoder().decode(CreateTranscriptionResponse.self, from: responseData)
             return createResponse.id
         } catch {
             throw CloudTranscriptionError.noTranscriptionReturned
@@ -105,15 +94,9 @@ class SonioxTranscriptionService {
             request.httpMethod = "GET"
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
             let (data, response) = try await session.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
-            }
-            if !(200...299).contains(httpResponse.statusCode) {
-                let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-                throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
-            }
+            let responseData = try validateResponse(response, data: data, providerName: "Soniox")
             do {
-                let status = try JSONDecoder().decode(TranscriptionStatusResponse.self, from: data)
+                let status = try JSONDecoder().decode(TranscriptionStatusResponse.self, from: responseData)
                 switch status.status.lowercased() {
                 case "completed":
                     return
@@ -140,42 +123,33 @@ class SonioxTranscriptionService {
         request.httpMethod = "GET"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
-        }
-        if !(200...299).contains(httpResponse.statusCode) {
-            let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
-        }
-        if let decoded = try? JSONDecoder().decode(TranscriptResponse.self, from: data) {
+        let responseData = try validateResponse(response, data: data, providerName: "Soniox")
+        if let decoded = try? JSONDecoder().decode(TranscriptResponse.self, from: responseData) {
             return decoded.text
         }
-        if let asString = String(data: data, encoding: .utf8), !asString.isEmpty {
+        if let asString = String(data: responseData, encoding: .utf8), !asString.isEmpty {
             return asString
         }
         throw CloudTranscriptionError.noTranscriptionReturned
     }
     
-    private func createMultipartBody(fileURL: URL, boundary: String) async throws -> Data {
-        var body = Data()
-        let crlf = "\r\n"
+    private func createMultipartBody(fileURL: URL, formData: inout MultipartFormDataBuilder) async throws {
         let audioData: Data
         do {
             audioData = try await AudioFileLoader.loadData(from: fileURL)
         } catch {
             throw CloudTranscriptionError.audioFileNotFound
         }
-        body.append(Data("--\(boundary)\(crlf)".utf8))
-        body.append(Data("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileURL.lastPathComponent)\"\(crlf)".utf8))
-        body.append(Data("Content-Type: audio/wav\(crlf)\(crlf)".utf8))
-        body.append(audioData)
-        body.append(Data(crlf.utf8))
-        body.append(Data("--\(boundary)--\(crlf)".utf8))
-        return body
+        formData.addFile(
+            name: "file",
+            filename: fileURL.lastPathComponent,
+            data: audioData,
+            contentType: "audio/wav"
+        )
     }
     
     private func getCustomDictionaryTerms() -> [String] {
-        guard let data = UserDefaults.standard.data(forKey: "CustomVocabularyItems") else {
+        guard let data = AppSettings.Dictionary.customVocabularyItemsData else {
             return []
         }
         // Decode without depending on UI layer types; extract "word" strings

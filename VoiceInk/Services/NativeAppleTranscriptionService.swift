@@ -70,7 +70,7 @@ class NativeAppleTranscriptionService: TranscriptionService {
         let audioFile = try AVAudioFile(forReading: audioURL)
         
         // Get the user's selected language in simple format and convert to BCP-47 format
-        let selectedLanguage = UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "en"
+        let selectedLanguage = AppSettings.TranscriptionSettings.selectedLanguage ?? "en"
         let appleLocale = mapToAppleLocale(selectedLanguage)
         let locale = Locale(identifier: appleLocale)
 
@@ -133,7 +133,7 @@ class NativeAppleTranscriptionService: TranscriptionService {
             transcript += result.text
         }
         
-        var finalTranscription = String(transcript.characters).trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalTranscription = String(transcript.characters).trimmingCharacters(in: .whitespacesAndNewlines)
 
         logger.notice("Native transcription successful. Length: \(finalTranscription.count) characters.")
         return finalTranscription

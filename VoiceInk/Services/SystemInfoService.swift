@@ -99,7 +99,7 @@ class SystemInfoService {
     }
 
     private func getAudioInputMode() -> String {
-        if let mode = UserDefaults.standard.audioInputModeRawValue,
+        if let mode = AppSettings.AudioInput.audioInputModeRawValue,
            let audioMode = AudioInputMode(rawValue: mode) {
             return audioMode.rawValue
         }
@@ -124,7 +124,7 @@ class SystemInfoService {
     }
 
     private func getPrimaryHotkey() -> String {
-        if let hotkeyRaw = UserDefaults.standard.string(forKey: "selectedHotkey1"),
+        if let hotkeyRaw = AppSettings.Hotkeys.selectedHotkey1,
            let hotkey = HotkeyManager.HotkeyOption(rawValue: hotkeyRaw) {
             return hotkey.displayName
         }
@@ -132,7 +132,7 @@ class SystemInfoService {
     }
 
     private func getSecondaryHotkey() -> String {
-        if let hotkeyRaw = UserDefaults.standard.string(forKey: "selectedHotkey2"),
+        if let hotkeyRaw = AppSettings.Hotkeys.selectedHotkey2,
            let hotkey = HotkeyManager.HotkeyOption(rawValue: hotkeyRaw) {
             return hotkey.displayName
         }
@@ -140,7 +140,7 @@ class SystemInfoService {
     }
 
     private func getCurrentTranscriptionModel() -> String {
-        if let modelName = UserDefaults.standard.string(forKey: "CurrentTranscriptionModel") {
+        if let modelName = AppSettings.TranscriptionSettings.currentTranscriptionModel {
             if let model = PredefinedModels.models.first(where: { $0.name == modelName }) {
                 return model.displayName
             }
@@ -150,21 +150,22 @@ class SystemInfoService {
     }
 
     private func getAIEnhancementStatus() -> String {
-        let enhancementEnabled = UserDefaults.standard.bool(forKey: "isAIEnhancementEnabled")
+        let enhancementEnabled = AppSettings.Enhancements.isEnhancementEnabled
         return enhancementEnabled ? "Enabled" : "Disabled"
     }
 
     private func getAIProvider() -> String {
-        if let providerRaw = UserDefaults.standard.string(forKey: "selectedAIProvider") {
+        if let providerRaw = AppSettings.AI.selectedProviderRawValue {
             return providerRaw
         }
         return "None selected"
     }
 
     private func getAIModel() -> String {
-        if let providerRaw = UserDefaults.standard.string(forKey: "selectedAIProvider") {
-            let modelKey = "\(providerRaw)SelectedModel"
-            if let savedModel = UserDefaults.standard.string(forKey: modelKey), !savedModel.isEmpty {
+        if let providerRaw = AppSettings.AI.selectedProviderRawValue {
+            let modelKey = AppSettings.AI.selectedModelKey(for: providerRaw)
+            let savedModel = AppSettings.string(forKey: modelKey, default: "")
+            if !savedModel.isEmpty {
                 return savedModel
             }
             return "Default (\(providerRaw))"
@@ -195,10 +196,9 @@ class SystemInfoService {
     }
 
     private func getLicenseStatus() -> String {
-        let userDefaults = UserDefaults.standard
-
         // Check for existing license key and activation
-        if userDefaults.licenseKey != nil {
+        let licenseKey = AppSettings.string(forKey: AppSettings.Keys.licenseKey, default: "")
+        if !licenseKey.isEmpty {
             return "Licensed (Pro)"
         }
 
@@ -206,7 +206,7 @@ class SystemInfoService {
     }
 
     private func getCurrentLanguage() -> String {
-        return UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "en"
+        return AppSettings.TranscriptionSettings.selectedLanguage ?? "en"
     }
 
 }

@@ -64,7 +64,7 @@ class Recorder: NSObject, ObservableObject {
         deviceManager.isRecordingActive = true
         
         let currentDeviceID = deviceManager.getCurrentDevice()
-        let lastDeviceID = UserDefaults.standard.string(forKey: "lastUsedMicrophoneDeviceID")
+        let lastDeviceID = AppSettings.AudioInput.lastUsedMicrophoneDeviceID
         
         if String(currentDeviceID) != lastDeviceID {
             if let deviceName = deviceManager.availableDevices.first(where: { $0.id == currentDeviceID })?.name {
@@ -75,7 +75,7 @@ class Recorder: NSObject, ObservableObject {
                 )
             }
         }
-        UserDefaults.standard.set(String(currentDeviceID), forKey: "lastUsedMicrophoneDeviceID")
+        AppSettings.AudioInput.lastUsedMicrophoneDeviceID = String(currentDeviceID)
         
         hasDetectedAudioInCurrentSession = false
 

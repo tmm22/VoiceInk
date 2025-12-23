@@ -35,7 +35,6 @@ enum DictionarySortMode: String {
 @MainActor
 class DictionaryManager: ObservableObject {
     @Published var items: [DictionaryItem] = []
-    private let saveKey = "CustomVocabularyItems"
     private let whisperPrompt: WhisperPrompt
     
     init(whisperPrompt: WhisperPrompt) {
@@ -44,7 +43,7 @@ class DictionaryManager: ObservableObject {
     }
     
     private func loadItems() {
-        guard let data = UserDefaults.standard.data(forKey: saveKey) else { return }
+        guard let data = AppSettings.Dictionary.customVocabularyItemsData else { return }
 
         if let savedItems = try? JSONDecoder().decode([DictionaryItem].self, from: data) {
             items = savedItems
@@ -53,7 +52,7 @@ class DictionaryManager: ObservableObject {
     
     private func saveItems() {
         if let encoded = try? JSONEncoder().encode(items) {
-            UserDefaults.standard.set(encoded, forKey: saveKey)
+            AppSettings.Dictionary.customVocabularyItemsData = encoded
         }
     }
     
@@ -90,7 +89,7 @@ struct DictionaryView: View {
         self.whisperPrompt = whisperPrompt
         _dictionaryManager = StateObject(wrappedValue: DictionaryManager(whisperPrompt: whisperPrompt))
 
-        if let savedSort = UserDefaults.standard.string(forKey: "dictionarySortMode"),
+        if let savedSort = AppSettings.Dictionary.dictionarySortMode,
            let mode = DictionarySortMode(rawValue: savedSort) {
             _sortMode = State(initialValue: mode)
         }
@@ -107,7 +106,7 @@ struct DictionaryView: View {
 
     private func toggleSort() {
         sortMode = (sortMode == .wordAsc) ? .wordDesc : .wordAsc
-        UserDefaults.standard.set(sortMode.rawValue, forKey: "dictionarySortMode")
+        AppSettings.Dictionary.dictionarySortMode = sortMode.rawValue
     }
 
     var body: some View {

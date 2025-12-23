@@ -59,7 +59,7 @@ final class AIServiceTests: XCTestCase {
         // Setup: Put a key in Keychain
         let validKey = "key_in_keychain"
         let keychainMain = KeychainManager() // Uses default service ID used by App
-        keychainMain.saveAPIKey(validKey, for: AIProvider.openAI.rawValue)
+        XCTAssertNoThrow(try keychainMain.saveAPIKey(validKey, for: AIProvider.openAI.rawValue))
         
         // Initialize
         let newService = AIService()
@@ -76,7 +76,7 @@ final class AIServiceTests: XCTestCase {
     func testProviderSwitchingUpdatesKeyStatus() {
         // Setup: Keychain has key for Anthropic but not OpenAI
         let keychainMain = KeychainManager()
-        keychainMain.saveAPIKey("key_for_anthropic", for: AIProvider.anthropic.rawValue)
+        XCTAssertNoThrow(try keychainMain.saveAPIKey("key_for_anthropic", for: AIProvider.anthropic.rawValue))
         
         // Select Anthropic
         service.selectedProvider = .anthropic

@@ -115,7 +115,7 @@ final class TranscriptionRecorder {
             do {
                 try file.write(from: buffer)
             } catch {
-                // Ignore transient write errors
+                // Best-effort write; drop buffer if disk write fails.
             }
             let level = normalizedLevel(from: buffer)
             levelSink(level)

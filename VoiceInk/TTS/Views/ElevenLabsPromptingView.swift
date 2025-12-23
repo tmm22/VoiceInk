@@ -3,6 +3,7 @@ import AppKit
 
 struct ElevenLabsPromptingView: View {
     @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var settings: TTSSettingsViewModel
     @State private var newTagToken: String = ""
 
     private let catalogIndex: [String: ElevenLabsVoiceTag] = {
@@ -38,19 +39,19 @@ struct ElevenLabsPromptingView: View {
                 .font(.footnote)
                 .foregroundColor(.secondary)
 
-            Picker("ElevenLabs model", selection: $viewModel.elevenLabsModel) {
+            Picker("ElevenLabs model", selection: $settings.elevenLabsModel) {
                 ForEach(ElevenLabsModel.allCases) { model in
                     Text(model.displayName).tag(model)
                 }
             }
             .pickerStyle(MenuPickerStyle())
 
-            Text(viewModel.elevenLabsModel.detail)
+            Text(settings.elevenLabsModel.detail)
                 .font(.caption2)
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            if viewModel.elevenLabsModel.requiresEarlyAccess {
+            if settings.elevenLabsModel.requiresEarlyAccess {
                 Label("Requires ElevenLabs early access", systemImage: "exclamationmark.triangle")
                     .font(.caption2)
                     .foregroundColor(.orange)
@@ -64,7 +65,7 @@ struct ElevenLabsPromptingView: View {
                 .font(.footnote)
                 .foregroundColor(.secondary)
 
-            TextEditor(text: $viewModel.elevenLabsPrompt)
+            TextEditor(text: $settings.elevenLabsPrompt)
                 .font(.system(size: 12, design: .monospaced))
                 .frame(minHeight: 80, maxHeight: 120)
                 .overlay(
@@ -80,16 +81,16 @@ struct ElevenLabsPromptingView: View {
                 }
                 .controlSize(.small)
                 .buttonStyle(.bordered)
-                .disabled(viewModel.elevenLabsPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(settings.elevenLabsPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
                 Button {
-                    copyToPasteboard(viewModel.elevenLabsPrompt)
+                    copyToPasteboard(settings.elevenLabsPrompt)
                 } label: {
                     Label("Copy", systemImage: "doc.on.doc")
                 }
                 .controlSize(.small)
                 .buttonStyle(.bordered)
-                .disabled(viewModel.elevenLabsPrompt.isEmpty)
+                .disabled(settings.elevenLabsPrompt.isEmpty)
             }
         }
     }
@@ -123,13 +124,13 @@ struct ElevenLabsPromptingView: View {
                 .buttonStyle(.bordered)
             }
 
-            if viewModel.elevenLabsTags.isEmpty {
+            if settings.elevenLabsTags.isEmpty {
                 Text("No saved tags yet. Use Add to store the tokens you reference most.")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 12)], spacing: 12) {
-                    ForEach(viewModel.elevenLabsTags, id: \.self) { token in
+                    ForEach(settings.elevenLabsTags, id: \.self) { token in
                         tagCard(for: token)
                     }
                 }

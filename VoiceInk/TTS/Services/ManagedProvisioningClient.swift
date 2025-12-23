@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 final class ManagedProvisioningClient {
     struct Configuration: Equatable {
         var baseURL: URL
@@ -17,9 +18,9 @@ final class ManagedProvisioningClient {
     private let lock = NSLock()
     private var credentialCache: [Voice.ProviderType: ManagedCredential] = [:]
 
-    init(preferences: ManagedProvisioningPreferences = .shared,
+    init(preferences: ManagedProvisioningPreferences? = nil,
          session: URLSession = SecureURLSession.makeEphemeral()) {
-        self.preferences = preferences
+        self.preferences = preferences ?? .shared
         self.session = session
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .millisecondsSince1970

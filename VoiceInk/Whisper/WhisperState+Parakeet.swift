@@ -16,7 +16,7 @@ extension WhisperState {
     }
 
     func isParakeetModelDownloaded(named modelName: String) -> Bool {
-        UserDefaults.standard.bool(forKey: parakeetDefaultsKey(for: modelName))
+        AppSettings.bool(forKey: parakeetDefaultsKey(for: modelName), default: false)
     }
 
     func isParakeetModelDownloaded(_ model: ParakeetModel) -> Bool {
@@ -56,10 +56,11 @@ extension WhisperState {
 
             _ = try await VadManager()
 
-            UserDefaults.standard.set(true, forKey: parakeetDefaultsKey(for: modelName))
+            AppSettings.setValue(true, forKey: parakeetDefaultsKey(for: modelName))
             downloadProgress[modelName] = 1.0
         } catch {
-            UserDefaults.standard.set(false, forKey: parakeetDefaultsKey(for: modelName))
+            AppSettings.setValue(false, forKey: parakeetDefaultsKey(for: modelName))
+            logger.error("Failed to download Parakeet model \(modelName): \(error.localizedDescription)")
         }
 
         timer.invalidate()
@@ -72,10 +73,10 @@ extension WhisperState {
     @MainActor
     func deleteParakeetModel(_ model: ParakeetModel) {
         if let currentModel = currentTranscriptionModel,
-           currentModel.provider == .parakeet,
+            currentModel.provider == .parakeet,
            currentModel.name == model.name {
             currentTranscriptionModel = nil
-            UserDefaults.standard.removeObject(forKey: "CurrentTranscriptionModel")
+            AppSettings.TranscriptionSettings.currentTranscriptionModel = nil
         }
 
         let version = parakeetVersion(for: model.name)
@@ -85,9 +86,9 @@ extension WhisperState {
             if FileManager.default.fileExists(atPath: cacheDirectory.path) {
                 try FileManager.default.removeItem(at: cacheDirectory)
             }
-            UserDefaults.standard.set(false, forKey: parakeetDefaultsKey(for: model.name))
+            AppSettings.setValue(false, forKey: parakeetDefaultsKey(for: model.name))
         } catch {
-            // Silently ignore removal errors
+            logger.error("Failed to delete Parakeet cache for \(model.name): \(error.localizedDescription)")
         }
 
         refreshAllAvailableModels()

@@ -2,49 +2,52 @@ import SwiftUI
 import AppKit
 
 struct RecentGenerationsView: View {
-    @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var settings: TTSSettingsViewModel
+    @EnvironmentObject var history: TTSHistoryViewModel
+    @EnvironmentObject var generation: TTSSpeechGenerationViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: viewModel.isMinimalistMode ? 8 : 12) {
+        VStack(alignment: .leading, spacing: settings.isMinimalistMode ? 8 : 12) {
             HStack {
                 Label("Recent Generations", systemImage: "clock.arrow.circlepath")
                     .font(.headline)
 
                 Spacer()
 
-                if !viewModel.recentGenerations.isEmpty {
+                if !history.recentGenerations.isEmpty {
                     Button("Clear", role: .destructive) {
-                        viewModel.clearHistory()
+                        history.clearHistory()
                     }
                     .buttonStyle(.borderless)
                     .font(.caption)
-                    .disabled(viewModel.recentGenerations.isEmpty)
+                    .disabled(history.recentGenerations.isEmpty)
                 }
             }
 
-            if viewModel.recentGenerations.isEmpty {
+            if history.recentGenerations.isEmpty {
                 Text("Generated audio will appear here for quick reuse.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             } else {
-                ForEach(viewModel.recentGenerations) { item in
+                ForEach(history.recentGenerations) { item in
                     HistoryRow(item: item)
-                        .environmentObject(viewModel)
                         .transition(.opacity)
                 }
             }
         }
-        .padding(viewModel.isMinimalistMode ? 10 : 14)
+        .padding(settings.isMinimalistMode ? 10 : 14)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(Color(NSColor.controlBackgroundColor))
         )
-        .animation(.easeInOut(duration: 0.2), value: viewModel.recentGenerations)
+        .animation(.easeInOut(duration: 0.2), value: history.recentGenerations)
     }
 }
 
 private struct HistoryRow: View {
-    @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var importExport: TTSImportExportViewModel
+    @EnvironmentObject var history: TTSHistoryViewModel
+    @EnvironmentObject var generation: TTSSpeechGenerationViewModel
     let item: GenerationHistoryItem
     @State private var isHovering = false
 
@@ -78,7 +81,7 @@ private struct HistoryRow: View {
 
                 Button {
                     Task {
-                        await viewModel.playHistoryItem(item)
+                        await history.playHistoryItem(item)
                     }
                 } label: {
                     Label("Play", systemImage: "play.fill")
@@ -86,10 +89,10 @@ private struct HistoryRow: View {
                 }
                 .buttonStyle(.plain)
                 .help("Play this generated audio")
-                .disabled(viewModel.isGenerating)
+                .disabled(generation.isGenerating)
 
                 Button {
-                    viewModel.exportHistoryItem(item)
+                    history.exportHistoryItem(item)
                 } label: {
                     Label("Export", systemImage: "square.and.arrow.up")
                         .labelStyle(.iconOnly)
@@ -100,10 +103,10 @@ private struct HistoryRow: View {
                 if item.transcript != nil {
                     Menu {
                         Button("Export SRT") {
-                            viewModel.exportTranscript(for: item, format: .srt)
+                            importExport.exportTranscript(for: item, format: .srt)
                         }
                         Button("Export VTT") {
-                            viewModel.exportTranscript(for: item, format: .vtt)
+                            importExport.exportTranscript(for: item, format: .vtt)
                         }
                     } label: {
                         Label("Transcript", systemImage: "doc.text")
@@ -114,7 +117,7 @@ private struct HistoryRow: View {
                 }
 
                 Button(role: .destructive) {
-                    viewModel.removeHistoryItem(item)
+                    history.removeHistoryItem(item)
                 } label: {
                     Label("Remove", systemImage: "trash")
                         .labelStyle(.iconOnly)
@@ -136,8 +139,13 @@ private struct HistoryRow: View {
 
 struct RecentGenerationsView_Previews: PreviewProvider {
     static var previews: some View {
+        let viewModel = TTSViewModel()
         RecentGenerationsView()
-            .environmentObject(TTSViewModel())
+            .environmentObject(viewModel)
+            .environmentObject(viewModel.settings)
+            .environmentObject(viewModel.history)
+            .environmentObject(viewModel.generation)
+            .environmentObject(viewModel.importExport)
             .padding()
             .frame(width: 600)
     }

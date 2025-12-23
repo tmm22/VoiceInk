@@ -6,9 +6,9 @@ struct APIKeyManagementView: View {
     @State private var showAlert = false
     @State private var alertMessage = ""
     @State private var isVerifying = false
-    @State private var ollamaBaseURL: String = UserDefaults.standard.string(forKey: "ollamaBaseURL") ?? "http://localhost:11434"
-    @State private var ollamaModels: [OllamaService.OllamaModel] = []
-    @State private var selectedOllamaModel: String = UserDefaults.standard.string(forKey: "ollamaSelectedModel") ?? "mistral"
+    @State private var ollamaBaseURL: String = AppSettings.Ollama.baseURL
+    @State private var ollamaModels: [OllamaAIService.OllamaModel] = []
+    @State private var selectedOllamaModel: String = AppSettings.Ollama.selectedModel
     @State private var isCheckingOllama = false
     @State private var isEditingURL = false
     
@@ -147,7 +147,7 @@ struct APIKeyManagementView: View {
                             .controlSize(.small)
                             
                             Button(action: {
-                                ollamaBaseURL = "http://localhost:11434"
+                                ollamaBaseURL = AppSettings.Ollama.defaultBaseURL
                                 aiService.updateOllamaBaseURL(ollamaBaseURL)
                                 checkOllamaConnection()
                             }) {

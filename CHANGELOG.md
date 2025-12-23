@@ -2,6 +2,35 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2025-12-23
+
+### Security
+- Enabled App Sandbox entitlements and tightened keychain cleanup behavior.
+- Enforced HTTPS validation for custom provider endpoints and URL matching safeguards.
+
+### Architecture
+- Split TTS view model responsibilities into focused components and reorganized workspace views.
+- Centralized app settings access and normalized service naming across the codebase.
+
+### Cloud Transcription
+- Introduced shared request/response utilities and multipart builders.
+- Added a base provider abstraction to reduce duplication across services.
+
+### Power Mode
+- Modularized configuration view sections and improved prompt/URL handling logic.
+- Updated localization coverage and reduced view complexity.
+
+### Whisper + Audio
+- Extracted recording flow into a dedicated extension and hardened model lifecycle handling.
+- Addressed task lifecycle cleanup and thread-safety improvements.
+
+### Testing
+- Updated unit/integration tests to align with refactors and new APIs.
+- Recorded targeted test runs in implementation checklists.
+
+### Documentation
+- Updated phase checklists and test status tracking to reflect completed work.
+
 ## 2025-12-21
 
 ### UI

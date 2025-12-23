@@ -215,7 +215,7 @@ final class ScreenCaptureServiceTests: XCTestCase {
     func testServiceDoesNotLeak() async {
         weak var weakService: ScreenCaptureService?
         
-        await autoreleasepool {
+        do {
             let service = ScreenCaptureService()
             weakService = service
             
@@ -232,7 +232,7 @@ final class ScreenCaptureServiceTests: XCTestCase {
     func testMultipleCapturesDoNotLeak() async {
         weak var weakService: ScreenCaptureService?
         
-        await autoreleasepool {
+        do {
             let service = ScreenCaptureService()
             weakService = service
             

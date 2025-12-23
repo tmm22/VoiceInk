@@ -27,7 +27,7 @@ extension TTSSettingsView {
     private func interfaceSettingsGroup() -> some View {
         GroupBox("Interface") {
             VStack(alignment: .leading, spacing: 12) {
-                Toggle("Enable Tickwick Settings (Inspector)", isOn: $viewModel.isInspectorEnabled)
+                Toggle("Enable Tickwick Settings (Inspector)", isOn: $settings.isInspectorEnabled)
                 
                 Text("Show the advanced settings inspector in the Text-to-Speech workspace.")
                     .font(.caption)
@@ -42,7 +42,7 @@ extension TTSSettingsView {
     private func appearanceSettingsGroup() -> some View {
         GroupBox("Appearance") {
             VStack(alignment: .leading, spacing: 12) {
-                Picker("Appearance", selection: $viewModel.appearancePreference) {
+                Picker("Appearance", selection: $settings.appearancePreference) {
                     ForEach(AppearancePreference.allCases) { preference in
                         Text(preference.displayName).tag(preference)
                     }
@@ -56,11 +56,8 @@ extension TTSSettingsView {
 
                 Divider()
 
-                Toggle(isOn: $viewModel.isMinimalistMode) {
+                Toggle(isOn: $settings.isMinimalistMode) {
                     Text("Minimalist layout (Compact)")
-                }
-                .onChange(of: viewModel.isMinimalistMode) {
-                    viewModel.saveSettings()
                 }
                 .accessibilityLabel("Minimalist layout (Compact)")
                 .accessibilityHint("Reduce chrome and move advanced controls to a popover. All functionality remains available.")
@@ -85,8 +82,8 @@ extension TTSSettingsView {
         GroupBox("Notifications") {
             VStack(alignment: .leading, spacing: 12) {
                 Toggle(isOn: Binding(
-                    get: { viewModel.notificationsEnabled },
-                    set: { viewModel.setNotificationsEnabled($0) }
+                    get: { settings.notificationsEnabled },
+                    set: { settings.setNotificationsEnabled($0) }
                 )) {
                     Text("Notify when batch generation completes")
                 }

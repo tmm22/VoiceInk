@@ -277,7 +277,7 @@ final class TrashViewModel: ObservableObject {
         defer { isLoading = false }
         
         do {
-            var descriptor = FetchDescriptor<Transcription>(
+            let descriptor = FetchDescriptor<Transcription>(
                 predicate: #Predicate<Transcription> { transcription in
                     transcription.isDeleted == true
                 },

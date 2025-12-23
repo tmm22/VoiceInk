@@ -131,6 +131,22 @@ struct CustomCloudModel: TranscriptionModel, Codable {
         case id, name, displayName, description, provider, apiEndpoint, modelName, isMultilingualModel, supportedLanguages
     }
 
+    // MARK: - Endpoint Validation
+    static func secureEndpointURL(from string: String) -> URL? {
+        guard let url = URL(string: string) else { return nil }
+        guard let scheme = url.scheme?.lowercased(), scheme == "https" else { return nil }
+        guard let host = url.host, !host.isEmpty else { return nil }
+        return url
+    }
+
+    static func isValidSecureEndpoint(_ string: String) -> Bool {
+        secureEndpointURL(from: string) != nil
+    }
+
+    var secureAPIEndpointURL: URL? {
+        Self.secureEndpointURL(from: apiEndpoint)
+    }
+
     init(id: UUID = UUID(), name: String, displayName: String, description: String, apiEndpoint: String, apiKey: String, modelName: String, isMultilingual: Bool = true, supportedLanguages: [String: String]? = nil) {
         self.id = id
         self.name = name
@@ -150,18 +166,8 @@ struct CustomCloudModel: TranscriptionModel, Codable {
         name = try container.decode(String.self, forKey: .name)
         displayName = try container.decode(String.self, forKey: .displayName)
         description = try container.decode(String.self, forKey: .description)
-        // Provider is default .custom, but if encoded, we decode it
-        if let decodedProvider = try? container.decode(ModelProvider.self, forKey: .provider) {
-            // In a struct let constant, we can't reassign, but since it's defined as `let provider: ModelProvider = .custom` 
-            // and typically `Codable` synthesizes it, wait.
-            // The original struct had `let provider: ModelProvider = .custom`. 
-            // If I implement `init(from:)`, I must assign to all properties.
-            // But `provider` has a default value and is a `let`. Swift allows assigning to `let` in `init`.
-            // However, the previous definition had it as a property with default value.
-            // I'll just assign .custom to match behavior or decode if present.
-        }
-        // Actually, `let provider: ModelProvider = .custom` implies it's a property.
-        // To match previous behavior:
+        // Backward compatibility: CustomCloudModel is always .custom even if provider was encoded.
+        _ = try? container.decode(ModelProvider.self, forKey: .provider)
         
         apiEndpoint = try container.decode(String.self, forKey: .apiEndpoint)
         modelName = try container.decode(String.self, forKey: .modelName)

@@ -3,7 +3,7 @@ import AppKit
 import UniformTypeIdentifiers
 
 struct TranscriptionUtilityView: View {
-    @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var transcription: TTSTranscriptionViewModel
     @State private var showingFileImporter = false
 
     private let presets: [(label: String, instruction: String)] = [
@@ -36,37 +36,37 @@ struct TranscriptionUtilityView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            Picker("Transcription provider", selection: $viewModel.selectedTranscriptionProvider) {
+            Picker("Transcription provider", selection: $transcription.selectedTranscriptionProvider) {
                 ForEach(TranscriptionProviderType.allCases, id: \.self) { provider in
                     Text(provider.displayName).tag(provider)
                 }
             }
             .pickerStyle(.segmented)
 
-            if !viewModel.transcriptionProviderHasCredentials(viewModel.selectedTranscriptionProvider) {
-                Text("\(viewModel.selectedTranscriptionProvider.displayName) API key required in Settings.")
+            if !transcription.transcriptionProviderHasCredentials(transcription.selectedTranscriptionProvider) {
+                Text("\(transcription.selectedTranscriptionProvider.displayName) API key required in Settings.")
                     .font(.caption)
                     .foregroundColor(.red)
             }
 
             HStack(spacing: 10) {
                 Button {
-                    if viewModel.isTranscriptionRecording {
-                        viewModel.stopTranscriptionRecording()
+                    if transcription.isTranscriptionRecording {
+                        transcription.stopTranscriptionRecording()
                     } else {
-                        viewModel.startTranscriptionRecording()
+                        transcription.startTranscriptionRecording()
                     }
                 } label: {
-                    Label(viewModel.isTranscriptionRecording ? "Stop" : "Record",
-                          systemImage: viewModel.isTranscriptionRecording ? "stop.fill" : "record.circle")
-                        .foregroundColor(viewModel.isTranscriptionRecording ? .white : .accentColor)
+                    Label(transcription.isTranscriptionRecording ? "Stop" : "Record",
+                          systemImage: transcription.isTranscriptionRecording ? "stop.fill" : "record.circle")
+                        .foregroundColor(transcription.isTranscriptionRecording ? .white : .accentColor)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(viewModel.isTranscriptionRecording ? .red : .accentColor)
+                .tint(transcription.isTranscriptionRecording ? .red : .accentColor)
 
-                if viewModel.isTranscriptionRecording {
+                if transcription.isTranscriptionRecording {
                     Button {
-                        viewModel.cancelTranscriptionRecording()
+                        transcription.cancelTranscriptionRecording()
                     } label: {
                         Label("Cancel", systemImage: "xmark")
                     }
@@ -83,17 +83,17 @@ struct TranscriptionUtilityView: View {
                 Spacer()
             }
 
-            if viewModel.isTranscriptionRecording {
+            if transcription.isTranscriptionRecording {
                 HStack(spacing: 12) {
-                    ProgressView(value: Double(viewModel.transcriptionRecordingLevel))
+                    ProgressView(value: Double(transcription.transcriptionRecordingLevel))
                         .progressViewStyle(.linear)
                         .frame(width: 160)
-                    Text("Recording… \(formatDuration(viewModel.transcriptionRecordingDuration))")
+                    Text("Recording… \(formatDuration(transcription.transcriptionRecordingDuration))")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-            } else if viewModel.transcriptionRecordingDuration > 0 {
-                Text("Last recording: \(formatDuration(viewModel.transcriptionRecordingDuration))")
+            } else if transcription.transcriptionRecordingDuration > 0 {
+                Text("Last recording: \(formatDuration(transcription.transcriptionRecordingDuration))")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -102,20 +102,20 @@ struct TranscriptionUtilityView: View {
 
             HStack(spacing: 10) {
                 Button {
-                    viewModel.insertTranscriptionIntoEditor(useCleanedText: false)
+                    transcription.insertTranscriptionIntoEditor(useCleanedText: false)
                 } label: {
                     Label("Use transcript", systemImage: "doc.text")
                 }
                 .buttonStyle(.bordered)
-                .disabled(viewModel.transcriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(transcription.transcriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
                 Button {
-                    viewModel.insertTranscriptionIntoEditor(useCleanedText: true)
+                    transcription.insertTranscriptionIntoEditor(useCleanedText: true)
                 } label: {
                     Label("Use cleaned", systemImage: "wand.and.stars")
                 }
                 .buttonStyle(.bordered)
-                .disabled((viewModel.transcriptionCleanupResult?.output ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled((transcription.transcriptionCleanupResult?.output ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
     }
@@ -133,28 +133,28 @@ struct TranscriptionUtilityView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(presets, id: \.label) { preset in
-                        let isActive = viewModel.transcriptionCleanupLabel == preset.label
+                        let isActive = transcription.transcriptionCleanupLabel == preset.label
                         Button(preset.label) {
-                            viewModel.setTranscriptionCleanupPreset(instruction: preset.instruction, label: preset.label)
+                            transcription.setTranscriptionCleanupPreset(instruction: preset.instruction, label: preset.label)
                         }
                         .buttonStyle(.bordered)
                         .tint(isActive ? .accentColor : .secondary)
                     }
 
                     Button("Clear") {
-                        viewModel.clearTranscriptionCleanupPreset()
+                        transcription.clearTranscriptionCleanupPreset()
                     }
                     .buttonStyle(.bordered)
-                    .disabled(viewModel.transcriptionCleanupInstruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(transcription.transcriptionCleanupInstruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
 
             TextEditor(text: Binding(get: {
-                viewModel.transcriptionCleanupInstruction
+                transcription.transcriptionCleanupInstruction
             }, set: { newValue in
-                viewModel.transcriptionCleanupInstruction = newValue
+                transcription.transcriptionCleanupInstruction = newValue
                 if newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    viewModel.transcriptionCleanupLabel = nil
+                    transcription.transcriptionCleanupLabel = nil
                 }
             }))
             .font(.system(size: 13))
@@ -169,16 +169,16 @@ struct TranscriptionUtilityView: View {
     private var statusSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Label(viewModel.transcriptionStageDescription, systemImage: "bolt.horizontal.circle")
+                Label(transcription.transcriptionStageDescription, systemImage: "bolt.horizontal.circle")
                     .font(.subheadline)
                 Spacer()
-                if viewModel.isTranscriptionInProgress {
-                    ProgressView(value: viewModel.transcriptionProgress)
+                if transcription.isTranscriptionInProgress {
+                    ProgressView(value: transcription.transcriptionProgress)
                         .frame(width: 140)
                 }
             }
 
-            if let error = viewModel.transcriptionError {
+            if let error = transcription.transcriptionError {
                 Text(error)
                     .font(.caption)
                     .foregroundColor(.red)
@@ -188,20 +188,20 @@ struct TranscriptionUtilityView: View {
 
     private var resultsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if !viewModel.transcriptionText.isEmpty {
+            if !transcription.transcriptionText.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Transcript", systemImage: "doc.text")
                         .font(.subheadline)
                         .fontWeight(.semibold)
 
-                    Text(viewModel.transcriptionText)
+                    Text(transcription.transcriptionText)
                         .font(.system(size: 13))
                         .foregroundColor(.primary)
                         .lineLimit(8)
                 }
             }
 
-            if let summary = viewModel.transcriptionSummary {
+            if let summary = transcription.transcriptionSummary {
                 VStack(alignment: .leading, spacing: 10) {
                     Label("Summary", systemImage: "text.append")
                         .font(.subheadline)
@@ -264,7 +264,7 @@ struct TranscriptionUtilityView: View {
                 }
             }
 
-            if let cleaned = viewModel.transcriptionCleanupResult {
+            if let cleaned = transcription.transcriptionCleanupResult {
                 Divider()
                 VStack(alignment: .leading, spacing: 8) {
                     Label(cleaned.label ?? "Cleaned transcript", systemImage: "wand.and.stars")
@@ -278,7 +278,7 @@ struct TranscriptionUtilityView: View {
                 }
             }
 
-            if !viewModel.transcriptionSegments.isEmpty {
+            if !transcription.transcriptionSegments.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     Label("Segments", systemImage: "waveform.path")
                         .font(.subheadline)
@@ -286,7 +286,7 @@ struct TranscriptionUtilityView: View {
 
                     ScrollView {
                         VStack(alignment: .leading, spacing: 8) {
-                            ForEach(viewModel.transcriptionSegments) { segment in
+                            ForEach(transcription.transcriptionSegments) { segment in
                                 VStack(alignment: .leading, spacing: 4) {
                                     HStack {
                                         Text("Segment \(segment.id + 1)")
@@ -323,7 +323,7 @@ struct TranscriptionUtilityView: View {
         panel.prompt = "Transcribe"
 
         if panel.runModal() == .OK, let url = panel.url {
-            viewModel.transcribeAudioFile(at: url, shouldDeleteAfterTranscription: false)
+            transcription.transcribeAudioFile(at: url, shouldDeleteAfterTranscription: false)
         }
     }
 

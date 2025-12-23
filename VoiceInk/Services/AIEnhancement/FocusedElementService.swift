@@ -143,7 +143,9 @@ class FocusedElementService {
         var valueRef: AnyObject?
         let result = AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &valueRef)
         
-        if result == .success, CFGetTypeID(valueRef) == AXValueGetTypeID() {
+        if result == .success,
+           let valueRef,
+           CFGetTypeID(valueRef) == AXValueGetTypeID() {
             let axValue = valueRef as! AXValue
             if AXValueGetType(axValue) == .cfRange {
                 var range = CFRange()
@@ -159,7 +161,9 @@ class FocusedElementService {
         var parentRef: AnyObject?
         let result = AXUIElementCopyAttributeValue(element, kAXParentAttribute as CFString, &parentRef)
         
-        guard result == .success, let parent = parentRef as! AXUIElement? else { return [] }
+        guard result == .success, let parentRef else { return [] }
+        guard CFGetTypeID(parentRef) == AXUIElementGetTypeID() else { return [] }
+        let parent = parentRef as! AXUIElement
         
         var childrenRef: AnyObject?
         let childrenResult = AXUIElementCopyAttributeValue(parent, kAXChildrenAttribute as CFString, &childrenRef)

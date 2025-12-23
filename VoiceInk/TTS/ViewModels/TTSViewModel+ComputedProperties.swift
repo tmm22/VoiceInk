@@ -8,12 +8,12 @@ extension TTSViewModel {
     
     /// Returns the supported audio formats for the currently selected provider
     var supportedFormats: [AudioSettings.AudioFormat] {
-        supportedFormats(for: selectedProvider)
+        settings.supportedFormats(for: settings.selectedProvider)
     }
 
     /// Returns the character limit for the currently selected provider
     var currentCharacterLimit: Int {
-        characterLimit(for: selectedProvider)
+        settings.currentCharacterLimit
     }
 
     /// Indicates whether any batch segment exceeds the provider's character limit
@@ -33,36 +33,26 @@ extension TTSViewModel {
     
     /// Returns the color scheme override based on user preference
     var colorSchemeOverride: ColorScheme? {
-        appearancePreference.colorScheme
+        settings.colorSchemeOverride
     }
     
     // MARK: - Style Controls
     
     /// Indicates whether there are active style controls for the current provider
     var hasActiveStyleControls: Bool {
-        !activeStyleControls.isEmpty
+        settings.hasActiveStyleControls
     }
 
     /// Indicates whether any style control can be reset to its default value
     var canResetStyleControls: Bool {
-        guard hasActiveStyleControls else { return false }
-        return activeStyleControls.contains { canResetStyleControl($0) }
+        settings.canResetStyleControls
     }
     
     // MARK: - Export Format Help
     
     /// Returns help text describing the export format options for the selected provider
     var exportFormatHelpText: String? {
-        switch selectedProvider {
-        case .elevenLabs:
-            return "ElevenLabs currently exports MP3 files only."
-        case .google:
-            return "Google Cloud supports MP3 or WAV output."
-        case .openAI:
-            return "OpenAI offers MP3, WAV, AAC, and FLAC options."
-        case .tightAss:
-            return "Tight Ass Mode saves audio using the system voices in WAV format."
-        }
+        settings.exportFormatHelpText
     }
     
     // MARK: - Batch Processing
@@ -100,59 +90,11 @@ extension TTSViewModel {
         translationService.hasCredentials()
     }
     
-    // MARK: - Article Summary
-    
-    /// Indicates whether article summarization is available (has credentials)
-    var canSummarizeImports: Bool {
-        summarizationService.hasCredentials()
-    }
-
-    /// Returns the article summary preview text, if available
-    var articleSummaryPreview: String? {
-        articleSummary?.summaryText?.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    /// Returns the condensed import preview text, if available
-    var condensedImportPreview: String? {
-        articleSummary?.condensedText?.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    /// Returns a description of the word reduction achieved by summarization
-    var articleSummaryReductionDescription: String? {
-        guard let summary = articleSummary,
-              let condensedCount = summary.condensedWordCount,
-              summary.originalWordCount > 0 else {
-            return articleSummary?.wordSavingsDescription
-        }
-
-        let reduction = 1 - (Double(condensedCount) / Double(summary.originalWordCount))
-        guard reduction > 0 else { return articleSummary?.wordSavingsDescription }
-        let percent = Int((reduction * 100).rounded())
-        return percent > 0 ? "Cuts roughly \(percent)% of the article before narration." : articleSummary?.wordSavingsDescription
-    }
-
-    /// Indicates whether the condensed import can be adopted
-    var canAdoptCondensedImport: Bool {
-        guard let text = condensedImportPreview else { return false }
-        return !text.isEmpty
-    }
-
-    /// Indicates whether the summary can be inserted into the editor
-    var canInsertSummaryIntoEditor: Bool {
-        guard let summary = articleSummaryPreview else { return false }
-        return !summary.isEmpty
-    }
-
-    /// Indicates whether the summary can be spoken
-    var canSpeakSummary: Bool {
-        canInsertSummaryIntoEditor
-    }
-    
     // MARK: - Cost Estimation
     
     /// Returns the cost estimate for the current input text and provider
     var costEstimate: CostEstimate {
-        let profile = ProviderCostProfile.profile(for: selectedProvider)
+        let profile = ProviderCostProfile.profile(for: settings.selectedProvider)
         return profile.estimate(for: effectiveCharacterCount)
     }
 
@@ -161,28 +103,6 @@ extension TTSViewModel {
 
     /// Returns additional detail for the cost estimate, if available
     var costEstimateDetail: String? { costEstimate.detail }
-    
-    // MARK: - Transcription Stage
-    
-    /// Returns a human-readable description of the current transcription stage
-    var transcriptionStageDescription: String {
-        switch transcriptionStage {
-        case .idle:
-            return "Ready"
-        case .recording:
-            return "Recording microphone input"
-        case .transcribing:
-            return "Transcribing audio with \(selectedTranscriptionProvider.displayName)"
-        case .summarising:
-            return "Generating insights"
-        case .cleaning:
-            return "Applying cleanup instructions"
-        case .complete:
-            return "Transcription complete"
-        case .error:
-            return "Transcription failed"
-        }
-    }
     
     // MARK: - Static Helpers
     

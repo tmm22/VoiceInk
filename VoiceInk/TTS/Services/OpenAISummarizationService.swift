@@ -11,10 +11,10 @@ final class OpenAISummarizationService: TextSummarizationService {
 
     init(session: URLSession = SecureURLSession.makeEphemeral(),
          keychain: KeychainManager = KeychainManager(),
-         managedProvisioningClient: ManagedProvisioningClient = .shared) {
+         managedProvisioningClient: ManagedProvisioningClient? = nil) {
         self.session = session
         self.keychain = keychain
-        self.managedProvisioningClient = managedProvisioningClient
+        self.managedProvisioningClient = managedProvisioningClient ?? .shared
     }
 
     func hasCredentials() -> Bool {
@@ -64,38 +64,31 @@ final class OpenAISummarizationService: TextSummarizationService {
         do {
             let (data, response) = try await session.data(for: request)
 
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw TTSError.networkError("Invalid response")
+            let responseData = try HTTPResponseHandler.handleResponse(
+                response,
+                data: data,
+                onUnauthorized: {
+                    if authorization.usedManagedCredential {
+                        self.managedProvisioningClient.invalidateCredential(for: .openAI)
+                        self.activeManagedCredential = nil
+                    }
+                },
+                clientErrorFormat: "Summarization request failed (%d)",
+                serverErrorFormat: "Summarization service unavailable (%d)",
+                unexpectedFormat: "Unexpected summarization response: %d"
+            )
+
+            let decoded = try JSONDecoder().decode(ChatCompletionResponse.self, from: responseData)
+            guard let content = decoded.choices.first?.message.content,
+                  let payloadData = content.data(using: .utf8) else {
+                throw TTSError.apiError("Summarization response missing content")
             }
 
-            switch httpResponse.statusCode {
-            case 200:
-                let decoded = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
-                guard let content = decoded.choices.first?.message.content,
-                      let payloadData = content.data(using: .utf8) else {
-                    throw TTSError.apiError("Summarization response missing content")
-                }
-
-                let payload = try JSONDecoder().decode(SummarizationPayload.self, from: payloadData)
-                return SummarizationResult(
-                    condensedArticle: payload.conciseArticle,
-                    summary: payload.summary
-                )
-            case 401:
-                if authorization.usedManagedCredential {
-                    managedProvisioningClient.invalidateCredential(for: .openAI)
-                    activeManagedCredential = nil
-                }
-                throw TTSError.invalidAPIKey
-            case 429:
-                throw TTSError.quotaExceeded
-            case 400...499:
-                throw TTSError.apiError("Summarization request failed (\(httpResponse.statusCode))")
-            case 500...599:
-                throw TTSError.apiError("Summarization service unavailable (\(httpResponse.statusCode))")
-            default:
-                throw TTSError.apiError("Unexpected summarization response: \(httpResponse.statusCode)")
-            }
+            let payload = try JSONDecoder().decode(SummarizationPayload.self, from: payloadData)
+            return SummarizationResult(
+                condensedArticle: payload.conciseArticle,
+                summary: payload.summary
+            )
         } catch let error as TTSError {
             throw error
         } catch {
@@ -150,12 +143,6 @@ private struct SummarizationPayload: Codable {
 }
 
 private extension OpenAISummarizationService {
-    struct AuthorizationHeader {
-        let header: String
-        let value: String
-        let usedManagedCredential: Bool
-    }
-
     func authorizationHeader() async throws -> AuthorizationHeader {
         if let key = keychain.getAPIKey(for: "OpenAI"), !key.isEmpty {
             return AuthorizationHeader(header: "Authorization", value: "Bearer \(key)", usedManagedCredential: false)

@@ -61,6 +61,7 @@ final class WhisperStateTests: XCTestCase {
             whisperState.currentTranscriptionModel = firstModel
         } else {
             XCTSkip("No transcription models available")
+            return
         }
         
         // Initial state
@@ -152,6 +153,7 @@ final class WhisperStateTests: XCTestCase {
             XCTAssertEqual(whisperState.currentTranscriptionModel?.name, firstModel.name)
         } else {
             XCTSkip("No models available for testing")
+            return
         }
     }
     
@@ -159,6 +161,7 @@ final class WhisperStateTests: XCTestCase {
         // This tests that model loading can be cancelled
         guard let model = whisperState.allAvailableModels.first else {
             XCTSkip("No models available")
+            return
         }
         
         whisperState.currentTranscriptionModel = model
@@ -217,6 +220,7 @@ final class WhisperStateTests: XCTestCase {
         // Test that multiple rapid toggleRecord calls are handled
         guard whisperState.allAvailableModels.first != nil else {
             XCTSkip("No models available")
+            return
         }
         
         // Try multiple toggles rapidly
@@ -404,7 +408,7 @@ final class WhisperStateTests: XCTestCase {
     func testWhisperStateDoesNotLeak() async {
         weak var weakState: WhisperState?
         
-        await autoreleasepool {
+        do {
             let container = try? ModelContainer.createInMemoryContainer()
             guard let container = container else {
                 XCTFail("Failed to create container")
@@ -431,7 +435,7 @@ final class WhisperStateTests: XCTestCase {
     func testWhisperStateWithRecordingDoesNotLeak() async {
         weak var weakState: WhisperState?
         
-        await autoreleasepool {
+        do {
             let container = try? ModelContainer.createInMemoryContainer()
             guard let container = container else {
                 XCTFail("Failed to create container")

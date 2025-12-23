@@ -50,7 +50,7 @@ class AudioDeviceManager: ObservableObject {
             self?.initializeSelectedDevice()
         }
         
-        if let savedMode = UserDefaults.standard.audioInputModeRawValue,
+        if let savedMode = AppSettings.AudioInput.audioInputModeRawValue,
            let mode = AudioInputMode(rawValue: savedMode) {
             inputMode = mode
         }
@@ -80,7 +80,7 @@ class AudioDeviceManager: ObservableObject {
             return
         }
         
-        if let savedUID = UserDefaults.standard.selectedAudioDeviceUID {
+        if let savedUID = AppSettings.AudioInput.selectedAudioDeviceUID {
             if let device = availableDevices.first(where: { $0.uid == savedUID }) {
                 selectedDeviceID = device.id
                 logger.info("Loaded saved device UID: \(savedUID), mapped to ID: \(device.id)")
@@ -89,7 +89,7 @@ class AudioDeviceManager: ObservableObject {
                 }
             } else {
                 logger.warning("Saved device UID \(savedUID) is no longer available")
-                UserDefaults.standard.removeObject(forKey: UserDefaults.Keys.selectedAudioDeviceUID)
+                AppSettings.AudioInput.selectedAudioDeviceUID = nil
                 fallbackToDefaultDevice()
             }
         } else {
@@ -228,7 +228,7 @@ class AudioDeviceManager: ObservableObject {
             let uid = deviceToSelect.uid
             // Already on MainActor, no need for DispatchQueue.main.async
             self.selectedDeviceID = id
-            UserDefaults.standard.selectedAudioDeviceUID = uid
+            AppSettings.AudioInput.selectedAudioDeviceUID = uid
             self.logger.info("Device selection saved with UID: \(uid)")
             self.notifyDeviceChange()
         } else {
@@ -246,8 +246,8 @@ class AudioDeviceManager: ObservableObject {
             // Already on MainActor, perform atomically
             self.inputMode = .custom
             self.selectedDeviceID = id
-            UserDefaults.standard.audioInputModeRawValue = AudioInputMode.custom.rawValue
-            UserDefaults.standard.selectedAudioDeviceUID = uid
+            AppSettings.AudioInput.audioInputModeRawValue = AudioInputMode.custom.rawValue
+            AppSettings.AudioInput.selectedAudioDeviceUID = uid
             self.notifyDeviceChange()
         } else {
             logger.error("Attempted to select unavailable device: \(id)")
@@ -257,11 +257,11 @@ class AudioDeviceManager: ObservableObject {
     
     func selectInputMode(_ mode: AudioInputMode) {
         inputMode = mode
-        UserDefaults.standard.audioInputModeRawValue = mode.rawValue
+        AppSettings.AudioInput.audioInputModeRawValue = mode.rawValue
         
         if mode == .systemDefault {
             selectedDeviceID = nil
-            UserDefaults.standard.removeObject(forKey: UserDefaults.Keys.selectedAudioDeviceUID)
+            AppSettings.AudioInput.selectedAudioDeviceUID = nil
         } else if selectedDeviceID == nil {
             if inputMode == .custom {
                 if let firstDevice = availableDevices.first {
@@ -297,7 +297,7 @@ class AudioDeviceManager: ObservableObject {
     }
     
     private func loadPrioritizedDevices() {
-        if let data = UserDefaults.standard.prioritizedDevicesData,
+        if let data = AppSettings.AudioInput.prioritizedDevicesData,
            let devices = try? JSONDecoder().decode([PrioritizedDevice].self, from: data) {
             prioritizedDevices = devices
             logger.info("Loaded \(devices.count) prioritized devices")
@@ -306,7 +306,7 @@ class AudioDeviceManager: ObservableObject {
     
     func savePrioritizedDevices() {
         if let data = try? JSONEncoder().encode(prioritizedDevices) {
-            UserDefaults.standard.prioritizedDevicesData = data
+            AppSettings.AudioInput.prioritizedDevicesData = data
             logger.info("Saved \(self.prioritizedDevices.count) prioritized devices")
         }
     }
@@ -448,15 +448,16 @@ class AudioDeviceManager: ObservableObject {
         
         var address = createPropertyAddress(selector: selector, scope: scope)
         var propertySize = UInt32(MemoryLayout<T>.size)
-        var property: T? = nil
-        
+        let propertyPointer = UnsafeMutablePointer<T>.allocate(capacity: 1)
+        defer { propertyPointer.deallocate() }
+
         let status = AudioObjectGetPropertyData(
             deviceID,
             &address,
             0,
             nil,
             &propertySize,
-            &property
+            propertyPointer
         )
         
         if status != noErr {
@@ -464,7 +465,7 @@ class AudioDeviceManager: ObservableObject {
             return nil
         }
         
-        return property
+        return propertyPointer.pointee
     }
     
     private func notifyDeviceChange() {

@@ -9,11 +9,6 @@ final class TranscriptionAutoCleanupService {
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "TranscriptionAutoCleanupService")
     private var modelContext: ModelContext?
 
-    private let keyIsEnabled = "IsTranscriptionCleanupEnabled"
-    private let keyRetentionMinutes = "TranscriptionRetentionMinutes"
-
-    private let defaultRetentionMinutes: Int = 24 * 60
-
     private init() {}
     
     deinit {
@@ -32,7 +27,7 @@ final class TranscriptionAutoCleanupService {
             object: nil
         )
 
-        if UserDefaults.standard.bool(forKey: keyIsEnabled) {
+        if AppSettings.Cleanup.isTranscriptionCleanupEnabled {
             
             Task { [weak self] in
                 guard let self = self, let modelContext = self.modelContext else { return }
@@ -50,10 +45,10 @@ final class TranscriptionAutoCleanupService {
     }
 
     @objc private func handleTranscriptionCompleted(_ notification: Notification) {
-        let isEnabled = UserDefaults.standard.bool(forKey: keyIsEnabled)
+        let isEnabled = AppSettings.Cleanup.isTranscriptionCleanupEnabled
         guard isEnabled else { return }
 
-        let minutes = UserDefaults.standard.integer(forKey: keyRetentionMinutes)
+        let minutes = AppSettings.Cleanup.transcriptionRetentionMinutes
         if minutes > 0 {
             // Trigger a sweep based on the retention window
             if let modelContext = self.modelContext {
@@ -90,11 +85,11 @@ final class TranscriptionAutoCleanupService {
     }
 
     private func sweepOldTranscriptions(modelContext: ModelContext) async {
-        guard UserDefaults.standard.bool(forKey: keyIsEnabled) else {
+        guard AppSettings.Cleanup.isTranscriptionCleanupEnabled else {
             return
         }
 
-        let retentionMinutes = UserDefaults.standard.integer(forKey: keyRetentionMinutes)
+        let retentionMinutes = AppSettings.Cleanup.transcriptionRetentionMinutes
         let effectiveMinutes = max(retentionMinutes, 0)
 
         let cutoffDate = Date().addingTimeInterval(TimeInterval(-effectiveMinutes * 60))
@@ -113,6 +108,7 @@ final class TranscriptionAutoCleanupService {
                 if let urlString = transcription.audioFileURL,
                    let url = URL(string: urlString),
                    FileManager.default.fileExists(atPath: url.path) {
+                    // Best-effort cleanup; file may already be removed.
                     try? FileManager.default.removeItem(at: url)
                 }
                 modelContext.delete(transcription)

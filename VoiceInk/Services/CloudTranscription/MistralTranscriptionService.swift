@@ -1,9 +1,9 @@
 import Foundation
 import os
 
-class MistralTranscriptionService {
+class MistralTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProvider {
+    let supportedProvider: ModelProvider = .mistral
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "MistralTranscriptionService")
-    private let session = SecureURLSession.makeEphemeral()
     
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         logger.notice("Sending transcription request to Mistral for model: \(model.name)")
@@ -20,17 +20,11 @@ class MistralTranscriptionService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
 
-        let boundary = "Boundary-\(UUID().uuidString)"
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        var formData = MultipartFormDataBuilder()
+        request.setValue(formData.contentType, forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
 
-        var body = Data()
-
-        // Add model field
-        body.append(Data("--\(boundary)\r\n".utf8))
-        body.append(Data("Content-Disposition: form-data; name=\"model\"\r\n\r\n".utf8))
-        body.append(Data(model.name.utf8))
-        body.append(Data("\r\n".utf8))
+        formData.addField(name: "model", value: model.name)
 
         // Add file data - matching Python SDK structure (no language field as it's commented out in all Python examples)
         let audioData: Data
@@ -39,27 +33,22 @@ class MistralTranscriptionService {
         } catch {
             throw CloudTranscriptionError.audioFileNotFound
         }
-        body.append(Data("--\(boundary)\r\n".utf8))
-        body.append(Data("Content-Disposition: form-data; name=\"file\"; filename=\"\(audioURL.lastPathComponent)\"\r\n".utf8))
-        body.append(Data("Content-Type: audio/wav\r\n\r\n".utf8))
-        body.append(audioData)
-        body.append(Data("\r\n".utf8))
 
-        body.append(Data("--\(boundary)--\r\n".utf8))
+        formData.addFile(
+            name: "file",
+            filename: audioURL.lastPathComponent,
+            data: audioData,
+            contentType: "audio/wav"
+        )
 
-        request.httpBody = body
+        request.httpBody = formData.finalize()
         
         do {
             let (data, response) = try await session.data(for: request)
-
-            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-                let errorResponse = String(data: data, encoding: .utf8) ?? "No response body"
-                logger.error("Mistral transcription request failed with status code \((response as? HTTPURLResponse)?.statusCode ?? 500): \(errorResponse)")
-                throw CloudTranscriptionError.apiRequestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500, message: errorResponse)
-            }
+            let responseData = try validateResponse(response, data: data, logger: logger, providerName: "Mistral")
 
             do {
-                let transcriptionResponse = try JSONDecoder().decode(MistralTranscriptionResponse.self, from: data)
+                let transcriptionResponse = try JSONDecoder().decode(MistralTranscriptionResponse.self, from: responseData)
                 logger.notice("Successfully received transcription from Mistral.")
                 return transcriptionResponse.text
             } catch {

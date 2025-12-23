@@ -8,7 +8,6 @@ class APIKeyMigrationService {
     
     /// Run migration on app launch (idempotent, retries until all keys migrated)
     static func migrateAPIKeysIfNeeded() {
-        let defaults = UserDefaults.standard
         let keychain = KeychainManager()
         
         // Define all API keys to migrate
@@ -35,30 +34,35 @@ class APIKeyMigrationService {
             // Check if already migrated (key in Keychain, not in UserDefaults)
             if keychain.hasAPIKey(for: provider) {
                 // Already in Keychain, clean up UserDefaults if needed
-                if defaults.string(forKey: oldKey) != nil {
-                    defaults.removeObject(forKey: oldKey)
+                if AppSettings.contains(key: oldKey) {
+                    AppSettings.removeValue(forKey: oldKey)
                     logger.info("🧹 Cleaned up migrated key from UserDefaults: \(provider, privacy: .public)")
                 }
                 continue
             }
             
             // Check if key exists in UserDefaults
-            if let apiKey = defaults.string(forKey: oldKey), !apiKey.isEmpty {
-                needsMigration = true
-                
-                // Attempt to migrate to Keychain
-                keychain.saveAPIKey(apiKey, for: provider)
-                
-                // Verify save was successful
-                if keychain.hasAPIKey(for: provider) {
-                    // Successfully migrated, remove from UserDefaults
-                    defaults.removeObject(forKey: oldKey)
-                    migratedThisRun += 1
-                    logger.info("✅ Migrated \(provider, privacy: .public) API key to Keychain")
-                } else {
-                    // Failed to save to Keychain, keep in UserDefaults for retry
-                    logger.error("❌ Failed to migrate \(provider, privacy: .public) - will retry next launch")
-                }
+            guard AppSettings.contains(key: oldKey) else { continue }
+            let apiKey = AppSettings.string(forKey: oldKey, default: "")
+            guard !apiKey.isEmpty else { continue }
+            needsMigration = true
+
+            // Attempt to migrate to Keychain
+            do {
+                try keychain.saveAPIKey(apiKey, for: provider)
+            } catch {
+                logger.error("❌ Failed to save \(provider, privacy: .public) API key: \(error.localizedDescription, privacy: .public)")
+            }
+
+            // Verify save was successful
+            if keychain.hasAPIKey(for: provider) {
+                // Successfully migrated, remove from UserDefaults
+                AppSettings.removeValue(forKey: oldKey)
+                migratedThisRun += 1
+                logger.info("✅ Migrated \(provider, privacy: .public) API key to Keychain")
+            } else {
+                // Failed to save to Keychain, keep in UserDefaults for retry
+                logger.error("❌ Failed to migrate \(provider, privacy: .public) - will retry next launch")
             }
         }
         
@@ -70,20 +74,17 @@ class APIKeyMigrationService {
             logger.debug("Migration check complete - all keys already in Keychain")
         }
         
-        defaults.synchronize()
     }
     
     /// Force clean all keys from UserDefaults (for testing purposes only)
     static func resetMigration() {
         #if DEBUG
-        let defaults = UserDefaults.standard
         let keysToRemove = ["GROQAPIKey", "ElevenLabsAPIKey", "DeepgramAPIKey", 
                             "MistralAPIKey", "GeminiAPIKey", "SonioxAPIKey",
                             "CerebrasAPIKey", "AnthropicAPIKey", "OpenAIAPIKey", "OpenRouterAPIKey"]
         for key in keysToRemove {
-            defaults.removeObject(forKey: key)
+            AppSettings.removeValue(forKey: key)
         }
-        defaults.synchronize()
         logger.debug("Migration reset - all keys removed from UserDefaults")
         #endif
     }

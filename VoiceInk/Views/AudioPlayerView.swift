@@ -58,11 +58,10 @@ class AudioPlayerManager: ObservableObject {
             duration = audioPlayer?.duration ?? 0
             isLoadingWaveform = true
             
-            Task {
+            Task.detached { [weak self] in
                 let samples = await WaveformGenerator.generateWaveformSamples(from: url)
-                await MainActor.run {
-                    self.waveformSamples = samples
-                    self.isLoadingWaveform = false
+                Task { @MainActor [weak self] in
+                    self?.updateWaveformSamples(samples)
                 }
             }
         } catch {
@@ -92,11 +91,13 @@ class AudioPlayerManager: ObservableObject {
     private func startTimer() {
         stopTimer()
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            self.currentTime = self.audioPlayer?.currentTime ?? 0
-            if self.currentTime >= self.duration {
-                self.pause()
-                self.seek(to: 0)
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                self.currentTime = self.audioPlayer?.currentTime ?? 0
+                if self.currentTime >= self.duration {
+                    self.pause()
+                    self.seek(to: 0)
+                }
             }
         }
     }
@@ -104,6 +105,11 @@ class AudioPlayerManager: ObservableObject {
     private func stopTimer() {
         timer?.invalidate()
         timer = nil
+    }
+    
+    private func updateWaveformSamples(_ samples: [Float]) {
+        waveformSamples = samples
+        isLoadingWaveform = false
     }
     
     deinit {

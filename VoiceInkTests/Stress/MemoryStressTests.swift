@@ -1,5 +1,6 @@
 import XCTest
 import SwiftData
+import Combine
 @testable import VoiceInk
 
 /// Stress tests for memory leak detection
@@ -18,7 +19,7 @@ final class MemoryStressTests: XCTestCase {
             try? FileManager.default.removeItem(at: testDir)
         }
         
-        await autoreleasepool {
+        do {
             let recorder = Recorder()
             weakRecorder = recorder
             
@@ -37,7 +38,7 @@ final class MemoryStressTests: XCTestCase {
     
     func testRecorderRapidAllocDealloc() async {
         for _ in 0..<50 {
-            await autoreleasepool {
+            do {
                 let recorder = Recorder()
                 _ = recorder.audioMeter
                 _ = recorder.recordingDuration
@@ -54,7 +55,7 @@ final class MemoryStressTests: XCTestCase {
     func testAudioDeviceManagerMultipleInstances() async {
         var weakManagers: [AudioDeviceManager?] = []
         
-        await autoreleasepool {
+        do {
             for _ in 0..<20 {
                 let manager = AudioDeviceManager()
                 weakManagers.append(manager)
@@ -79,7 +80,7 @@ final class MemoryStressTests: XCTestCase {
     func testAudioLevelMonitorExtremeCycles() async {
         weak var weakMonitor: AudioLevelMonitor?
         
-        await autoreleasepool {
+        do {
             let monitor = AudioLevelMonitor()
             weakMonitor = monitor
             
@@ -99,7 +100,7 @@ final class MemoryStressTests: XCTestCase {
     func testAudioLevelMonitorRapidCreation() async {
         // Test the critical deinit race under stress
         for _ in 0..<100 {
-            await autoreleasepool {
+            do {
                 let monitor = AudioLevelMonitor()
                 monitor.startMonitoring()
                 try? await Task.sleep(nanoseconds: 20_000_000)
@@ -117,7 +118,7 @@ final class MemoryStressTests: XCTestCase {
     func testWhisperStateMultipleInstances() async {
         var weakStates: [WhisperState?] = []
         
-        await autoreleasepool {
+        do {
             for _ in 0..<10 {
                 let container = try? ModelContainer.createInMemoryContainer()
                 guard let container = container else { continue }
@@ -145,7 +146,7 @@ final class MemoryStressTests: XCTestCase {
     
     func testTTSViewModelHundredInstances() async {
         for _ in 0..<100 {
-            await autoreleasepool {
+            do {
                 let vm = TTSViewModel()
                 vm.inputText = "Test text for memory stress"
                 _ = vm.availableVoices
@@ -162,16 +163,16 @@ final class MemoryStressTests: XCTestCase {
     func testTTSViewModelWithActivePublishers() async {
         weak var weakVM: TTSViewModel?
         
-        await autoreleasepool {
+        do {
             let vm = TTSViewModel()
             weakVM = vm
             
             var cancellables = Set<AnyCancellable>()
             
             // Subscribe to many publishers
-            vm.$isGenerating.sink { _ in }.store(in: &cancellables)
-            vm.$isPlaying.sink { _ in }.store(in: &cancellables)
-            vm.$currentTime.sink { _ in }.store(in: &cancellables)
+            vm.generation.$isGenerating.sink { _ in }.store(in: &cancellables)
+            vm.playback.$isPlaying.sink { _ in }.store(in: &cancellables)
+            vm.playback.$currentTime.sink { _ in }.store(in: &cancellables)
             vm.$inputText.sink { _ in }.store(in: &cancellables)
             
             // Trigger updates
@@ -197,17 +198,18 @@ final class MemoryStressTests: XCTestCase {
             id: UUID(),
             name: "Stress Test",
             emoji: "⚡",
-            appIdentifier: "com.test",
-            urlPattern: nil,
-            isEnabled: true,
+            appConfigs: [AppConfig(bundleIdentifier: "com.test", appName: "Test App")],
+            urlConfigs: nil,
             isAIEnhancementEnabled: false,
-            useScreenCapture: false,
             selectedPrompt: nil,
+            selectedTranscriptionModelName: nil,
+            selectedLanguage: nil,
+            useScreenCapture: false,
             selectedAIProvider: nil,
             selectedAIModel: nil,
-            selectedLanguage: nil,
-            selectedTranscriptionModelName: nil,
-            isAutoSendEnabled: false
+            isAutoSendEnabled: false,
+            isEnabled: true,
+            isDefault: false
         )
         
         for _ in 0..<50 {
@@ -218,7 +220,7 @@ final class MemoryStressTests: XCTestCase {
         }
         
         // Should complete without leaking
-        XCTAssertNil(manager.loadSession(), "Should have no active session")
+        XCTAssertNil(AppSettings.PowerMode.activeSessionData, "Should have no active session")
     }
     
     // MARK: - KeychainManager Memory Stress
@@ -235,7 +237,7 @@ final class MemoryStressTests: XCTestCase {
             let provider = "Provider\(i % 10)" // 10 different providers
             let key = "key-\(i)"
             
-            manager.saveAPIKey(key, for: provider)
+            try? manager.saveAPIKey(key, for: provider)
             _ = manager.getAPIKey(for: provider)
             
             if i % 100 == 0 {
@@ -255,7 +257,7 @@ final class MemoryStressTests: XCTestCase {
         weak var weakMonitor: AudioLevelMonitor?
         weak var weakManager: AudioDeviceManager?
         
-        await autoreleasepool {
+        do {
             let recorder = Recorder()
             let monitor = AudioLevelMonitor()
             let manager = AudioDeviceManager()
@@ -288,7 +290,7 @@ final class MemoryStressTests: XCTestCase {
     func testTimerCleanupUnderStress() async {
         // Create many components with timers
         for _ in 0..<50 {
-            await autoreleasepool {
+            do {
                 let recorder = Recorder()
                 let monitor = AudioLevelMonitor()
                 let testDir = createTemporaryDirectory()
@@ -319,7 +321,7 @@ final class MemoryStressTests: XCTestCase {
     func testNotificationObserverCleanupStress() async {
         // Create many components that use NotificationCenter
         for _ in 0..<100 {
-            await autoreleasepool {
+            do {
                 let manager = AudioDeviceManager()
                 _ = manager.getCurrentDevice()
                 
@@ -352,7 +354,7 @@ final class MemoryStressTests: XCTestCase {
         
         // Create many audio files rapidly
         for i in 0..<100 {
-            await autoreleasepool {
+            do {
                 let recorder = Recorder()
                 let file = testDir.appendingPathComponent("stress_\(i).wav")
                 
@@ -379,7 +381,7 @@ final class MemoryStressTests: XCTestCase {
         
         // Create many transcriptions rapidly
         for i in 0..<1000 {
-            await autoreleasepool {
+            do {
                 let transcription = Transcription(
                     text: "Stress test \(i)",
                     duration: 1.0,

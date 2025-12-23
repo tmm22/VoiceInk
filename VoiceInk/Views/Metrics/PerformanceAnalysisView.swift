@@ -201,7 +201,7 @@ struct PerformanceAnalysisView: View {
             let avgAudioDuration = totalAudioDuration / Double(fileCount)
             
             var speedFactor = 0.0
-            if let audioDurationKeyPath = audioDurationKeyPath, totalProcessingTime > 0 {
+            if audioDurationKeyPath != nil, totalProcessingTime > 0 {
                 speedFactor = totalAudioDuration / totalProcessingTime
             }
             

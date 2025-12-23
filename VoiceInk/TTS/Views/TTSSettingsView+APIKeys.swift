@@ -158,7 +158,7 @@ extension TTSSettingsView {
                     Text("Managed Provisioning")
                         .fontWeight(.medium)
                     Spacer()
-                    if let snapshot = viewModel.managedAccountSnapshot {
+                    if let snapshot = settings.managedAccountSnapshot {
                         Text("Plan: \(snapshot.planTier.capitalized) • Status: \(snapshot.billingStatus.capitalized)")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -178,7 +178,7 @@ extension TTSSettingsView {
                         .textFieldStyle(.roundedBorder)
                 }
 
-                if let error = viewModel.managedProvisioningError {
+                if let error = settings.managedProvisioningError {
                     Text(error)
                         .font(.caption)
                         .foregroundColor(.red)
@@ -186,12 +186,12 @@ extension TTSSettingsView {
 
                 HStack {
                     Button("Refresh Account") {
-                        Task { await viewModel.refreshManagedAccountSnapshot(silently: false) }
+                        Task { await settings.refreshManagedAccountSnapshot(silently: false) }
                     }
                     .disabled(!managedProvisioningEnabledToggle || managedBaseURL.isEmpty || managedAccountId.isEmpty)
 
                     Button("Clear", role: .destructive) {
-                        viewModel.clearManagedProvisioning()
+                        settings.clearManagedProvisioning()
                         loadManagedProvisioning()
                     }
                     .buttonStyle(.plain)

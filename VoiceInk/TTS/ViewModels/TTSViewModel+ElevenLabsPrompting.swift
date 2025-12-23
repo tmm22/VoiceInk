@@ -3,7 +3,7 @@ import Foundation
 // MARK: - ElevenLabs Prompting Helpers
 extension TTSViewModel {
     func insertElevenLabsPromptAtTop() {
-        let trimmedPrompt = elevenLabsPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPrompt = settings.elevenLabsPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedPrompt.isEmpty else { return }
 
         let promptBlock = "\(trimmedPrompt)\n\n"
@@ -44,15 +44,15 @@ extension TTSViewModel {
             normalized.append("]")
         }
 
-        guard !elevenLabsTags.contains(normalized) else { return }
-        elevenLabsTags.append(normalized)
+        guard !settings.elevenLabsTags.contains(normalized) else { return }
+        settings.elevenLabsTags.append(normalized)
     }
 
     func removeElevenLabsTag(_ token: String) {
-        elevenLabsTags.removeAll { $0 == token }
+        settings.elevenLabsTags.removeAll { $0 == token }
     }
 
     func resetElevenLabsTagsToDefaults() {
-        elevenLabsTags = ElevenLabsVoiceTag.defaultTokens
+        settings.elevenLabsTags = ElevenLabsVoiceTag.defaultTokens
     }
 }

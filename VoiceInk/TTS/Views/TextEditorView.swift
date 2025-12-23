@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TextEditorView: View {
     @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var settings: TTSSettingsViewModel
     @FocusState private var isFocused: Bool
     @State private var isHovering = false
     
@@ -16,7 +17,7 @@ struct TextEditorView: View {
                             isFocused ? Color.accentColor.opacity(0.5) :
                             isHovering ? Color.secondary.opacity(0.3) :
                             Color.secondary.opacity(0.2),
-                            lineWidth: isFocused ? (viewModel.isMinimalistMode ? 1.5 : 2) : 1
+                            lineWidth: isFocused ? (settings.isMinimalistMode ? 1.5 : 2) : 1
                         )
                 )
                 .allowsHitTesting(false)
@@ -27,12 +28,12 @@ struct TextEditorView: View {
             TextEditor(text: $viewModel.inputText)
                 .font(.system(size: 14, weight: .regular, design: .default))
                 .focused($isFocused)
-                .frame(minHeight: viewModel.isMinimalistMode ? 220 : 260)
-                .padding(viewModel.isMinimalistMode ? 6 : 8)
+                .frame(minHeight: settings.isMinimalistMode ? 220 : 260)
+                .padding(settings.isMinimalistMode ? 6 : 8)
                 .background(Color.clear)
                 .scrollContentBackground(.hidden)
                 .onChange(of: viewModel.inputText) { _, newValue in
-                    let limit = viewModel.currentCharacterLimit
+                    let limit = settings.currentCharacterLimit
                     guard newValue.count > limit else { return }
 
                     if viewModel.shouldAllowCharacterOverflow(for: newValue) {
@@ -54,7 +55,7 @@ struct TextEditorView: View {
         }
         .frame(minWidth: 0,
                maxWidth: .infinity,
-               minHeight: viewModel.isMinimalistMode ? 220 : 260,
+               minHeight: settings.isMinimalistMode ? 220 : 260,
                maxHeight: .infinity,
                alignment: .topLeading)
         .onHover { hovering in
@@ -157,8 +158,10 @@ extension TextEditorView {
 // Preview
 struct TextEditorView_Previews: PreviewProvider {
     static var previews: some View {
+        let viewModel = TTSViewModel()
         TextEditorView()
-            .environmentObject(TTSViewModel())
+            .environmentObject(viewModel)
+            .environmentObject(viewModel.settings)
             .frame(width: 600, height: 400)
             .padding()
     }

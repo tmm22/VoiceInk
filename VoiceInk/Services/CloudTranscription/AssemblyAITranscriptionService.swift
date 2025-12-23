@@ -1,8 +1,8 @@
 import Foundation
 
-class AssemblyAITranscriptionService {
+class AssemblyAITranscriptionService: CloudTranscriptionBase, CloudTranscriptionProvider {
+    let supportedProvider: ModelProvider = .assemblyAI
     private let baseURL = "https://api.assemblyai.com/v2"
-    private let session = SecureURLSession.makeEphemeral()
     
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         let apiKey = try getAPIKey()
@@ -58,18 +58,11 @@ class AssemblyAITranscriptionService {
             throw error
         }
         
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
-        }
-        
-        if !(200...299).contains(httpResponse.statusCode) {
-            let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
-        }
+        let responseData = try validateResponse(response, data: data, providerName: "AssemblyAI")
         
         // Parse upload response to get upload_url
         do {
-            let uploadResponse = try JSONDecoder().decode(UploadResponse.self, from: data)
+            let uploadResponse = try JSONDecoder().decode(UploadResponse.self, from: responseData)
             return uploadResponse.upload_url
         } catch {
             #if DEBUG
@@ -109,7 +102,7 @@ class AssemblyAITranscriptionService {
         }
         
         // Add language hint if not set to auto-detect
-        let selectedLanguage = UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "auto"
+        let selectedLanguage = AppSettings.TranscriptionSettings.selectedLanguage ?? "auto"
         if selectedLanguage != "auto" && !selectedLanguage.isEmpty {
             payload["language_code"] = selectedLanguage
         } else {
@@ -127,19 +120,11 @@ class AssemblyAITranscriptionService {
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
         
         let (data, response) = try await session.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
-        }
-        
-        if !(200...299).contains(httpResponse.statusCode) {
-            let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
-        }
+        let responseData = try validateResponse(response, data: data, providerName: "AssemblyAI")
         
         // Parse response to get transcript ID
         do {
-            let createResponse = try JSONDecoder().decode(TranscriptCreateResponse.self, from: data)
+            let createResponse = try JSONDecoder().decode(TranscriptCreateResponse.self, from: responseData)
             return createResponse.id
         } catch {
             #if DEBUG
@@ -164,19 +149,11 @@ class AssemblyAITranscriptionService {
             request.setValue(apiKey, forHTTPHeaderField: "Authorization")
             
             let (data, response) = try await session.data(for: request)
-            
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
-            }
-            
-            if !(200...299).contains(httpResponse.statusCode) {
-                let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-                throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
-            }
+            let responseData = try validateResponse(response, data: data, providerName: "AssemblyAI")
             
             // Parse status response
             do {
-                let statusResponse = try JSONDecoder().decode(TranscriptStatusResponse.self, from: data)
+                let statusResponse = try JSONDecoder().decode(TranscriptStatusResponse.self, from: responseData)
                 
                 switch statusResponse.status.lowercased() {
                 case "completed":
@@ -226,7 +203,7 @@ class AssemblyAITranscriptionService {
     }
     
     private func getCustomDictionaryTerms() -> [String] {
-        guard let data = UserDefaults.standard.data(forKey: "CustomVocabularyItems") else {
+        guard let data = AppSettings.Dictionary.customVocabularyItemsData else {
             return []
         }
         

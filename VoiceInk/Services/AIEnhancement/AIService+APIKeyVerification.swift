@@ -35,8 +35,10 @@ extension AIService {
     // MARK: - OpenAI Compatible Verification
     
     func verifyOpenAICompatibleAPIKey(_ key: String, completion: @escaping (Bool, String?) -> Void) {
-        let baseURL = self.selectedProvider.baseURL
-        let allowLocalhost = self.selectedProvider == .ollama
+        let selectedProvider = self.selectedProvider
+        let baseURL = selectedProvider.baseURL
+        let allowLocalhost = selectedProvider == .ollama
+        let providerName = selectedProvider.rawValue
         let url: URL
 
         do {
@@ -67,11 +69,11 @@ extension AIService {
             return
         }
         
-        logger.notice("🔑 Verifying API key for \(self.selectedProvider.rawValue, privacy: .public) provider at \(url.absoluteString, privacy: .public)")
+        logger.notice("🔑 Verifying API key for \(providerName, privacy: .public) provider at \(url.absoluteString, privacy: .public)")
         
         session.dataTask(with: request) { data, response, error in
             if let error = error {
-                self.logger.notice("🔑 API key verification failed for \(self.selectedProvider.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                self.logger.notice("🔑 API key verification failed for \(providerName, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 completion(false, error.localizedDescription)
                 return
             }
@@ -82,19 +84,19 @@ extension AIService {
                 if !isValid {
                     // Log and return the exact API error response
                     if let data = data, let exactAPIError = String(data: data, encoding: .utf8) {
-                        self.logger.notice("🔑 API key verification failed for \(self.selectedProvider.rawValue, privacy: .public) - Status: \(httpResponse.statusCode) - \(exactAPIError, privacy: .public)")
+                        self.logger.notice("🔑 API key verification failed for \(providerName, privacy: .public) - Status: \(httpResponse.statusCode) - \(exactAPIError, privacy: .public)")
                         // Truncate error message to 500 characters to prevent UI overflow
                         let truncatedError = exactAPIError.count > 500 ? String(exactAPIError.prefix(500)) + "..." : exactAPIError
                         completion(false, truncatedError)
                     } else {
-                        self.logger.notice("🔑 API key verification failed for \(self.selectedProvider.rawValue, privacy: .public) - Status: \(httpResponse.statusCode)")
+                        self.logger.notice("🔑 API key verification failed for \(providerName, privacy: .public) - Status: \(httpResponse.statusCode)")
                         completion(false, "Verification failed with status code \(httpResponse.statusCode)")
                     }
                 } else {
                     completion(true, nil)
                 }
             } else {
-                self.logger.notice("🔑 API key verification failed for \(self.selectedProvider.rawValue, privacy: .public): Invalid response")
+                self.logger.notice("🔑 API key verification failed for \(providerName, privacy: .public): Invalid response")
                 completion(false, "Invalid response from server")
             }
         }.resume()

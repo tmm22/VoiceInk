@@ -6,6 +6,16 @@
 
 ---
 
+## 2025-12-23 Update
+
+- Targeted test pass completed for refactor-aligned suites:
+  - `KeychainManagerTests`, `AIServiceTests`, `TTSServiceTests`, `TTSViewModelTests`
+- Command used:
+  - `xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug -sdk macosx -destination 'platform=macOS' -derivedDataPath build/DerivedData CODE_SIGNING_ALLOWED=NO test -only-testing:VoiceInkTests/KeychainManagerTests -only-testing:VoiceInkTests/AIServiceTests -only-testing:VoiceInkTests/TTSServiceTests -only-testing:VoiceInkTests/TTSViewModelTests`
+- Full integration/stress runs remain pending due to long-running model downloads (FluidAudio/Parakeet).
+
+---
+
 ## 🎯 Mission
 
 Build comprehensive testing framework to identify and fix ALL crashes in VoiceInk through systematic testing of every critical code path.

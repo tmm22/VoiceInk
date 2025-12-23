@@ -83,6 +83,7 @@ enum BrowserURLError: Error {
     case noActiveTab
 }
 
+@MainActor
 class BrowserURLService {
     static let shared = BrowserURLService()
     

@@ -1,23 +1,24 @@
 import SwiftUI
 
 struct URLImportView: View {
-    @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var settings: TTSSettingsViewModel
+    @EnvironmentObject var importExport: TTSImportExportViewModel
     @State private var urlString: String = ""
     @State private var shouldAutoGenerate: Bool = true
 
     var body: some View {
-        VStack(alignment: .leading, spacing: viewModel.isMinimalistMode ? 8 : 12) {
-            HStack(alignment: .center, spacing: viewModel.isMinimalistMode ? 8 : 12) {
+        VStack(alignment: .leading, spacing: settings.isMinimalistMode ? 8 : 12) {
+            HStack(alignment: .center, spacing: settings.isMinimalistMode ? 8 : 12) {
                 TextField("https://example.com/article", text: $urlString)
                     .textFieldStyle(.roundedBorder)
-                    .disabled(viewModel.isImportingFromURL)
+                    .disabled(importExport.isImportingFromURL)
                     .onSubmit { triggerImport(autoGenerate: shouldAutoGenerate) }
                     .frame(minWidth: 240)
 
                 Button {
                     triggerImport(autoGenerate: false)
                 } label: {
-                    if viewModel.isMinimalistMode {
+                    if settings.isMinimalistMode {
                         Image(systemName: "tray.and.arrow.down")
                             .imageScale(.large)
                     } else {
@@ -26,13 +27,13 @@ struct URLImportView: View {
                     }
                 }
                 .buttonStyle(.bordered)
-                .disabled(viewModel.isImportingFromURL)
+                .disabled(importExport.isImportingFromURL)
                 .help("Import the page content without generating audio")
 
                 Button {
                     triggerImport(autoGenerate: true)
                 } label: {
-                    if viewModel.isMinimalistMode {
+                    if settings.isMinimalistMode {
                         Image(systemName: "waveform.badge.mic")
                             .imageScale(.large)
                     } else {
@@ -41,17 +42,17 @@ struct URLImportView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(viewModel.isImportingFromURL)
+                .disabled(importExport.isImportingFromURL)
                 .help("Import the page content and immediately generate speech")
             }
 
-            HStack(spacing: viewModel.isMinimalistMode ? 8 : 12) {
+            HStack(spacing: settings.isMinimalistMode ? 8 : 12) {
                 Toggle(isOn: $shouldAutoGenerate) {
                     Text("Auto-generate after import")
                 }
-                .disabled(viewModel.isImportingFromURL)
+                .disabled(importExport.isImportingFromURL)
 
-                if viewModel.isImportingFromURL {
+                if importExport.isImportingFromURL {
                     ProgressView()
                         .progressViewStyle(.circular)
                 }
@@ -69,15 +70,18 @@ struct URLImportView: View {
 
     private func triggerImport(autoGenerate: Bool) {
         Task {
-            await viewModel.importText(from: urlString, autoGenerate: autoGenerate && shouldAutoGenerate)
+            await importExport.importText(from: urlString, autoGenerate: autoGenerate && shouldAutoGenerate)
         }
     }
 }
 
 struct URLImportView_Previews: PreviewProvider {
     static var previews: some View {
+        let viewModel = TTSViewModel()
         URLImportView()
-            .environmentObject(TTSViewModel())
+            .environmentObject(viewModel)
+            .environmentObject(viewModel.settings)
+            .environmentObject(viewModel.importExport)
             .padding()
             .frame(width: 600)
     }

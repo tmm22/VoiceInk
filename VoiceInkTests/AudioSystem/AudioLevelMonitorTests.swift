@@ -398,7 +398,7 @@ final class AudioLevelMonitorTests: XCTestCase {
     func testMonitorDoesNotLeakAfterMultipleSessions() async {
         weak var weakMonitor: AudioLevelMonitor?
         
-        await autoreleasepool {
+        do {
             let monitor = AudioLevelMonitor()
             weakMonitor = monitor
             
@@ -419,7 +419,7 @@ final class AudioLevelMonitorTests: XCTestCase {
     func testMonitorWithTimerDoesNotLeak() async {
         weak var weakMonitor: AudioLevelMonitor?
         
-        await autoreleasepool {
+        do {
             let monitor = AudioLevelMonitor()
             weakMonitor = monitor
             

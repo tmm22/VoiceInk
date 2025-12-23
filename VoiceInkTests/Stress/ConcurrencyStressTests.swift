@@ -1,4 +1,6 @@
 import XCTest
+import CoreAudio
+import SwiftData
 @testable import VoiceInk
 
 /// Concurrency stress tests - extreme concurrent access scenarios
@@ -201,6 +203,7 @@ final class ConcurrencyStressTests: XCTestCase {
         let models = state.allAvailableModels
         guard !models.isEmpty else {
             XCTSkip("No models available")
+            return
         }
         
         // 500 tasks accessing/changing model
@@ -227,17 +230,18 @@ final class ConcurrencyStressTests: XCTestCase {
             id: UUID(),
             name: "Concurrency Test",
             emoji: "🔀",
-            appIdentifier: "com.test",
-            urlPattern: nil,
-            isEnabled: true,
+            appConfigs: [AppConfig(bundleIdentifier: "com.test", appName: "Test")],
+            urlConfigs: nil,
             isAIEnhancementEnabled: false,
-            useScreenCapture: false,
             selectedPrompt: nil,
+            selectedTranscriptionModelName: nil,
+            selectedLanguage: nil,
+            useScreenCapture: false,
             selectedAIProvider: nil,
             selectedAIModel: nil,
-            selectedLanguage: nil,
-            selectedTranscriptionModelName: nil,
-            isAutoSendEnabled: false
+            isAutoSendEnabled: false,
+            isEnabled: true,
+            isDefault: false
         )
         
         // 100 concurrent begin/end operations
@@ -257,7 +261,7 @@ final class ConcurrencyStressTests: XCTestCase {
         // Clean up
         await manager.endSession()
         
-        XCTAssertNil(manager.loadSession(), "Should handle concurrent operations")
+        XCTAssertNil(AppSettings.PowerMode.activeSessionData, "Should handle concurrent operations")
     }
     
     // MARK: - KeychainManager Concurrency Stress
@@ -276,7 +280,7 @@ final class ConcurrencyStressTests: XCTestCase {
                     let provider = "Provider\(i % 10)"
                     let key = "key-\(i)"
                     
-                    manager.saveAPIKey(key, for: provider)
+                    try? manager.saveAPIKey(key, for: provider)
                     return manager.getAPIKey(for: provider)
                 }
             }
@@ -303,7 +307,7 @@ final class ConcurrencyStressTests: XCTestCase {
         
         // Save keys first
         for i in 0..<20 {
-            manager.saveAPIKey("key\(i)", for: "Provider\(i)")
+            try? manager.saveAPIKey("key\(i)", for: "Provider\(i)")
         }
         
         // Delete concurrently

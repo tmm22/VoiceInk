@@ -35,25 +35,17 @@ actor WhisperContext {
         var params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY)
         
         // Read language directly from UserDefaults
-        let selectedLanguage = UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "auto"
+        let selectedLanguage = AppSettings.TranscriptionSettings.selectedLanguage ?? "auto"
         if selectedLanguage != "auto" {
             languageCString = Array(selectedLanguage.utf8CString)
-            params.language = languageCString?.withUnsafeBufferPointer { ptr in
-                ptr.baseAddress
-            }
         } else {
             languageCString = nil
-            params.language = nil
         }
         
-        if prompt != nil {
-            promptCString = Array(prompt!.utf8CString)
-            params.initial_prompt = promptCString?.withUnsafeBufferPointer { ptr in
-                ptr.baseAddress
-            }
+        if let prompt, !prompt.isEmpty {
+            promptCString = Array(prompt.utf8CString)
         } else {
             promptCString = nil
-            params.initial_prompt = nil
         }
         
         params.print_realtime = true
@@ -75,7 +67,7 @@ actor WhisperContext {
         whisper_reset_timings(context)
         
         // Configure VAD if enabled by user and model is available
-        let isVADEnabled = UserDefaults.standard.object(forKey: "IsVADEnabled") as? Bool ?? true
+        let isVADEnabled = AppSettings.TranscriptionSettings.isVADEnabled
         if isVADEnabled, let vadModelPath = self.vadModelPath {
             // VAD handling in whisper.cpp v1.8+ often uses a different mechanism or requires explicit flag updates
             // The previous `params.vad` bool might still be valid but let's check if struct layout changed.
@@ -103,12 +95,35 @@ actor WhisperContext {
             // Safest to set default if struct allows
         }
         
-        var success = true
-        samples.withUnsafeBufferPointer { samplesBuffer in
-            if whisper_full(context, params, samplesBuffer.baseAddress, Int32(samplesBuffer.count)) != 0 {
-                logger.error("Failed to run whisper_full.")
-                success = false
+        let runTranscription: (UnsafePointer<CChar>?, UnsafePointer<CChar>?) -> Bool = { languagePtr, promptPtr in
+            params.language = languagePtr
+            params.initial_prompt = promptPtr
+            var success = true
+            samples.withUnsafeBufferPointer { samplesBuffer in
+                if whisper_full(context, params, samplesBuffer.baseAddress, Int32(samplesBuffer.count)) != 0 {
+                    self.logger.error("Failed to run whisper_full.")
+                    success = false
+                }
             }
+            return success
+        }
+
+        let success: Bool
+        if let languageCString {
+            success = languageCString.withUnsafeBufferPointer { languagePtr in
+                if let promptCString {
+                    return promptCString.withUnsafeBufferPointer { promptPtr in
+                        runTranscription(languagePtr.baseAddress, promptPtr.baseAddress)
+                    }
+                }
+                return runTranscription(languagePtr.baseAddress, nil)
+            }
+        } else if let promptCString {
+            success = promptCString.withUnsafeBufferPointer { promptPtr in
+                runTranscription(nil, promptPtr.baseAddress)
+            }
+        } else {
+            success = runTranscription(nil, nil)
         }
         
         languageCString = nil

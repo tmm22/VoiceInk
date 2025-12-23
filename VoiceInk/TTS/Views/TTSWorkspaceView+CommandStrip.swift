@@ -5,6 +5,11 @@ import AppKit
 
 struct CommandStripView: View {
     @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var settings: TTSSettingsViewModel
+    @EnvironmentObject var importExport: TTSImportExportViewModel
+    @EnvironmentObject var playback: TTSPlaybackViewModel
+    @EnvironmentObject var generation: TTSSpeechGenerationViewModel
+    @EnvironmentObject var preview: TTSVoicePreviewViewModel
     let constants: ResponsiveConstants
     let isCompact: Bool
     let isInspectorVisible: Bool
@@ -38,6 +43,7 @@ struct CommandStripView: View {
             TTSInspectorView(isVisible: $showingInspectorPopover)
                 .frame(width: 320, height: 500)
                 .environmentObject(viewModel)
+                .environmentObject(playback)
         }
     }
 
@@ -82,22 +88,22 @@ struct CommandStripView: View {
         }()
         
         return HStack(spacing: 12) {
-            Picker("Provider", selection: $viewModel.selectedProvider) {
+            Picker("Provider", selection: $settings.selectedProvider) {
                 ForEach(TTSProviderType.allCases, id: \.self) { provider in
                     Label(provider.displayName, systemImage: provider.icon)
                         .tag(provider)
                 }
             }
-            .onChange(of: viewModel.selectedProvider) {
-                viewModel.updateAvailableVoices()
+            .onChange(of: settings.selectedProvider) {
+                settings.updateAvailableVoices()
             }
             .frame(minWidth: pickerWidth)
             .pickerStyle(MenuPickerStyle())
             .help("Choose the speech provider")
 
-            Picker("Voice", selection: $viewModel.selectedVoice) {
+            Picker("Voice", selection: $settings.selectedVoice) {
                 Text("Default").tag(nil as Voice?)
-                ForEach(viewModel.availableVoices) { voice in
+                ForEach(settings.availableVoices) { voice in
                     Text(voice.name).tag(voice as Voice?)
                 }
             }
@@ -115,18 +121,18 @@ struct CommandStripView: View {
                 .commandLabelFixedSize()
         }
         .buttonStyle(.bordered)
-        .disabled(viewModel.availableVoices.isEmpty)
+        .disabled(settings.availableVoices.isEmpty)
         .popover(isPresented: $showingPreviewPopover, arrowEdge: .top) {
             VoicePreviewPopover(isPresented: $showingPreviewPopover)
-                .environmentObject(viewModel)
+                .environmentObject(preview)
         }
         .help("Listen to sample audio for available voices")
     }
 
     private var voicePreviewButtonText: String {
-        if viewModel.isPreviewPlaying, let name = viewModel.previewVoiceName {
+        if preview.isPreviewPlaying, let name = preview.previewVoiceName {
             return "Previewing \(name)"
-        } else if let name = viewModel.previewVoiceName {
+        } else if let name = preview.previewVoiceName {
             return "Preview: \(name)"
         } else {
             return "Preview Voice"
@@ -134,9 +140,9 @@ struct CommandStripView: View {
     }
 
     private var voicePreviewButtonIcon: String {
-        if viewModel.isPreviewLoadingActive {
+        if preview.isPreviewLoadingActive {
             return "hourglass"
-        } else if viewModel.isPreviewPlaying {
+        } else if preview.isPreviewPlaying {
             return "speaker.wave.2.fill"
         } else {
             return "play.circle"
@@ -145,7 +151,7 @@ struct CommandStripView: View {
 
     private var characterCount: some View {
         let count = viewModel.effectiveCharacterCount
-        let formattedLimit = viewModel.formattedCharacterLimit(for: viewModel.selectedProvider)
+        let formattedLimit = settings.formattedCharacterLimit(for: settings.selectedProvider)
         let formattedCount = NumberFormatter.localizedString(from: NSNumber(value: count), number: .decimal)
         return Label("Characters: \(formattedCount)/\(formattedLimit)", systemImage: "textformat.alt")
             .font(.footnote)
@@ -180,16 +186,16 @@ struct CommandStripView: View {
 
     @ViewBuilder
     private var statusIndicator: some View {
-        if viewModel.isGenerating {
+        if generation.isGenerating {
             HStack(spacing: 6) {
-                ProgressView(value: viewModel.generationProgress)
+                ProgressView(value: generation.generationProgress)
                     .frame(width: 80)
                 Text("Generating")
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
             .commandLabelFixedSize()
-        } else if viewModel.isPlaying {
+        } else if playback.isPlaying {
             Label("Playing", systemImage: "speaker.wave.2.fill")
                 .font(.footnote)
                 .foregroundColor(.green)
@@ -198,18 +204,18 @@ struct CommandStripView: View {
     }
 
     private var batchButton: some View {
-        Button(action: viewModel.startBatchGeneration) {
+        Button(action: generation.startBatchGeneration) {
             Label("Batch", systemImage: "text.badge.plus")
                 .commandLabelFixedSize()
         }
         .buttonStyle(.bordered)
-        .disabled(!viewModel.hasBatchableSegments || viewModel.isGenerating || viewModel.isBatchRunning)
+        .disabled(!viewModel.hasBatchableSegments || generation.isGenerating || generation.isBatchRunning)
         .help("Generate every segment separated by ---")
     }
 
     private var generateButton: some View {
         Button {
-            Task { await viewModel.generateSpeech() }
+            Task { await generation.generateSpeech() }
         } label: {
             Label("Generate", systemImage: "waveform")
                 .fontWeight(.semibold)
@@ -217,12 +223,12 @@ struct CommandStripView: View {
         }
         .buttonStyle(.borderedProminent)
         .keyboardShortcut(.return, modifiers: .command)
-        .disabled(viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isGenerating)
+        .disabled(viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || generation.isGenerating)
         .help("Generate speech from the editor text (⌘↵)")
     }
 
     private var exportButton: some View {
-        Button(action: viewModel.exportAudio) {
+        Button(action: importExport.exportAudio) {
             Label("Export", systemImage: "square.and.arrow.down")
                 .commandLabelFixedSize()
         }
@@ -235,10 +241,10 @@ struct CommandStripView: View {
     private var transcriptMenu: some View {
         Menu {
             Button("Export SRT") {
-                viewModel.exportTranscript(format: .srt)
+                importExport.exportTranscript(format: .srt)
             }
             Button("Export VTT") {
-                viewModel.exportTranscript(format: .vtt)
+                importExport.exportTranscript(format: .vtt)
             }
         } label: {
             Label("Transcript", systemImage: "doc.text")
@@ -266,7 +272,7 @@ struct CommandStripView: View {
                 } label: {
                     Label("Preview Voices", systemImage: voicePreviewButtonIcon)
                 }
-                .disabled(viewModel.availableVoices.isEmpty)
+                .disabled(settings.availableVoices.isEmpty)
             }
             
             Section("Text") {
@@ -280,10 +286,10 @@ struct CommandStripView: View {
                     }
                 }
                 
-                Button(action: viewModel.startBatchGeneration) {
+                Button(action: generation.startBatchGeneration) {
                     Label("Batch Generate", systemImage: "text.badge.plus")
                 }
-                .disabled(!viewModel.hasBatchableSegments || viewModel.isGenerating || viewModel.isBatchRunning)
+                .disabled(!viewModel.hasBatchableSegments || generation.isGenerating || generation.isBatchRunning)
                 
                 Button(action: viewModel.clearText) {
                     Label("Clear Text", systemImage: "trash")
@@ -292,7 +298,7 @@ struct CommandStripView: View {
             }
             
             Section("Export") {
-                Button(action: viewModel.exportAudio) {
+                Button(action: importExport.exportAudio) {
                     Label("Export Audio", systemImage: "square.and.arrow.down")
                 }
                 .keyboardShortcut("e", modifiers: .command)
@@ -300,10 +306,10 @@ struct CommandStripView: View {
                 
                 Menu {
                     Button("Export SRT") {
-                        viewModel.exportTranscript(format: .srt)
+                        importExport.exportTranscript(format: .srt)
                     }
                     Button("Export VTT") {
-                        viewModel.exportTranscript(format: .vtt)
+                        importExport.exportTranscript(format: .vtt)
                     }
                 } label: {
                     Label("Export Transcript", systemImage: "doc.text")
@@ -321,7 +327,7 @@ struct CommandStripView: View {
     
     @ViewBuilder
     private var inspectorToggleButton: some View {
-        if viewModel.isInspectorEnabled {
+        if settings.isInspectorEnabled {
             Button {
                 toggleInspector()
             } label: {
@@ -341,7 +347,7 @@ struct CommandStripView: View {
             }
 
             Menu("Appearance", systemImage: "paintbrush") {
-                Picker("Appearance", selection: $viewModel.appearancePreference) {
+                Picker("Appearance", selection: $settings.appearancePreference) {
                     ForEach(AppearancePreference.allCases) { preference in
                         Text(preference.displayName).tag(preference)
                     }
@@ -349,16 +355,15 @@ struct CommandStripView: View {
                 .pickerStyle(.inline)
             }
 
-            Button(viewModel.isMinimalistMode ? "Disable Compact Layout" : "Enable Compact Layout", systemImage: "rectangle.compress.vertical") {
-                viewModel.isMinimalistMode.toggle()
-                viewModel.saveSettings()
+            Button(settings.isMinimalistMode ? "Disable Compact Layout" : "Enable Compact Layout", systemImage: "rectangle.compress.vertical") {
+                settings.isMinimalistMode.toggle()
             }
 
             Divider()
 
             Button("Settings", systemImage: "gear") {
                 // Navigate to main app settings
-                WindowManager.shared.showMainWindow()
+                _ = WindowManager.shared.showMainWindow()
                 NotificationCenter.default.post(
                     name: .navigateToDestination,
                     object: nil,

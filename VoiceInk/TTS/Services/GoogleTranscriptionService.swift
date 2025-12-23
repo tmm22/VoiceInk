@@ -124,36 +124,26 @@ final class GoogleTranscriptionService: AudioTranscribing {
 
         do {
             let (data, response) = try await session.upload(for: request, fromFile: bodyURL)
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw TTSError.networkError("Invalid response")
-            }
 
-            switch httpResponse.statusCode {
-            case 200:
-                let payload = try JSONDecoder().decode(RecognizeResponse.self, from: data)
-                let segments = Self.makeSegments(from: payload, fallbackDuration: audioMetrics.duration)
-                let transcript = payload.combinedTranscript
-                let language = payload.detectedLanguage ?? (languageHint?.lowercased())
-                return (
-                    text: transcript,
-                    language: language,
-                    duration: audioMetrics.duration,
-                    segments: segments
-                )
-            case 401:
-                throw TTSError.invalidAPIKey
-            case 429:
-                throw TTSError.quotaExceeded
-            case 400...499:
-                if let message = Self.decodeErrorMessage(from: data) {
-                    throw TTSError.apiError(message)
-                }
-                throw TTSError.apiError("Transcription request failed (\(httpResponse.statusCode))")
-            case 500...599:
-                throw TTSError.apiError("Transcription service unavailable (\(httpResponse.statusCode))")
-            default:
-                throw TTSError.apiError("Unexpected response: \(httpResponse.statusCode)")
-            }
+            let responseData = try HTTPResponseHandler.handleResponse(
+                response,
+                data: data,
+                errorMessageDecoder: Self.decodeErrorMessage,
+                clientErrorFormat: "Transcription request failed (%d)",
+                serverErrorFormat: "Transcription service unavailable (%d)",
+                unexpectedFormat: "Unexpected response: %d"
+            )
+
+            let payload = try JSONDecoder().decode(RecognizeResponse.self, from: responseData)
+            let segments = Self.makeSegments(from: payload, fallbackDuration: audioMetrics.duration)
+            let transcript = payload.combinedTranscript
+            let language = payload.detectedLanguage ?? (languageHint?.lowercased())
+            return (
+                text: transcript,
+                language: language,
+                duration: audioMetrics.duration,
+                segments: segments
+            )
         } catch let error as TTSError {
             throw error
         } catch {

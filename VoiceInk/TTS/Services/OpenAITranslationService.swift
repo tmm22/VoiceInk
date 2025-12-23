@@ -11,10 +11,10 @@ final class OpenAITranslationService: TextTranslationService {
 
     init(session: URLSession = SecureURLSession.makeEphemeral(),
          keychain: KeychainManager = KeychainManager(),
-         managedProvisioningClient: ManagedProvisioningClient = .shared) {
+         managedProvisioningClient: ManagedProvisioningClient? = nil) {
         self.session = session
         self.keychain = keychain
-        self.managedProvisioningClient = managedProvisioningClient
+        self.managedProvisioningClient = managedProvisioningClient ?? .shared
     }
 
     func hasCredentials() -> Bool {
@@ -53,41 +53,34 @@ final class OpenAITranslationService: TextTranslationService {
         do {
             let (data, response) = try await session.data(for: request)
 
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw TTSError.networkError("Invalid response")
+            let responseData = try HTTPResponseHandler.handleResponse(
+                response,
+                data: data,
+                onUnauthorized: {
+                    if authorization.usedManagedCredential {
+                        self.managedProvisioningClient.invalidateCredential(for: .openAI)
+                        self.activeManagedCredential = nil
+                    }
+                },
+                clientErrorFormat: "Translation request failed (%d)",
+                serverErrorFormat: "Translation service unavailable (%d)",
+                unexpectedFormat: "Unexpected translation response: %d"
+            )
+
+            let decoded = try JSONDecoder().decode(ChatCompletionResponse.self, from: responseData)
+            guard let content = decoded.choices.first?.message.content,
+                  let payloadData = content.data(using: .utf8) else {
+                throw TTSError.apiError("Translation response missing content")
             }
 
-            switch httpResponse.statusCode {
-            case 200:
-                let decoded = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
-                guard let content = decoded.choices.first?.message.content,
-                      let payloadData = content.data(using: .utf8) else {
-                    throw TTSError.apiError("Translation response missing content")
-                }
+            let payload = try JSONDecoder().decode(TranslationPayload.self, from: payloadData)
 
-                let payload = try JSONDecoder().decode(TranslationPayload.self, from: payloadData)
-
-                return TranslationResult(
-                    originalText: text,
-                    translatedText: payload.translatedText,
-                    detectedLanguageCode: payload.sourceLanguage.lowercased(),
-                    targetLanguageCode: targetLanguageCode.lowercased()
-                )
-            case 401:
-                if authorization.usedManagedCredential {
-                    managedProvisioningClient.invalidateCredential(for: .openAI)
-                    activeManagedCredential = nil
-                }
-                throw TTSError.invalidAPIKey
-            case 429:
-                throw TTSError.quotaExceeded
-            case 400...499:
-                throw TTSError.apiError("Translation request failed (\(httpResponse.statusCode))")
-            case 500...599:
-                throw TTSError.apiError("Translation service unavailable (\(httpResponse.statusCode))")
-            default:
-                throw TTSError.apiError("Unexpected translation response: \(httpResponse.statusCode)")
-            }
+            return TranslationResult(
+                originalText: text,
+                translatedText: payload.translatedText,
+                detectedLanguageCode: payload.sourceLanguage.lowercased(),
+                targetLanguageCode: targetLanguageCode.lowercased()
+            )
         } catch let error as TTSError {
             throw error
         } catch {
@@ -137,12 +130,6 @@ private struct TranslationPayload: Codable {
 }
 
 private extension OpenAITranslationService {
-    struct AuthorizationHeader {
-        let header: String
-        let value: String
-        let usedManagedCredential: Bool
-    }
-
     func authorizationHeader() async throws -> AuthorizationHeader {
         if let key = keychain.getAPIKey(for: "OpenAI"), !key.isEmpty {
             return AuthorizationHeader(header: "Authorization", value: "Bearer \(key)", usedManagedCredential: false)

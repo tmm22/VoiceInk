@@ -10,8 +10,8 @@ class WordReplacementService {
         var modifiedText = QuickRulesService.shared.applyRules(to: text)
         
         // Then apply custom word replacements
-        guard let replacements = UserDefaults.standard.dictionary(forKey: "wordReplacements") as? [String: String],
-              !replacements.isEmpty else {
+        let replacements = AppSettings.Dictionary.wordReplacements
+        guard !replacements.isEmpty else {
             return modifiedText // No custom replacements to apply
         }
         

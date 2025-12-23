@@ -1,7 +1,6 @@
 import Foundation
 import os
 import Zip
-import SwiftUI
 import Atomics
 
 
@@ -107,7 +106,15 @@ extension WhisperState {
     // MARK: - Model Loading
     
     func loadModel(_ model: WhisperModel) async throws {
-        guard whisperContext == nil else { return }
+        if let loadedModel = loadedLocalModel,
+           loadedModel.name == model.name,
+           whisperContext != nil {
+            return
+        }
+
+        if whisperContext != nil {
+            await cleanupModelResources()
+        }
         
         isModelLoading = true
         defer { isModelLoading = false }
@@ -116,7 +123,7 @@ extension WhisperState {
             whisperContext = try await WhisperContext.createContext(path: model.url.path)
             
             // Set the prompt from UserDefaults to ensure we have the latest
-            let currentPrompt = UserDefaults.standard.string(forKey: "TranscriptionPrompt") ?? whisperPrompt.transcriptionPrompt
+            let currentPrompt = AppSettings.TranscriptionSettings.prompt ?? whisperPrompt.transcriptionPrompt
             await whisperContext?.setPrompt(currentPrompt)
             
             isModelLoaded = true
@@ -185,21 +192,23 @@ extension WhisperState {
                     lastUpdateTime = currentTime
                     lastProgressValue = currentProgress
 
-                    self.downloadProgress[progressKey] = currentProgress
-                    progressUpdate?(currentProgress)
+                    Task { @MainActor [weak self] in
+                        self?.downloadProgress[progressKey] = currentProgress
+                        progressUpdate?(currentProgress)
+                    }
                 }
             }
 
             Task {
-                await withTaskCancellationHandler {
+                await withTaskCancellationHandler(operation: {
+                    await withCheckedContinuation { (_: CheckedContinuation<Void, Never>) in }
+                }, onCancel: {
                     observation.invalidate()
                     // Also ensure continuation is resumed with cancellation if task is cancelled
                     if finished.exchange(true, ordering: .acquiring) == false {
                         continuation.resume(throwing: CancellationError())
                     }
-                } operation: {
-                    await withCheckedContinuation { (_: CheckedContinuation<Void, Never>) in }
-                }
+                })
             }
         }
     }
@@ -247,6 +256,7 @@ extension WhisperState {
     private func unzipAndSetupCoreMLModel(for model: WhisperModel, zipPath: URL, progressKey: String) async throws -> WhisperModel {
         let coreMLDestination = modelsDirectory.appendingPathComponent("\(model.name)-encoder.mlmodelc")
         
+        // Best-effort cleanup; previous CoreML artifacts may not exist.
         try? FileManager.default.removeItem(at: coreMLDestination)
         try await unzipCoreMLFile(zipPath, to: modelsDirectory)
         return try verifyAndCleanupCoreMLFiles(model, coreMLDestination, zipPath, progressKey)
@@ -277,10 +287,12 @@ extension WhisperState {
         
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: destination.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            // Best-effort cleanup; zip may already be removed.
             try? FileManager.default.removeItem(at: zipPath)
             throw WhisperStateError.unzipFailed
         }
         
+        // Best-effort cleanup; zip may already be removed.
         try? FileManager.default.removeItem(at: zipPath)
         model.coreMLEncoderURL = destination
         self.downloadProgress.removeValue(forKey: progressKey)
@@ -295,6 +307,11 @@ extension WhisperState {
     private func handleModelDownloadError(_ model: LocalModel, _ error: Error) {
         self.downloadProgress.removeValue(forKey: model.name + "_main")
         self.downloadProgress.removeValue(forKey: model.name + "_coreml")
+        logger.error("Model download failed for \(model.displayName): \(error.localizedDescription)")
+        NotificationManager.shared.showNotification(
+            title: String(format: Localization.Models.downloadFailedForModel, model.displayName),
+            type: .error
+        )
     }
     
     func deleteModel(_ model: WhisperModel) async {
@@ -304,11 +321,13 @@ extension WhisperState {
             
             // Delete CoreML model if it exists
             if let coreMLURL = model.coreMLEncoderURL {
+                // Best-effort cleanup; file may already be removed.
                 try? FileManager.default.removeItem(at: coreMLURL)
             } else {
                 // Check if there's a CoreML directory matching the model name
                 let coreMLDir = modelsDirectory.appendingPathComponent("\(model.name)-encoder.mlmodelc")
                 if FileManager.default.fileExists(atPath: coreMLDir.path) {
+                    // Best-effort cleanup; directory may already be removed.
                     try? FileManager.default.removeItem(at: coreMLDir)
                 }
             }
@@ -318,11 +337,11 @@ extension WhisperState {
             if currentTranscriptionModel?.name == model.name {
 
                 currentTranscriptionModel = nil
-                UserDefaults.standard.removeObject(forKey: "CurrentTranscriptionModel")
+                AppSettings.TranscriptionSettings.currentTranscriptionModel = nil
 
                 loadedLocalModel = nil
                 recordingState = .idle
-                UserDefaults.standard.removeObject(forKey: "CurrentModel")
+                AppSettings.TranscriptionSettings.currentModel = nil
             }
         } catch {
             logError("Error deleting model: \(model.name)", error)
@@ -340,6 +359,7 @@ extension WhisperState {
             isModelLoaded = false
             
             if let recordedFile = recordedFile {
+                // Best-effort cleanup; recording may already be removed.
                 try? FileManager.default.removeItem(at: recordedFile)
                 self.recordedFile = nil
             }
@@ -388,7 +408,7 @@ extension WhisperState {
 
         // Do not rename on collision; simply notify the user and abort
         if FileManager.default.fileExists(atPath: destinationURL.path) {
-            await NotificationManager.shared.showNotification(
+            NotificationManager.shared.showNotification(
                 title: String(format: Localization.Models.modelExists, destinationURL.lastPathComponent),
                 type: .warning,
                 duration: 4.0
@@ -409,14 +429,14 @@ extension WhisperState {
                 allAvailableModels.append(imported)
             }
 
-            await NotificationManager.shared.showNotification(
+            NotificationManager.shared.showNotification(
                 title: String(format: Localization.Models.importSuccess, destinationURL.lastPathComponent),
                 type: .success,
                 duration: 3.0
             )
         } catch {
             logError("Failed to import local model", error)
-            await NotificationManager.shared.showNotification(
+            NotificationManager.shared.showNotification(
                 title: String(format: Localization.Models.importFailed, error.localizedDescription),
                 type: .error,
                 duration: 5.0
@@ -424,68 +444,3 @@ extension WhisperState {
         }
     }
 }
-
-// MARK: - Download Progress View
-struct DownloadProgressView: View {
-    let modelName: String
-    let downloadProgress: [String: Double]
-    let supportsCoreML: Bool
-    
-    @Environment(\.colorScheme) private var colorScheme
-    
-    private var mainProgress: Double {
-        downloadProgress[modelName + "_main"] ?? 0
-    }
-    
-    private var coreMLProgress: Double {
-        supportsCoreML ? (downloadProgress[modelName + "_coreml"] ?? 0) : 0
-    }
-    
-    private var totalProgress: Double {
-        supportsCoreML ? (mainProgress * 0.5) + (coreMLProgress * 0.5) : mainProgress
-    }
-    
-    private var downloadPhase: String {
-        // Check if we're currently downloading the CoreML model
-        if supportsCoreML && downloadProgress[modelName + "_coreml"] != nil {
-            return "Downloading Core ML Model for \(modelName)"
-        }
-        // Otherwise, we're downloading the main model
-        return "Downloading \(modelName) Model"
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Status text with clean typography
-            Text(downloadPhase)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(Color(.secondaryLabelColor))
-            
-            // Clean progress bar
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    // Background track
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color(.separatorColor).opacity(0.3))
-                        .frame(height: 6)
-                    
-                    // Progress indicator
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color(.controlAccentColor))
-                        .frame(width: max(0, min(geometry.size.width * totalProgress, geometry.size.width)), height: 6)
-                }
-            }
-            .frame(height: 6)
-            
-            // Percentage indicator in Apple style
-            HStack {
-                Spacer()
-                Text("\(Int(totalProgress * 100))%")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundColor(Color(.secondaryLabelColor))
-            }
-        }
-        .padding(.vertical, 4)
-        .animation(.smooth, value: totalProgress)
-    }
-} 

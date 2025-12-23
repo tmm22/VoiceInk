@@ -56,9 +56,6 @@ struct QuickRule: Identifiable, Codable, Hashable {
 class QuickRulesService {
     static let shared = QuickRulesService()
     
-    private let saveKey = "quickRulesEnabled"
-    private let rulesKey = "quickRules"
-    
     private init() {}
     
     /// Default preset rules
@@ -218,26 +215,33 @@ class QuickRulesService {
     /// Check if quick rules are enabled
     var isEnabled: Bool {
         get {
-            UserDefaults.standard.bool(forKey: saveKey)
+            AppSettings.QuickRules.isEnabled
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: saveKey)
+            AppSettings.QuickRules.isEnabled = newValue
         }
     }
     
     /// Load rules from UserDefaults, or return defaults if none saved
     func loadRules() -> [QuickRule] {
-        guard let data = UserDefaults.standard.data(forKey: rulesKey),
-              let rules = try? JSONDecoder().decode([QuickRule].self, from: data) else {
+        guard let data = AppSettings.QuickRules.rulesData else {
             return Self.defaultRules
         }
-        return rules
+        do {
+            return try JSONDecoder().decode([QuickRule].self, from: data)
+        } catch {
+            AppLogger.storage.error("Failed to decode quick rules: \(error.localizedDescription)")
+            return Self.defaultRules
+        }
     }
     
     /// Save rules to UserDefaults
     func saveRules(_ rules: [QuickRule]) {
-        if let data = try? JSONEncoder().encode(rules) {
-            UserDefaults.standard.set(data, forKey: rulesKey)
+        do {
+            let data = try JSONEncoder().encode(rules)
+            AppSettings.QuickRules.rulesData = data
+        } catch {
+            AppLogger.storage.error("Failed to encode quick rules: \(error.localizedDescription)")
         }
     }
     
@@ -255,7 +259,8 @@ class QuickRulesService {
         
         for rule in enabledRules {
             if rule.isRegex {
-                if let regex = try? NSRegularExpression(pattern: rule.pattern, options: .caseInsensitive) {
+                do {
+                    let regex = try NSRegularExpression(pattern: rule.pattern, options: .caseInsensitive)
                     let range = NSRange(processed.startIndex..., in: processed)
                     processed = regex.stringByReplacingMatches(
                         in: processed,
@@ -263,6 +268,8 @@ class QuickRulesService {
                         range: range,
                         withTemplate: rule.replacement
                     )
+                } catch {
+                    AppLogger.storage.error("Invalid quick rule regex '\(rule.pattern)': \(error.localizedDescription)")
                 }
             } else {
                 processed = processed.replacingOccurrences(

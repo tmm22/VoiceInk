@@ -3,9 +3,7 @@ import Foundation
 
 @MainActor
 class WhisperPrompt: ObservableObject {
-    @Published var transcriptionPrompt: String = UserDefaults.standard.string(forKey: "TranscriptionPrompt") ?? ""
-    
-    private let customPromptsKey = "CustomLanguagePrompts"
+    @Published var transcriptionPrompt: String = AppSettings.TranscriptionSettings.prompt ?? ""
     
     // Store user-customized prompts
     private var customPrompts: [String: String] = [:]
@@ -74,25 +72,23 @@ class WhisperPrompt: ObservableObject {
     }
     
     private func loadCustomPrompts() {
-        if let savedPrompts = UserDefaults.standard.dictionary(forKey: customPromptsKey) as? [String: String] {
-            customPrompts = savedPrompts
-        }
+        customPrompts = AppSettings.TranscriptionSettings.customLanguagePrompts
     }
     
     private func saveCustomPrompts() {
-        UserDefaults.standard.set(customPrompts, forKey: customPromptsKey)
+        AppSettings.TranscriptionSettings.customLanguagePrompts = customPrompts
     }
     
     func updateTranscriptionPrompt() {
         // Get the currently selected language from UserDefaults
-        let selectedLanguage = UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "en"
+        let selectedLanguage = AppSettings.TranscriptionSettings.selectedLanguage ?? "en"
         
         // Get the prompt for the selected language (custom if available, otherwise default)
         let basePrompt = getLanguagePrompt(for: selectedLanguage)
         let prompt = basePrompt.isEmpty ? "" : basePrompt
         
         transcriptionPrompt = prompt
-        UserDefaults.standard.set(prompt, forKey: "TranscriptionPrompt")
+        AppSettings.TranscriptionSettings.prompt = prompt
         
         // Notify that the prompt has changed
         NotificationCenter.default.post(name: .promptDidChange, object: nil)

@@ -51,7 +51,7 @@ struct FastConformerFeatureExtractor {
 
                 windowed.withUnsafeMutableBufferPointer { destination in
                     guard let dest = destination.baseAddress else { return }
-                    dest.assign(from: buffer.baseAddress!.advanced(by: start), count: frameLength)
+                    dest.update(from: buffer.baseAddress!.advanced(by: start), count: frameLength)
                 }
 
                 vDSP.multiply(windowed, window, result: &windowed)

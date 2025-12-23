@@ -1,13 +1,13 @@
 {
-  "originHash" : "e9b5ada72ee2cc813907f11edcc5d95e81cf29ceab2d066f93b4c09ccbfcdf46",
+  "originHash" : "bd650986f274b703adb191211e1088ea47f0891be5e592b867c2d3ecb93142f6",
   "pins" : [
     {
       "identity" : "axswift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/tisfeng/AXSwift.git",
       "state" : {
-        "branch" : "main",
-        "revision" : "2efa201fa18184de98674165592fd1ecb0c00a6d"
+        "revision" : "2efa201fa18184de98674165592fd1ecb0c00a6d",
+        "version" : "0.3.6"
       }
     },
     {
@@ -61,14 +61,6 @@
       "state" : {
         "revision" : "12ce7374c86944e1f68f3a866d10105d8357f074",
         "version" : "1.20.0"
-      }
-    },
-    {
-      "identity" : "selectedtextkit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/tisfeng/SelectedTextKit",
-      "state" : {
-        "revision" : "f6c1574ad6f747e1110b544c35e6ec64ed6f52f1"
       }
     },
     {

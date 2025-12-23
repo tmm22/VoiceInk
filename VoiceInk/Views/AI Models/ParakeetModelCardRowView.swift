@@ -122,7 +122,7 @@ struct ParakeetModelCardRowView: View {
             } else if isDownloaded {
                 Button(action: {
                     Task {
-                        await whisperState.setDefaultTranscriptionModel(model)
+                        whisperState.setDefaultTranscriptionModel(model)
                     }
                 }) {
                     Text("Set as Default")

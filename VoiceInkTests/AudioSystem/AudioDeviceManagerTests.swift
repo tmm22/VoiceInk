@@ -71,6 +71,7 @@ final class AudioDeviceManagerTests: XCTestCase {
         // Test that device UID is saved and can be retrieved
         guard let firstDevice = deviceManager.availableDevices.first else {
             XCTSkip("No devices available for testing")
+            return
         }
         
         // Save device UID
@@ -120,19 +121,17 @@ final class AudioDeviceManagerTests: XCTestCase {
     
     func testPrioritizedDeviceSelection() {
         // Set mode to prioritized
-        deviceManager.inputMode = .prioritized
+        deviceManager.selectInputMode(.prioritized)
         
         // Add some prioritized devices
         guard let firstDevice = deviceManager.availableDevices.first else {
             XCTSkip("No devices available for testing")
+            return
         }
         
-        deviceManager.prioritizedDevices = [
+        deviceManager.updatePriorities(devices: [
             PrioritizedDevice(id: firstDevice.uid, name: firstDevice.name, priority: 1)
-        ]
-        
-        // Trigger selection
-        deviceManager.selectHighestPriorityAvailableDevice()
+        ])
         
         // Should select the prioritized device
         XCTAssertEqual(deviceManager.selectedDeviceID, firstDevice.id)
@@ -156,8 +155,8 @@ final class AudioDeviceManagerTests: XCTestCase {
             NotificationCenter.default.removeObserver(observer)
         }
         
-        // Trigger device notification manually (simulating system event)
-        deviceManager.notifyDeviceChange()
+        // Trigger device notification via public API (simulating system event)
+        deviceManager.selectInputMode(deviceManager.inputMode)
         
         await fulfillment(of: [expectation], timeout: 2.0)
     }
@@ -243,6 +242,7 @@ final class AudioDeviceManagerTests: XCTestCase {
     func testGetDeviceNameWithValidDevice() {
         guard let firstDevice = deviceManager.availableDevices.first else {
             XCTSkip("No devices available for testing")
+            return
         }
         
         if let name = deviceManager.getDeviceName(deviceID: firstDevice.id) {
@@ -291,6 +291,7 @@ final class AudioDeviceManagerTests: XCTestCase {
     func testDeviceAvailabilityCheck() {
         guard let firstDevice = deviceManager.availableDevices.first else {
             XCTSkip("No devices available for testing")
+            return
         }
         
         // Device in the list should be available
@@ -322,7 +323,7 @@ final class AudioDeviceManagerTests: XCTestCase {
     func testDeviceManagerDoesNotLeak() async {
         weak var weakManager: AudioDeviceManager?
         
-        await autoreleasepool {
+        do {
             let manager = AudioDeviceManager()
             weakManager = manager
             
@@ -341,7 +342,7 @@ final class AudioDeviceManagerTests: XCTestCase {
     func testDeviceManagerWithMultipleOperations() async {
         weak var weakManager: AudioDeviceManager?
         
-        await autoreleasepool {
+        do {
             let manager = AudioDeviceManager()
             weakManager = manager
             

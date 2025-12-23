@@ -181,7 +181,7 @@ struct OnboardingModelDownloadView: View {
         } else if whisperState.availableModels.contains(where: { $0.name == model.name }) {
             if let modelToSet = whisperState.allAvailableModels.first(where: { $0.name == model.name }) {
                 Task {
-                    await whisperState.setDefaultTranscriptionModel(modelToSet)
+                    whisperState.setDefaultTranscriptionModel(modelToSet)
                     withAnimation {
                         isModelSet = true
                     }
@@ -194,7 +194,7 @@ struct OnboardingModelDownloadView: View {
             Task {
                 await whisperState.downloadModel(model)
                 if let modelToSet = whisperState.allAvailableModels.first(where: { $0.name == model.name }) {
-                    await whisperState.setDefaultTranscriptionModel(modelToSet)
+                    whisperState.setDefaultTranscriptionModel(modelToSet)
                     withAnimation {
                         isModelSet = true
                         isDownloading = false
@@ -246,4 +246,3 @@ struct OnboardingModelDownloadView: View {
         }
     }
 }
-

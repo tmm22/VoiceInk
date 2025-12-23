@@ -2,7 +2,7 @@ import SwiftUI
 
 struct PowerModeSettingsSection: View {
     @ObservedObject private var powerModeManager = PowerModeManager.shared
-    @AppStorage("powerModeUIFlag") private var powerModeUIFlag = false
+    @AppStorage(AppSettings.Keys.powerModeUIFlag) private var powerModeUIFlag = false
     @AppStorage(PowerModeDefaults.autoRestoreKey) private var powerModeAutoRestoreEnabled = false
     @State private var showDisableAlert = false
     
@@ -79,5 +79,5 @@ private extension Array where Element == PowerModeConfig {
 }
 
 enum PowerModeDefaults {
-    static let autoRestoreKey = "powerModeAutoRestoreEnabled"
+    static let autoRestoreKey = AppSettings.Keys.powerModeAutoRestoreEnabled
 }

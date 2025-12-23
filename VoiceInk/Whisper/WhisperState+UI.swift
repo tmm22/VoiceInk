@@ -58,7 +58,7 @@ extension WhisperState {
         self.recordingState = .busy
         
         if wasRecording {
-            await recorder.stopRecording()
+            recorder.stopRecording()
         }
         
         hideRecorderPanel()
@@ -74,7 +74,7 @@ extension WhisperState {
         
         await cleanupModelResources()
         
-        if UserDefaults.standard.bool(forKey: PowerModeDefaults.autoRestoreKey) {
+        if AppSettings.PowerMode.autoRestoreEnabled ?? false {
             await PowerModeSessionManager.shared.endSession()
             // No need for MainActor.run - WhisperState is already @MainActor
             PowerModeManager.shared.setActiveConfiguration(nil)
@@ -86,7 +86,7 @@ extension WhisperState {
     
     func resetOnLaunch() async {
         logger.notice("🔄 Resetting recording state on launch")
-        await recorder.stopRecording()
+        recorder.stopRecording()
         hideRecorderPanel()
         // No need for MainActor.run - WhisperState is already @MainActor
         isMiniRecorderVisible = false
@@ -136,7 +136,7 @@ extension WhisperState {
     
     private func updateContextPrompt() async {
         // Always reload the prompt from UserDefaults to ensure we have the latest
-        let currentPrompt = UserDefaults.standard.string(forKey: "TranscriptionPrompt") ?? whisperPrompt.transcriptionPrompt
+        let currentPrompt = AppSettings.TranscriptionSettings.prompt ?? whisperPrompt.transcriptionPrompt
         
         if let context = whisperContext {
             await context.setPrompt(currentPrompt)

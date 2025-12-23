@@ -1,4 +1,5 @@
 import XCTest
+import AVFoundation
 @testable import VoiceInk
 
 // MARK: - Memory Leak Detection
@@ -129,7 +130,7 @@ extension XCTestCase {
             
             group.addTask {
                 try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                throw TestError.timeout
+                throw TestCaseError.timeout
             }
             
             try await group.next()
@@ -332,7 +333,7 @@ private class WeakBox<T: AnyObject> {
     }
 }
 
-enum TestError: Error {
+enum TestCaseError: Error {
     case timeout
     case invalidState
     case mockError

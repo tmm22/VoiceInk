@@ -6,7 +6,7 @@ struct PowerModePopover: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Select Power Mode")
+            Text(Localization.PowerMode.selectPowerMode)
                 .font(.headline)
                 .foregroundColor(.white.opacity(0.9))
                 .padding(.horizontal)
@@ -23,7 +23,7 @@ struct PowerModePopover: View {
                             Image(systemName: "sparkles")
                                 .foregroundColor(.white.opacity(0.6))
                                 .font(.system(size: 16))
-                            Text("No Power Modes Available")
+                            Text(Localization.PowerMode.noPowerModesAvailable)
                                 .foregroundColor(.white.opacity(0.8))
                                 .font(.system(size: 13))
                                 .lineLimit(1)
@@ -56,7 +56,7 @@ struct PowerModePopover: View {
         .onAppear {
             selectedConfig = powerModeManager.activeConfiguration
         }
-        .onChange(of: powerModeManager.activeConfiguration) { newValue in
+        .onChange(of: powerModeManager.activeConfiguration) { _, newValue in
             selectedConfig = newValue
         }
     }

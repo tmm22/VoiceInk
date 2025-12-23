@@ -14,9 +14,9 @@ class PlaybackController: ObservableObject {
     private var originalMediaAppBundleId: String?
 
     
-    @Published var isPauseMediaEnabled: Bool = UserDefaults.standard.bool(forKey: "isPauseMediaEnabled") {
+    @Published var isPauseMediaEnabled: Bool = AppSettings.Audio.isPauseMediaEnabled {
         didSet {
-            UserDefaults.standard.set(isPauseMediaEnabled, forKey: "isPauseMediaEnabled")
+            AppSettings.Audio.isPauseMediaEnabled = isPauseMediaEnabled
             
             if isPauseMediaEnabled {
                 startMediaTracking()
@@ -29,8 +29,8 @@ class PlaybackController: ObservableObject {
     private init() {
         mediaController = MediaRemoteAdapter.MediaController()
         
-        if !UserDefaults.standard.contains(key: "isPauseMediaEnabled") {
-            UserDefaults.standard.set(false, forKey: "isPauseMediaEnabled")
+        if !AppSettings.contains(key: AppSettings.Keys.isPauseMediaEnabled) {
+            AppSettings.Audio.isPauseMediaEnabled = false
         }
         
         setupMediaControllerCallbacks()
@@ -126,8 +126,7 @@ class PlaybackController: ObservableObject {
 
 extension UserDefaults {
     var isPauseMediaEnabled: Bool {
-        get { bool(forKey: "isPauseMediaEnabled") }
-        set { set(newValue, forKey: "isPauseMediaEnabled") }
+        get { AppSettings.Audio.isPauseMediaEnabled }
+        set { AppSettings.Audio.isPauseMediaEnabled = newValue }
     }
 } 
-

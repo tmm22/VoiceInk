@@ -20,7 +20,6 @@ struct PowerModeSession: Codable {
 @MainActor
 class PowerModeSessionManager {
     static let shared = PowerModeSessionManager()
-    private let sessionKey = "powerModeActiveSession.v1"
     private var isApplyingPowerModeConfig = false
 
     private var whisperState: WhisperState?
@@ -49,7 +48,7 @@ class PowerModeSessionManager {
             selectedPromptId: enhancementService.selectedPromptId?.uuidString,
             selectedAIProvider: enhancementService.getAIService()?.selectedProvider.rawValue,
             selectedAIModel: enhancementService.getAIService()?.currentModel,
-            selectedLanguage: UserDefaults.standard.string(forKey: "SelectedLanguage"),
+            selectedLanguage: AppSettings.TranscriptionSettings.selectedLanguage,
             transcriptionModelName: whisperState.currentTranscriptionModel?.name
         )
 
@@ -90,7 +89,7 @@ class PowerModeSessionManager {
             selectedPromptId: enhancementService.selectedPromptId?.uuidString,
             selectedAIProvider: enhancementService.getAIService()?.selectedProvider.rawValue,
             selectedAIModel: enhancementService.getAIService()?.currentModel,
-            selectedLanguage: UserDefaults.standard.string(forKey: "SelectedLanguage"),
+            selectedLanguage: AppSettings.TranscriptionSettings.selectedLanguage,
             transcriptionModelName: whisperState.currentTranscriptionModel?.name
         )
         
@@ -121,13 +120,13 @@ class PowerModeSessionManager {
         }
 
         if let language = config.selectedLanguage {
-            UserDefaults.standard.set(language, forKey: "SelectedLanguage")
+            AppSettings.TranscriptionSettings.selectedLanguage = language
             NotificationCenter.default.post(name: .languageDidChange, object: nil)
         }
 
         if let whisperState = whisperState,
            let modelName = config.selectedTranscriptionModelName,
-           let selectedModel = await whisperState.allAvailableModels.first(where: { $0.name == modelName }),
+           let selectedModel = whisperState.allAvailableModels.first(where: { $0.name == modelName }),
            whisperState.currentTranscriptionModel?.name != modelName {
             await handleModelChange(to: selectedModel)
         }
@@ -153,13 +152,13 @@ class PowerModeSessionManager {
         }
 
         if let language = state.selectedLanguage {
-            UserDefaults.standard.set(language, forKey: "SelectedLanguage")
+            AppSettings.TranscriptionSettings.selectedLanguage = language
             NotificationCenter.default.post(name: .languageDidChange, object: nil)
         }
 
         if let whisperState = whisperState,
            let modelName = state.transcriptionModelName,
-           let selectedModel = await whisperState.allAvailableModels.first(where: { $0.name == modelName }),
+           let selectedModel = whisperState.allAvailableModels.first(where: { $0.name == modelName }),
            whisperState.currentTranscriptionModel?.name != modelName {
             await handleModelChange(to: selectedModel)
         }
@@ -168,12 +167,12 @@ class PowerModeSessionManager {
     private func handleModelChange(to newModel: any TranscriptionModel) async {
         guard let whisperState = whisperState else { return }
 
-        await whisperState.setDefaultTranscriptionModel(newModel)
+        whisperState.setDefaultTranscriptionModel(newModel)
 
         switch newModel.provider {
         case .local:
             await whisperState.cleanupModelResources()
-            if let localModel = await whisperState.availableModels.first(where: { $0.name == newModel.name }) {
+            if let localModel = whisperState.availableModels.first(where: { $0.name == newModel.name }) {
                 do {
                     try await whisperState.loadModel(localModel)
                 } catch {
@@ -203,7 +202,7 @@ class PowerModeSessionManager {
     private func saveSession(_ session: PowerModeSession) {
         do {
             let data = try JSONEncoder().encode(session)
-            UserDefaults.standard.set(data, forKey: sessionKey)
+            AppSettings.PowerMode.activeSessionData = data
         } catch {
             #if DEBUG
             print("Error saving Power Mode session: \(error)")
@@ -212,7 +211,7 @@ class PowerModeSessionManager {
     }
     
     private func loadSession() -> PowerModeSession? {
-        guard let data = UserDefaults.standard.data(forKey: sessionKey) else { return nil }
+        guard let data = AppSettings.PowerMode.activeSessionData else { return nil }
         do {
             return try JSONDecoder().decode(PowerModeSession.self, from: data)
         } catch {
@@ -224,7 +223,7 @@ class PowerModeSessionManager {
     }
 
     private func clearSession() {
-        UserDefaults.standard.removeObject(forKey: sessionKey)
+        AppSettings.PowerMode.activeSessionData = nil
     }
     
     deinit {

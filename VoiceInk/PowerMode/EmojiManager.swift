@@ -5,8 +5,6 @@ class EmojiManager: ObservableObject {
     static let shared = EmojiManager()
     
     private let defaultEmojis = ["🏢", "🏠", "💼", "🎮", "📱", "📺", "🎵", "📚", "✏️", "🎨", "🧠", "⚙️", "💻", "🌐", "📝", "📊", "🔍", "💬", "📈", "🔧"]
-    private let customEmojisKey = "userAddedEmojis"
-    
     @Published var customEmojis: [String] = []
     
     private init() {
@@ -30,13 +28,11 @@ class EmojiManager: ObservableObject {
     }
     
     private func loadCustomEmojis() {
-        if let savedEmojis = UserDefaults.standard.array(forKey: customEmojisKey) as? [String] {
-            customEmojis = savedEmojis
-        }
+        customEmojis = AppSettings.PowerMode.customEmojis
     }
     
     private func saveCustomEmojis() {
-        UserDefaults.standard.set(customEmojis, forKey: customEmojisKey)
+        AppSettings.PowerMode.customEmojis = customEmojis
     }
     
     func removeCustomEmoji(_ emoji: String) -> Bool {

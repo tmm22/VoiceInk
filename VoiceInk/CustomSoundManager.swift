@@ -16,11 +16,11 @@ class CustomSoundManager: ObservableObject {
     }
 
     @Published var isUsingCustomStartSound: Bool {
-        didSet { UserDefaults.standard.set(isUsingCustomStartSound, forKey: SoundType.start.isUsingKey) }
+        didSet { AppSettings.setValue(isUsingCustomStartSound, forKey: SoundType.start.isUsingKey) }
     }
 
     @Published var isUsingCustomStopSound: Bool {
-        didSet { UserDefaults.standard.set(isUsingCustomStopSound, forKey: SoundType.stop.isUsingKey) }
+        didSet { AppSettings.setValue(isUsingCustomStopSound, forKey: SoundType.stop.isUsingKey) }
     }
 
     private let maxSoundDuration: TimeInterval = 3.0
@@ -35,17 +35,19 @@ class CustomSoundManager: ObservableObject {
     
     private func updateFilenameInUserDefaults(filename: String?, for type: SoundType) {
         if let filename = filename {
-            UserDefaults.standard.set(filename, forKey: type.filenameKey)
+            AppSettings.setValue(filename, forKey: type.filenameKey)
         } else {
-            UserDefaults.standard.removeObject(forKey: type.filenameKey)
+            AppSettings.removeValue(forKey: type.filenameKey)
         }
     }
 
     private init() {
-        self.isUsingCustomStartSound = UserDefaults.standard.bool(forKey: SoundType.start.isUsingKey)
-        self.isUsingCustomStopSound = UserDefaults.standard.bool(forKey: SoundType.stop.isUsingKey)
-        self.customStartSoundFilename = UserDefaults.standard.string(forKey: SoundType.start.filenameKey)
-        self.customStopSoundFilename = UserDefaults.standard.string(forKey: SoundType.stop.filenameKey)
+        self.isUsingCustomStartSound = AppSettings.bool(forKey: SoundType.start.isUsingKey, default: false)
+        self.isUsingCustomStopSound = AppSettings.bool(forKey: SoundType.stop.isUsingKey, default: false)
+        let startFilename = AppSettings.string(forKey: SoundType.start.filenameKey, default: "")
+        let stopFilename = AppSettings.string(forKey: SoundType.stop.filenameKey, default: "")
+        self.customStartSoundFilename = startFilename.isEmpty ? nil : startFilename
+        self.customStopSoundFilename = stopFilename.isEmpty ? nil : stopFilename
 
         createCustomSoundsDirectoryIfNeeded()
     }
@@ -61,7 +63,11 @@ class CustomSoundManager: ObservableObject {
         guard let directory = customSoundsDirectory() else { return }
 
         if !FileManager.default.fileExists(atPath: directory.path) {
-            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            do {
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            } catch {
+                AppLogger.storage.error("Failed to create custom sounds directory: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -104,6 +110,7 @@ class CustomSoundManager: ObservableObject {
         
         if let filename = filename, let directory = customSoundsDirectory() {
             let fileURL = directory.appendingPathComponent(filename)
+            // Best-effort cleanup; file may already be removed.
             try? FileManager.default.removeItem(at: fileURL)
         }
         
@@ -155,8 +162,17 @@ class CustomSoundManager: ObservableObject {
             return .failure(.fileNotFound)
         }
 
-        let asset = AVAsset(url: url)
-        let duration = asset.duration.seconds
+        let duration: TimeInterval
+        do {
+            let audioFile = try AVAudioFile(forReading: url)
+            let sampleRate = audioFile.fileFormat.sampleRate
+            guard sampleRate > 0 else {
+                return .failure(.invalidAudioFile)
+            }
+            duration = Double(audioFile.length) / sampleRate
+        } catch {
+            return .failure(.invalidAudioFile)
+        }
 
         guard duration.isFinite && duration > 0 else {
             return .failure(.invalidAudioFile)

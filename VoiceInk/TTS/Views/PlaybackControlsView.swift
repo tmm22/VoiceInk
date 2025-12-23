@@ -2,21 +2,23 @@ import SwiftUI
 
 struct PlaybackControlsView: View {
     @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var settings: TTSSettingsViewModel
+    @EnvironmentObject var playback: TTSPlaybackViewModel
     @State private var isDraggingSlider = false
     @State private var temporaryTime: TimeInterval = 0
     
     var body: some View {
         VStack(spacing: 16) {
             // Main playback controls and progress
-            HStack(spacing: viewModel.isMinimalistMode ? 12 : 20) {
+            HStack(spacing: settings.isMinimalistMode ? 12 : 20) {
                 // Playback buttons
-                HStack(spacing: viewModel.isMinimalistMode ? 8 : 12) {
+                HStack(spacing: settings.isMinimalistMode ? 8 : 12) {
                     // Skip backward
                     Button(action: {
-                        viewModel.skipBackward()
+                        playback.skipBackward()
                     }) {
                         Image(systemName: "gobackward.10")
-                            .font(.system(size: viewModel.isMinimalistMode ? 16 : 20))
+                            .font(.system(size: settings.isMinimalistMode ? 16 : 20))
                     }
                     .buttonStyle(.plain)
                     .disabled(viewModel.audioData == nil)
@@ -25,13 +27,13 @@ struct PlaybackControlsView: View {
                     
                     // Play/Pause
                     Button(action: {
-                        viewModel.togglePlayPause()
+                        playback.togglePlayPause()
                     }) {
-                        Image(systemName: viewModel.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                            .font(.system(size: viewModel.isMinimalistMode ? 32 : 44))
+                        Image(systemName: playback.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                            .font(.system(size: settings.isMinimalistMode ? 32 : 44))
                             .foregroundColor(.accentColor)
-                            .scaleEffect(viewModel.isPlaying ? 1.1 : 1.0)
-                            .animation(.easeInOut(duration: 0.2), value: viewModel.isPlaying)
+                            .scaleEffect(playback.isPlaying ? 1.1 : 1.0)
+                            .animation(.easeInOut(duration: 0.2), value: playback.isPlaying)
                     }
                     .buttonStyle(.plain)
                     .disabled(viewModel.audioData == nil)
@@ -40,10 +42,10 @@ struct PlaybackControlsView: View {
                     
                     // Skip forward
                     Button(action: {
-                        viewModel.skipForward()
+                        playback.skipForward()
                     }) {
                         Image(systemName: "goforward.10")
-                            .font(.system(size: viewModel.isMinimalistMode ? 16 : 20))
+                            .font(.system(size: settings.isMinimalistMode ? 16 : 20))
                     }
                     .buttonStyle(.plain)
                     .disabled(viewModel.audioData == nil)
@@ -51,22 +53,22 @@ struct PlaybackControlsView: View {
                     .help("Skip forward 10 seconds (⌘→)")
                     
                     // Stop
-                    Button(action: viewModel.stop) {
+                    Button(action: playback.stop) {
                         Image(systemName: "stop.circle")
-                            .font(.system(size: viewModel.isMinimalistMode ? 16 : 20))
+                            .font(.system(size: settings.isMinimalistMode ? 16 : 20))
                     }
                     .buttonStyle(.plain)
-                    .disabled(viewModel.audioData == nil || !viewModel.isPlaying)
+                    .disabled(viewModel.audioData == nil || !playback.isPlaying)
                     .keyboardShortcut(".", modifiers: .command)
                     .help("Stop playback (⌘.)")
                 }
                 
                 Divider()
-                    .frame(height: viewModel.isMinimalistMode ? 24 : 30)
+                    .frame(height: settings.isMinimalistMode ? 24 : 30)
                 
                 // Progress bar and time
                 HStack(spacing: 12) {
-                    Text(formatTime(viewModel.currentTime))
+                    Text(formatTime(playback.currentTime))
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundColor(.secondary)
                         .frame(width: 50, alignment: .trailing)
@@ -83,26 +85,26 @@ struct PlaybackControlsView: View {
                             RoundedRectangle(cornerRadius: 3)
                                 .fill(Color.accentColor)
                                 .frame(
-                                    width: viewModel.duration > 0 ? 
-                                        geometry.size.width * CGFloat(isDraggingSlider ? temporaryTime : viewModel.currentTime) / CGFloat(viewModel.duration) : 0,
+                                    width: playback.duration > 0 ? 
+                                        geometry.size.width * CGFloat(isDraggingSlider ? temporaryTime : playback.currentTime) / CGFloat(playback.duration) : 0,
                                     height: 6
                                 )
                             
                             // Draggable thumb
-                            if viewModel.duration > 0 {
+                            if playback.duration > 0 {
                                 Circle()
                                     .fill(Color.accentColor)
                                     .frame(width: 14, height: 14)
-                                    .offset(x: geometry.size.width * CGFloat(isDraggingSlider ? temporaryTime : viewModel.currentTime) / CGFloat(viewModel.duration) - 7)
+                                    .offset(x: geometry.size.width * CGFloat(isDraggingSlider ? temporaryTime : playback.currentTime) / CGFloat(playback.duration) - 7)
                                     .gesture(
                                         DragGesture()
                                             .onChanged { value in
                                                 isDraggingSlider = true
                                                 let progress = max(0, min(1, value.location.x / geometry.size.width))
-                                                temporaryTime = viewModel.duration * Double(progress)
+                                                temporaryTime = playback.duration * Double(progress)
                                             }
                                             .onEnded { _ in
-                                                viewModel.seek(to: temporaryTime)
+                                                playback.seek(to: temporaryTime)
                                                 isDraggingSlider = false
                                             }
                                     )
@@ -112,14 +114,14 @@ struct PlaybackControlsView: View {
                         .contentShape(Rectangle())
                         .onTapGesture { location in
                             let progress = max(0, min(1, location.x / geometry.size.width))
-                            let newTime = viewModel.duration * Double(progress)
-                            viewModel.seek(to: newTime)
+                            let newTime = playback.duration * Double(progress)
+                            playback.seek(to: newTime)
                         }
                     }
                     .frame(height: 14)
                     .disabled(viewModel.audioData == nil)
                     
-                    Text(formatTime(viewModel.duration))
+                    Text(formatTime(playback.duration))
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundColor(.secondary)
                         .frame(width: 50, alignment: .leading)
@@ -130,7 +132,7 @@ struct PlaybackControlsView: View {
             Divider()
             
                         // Speed and Volume controls (hidden in Minimalist mode - available via Advanced panel)
-                        if !viewModel.isMinimalistMode {
+                        if !settings.isMinimalistMode {
                             HStack(spacing: 30) {
                                 // Speed control
                                 HStack(spacing: 8) {
@@ -141,7 +143,7 @@ struct PlaybackControlsView: View {
                                         .font(.system(size: 13))
                                         .foregroundColor(.secondary)
                                     
-                                    Picker("", selection: $viewModel.playbackSpeed) {
+                                    Picker("", selection: $playback.playbackSpeed) {
                                         Text("0.5×").tag(0.5)
                                         Text("0.75×").tag(0.75)
                                         Text("1.0×").tag(1.0)
@@ -152,14 +154,14 @@ struct PlaybackControlsView: View {
                                     }
                                     .pickerStyle(MenuPickerStyle())
                                     .frame(width: 80)
-                                    .onChange(of: viewModel.playbackSpeed) {
-                                        viewModel.applyPlaybackSpeed(save: true)
+                                    .onChange(of: playback.playbackSpeed) {
+                                        playback.applyPlaybackSpeed(save: true)
                                     }
                                     
                                     // Quick speed buttons
                                     HStack(spacing: 4) {
                                         Button(action: {
-                                            viewModel.playbackSpeed = max(0.5, viewModel.playbackSpeed - 0.25)
+                                            playback.playbackSpeed = max(0.5, playback.playbackSpeed - 0.25)
                                         }) {
                                             Image(systemName: "minus.circle")
                                                 .font(.system(size: 14))
@@ -169,7 +171,7 @@ struct PlaybackControlsView: View {
                                         .help("Decrease speed (⌘[)")
                                         
                                         Button(action: {
-                                            viewModel.playbackSpeed = min(2.0, viewModel.playbackSpeed + 0.25)
+                                            playback.playbackSpeed = min(2.0, playback.playbackSpeed + 0.25)
                                         }) {
                                             Image(systemName: "plus.circle")
                                                 .font(.system(size: 14))
@@ -181,7 +183,7 @@ struct PlaybackControlsView: View {
                                 }
                                 
                                 Divider()
-                                    .frame(height: viewModel.isMinimalistMode ? 16 : 20)
+                                    .frame(height: settings.isMinimalistMode ? 16 : 20)
                                 
                                 // Volume control
                                 HStack(spacing: 8) {
@@ -193,31 +195,31 @@ struct PlaybackControlsView: View {
                                         .font(.system(size: 13))
                                         .foregroundColor(.secondary)
                                     
-                                    Slider(value: $viewModel.volume, in: 0...1) { editing in
+                                    Slider(value: $playback.volume, in: 0...1) { editing in
                                         if !editing {
-                                            viewModel.applyPlaybackVolume(save: true)
+                                            playback.applyPlaybackVolume(save: true)
                                         }
                                     }
-                                    .onChange(of: viewModel.volume) {
-                                        viewModel.applyPlaybackVolume()
+                                    .onChange(of: playback.volume) {
+                                        playback.applyPlaybackVolume()
                                     }
                                     .frame(width: 150)
                                     
-                                    Text("\(Int(viewModel.volume * 100))%")
+                                    Text("\(Int(playback.volume * 100))%")
                                         .font(.system(size: 12, design: .monospaced))
                                         .foregroundColor(.secondary)
                                         .frame(width: 40, alignment: .trailing)
                                     
                                     // Mute button
                                     Button(action: {
-                                        if viewModel.volume > 0 {
-                                            viewModel.volume = 0
+                                        if playback.volume > 0 {
+                                            playback.volume = 0
                                         } else {
-                                            viewModel.volume = 0.75
+                                            playback.volume = 0.75
                                         }
-                                        viewModel.applyPlaybackVolume(save: true)
+                                        playback.applyPlaybackVolume(save: true)
                                     }) {
-                                        Image(systemName: viewModel.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                                        Image(systemName: playback.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
                                             .font(.system(size: 14))
                                     }
                                     .buttonStyle(.plain)
@@ -247,11 +249,11 @@ struct PlaybackControlsView: View {
     }
     
     private var volumeIcon: String {
-        if viewModel.volume == 0 {
+        if playback.volume == 0 {
             return "speaker.slash"
-        } else if viewModel.volume < 0.33 {
+        } else if playback.volume < 0.33 {
             return "speaker"
-        } else if viewModel.volume < 0.66 {
+        } else if playback.volume < 0.66 {
             return "speaker.wave.1"
         } else {
             return "speaker.wave.2"
@@ -278,8 +280,11 @@ struct PlaybackControlsView: View {
 // Preview
 struct PlaybackControlsView_Previews: PreviewProvider {
     static var previews: some View {
+        let viewModel = TTSViewModel()
         PlaybackControlsView()
-            .environmentObject(TTSViewModel())
+            .environmentObject(viewModel)
+            .environmentObject(viewModel.settings)
+            .environmentObject(viewModel.playback)
             .frame(width: 800, height: 150)
             .padding()
     }

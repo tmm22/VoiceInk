@@ -5,16 +5,16 @@ import SwiftUI
 extension WhisperState {
     // Loads the default transcription model from UserDefaults
     func loadCurrentTranscriptionModel() {
-        if let savedModelName = UserDefaults.standard.string(forKey: "CurrentTranscriptionModel"),
+        if let savedModelName = AppSettings.TranscriptionSettings.currentTranscriptionModel,
            let savedModel = allAvailableModels.first(where: { $0.name == savedModelName }) {
             currentTranscriptionModel = savedModel
         }
     }
 
-    // Function to set any transcription model as default
+        // Function to set any transcription model as default
     func setDefaultTranscriptionModel(_ model: any TranscriptionModel) {
         self.currentTranscriptionModel = model
-        UserDefaults.standard.set(model.name, forKey: "CurrentTranscriptionModel")
+        AppSettings.TranscriptionSettings.currentTranscriptionModel = model.name
         
         // For cloud models, clear the old loadedLocalModel
         if model.provider != .local {
@@ -27,7 +27,6 @@ extension WhisperState {
         }
         // Post notification about the model change
         NotificationCenter.default.post(name: .didChangeModel, object: nil, userInfo: ["modelName": model.name])
-        NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
     }
     
     func refreshAllAvailableModels() {

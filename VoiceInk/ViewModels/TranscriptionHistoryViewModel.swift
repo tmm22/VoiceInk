@@ -170,6 +170,7 @@ final class TranscriptionHistoryViewModel: ObservableObject {
     private func removeAssociatedAudio(for transcription: Transcription) {
         guard let urlString = transcription.audioFileURL,
               let url = URL(string: urlString) else { return }
+        // Best-effort cleanup; file may already be missing.
         try? FileManager.default.removeItem(at: url)
     }
 }

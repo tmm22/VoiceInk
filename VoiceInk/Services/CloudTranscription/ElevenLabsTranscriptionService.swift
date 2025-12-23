@@ -1,23 +1,16 @@
 import Foundation
 
-class ElevenLabsTranscriptionService {
-    private let session = SecureURLSession.makeEphemeral()
+class ElevenLabsTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProvider {
+    let supportedProvider: ModelProvider = .elevenLabs
     
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         let config = try await prepareRequest(for: model, audioURL: audioURL)
         
         let (data, response) = try await session.upload(for: config.request, from: config.body)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
-        }
-        
-        if !(200...299).contains(httpResponse.statusCode) {
-            let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
-        }
+        let responseData = try validateResponse(response, data: data, providerName: "ElevenLabs")
         
         do {
-            let transcriptionResponse = try JSONDecoder().decode(TranscriptionResponse.self, from: data)
+            let transcriptionResponse = try JSONDecoder().decode(TranscriptionResponse.self, from: responseData)
             return transcriptionResponse.text
         } catch {
             throw CloudTranscriptionError.noTranscriptionReturned
@@ -27,20 +20,20 @@ class ElevenLabsTranscriptionService {
     private func prepareRequest(for model: any TranscriptionModel, audioURL: URL) async throws -> APIConfig {
         let apiKey = try fetchAPIKey()
         let version = ElevenLabsModelVersion(modelName: model.name)
-        let boundary = "Boundary-\(UUID().uuidString)"
-        
+        var formData = MultipartFormDataBuilder()
         var request = URLRequest(url: version.endpoint)
         request.httpMethod = "POST"
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.setValue(formData.contentType, forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(apiKey, forHTTPHeaderField: "xi-api-key")
         
-        let body = try await createRequestBody(
+        try await createRequestBody(
             audioURL: audioURL,
             modelName: model.name,
-            boundary: boundary,
-            version: version
+            version: version,
+            formData: &formData
         )
+        let body = formData.finalize()
         
         return APIConfig(request: request, body: body)
     }
@@ -48,74 +41,32 @@ class ElevenLabsTranscriptionService {
     private func createRequestBody(
         audioURL: URL,
         modelName: String,
-        boundary: String,
-        version: ElevenLabsModelVersion
-    ) async throws -> Data {
-        var body = Data()
-        let crlf = "\r\n"
-        let audioData: Data
-        do {
-            audioData = try await AudioFileLoader.loadData(from: audioURL)
-        } catch {
-            throw CloudTranscriptionError.audioFileNotFound
-        }
+        version: ElevenLabsModelVersion,
+        formData: inout MultipartFormDataBuilder
+    ) async throws {
+        let audioData = try await loadAudioData(from: audioURL)
         
-        appendFormField(
-            data: &body,
-            boundary: boundary,
+        formData.addFile(
             name: "file",
             filename: audioURL.lastPathComponent,
-            contentType: version.preferredContentType,
-            value: audioData
+            data: audioData,
+            contentType: version.preferredContentType
         )
-        
-        appendFormField(data: &body, boundary: boundary, name: "model_id", value: modelName)
-        appendFormField(data: &body, boundary: boundary, name: "tag_audio_events", value: version.shouldTagAudioEvents ? "true" : "false")
-        appendFormField(data: &body, boundary: boundary, name: "temperature", value: String(version.defaultTemperature))
+        formData.addField(name: "model_id", value: modelName)
+        formData.addField(name: "tag_audio_events", value: version.shouldTagAudioEvents ? "true" : "false")
+        formData.addField(name: "temperature", value: String(version.defaultTemperature))
         
         if let languageCode = resolvedLanguageCode() {
-            appendFormField(data: &body, boundary: boundary, name: "language_code", value: languageCode)
+            formData.addField(name: "language_code", value: languageCode)
         }
         
         for (key, value) in version.additionalParameters {
-            appendFormField(data: &body, boundary: boundary, name: key, value: value)
+            formData.addField(name: key, value: value)
         }
-        
-        body.append(Data("--\(boundary)--\(crlf)".utf8))
-        return body
-    }
-
-    private func appendFormField(
-        data: inout Data,
-        boundary: String,
-        name: String,
-        value: String
-    ) {
-        let crlf = "\r\n"
-        data.append(Data("--\(boundary)\(crlf)".utf8))
-        data.append(Data("Content-Disposition: form-data; name=\"\(name)\"\(crlf)\(crlf)".utf8))
-        data.append(Data(value.utf8))
-        data.append(Data(crlf.utf8))
-    }
-
-    private func appendFormField(
-        data: inout Data,
-        boundary: String,
-        name: String,
-        filename: String,
-        contentType: String,
-        value: Data
-    ) {
-        let crlf = "\r\n"
-        data.append(Data("--\(boundary)\(crlf)".utf8))
-        data.append(Data("Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(filename)\"\(crlf)".utf8))
-        data.append(Data("Content-Type: \(contentType)\(crlf)\(crlf)".utf8))
-        data.append(value)
-        data.append(Data(crlf.utf8))
     }
 
     private func resolvedLanguageCode() -> String? {
-        let selectedLanguage = UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "auto"
+        let selectedLanguage = AppSettings.TranscriptionSettings.selectedLanguage ?? "auto"
         return selectedLanguage == "auto" || selectedLanguage.isEmpty ? nil : selectedLanguage
     }
 

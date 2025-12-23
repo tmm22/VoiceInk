@@ -39,7 +39,7 @@ class ConversationHistoryService {
                 )
             }
         } catch {
-            print("Failed to fetch conversation history: \(error)")
+            AppLogger.storage.error("Failed to fetch conversation history: \(error.localizedDescription)")
             return []
         }
     }

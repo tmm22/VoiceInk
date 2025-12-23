@@ -24,8 +24,8 @@ enum ConfigurationMode: Hashable {
     
     var title: String {
         switch self {
-        case .add: return "Add Power Mode"
-        case .edit: return "Edit Power Mode"
+        case .add: return Localization.PowerMode.addPowerModeLabel
+        case .edit: return Localization.PowerMode.editPowerModeLabel
         }
     }
     
@@ -73,18 +73,18 @@ struct PowerModeView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(spacing: 8) {
-                                Text("Power Modes")
+                                Text(Localization.PowerMode.powerModesTitle)
                                     .font(.system(size: 28, weight: .bold, design: .default))
                                     .foregroundColor(.primary)
                                 
                                                                  InfoTip(
-                                     title: "What is Power Mode?",
-                                     message: "Automatically apply custom configurations based on the app/website you are using",
+                                     title: Localization.PowerMode.whatIsPowerModeTitle,
+                                     message: Localization.PowerMode.whatIsPowerModeMessage,
                                      learnMoreURL: "https://www.youtube.com/@tryvoiceink/videos"
                                  )
                             }
                             
-                            Text("Automate your workflows with context-aware configurations.")
+                            Text(Localization.PowerMode.powerModesSubtitle)
                                 .font(.system(size: 14))
                                 .foregroundColor(.secondary)
                         }
@@ -100,7 +100,7 @@ struct PowerModeView: View {
                                     HStack(spacing: 6) {
                                         Image(systemName: "plus")
                                             .font(.system(size: 12, weight: .medium))
-                                        Text("Add Power Mode")
+                                        Text(Localization.PowerMode.addPowerModeLabel)
                                             .font(.system(size: 13, weight: .medium))
                                     }
                                     .foregroundColor(.white)
@@ -115,7 +115,7 @@ struct PowerModeView: View {
                                 HStack(spacing: 6) {
                                     Image(systemName: isReorderMode ? "checkmark" : "arrow.up.arrow.down")
                                         .font(.system(size: 12, weight: .medium))
-                                    Text(isReorderMode ? "Done" : "Reorder")
+                                    Text(isReorderMode ? Localization.PowerMode.doneButton : Localization.PowerMode.reorderLabel)
                                         .font(.system(size: 13, weight: .medium))
                                 }
                                 .foregroundColor(.primary)
@@ -161,7 +161,7 @@ struct PowerModeView: View {
 
                                     HStack(spacing: 6) {
                                         if config.isDefault {
-                                            Text("Default")
+                                            Text(Localization.PowerMode.defaultLabel)
                                                 .font(.system(size: 11, weight: .medium))
                                                 .padding(.horizontal, 6)
                                                 .padding(.vertical, 2)
@@ -169,7 +169,7 @@ struct PowerModeView: View {
                                                 .foregroundColor(.white)
                                         }
                                         if !config.isEnabled {
-                                            Text("Disabled")
+                                            Text(Localization.PowerMode.disabledLabel)
                                                 .font(.system(size: 11, weight: .medium))
                                                 .padding(.horizontal, 8)
                                                 .padding(.vertical, 4)
@@ -213,11 +213,11 @@ struct PowerModeView: View {
                                                 .foregroundColor(.secondary.opacity(0.6))
                                             
                                             VStack(spacing: 8) {
-                                                Text("No Power Modes Yet")
+                                                Text(Localization.PowerMode.noPowerModesYet)
                                                     .font(.system(size: 20, weight: .medium))
                                                     .foregroundColor(.primary)
                                                 
-                                                Text("Create first power mode to automate your \(AppBrand.communityName) workflow based on apps/website you are using")
+                                                Text(String(format: Localization.PowerMode.createFirstPowerMode, AppBrand.communityName))
                                                     .font(.system(size: 14))
                                                     .foregroundColor(.secondary)
                                                     .multilineTextAlignment(.center)

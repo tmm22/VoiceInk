@@ -27,12 +27,12 @@ class SoundManager: ObservableObject {
     }
     
     private static func loadSettings() -> AudioFeedbackSettings {
-        if let data = UserDefaults.standard.data(forKey: AudioFeedbackSettings.userDefaultsKey),
+        if let data = AppSettings.Audio.audioFeedbackSettingsData,
            let settings = try? JSONDecoder().decode(AudioFeedbackSettings.self, from: data) {
             return settings
         }
         
-        let legacyEnabled = UserDefaults.standard.object(forKey: "isSoundFeedbackEnabled") as? Bool ?? true
+        let legacyEnabled = AppSettings.Audio.legacySoundFeedbackEnabled
         
         var defaultSettings = AudioFeedbackSettings.default
         defaultSettings.isEnabled = legacyEnabled
@@ -42,7 +42,7 @@ class SoundManager: ObservableObject {
     
     private func saveSettings() {
         if let data = try? JSONEncoder().encode(settings) {
-            UserDefaults.standard.set(data, forKey: AudioFeedbackSettings.userDefaultsKey)
+            AppSettings.Audio.audioFeedbackSettingsData = data
         }
     }
     

@@ -234,7 +234,7 @@ VoiceInk/
 │   ├── AudioDeviceManager.swift
 │   ├── ScreenCaptureService.swift
 │   ├── CloudTranscription/     # Cloud provider integrations
-│   └── OllamaService.swift
+│   └── OllamaAIService.swift
 ├── Whisper/                    # Local Whisper integration
 │   ├── WhisperState.swift
 │   ├── LibWhisper.swift
@@ -989,7 +989,7 @@ protocol TTSProvider {
 
 // Implementation
 @MainActor
-class ElevenLabsService: TTSProvider {
+class ElevenLabsTTSService: TTSProvider {
     var name: String { "ElevenLabs" }
     
     func synthesizeSpeech(text: String, voice: Voice, settings: AudioSettings) async throws -> Data {
@@ -1016,7 +1016,7 @@ class TTSViewModel: ObservableObject {
     @Published var errorMessage: String?
     
     // Private dependencies
-    private let elevenLabs: ElevenLabsService
+    private let elevenLabs: ElevenLabsTTSService
     private let audioPlayer: AudioPlayerService
     
     // Public methods for user actions

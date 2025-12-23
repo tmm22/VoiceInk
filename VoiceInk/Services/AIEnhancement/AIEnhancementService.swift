@@ -13,11 +13,10 @@ class AIEnhancementService: ObservableObject {
     
     @Published var isEnhancementEnabled: Bool {
         didSet {
-            UserDefaults.standard.set(isEnhancementEnabled, forKey: "isAIEnhancementEnabled")
+            AppSettings.Enhancements.isEnhancementEnabled = isEnhancementEnabled
             if isEnhancementEnabled && selectedPromptId == nil {
                 selectedPromptId = customPrompts.first?.id
             }
-            NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
             NotificationCenter.default.post(name: .enhancementToggleChanged, object: nil)
         }
     }
@@ -25,7 +24,7 @@ class AIEnhancementService: ObservableObject {
     @Published var contextSettings: AIContextSettings {
         didSet {
             if let encoded = try? JSONEncoder().encode(contextSettings) {
-                UserDefaults.standard.set(encoded, forKey: "aiContextSettings")
+                AppSettings.Enhancements.contextSettingsData = encoded
             }
         }
     }
@@ -34,7 +33,7 @@ class AIEnhancementService: ObservableObject {
         didSet {
             do {
                 let encoded = try JSONEncoder().encode(customPrompts)
-                UserDefaults.standard.set(encoded, forKey: "customPrompts")
+                AppSettings.Enhancements.customPromptsData = encoded
             } catch {
                 logger.error("Failed to encode custom prompts for persistence: \(error.localizedDescription)")
             }
@@ -43,8 +42,7 @@ class AIEnhancementService: ObservableObject {
 
     @Published var selectedPromptId: UUID? {
         didSet {
-            UserDefaults.standard.set(selectedPromptId?.uuidString, forKey: "selectedPromptId")
-            NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
+            AppSettings.Enhancements.selectedPromptId = selectedPromptId?.uuidString
             NotificationCenter.default.post(name: .promptSelectionChanged, object: nil)
         }
     }
@@ -55,15 +53,13 @@ class AIEnhancementService: ObservableObject {
     
     @Published var requestTimeout: TimeInterval {
         didSet {
-            UserDefaults.standard.set(requestTimeout, forKey: "aiEnhancementTimeout")
-            NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
+            AppSettings.Enhancements.requestTimeout = requestTimeout
         }
     }
     
     @Published var reasoningEffort: ReasoningEffort {
         didSet {
-            UserDefaults.standard.set(reasoningEffort.rawValue, forKey: "aiReasoningEffort")
-            NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
+            AppSettings.Enhancements.reasoningEffortRawValue = reasoningEffort.rawValue
         }
     }
     
@@ -126,26 +122,26 @@ class AIEnhancementService: ObservableObject {
         self.contextBuilder = AIContextBuilder(modelContext: modelContext)
         self.contextRenderer = AIContextRenderer()
 
-        self.isEnhancementEnabled = UserDefaults.standard.bool(forKey: "isAIEnhancementEnabled")
+        self.isEnhancementEnabled = AppSettings.Enhancements.isEnhancementEnabled
         
         // Load Context Settings
-        if let data = UserDefaults.standard.data(forKey: "aiContextSettings"),
+        if let data = AppSettings.Enhancements.contextSettingsData,
            let settings = try? JSONDecoder().decode(AIContextSettings.self, from: data) {
             self.contextSettings = settings
         } else {
             // Migration from legacy keys
             var settings = AIContextSettings()
-            settings.includeClipboard = UserDefaults.standard.bool(forKey: "useClipboardContext")
-            settings.includeScreenCapture = UserDefaults.standard.bool(forKey: "useScreenCaptureContext")
+            settings.includeClipboard = AppSettings.Enhancements.useClipboardContext
+            settings.includeScreenCapture = AppSettings.Enhancements.useScreenCaptureContext
             self.contextSettings = settings
         }
         
         // Load timeout setting
-        let savedTimeout = UserDefaults.standard.double(forKey: "aiEnhancementTimeout")
+        let savedTimeout = AppSettings.Enhancements.requestTimeout
         self.requestTimeout = savedTimeout > 0 ? savedTimeout : Self.defaultTimeout
         
         // Load reasoning effort setting
-        if let savedEffort = UserDefaults.standard.string(forKey: "aiReasoningEffort"),
+        if let savedEffort = AppSettings.Enhancements.reasoningEffortRawValue,
            let effort = ReasoningEffort(rawValue: savedEffort) {
             self.reasoningEffort = effort
         } else {
@@ -153,7 +149,7 @@ class AIEnhancementService: ObservableObject {
         }
 
         // Load custom prompts
-        if let savedPromptsData = UserDefaults.standard.data(forKey: "customPrompts"),
+        if let savedPromptsData = AppSettings.Enhancements.customPromptsData,
            let decodedPrompts = try? JSONDecoder().decode([CustomPrompt].self, from: savedPromptsData) {
             self.customPrompts = decodedPrompts
         } else {
@@ -161,7 +157,7 @@ class AIEnhancementService: ObservableObject {
         }
 
         // Load selected prompt
-        if let savedPromptId = UserDefaults.standard.string(forKey: "selectedPromptId") {
+        if let savedPromptId = AppSettings.Enhancements.selectedPromptId {
             self.selectedPromptId = UUID(uuidString: savedPromptId)
         }
 

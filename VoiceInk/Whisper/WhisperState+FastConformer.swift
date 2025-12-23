@@ -66,9 +66,9 @@ extension WhisperState {
             downloadProgress.removeValue(forKey: model.name + "_fastconformer_model")
             downloadProgress.removeValue(forKey: model.name + "_fastconformer_tokens")
             fastConformerDownloadProgress[model.name] = 1.0
-            UserDefaults.standard.set(true, forKey: fastConformerDefaultsKey(for: model.name))
+            AppSettings.setValue(true, forKey: fastConformerDefaultsKey(for: model.name))
             fastConformerTranscriptionService.invalidateSession(for: model.name)
-            await NotificationManager.shared.showNotification(
+            NotificationManager.shared.showNotification(
                 title: Localization.Models.downloadSuccess,
                 type: .success,
                 duration: 3.0
@@ -77,8 +77,8 @@ extension WhisperState {
             downloadProgress.removeValue(forKey: model.name + "_fastconformer_model")
             downloadProgress.removeValue(forKey: model.name + "_fastconformer_tokens")
             fastConformerDownloadProgress[model.name] = nil
-            UserDefaults.standard.set(false, forKey: fastConformerDefaultsKey(for: model.name))
-            await NotificationManager.shared.showNotification(
+            AppSettings.setValue(false, forKey: fastConformerDefaultsKey(for: model.name))
+            NotificationManager.shared.showNotification(
                 title: Localization.Models.downloadFailed,
                 type: .error,
                 duration: 4.0
@@ -90,7 +90,7 @@ extension WhisperState {
         let directory = fastConformerModelDirectory(for: model)
         try? FileManager.default.removeItem(at: directory)
         fastConformerDownloadProgress[model.name] = nil
-        UserDefaults.standard.set(false, forKey: fastConformerDefaultsKey(for: model.name))
+        AppSettings.setValue(false, forKey: fastConformerDefaultsKey(for: model.name))
         fastConformerTranscriptionService.invalidateSession(for: model.name)
     }
 

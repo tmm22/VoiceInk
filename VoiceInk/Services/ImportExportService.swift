@@ -45,21 +45,6 @@ class ImportExportService {
     static let shared = ImportExportService()
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "ImportExportService")
     private let currentSettingsVersion: String
-    private let dictionaryItemsKey = "CustomVocabularyItems"
-    private let wordReplacementsKey = "wordReplacements"
-
-
-    private let keyIsMenuBarOnly = "IsMenuBarOnly"
-    private let keyUseAppleScriptPaste = "UseAppleScriptPaste"
-    private let keyRecorderType = "RecorderType"
-    private let keyIsAudioCleanupEnabled = "IsAudioCleanupEnabled"
-    private let keyIsTranscriptionCleanupEnabled = "IsTranscriptionCleanupEnabled"
-    private let keyTranscriptionRetentionMinutes = "TranscriptionRetentionMinutes"
-    private let keyAudioRetentionPeriod = "AudioRetentionPeriod"
-
-    private let keyIsSoundFeedbackEnabled = "isSoundFeedbackEnabled"
-    private let keyIsSystemMuteEnabled = "isSystemMuteEnabled"
-    private let keyIsTextFormattingEnabled = "IsTextFormattingEnabled"
 
     private init() {
         if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
@@ -82,12 +67,12 @@ class ImportExportService {
         let customModels = CustomModelManager.shared.customModels
 
         var exportedDictionaryItems: [DictionaryItem]? = nil
-        if let data = UserDefaults.standard.data(forKey: dictionaryItemsKey),
+        if let data = AppSettings.Dictionary.customVocabularyItemsData,
            let items = try? JSONDecoder().decode([DictionaryItem].self, from: data) {
             exportedDictionaryItems = items
         }
 
-        let exportedWordReplacements = UserDefaults.standard.dictionary(forKey: wordReplacementsKey) as? [String: String]
+        let exportedWordReplacements = AppSettings.Dictionary.wordReplacements
 
         let generalSettingsToExport = GeneralSettings(
             toggleMiniRecorderShortcut: KeyboardShortcuts.getShortcut(for: .toggleMiniRecorder),
@@ -97,21 +82,21 @@ class ImportExportService {
             selectedHotkey2RawValue: hotkeyManager.selectedHotkey2.rawValue,
             launchAtLoginEnabled: LaunchAtLogin.isEnabled,
             isMenuBarOnly: menuBarManager.isMenuBarOnly,
-            useAppleScriptPaste: UserDefaults.standard.bool(forKey: keyUseAppleScriptPaste),
+            useAppleScriptPaste: AppSettings.Clipboard.useAppleScriptPaste,
             recorderType: whisperState.recorderType,
-            isTranscriptionCleanupEnabled: UserDefaults.standard.bool(forKey: keyIsTranscriptionCleanupEnabled),
-            transcriptionRetentionMinutes: UserDefaults.standard.integer(forKey: keyTranscriptionRetentionMinutes),
-            isAudioCleanupEnabled: UserDefaults.standard.bool(forKey: keyIsAudioCleanupEnabled),
-            audioRetentionPeriod: UserDefaults.standard.integer(forKey: keyAudioRetentionPeriod),
+            isTranscriptionCleanupEnabled: AppSettings.Cleanup.isTranscriptionCleanupEnabled,
+            transcriptionRetentionMinutes: AppSettings.Cleanup.transcriptionRetentionMinutes,
+            isAudioCleanupEnabled: AppSettings.Audio.isAudioCleanupEnabled,
+            audioRetentionPeriod: AppSettings.Audio.audioRetentionPeriod,
 
             isSoundFeedbackEnabled: soundManager.isEnabled,
             audioFeedbackSettings: soundManager.settings,
             isSystemMuteEnabled: mediaController.isSystemMuteEnabled,
             isPauseMediaEnabled: playbackController.isPauseMediaEnabled,
-            isTextFormattingEnabled: UserDefaults.standard.object(forKey: keyIsTextFormattingEnabled) as? Bool ?? true,
-            isExperimentalFeaturesEnabled: UserDefaults.standard.bool(forKey: "isExperimentalFeaturesEnabled"),
-            restoreClipboardAfterPaste: UserDefaults.standard.bool(forKey: "restoreClipboardAfterPaste"),
-            clipboardRestoreDelay: UserDefaults.standard.double(forKey: "clipboardRestoreDelay")
+            isTextFormattingEnabled: AppSettings.TranscriptionSettings.isTextFormattingEnabled,
+            isExperimentalFeaturesEnabled: AppSettings.General.isExperimentalFeaturesEnabled,
+            restoreClipboardAfterPaste: AppSettings.Clipboard.restoreClipboardAfterPaste,
+            clipboardRestoreDelay: AppSettings.Clipboard.clipboardRestoreDelay
         )
 
         let exportedSettings = VoiceLinkCommunityExportedSettings(
@@ -209,14 +194,14 @@ class ImportExportService {
 
                     if let itemsToImport = importedSettings.dictionaryItems {
                         if let encoded = try? JSONEncoder().encode(itemsToImport) {
-                            UserDefaults.standard.set(encoded, forKey: "CustomVocabularyItems")
+                            AppSettings.Dictionary.customVocabularyItemsData = encoded
                         }
                     } else {
                         self.logger.info("No custom vocabulary items (for spelling) found in the imported file. Existing items remain unchanged.")
                     }
 
                     if let replacementsToImport = importedSettings.wordReplacements {
-                        UserDefaults.standard.set(replacementsToImport, forKey: self.wordReplacementsKey)
+                        AppSettings.Dictionary.wordReplacements = replacementsToImport
                     } else {
                         self.logger.info("No word replacements found in the imported file. Existing replacements remain unchanged.")
                     }
@@ -246,23 +231,23 @@ class ImportExportService {
                             menuBarManager.isMenuBarOnly = menuOnly
                         }
                         if let appleScriptPaste = general.useAppleScriptPaste {
-                            UserDefaults.standard.set(appleScriptPaste, forKey: self.keyUseAppleScriptPaste)
+                            AppSettings.Clipboard.useAppleScriptPaste = appleScriptPaste
                         }
                         if let recType = general.recorderType {
                             whisperState.recorderType = recType
                         }
                         
                         if let transcriptionCleanup = general.isTranscriptionCleanupEnabled {
-                            UserDefaults.standard.set(transcriptionCleanup, forKey: self.keyIsTranscriptionCleanupEnabled)
+                            AppSettings.Cleanup.isTranscriptionCleanupEnabled = transcriptionCleanup
                         }
                         if let transcriptionMinutes = general.transcriptionRetentionMinutes {
-                            UserDefaults.standard.set(transcriptionMinutes, forKey: self.keyTranscriptionRetentionMinutes)
+                            AppSettings.Cleanup.transcriptionRetentionMinutes = transcriptionMinutes
                         }
                         if let audioCleanup = general.isAudioCleanupEnabled {
-                            UserDefaults.standard.set(audioCleanup, forKey: self.keyIsAudioCleanupEnabled)
+                            AppSettings.Audio.isAudioCleanupEnabled = audioCleanup
                         }
                         if let audioRetention = general.audioRetentionPeriod {
-                            UserDefaults.standard.set(audioRetention, forKey: self.keyAudioRetentionPeriod)
+                            AppSettings.Audio.audioRetentionPeriod = audioRetention
                         }
 
                         if let soundFeedback = general.isSoundFeedbackEnabled {
@@ -278,19 +263,19 @@ class ImportExportService {
                             playbackController.isPauseMediaEnabled = pauseMedia
                         }
                         if let experimentalEnabled = general.isExperimentalFeaturesEnabled {
-                            UserDefaults.standard.set(experimentalEnabled, forKey: "isExperimentalFeaturesEnabled")
+                            AppSettings.General.isExperimentalFeaturesEnabled = experimentalEnabled
                             if experimentalEnabled == false {
                                 playbackController.isPauseMediaEnabled = false
                             }
                         }
                         if let textFormattingEnabled = general.isTextFormattingEnabled {
-                            UserDefaults.standard.set(textFormattingEnabled, forKey: self.keyIsTextFormattingEnabled)
+                            AppSettings.TranscriptionSettings.isTextFormattingEnabled = textFormattingEnabled
                         }
                         if let restoreClipboard = general.restoreClipboardAfterPaste {
-                            UserDefaults.standard.set(restoreClipboard, forKey: "restoreClipboardAfterPaste")
+                            AppSettings.Clipboard.restoreClipboardAfterPaste = restoreClipboard
                         }
                         if let clipboardDelay = general.clipboardRestoreDelay {
-                            UserDefaults.standard.set(clipboardDelay, forKey: "clipboardRestoreDelay")
+                            AppSettings.Clipboard.clipboardRestoreDelay = clipboardDelay
                         }
                     }
 

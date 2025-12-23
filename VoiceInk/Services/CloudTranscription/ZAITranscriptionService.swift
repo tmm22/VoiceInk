@@ -4,9 +4,9 @@ import os
 /// Service for transcribing audio using Z.AI's GLM-ASR API.
 /// Z.AI provides the GLM-ASR-Nano-2512 model with exceptional accuracy for Chinese, English, and 14+ languages.
 /// API Documentation: https://docs.z.ai/api-reference/audio/audio-transcriptions
-class ZAITranscriptionService {
+class ZAITranscriptionService: CloudTranscriptionBase, CloudTranscriptionProvider {
+    let supportedProvider: ModelProvider = .zai
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "ZAIService")
-    private let session = SecureURLSession.makeEphemeral()
     
     /// Transcribes audio using Z.AI's GLM-ASR API.
     /// - Parameters:
@@ -18,27 +18,20 @@ class ZAITranscriptionService {
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         let config = try getAPIConfig(for: model)
         
-        let boundary = "Boundary-\(UUID().uuidString)"
         var request = URLRequest(url: config.url)
         request.httpMethod = "POST"
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        var formData = MultipartFormDataBuilder()
+        request.setValue(formData.contentType, forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
         
-        let body = try await createRequestBody(audioURL: audioURL, modelName: config.modelName, boundary: boundary)
+        try await createRequestBody(audioURL: audioURL, modelName: config.modelName, formData: &formData)
+        let body = formData.finalize()
         
         let (data, response) = try await session.upload(for: request, from: body)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
-        }
-        
-        if !(200...299).contains(httpResponse.statusCode) {
-            let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-            logger.error("Z.AI API request failed with status \(httpResponse.statusCode): \(errorMessage, privacy: .public)")
-            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
-        }
+        let responseData = try validateResponse(response, data: data, logger: logger, providerName: "Z.AI")
         
         do {
-            let transcriptionResponse = try JSONDecoder().decode(TranscriptionResponse.self, from: data)
+            let transcriptionResponse = try JSONDecoder().decode(TranscriptionResponse.self, from: responseData)
             return transcriptionResponse.text
         } catch {
             logger.error("Failed to decode Z.AI API response: \(error.localizedDescription)")
@@ -61,15 +54,12 @@ class ZAITranscriptionService {
     
     /// Creates the multipart form-data request body.
     /// Z.AI uses OpenAI-compatible API format.
-    private func createRequestBody(audioURL: URL, modelName: String, boundary: String) async throws -> Data {
-        var body = Data()
-        let crlf = "\r\n"
-        let audioData: Data
-        do {
-            audioData = try await AudioFileLoader.loadData(from: audioURL)
-        } catch {
-            throw CloudTranscriptionError.audioFileNotFound
-        }
+    private func createRequestBody(
+        audioURL: URL,
+        modelName: String,
+        formData: inout MultipartFormDataBuilder
+    ) async throws {
+        let audioData = try await loadAudioData(from: audioURL)
         
         // Determine content type based on file extension
         let contentType: String
@@ -87,30 +77,21 @@ class ZAITranscriptionService {
         }
         
         // File field
-        body.append(Data("--\(boundary)\(crlf)".utf8))
-        body.append(Data("Content-Disposition: form-data; name=\"file\"; filename=\"\(audioURL.lastPathComponent)\"\(crlf)".utf8))
-        body.append(Data("Content-Type: \(contentType)\(crlf)\(crlf)".utf8))
-        body.append(audioData)
-        body.append(Data(crlf.utf8))
+        formData.addFile(
+            name: "file",
+            filename: audioURL.lastPathComponent,
+            data: audioData,
+            contentType: contentType
+        )
         
         // Model field
-        body.append(Data("--\(boundary)\(crlf)".utf8))
-        body.append(Data("Content-Disposition: form-data; name=\"model\"\(crlf)\(crlf)".utf8))
-        body.append(Data(modelName.utf8))
-        body.append(Data(crlf.utf8))
+        formData.addField(name: "model", value: modelName)
         
         // Stream field (false for synchronous transcription)
-        body.append(Data("--\(boundary)\(crlf)".utf8))
-        body.append(Data("Content-Disposition: form-data; name=\"stream\"\(crlf)\(crlf)".utf8))
-        body.append(Data("false".utf8))
-        body.append(Data(crlf.utf8))
+        formData.addField(name: "stream", value: "false")
         
         // Optional: Include hotwords if available from user dictionary
         // This could be enhanced to pull from the user's custom vocabulary
-        
-        body.append(Data("--\(boundary)--\(crlf)".utf8))
-        
-        return body
     }
     
     // MARK: - Supporting Types

@@ -6,7 +6,6 @@ class CustomModelManager: ObservableObject {
     static let shared = CustomModelManager()
     
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "CustomModelManager")
-    private let userDefaults = UserDefaults.standard
     private let customModelsKey = "customCloudModels"
     
     @Published var customModels: [CustomCloudModel] = []
@@ -20,7 +19,11 @@ class CustomModelManager: ObservableObject {
     func addCustomModel(_ model: CustomCloudModel) {
         // Save API key to Keychain if present in transient property
         if let apiKey = model.transientApiKey, !apiKey.isEmpty {
-            KeychainManager.shared.saveAPIKey(apiKey, for: "custom_model_\(model.id.uuidString)")
+            do {
+                try KeychainManager.shared.saveAPIKey(apiKey, for: "custom_model_\(model.id.uuidString)")
+            } catch {
+                logger.error("Failed to save API key for custom model \(model.displayName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
         }
         
         customModels.append(model)
@@ -32,6 +35,7 @@ class CustomModelManager: ObservableObject {
         customModels.removeAll { $0.id == id }
         
         // Remove API key from Keychain
+        // Best-effort cleanup; key may already be missing.
         try? KeychainManager.shared.deleteAPIKey(for: "custom_model_\(id.uuidString)")
         
         saveCustomModels()
@@ -42,7 +46,11 @@ class CustomModelManager: ObservableObject {
         if let index = customModels.firstIndex(where: { $0.id == updatedModel.id }) {
             // Update API key in Keychain if it was changed (present in transient)
             if let newKey = updatedModel.transientApiKey, !newKey.isEmpty {
-                KeychainManager.shared.saveAPIKey(newKey, for: "custom_model_\(updatedModel.id.uuidString)")
+                do {
+                    try KeychainManager.shared.saveAPIKey(newKey, for: "custom_model_\(updatedModel.id.uuidString)")
+                } catch {
+                    logger.error("Failed to save API key for custom model \(updatedModel.displayName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                }
             }
             
             customModels[index] = updatedModel
@@ -54,7 +62,7 @@ class CustomModelManager: ObservableObject {
     // MARK: - Persistence
     
     private func loadCustomModels() {
-        guard let data = userDefaults.data(forKey: customModelsKey) else {
+        guard let data = AppSettings.data(forKey: customModelsKey) else {
             logger.info("No custom models found in UserDefaults")
             return
         }
@@ -67,7 +75,11 @@ class CustomModelManager: ObservableObject {
             
             for legacy in legacyModels {
                 // Save key to Keychain
-                KeychainManager.shared.saveAPIKey(legacy.apiKey, for: "custom_model_\(legacy.id.uuidString)")
+                do {
+                    try KeychainManager.shared.saveAPIKey(legacy.apiKey, for: "custom_model_\(legacy.id.uuidString)")
+                } catch {
+                    logger.error("Failed to migrate custom model API key for \(legacy.displayName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                }
                 
                 // Create new model (apiKey property will now read from Keychain)
                 let newModel = CustomCloudModel(
@@ -102,7 +114,7 @@ class CustomModelManager: ObservableObject {
     func saveCustomModels() {
         do {
             let data = try JSONEncoder().encode(customModels)
-            userDefaults.set(data, forKey: customModelsKey)
+            AppSettings.setValue(data, forKey: customModelsKey)
         } catch {
             logger.error("Failed to encode custom models: \(error.localizedDescription)")
         }
@@ -177,12 +189,8 @@ class CustomModelManager: ObservableObject {
     }
     
     private func isValidURL(_ string: String) -> Bool {
-        guard let url = URL(string: string) else { return false }
-        // CRITICAL: Enforce HTTPS for URLs that carry API credentials
-        // This prevents credentials from being sent over unencrypted connections
-        guard url.scheme?.lowercased() == "https" else { return false }
-        guard url.host != nil, !url.host!.isEmpty else { return false }
-        return true
+        // CRITICAL: Enforce HTTPS for URLs that carry API credentials.
+        CustomCloudModel.isValidSecureEndpoint(string)
     }
 }
 

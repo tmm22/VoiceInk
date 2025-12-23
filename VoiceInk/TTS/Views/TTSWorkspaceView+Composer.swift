@@ -74,12 +74,13 @@ struct MainComposerColumn: View {
 
 struct ContextShelfView: View {
     @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var importExport: TTSImportExportViewModel
     @Binding var showingTranslationDetail: Bool
     let focusInspector: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
-            if viewModel.articleSummary != nil || viewModel.isSummarizingArticle || viewModel.articleSummaryError != nil {
+            if importExport.articleSummary != nil || importExport.isSummarizingArticle || importExport.articleSummaryError != nil {
                 ArticleSummaryCard()
             }
 
@@ -166,7 +167,8 @@ struct ContextShelfView: View {
 // MARK: - Article Summary Card
 
 struct ArticleSummaryCard: View {
-    @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var importExport: TTSImportExportViewModel
+    @EnvironmentObject var generation: TTSSpeechGenerationViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -175,14 +177,14 @@ struct ArticleSummaryCard: View {
                     .font(.subheadline)
                     .fontWeight(.semibold)
                 Spacer()
-                if let host = viewModel.articleSummary?.sourceURL.host {
+                if let host = importExport.articleSummary?.sourceURL.host {
                     Text(host)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }
 
-            if viewModel.isSummarizingArticle {
+            if importExport.isSummarizingArticle {
                 HStack(spacing: 8) {
                     ProgressView()
                         .progressViewStyle(.circular)
@@ -190,12 +192,12 @@ struct ArticleSummaryCard: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-            } else if let summary = viewModel.articleSummaryPreview {
+            } else if let summary = importExport.articleSummaryPreview {
                 Text(summary)
                     .font(.system(size: 13))
                     .foregroundColor(.primary)
                     .lineLimit(4)
-            } else if let error = viewModel.articleSummaryError {
+            } else if let error = importExport.articleSummaryError {
                 Text(error)
                     .font(.caption)
                     .foregroundColor(.red)
@@ -205,7 +207,7 @@ struct ArticleSummaryCard: View {
                     .foregroundColor(.secondary)
             }
 
-            if let reduction = viewModel.articleSummaryReductionDescription {
+            if let reduction = importExport.articleSummaryReductionDescription {
                 Text(reduction)
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -213,26 +215,26 @@ struct ArticleSummaryCard: View {
 
             HStack {
                 Button("Use Concise Article") {
-                    viewModel.replaceEditorWithCondensedImport()
+                    importExport.replaceEditorWithCondensedImport()
                 }
                 .buttonStyle(.bordered)
-                .disabled(!viewModel.canAdoptCondensedImport)
+                .disabled(!importExport.canAdoptCondensedImport)
 
                 Button("Insert Summary") {
-                    viewModel.insertSummaryIntoEditor()
+                    importExport.insertSummaryIntoEditor()
                 }
                 .buttonStyle(.bordered)
-                .disabled(!viewModel.canInsertSummaryIntoEditor)
+                .disabled(!importExport.canInsertSummaryIntoEditor)
 
                 Spacer()
 
                 Button("Speak Summary") {
                     Task {
-                        await viewModel.speakSummaryOfImportedArticle()
+                        await importExport.speakSummaryOfImportedArticle()
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!viewModel.canSpeakSummary || viewModel.isGenerating)
+                .disabled(!importExport.canSpeakSummary || generation.isGenerating)
             }
         }
         .padding(16)
@@ -240,8 +242,8 @@ struct ArticleSummaryCard: View {
         .background(
             CardBackground(isSelected: false)
         )
-        .animation(.easeInOut(duration: 0.2), value: viewModel.isSummarizingArticle)
-        .animation(.easeInOut(duration: 0.2), value: viewModel.articleSummary)
+        .animation(.easeInOut(duration: 0.2), value: importExport.isSummarizingArticle)
+        .animation(.easeInOut(duration: 0.2), value: importExport.articleSummary)
     }
 }
 
@@ -249,13 +251,14 @@ struct ArticleSummaryCard: View {
 
 struct GenerationStatusFooter: View {
     @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var generation: TTSSpeechGenerationViewModel
     let focusInspector: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
-            if viewModel.isGenerating {
+            if generation.isGenerating {
                 HStack(spacing: 6) {
-                    ProgressView(value: viewModel.generationProgress)
+                    ProgressView(value: generation.generationProgress)
                         .frame(width: 100)
                     Text("Generating…")
                         .font(.caption)

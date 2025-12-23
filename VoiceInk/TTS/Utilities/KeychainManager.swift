@@ -38,18 +38,12 @@ class KeychainManager {
     // MARK: - Public Methods
     
     /// Save API key to keychain
-    func saveAPIKey(_ key: String, for provider: String) {
-        do {
-            // Try to update existing item first
-            if let _ = getAPIKey(for: provider) {
-                try updateAPIKey(key, for: provider)
-            } else {
-                try addAPIKey(key, for: provider)
-            }
-        } catch {
-            #if DEBUG
-            print("Failed to save API key: \(error)")
-            #endif
+    func saveAPIKey(_ key: String, for provider: String) throws {
+        // Try to update existing item first
+        if let _ = getAPIKey(for: provider) {
+            try updateAPIKey(key, for: provider)
+        } else {
+            try addAPIKey(key, for: provider)
         }
     }
     
@@ -102,16 +96,18 @@ class KeychainManager {
     
     /// Delete all API keys
     func deleteAllAPIKeys() throws {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service
-        ]
-        
-        let status = SecItemDelete(query as CFDictionary)
-        
-        guard status == errSecSuccess || status == errSecItemNotFound else {
-            throw KeychainError.unhandledError(status: status)
+        let providers = getAllProviders()
+        if !providers.isEmpty {
+            for provider in providers {
+                do {
+                    try deleteAPIKey(for: provider)
+                } catch KeychainError.itemNotFound {
+                    continue
+                }
+            }
         }
+        
+        try deleteAllForService()
     }
     
     /// Check if API key exists
@@ -195,6 +191,23 @@ class KeychainManager {
             throw KeychainError.unhandledError(status: status)
         }
     }
+
+    private func deleteAllForService() throws {
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service
+        ]
+        
+        if let accessGroup = accessGroup {
+            query[kSecAttrAccessGroup as String] = accessGroup
+        }
+        
+        let status = SecItemDelete(query as CFDictionary)
+        
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw KeychainError.unhandledError(status: status)
+        }
+    }
 }
 
 // MARK: - Keychain Manager Extensions
@@ -205,10 +218,14 @@ extension KeychainManager {
         
         for provider in providers {
             let key = "apiKey_\(provider)"
-            if let apiKey = UserDefaults.standard.string(forKey: key) {
-                saveAPIKey(apiKey, for: provider)
-                // Remove from UserDefaults after successful migration
-                UserDefaults.standard.removeObject(forKey: key)
+            if let apiKey = AppSettings.string(forKey: key) {
+                do {
+                    try saveAPIKey(apiKey, for: provider)
+                    // Remove from UserDefaults after successful migration
+                    AppSettings.removeValue(forKey: key)
+                } catch {
+                    AppLogger.storage.error("Failed to migrate legacy API key for \(provider, privacy: .public): \(error.localizedDescription)")
+                }
             }
         }
     }

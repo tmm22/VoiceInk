@@ -23,7 +23,7 @@ struct UtilityDetailView: View {
             switch utility {
             case .transcription:
                 TranscriptionUtilityView()
-                    .environmentObject(viewModel)
+                    .environmentObject(viewModel.transcription)
             case .urlImport:
                 URLImportView()
                     .environmentObject(viewModel)
@@ -304,7 +304,8 @@ struct TranslationSettingsPopover: View {
 // MARK: - Voice Preview Popover
 
 struct VoicePreviewPopover: View {
-    @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var settings: TTSSettingsViewModel
+    @EnvironmentObject var preview: TTSVoicePreviewViewModel
     @Binding var isPresented: Bool
 
     var body: some View {
@@ -317,7 +318,7 @@ struct VoicePreviewPopover: View {
                     .foregroundColor(.secondary)
             }
 
-            if viewModel.availableVoices.isEmpty {
+            if settings.availableVoices.isEmpty {
                 Text("No voices are available for the selected provider.")
                     .font(.callout)
                     .foregroundColor(.secondary)
@@ -325,14 +326,14 @@ struct VoicePreviewPopover: View {
             } else {
                 ScrollView {
                     VStack(spacing: 8) {
-                        ForEach(viewModel.availableVoices) { voice in
+                        ForEach(settings.availableVoices) { voice in
                             Button {
-                                viewModel.previewVoice(voice)
+                                preview.previewVoice(voice)
                             } label: {
                                 VStack(alignment: .leading, spacing: 6) {
                                     HStack(alignment: .center, spacing: 8) {
                                         Text(voice.name)
-                                            .fontWeight(viewModel.isPreviewingVoice(voice) ? .semibold : .regular)
+                                            .fontWeight(preview.isPreviewingVoice(voice) ? .semibold : .regular)
                                             .foregroundColor(.primary)
                                         Spacer()
                                         previewStatusIcon(for: voice)
@@ -342,7 +343,7 @@ struct VoicePreviewPopover: View {
                                         .font(.caption)
                                         .foregroundColor(.secondary)
 
-                                    if !viewModel.canPreview(voice) {
+                                    if !preview.canPreview(voice) {
                                         Text("Add an API key in Settings to preview this voice.")
                                             .font(.caption2)
                                             .foregroundColor(.secondary)
@@ -358,8 +359,8 @@ struct VoicePreviewPopover: View {
                                 )
                             }
                             .buttonStyle(.plain)
-                            .disabled(!viewModel.canPreview(voice))
-                            .opacity(viewModel.canPreview(voice) ? 1 : 0.55)
+                            .disabled(!preview.canPreview(voice))
+                            .opacity(preview.canPreview(voice) ? 1 : 0.55)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -368,10 +369,10 @@ struct VoicePreviewPopover: View {
                 .frame(maxHeight: 260)
             }
 
-            if viewModel.isPreviewActive {
+            if preview.isPreviewActive {
                 Divider()
                 Button {
-                    viewModel.stopPreview()
+                    preview.stopPreview()
                 } label: {
                     Label("Stop Preview", systemImage: "stop.fill")
                 }
@@ -383,14 +384,14 @@ struct VoicePreviewPopover: View {
     }
 
     private func rowBackground(for voice: Voice) -> some ShapeStyle {
-        if viewModel.isPreviewingVoice(voice) || viewModel.isPreviewLoadingVoice(voice) {
+        if preview.isPreviewingVoice(voice) || preview.isPreviewLoadingVoice(voice) {
             return Color.accentColor.opacity(0.15)
         }
         return Color.clear
     }
 
     private func rowBorderColor(for voice: Voice) -> Color {
-        if viewModel.isPreviewingVoice(voice) || viewModel.isPreviewLoadingVoice(voice) {
+        if preview.isPreviewingVoice(voice) || preview.isPreviewLoadingVoice(voice) {
             return Color.accentColor.opacity(0.4)
         }
         return Color.secondary.opacity(0.3)
@@ -398,13 +399,13 @@ struct VoicePreviewPopover: View {
 
     @ViewBuilder
     private func previewStatusIcon(for voice: Voice) -> some View {
-        if viewModel.isPreviewLoadingVoice(voice) {
+        if preview.isPreviewLoadingVoice(voice) {
             ProgressView()
                 .controlSize(.small)
-        } else if viewModel.isPreviewingVoice(voice) {
+        } else if preview.isPreviewingVoice(voice) {
             Image(systemName: "speaker.wave.2.fill")
                 .foregroundColor(.accentColor)
-        } else if viewModel.canPreview(voice) {
+        } else if preview.canPreview(voice) {
             Image(systemName: "play.circle")
                 .foregroundColor(.secondary)
         } else {

@@ -20,7 +20,6 @@ final class AnnouncementsService {
     // Fetch every 4 hours
     private let refreshInterval: TimeInterval = 4 * 60 * 60
 
-    private let dismissedKey = "dismissedAnnouncementIds"
     private let maxDismissedToKeep = 2
     private var timer: Timer?
     private let session = SecureURLSession.makeEphemeral()
@@ -73,12 +72,12 @@ final class AnnouncementsService {
     }
 
     private func isDismissed(_ id: String) -> Bool {
-        let set = UserDefaults.standard.stringArray(forKey: dismissedKey) ?? []
+        let set = AppSettings.Announcements.dismissedIds
         return set.contains(id)
     }
 
     private func markDismissed(_ id: String) {
-        var ids = UserDefaults.standard.stringArray(forKey: dismissedKey) ?? []
+        var ids = AppSettings.Announcements.dismissedIds
         if !ids.contains(id) {
             ids.append(id)
         }
@@ -87,7 +86,7 @@ final class AnnouncementsService {
             let overflow = ids.count - maxDismissedToKeep
             ids.removeFirst(overflow)
         }
-        UserDefaults.standard.set(ids, forKey: dismissedKey)
+        AppSettings.Announcements.dismissedIds = ids
     }
 }
 
@@ -109,5 +108,3 @@ private struct RemoteAnnouncement: Decodable {
     }
 
 }
-
-

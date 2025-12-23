@@ -1,3 +1,5 @@
+#if false
+// VoiceActivityDetector was removed from the main target; keep tests disabled until it is restored.
 import XCTest
 import AVFoundation
 @testable import VoiceInk
@@ -9,16 +11,16 @@ final class VoiceActivityDetectorTests: XCTestCase {
     
     var modelPath: String!
     
-    override func setUp() throws {
-        try super.setUp()
+    override func setUp() {
+        super.setUp()
         
         // Get VAD model path (may not exist in test environment)
         modelPath = Bundle.main.path(forResource: "silero_vad", ofType: "ort") ?? ""
     }
     
-    override func tearDown() throws {
+    override func tearDown() {
         modelPath = nil
-        try super.tearDown()
+        super.tearDown()
     }
     
     // MARK: - Model Initialization Tests
@@ -272,3 +274,4 @@ final class VoiceActivityDetectorTests: XCTestCase {
         XCTAssertEqual(segments1.count, segments2.count, "Should be deterministic")
     }
 }
+#endif

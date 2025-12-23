@@ -11,19 +11,17 @@ struct DictionaryExportData: Codable {
 
 class DictionaryImportExportService {
     static let shared = DictionaryImportExportService()
-    private let dictionaryItemsKey = "CustomVocabularyItems"
-    private let wordReplacementsKey = "wordReplacements"
 
     private init() {}
 
     func exportDictionary() {
         var dictionaryWords: [String] = []
-        if let data = UserDefaults.standard.data(forKey: dictionaryItemsKey),
+        if let data = AppSettings.Dictionary.customVocabularyItemsData,
            let items = try? JSONDecoder().decode([DictionaryItem].self, from: data) {
             dictionaryWords = items.map { $0.word }
         }
 
-        let wordReplacements = UserDefaults.standard.dictionary(forKey: wordReplacementsKey) as? [String: String] ?? [:]
+        let wordReplacements = AppSettings.Dictionary.wordReplacements
 
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.0"
 
@@ -89,7 +87,7 @@ class DictionaryImportExportService {
                     let importedData = try decoder.decode(DictionaryExportData.self, from: jsonData)
 
                     var existingItems: [DictionaryItem] = []
-                    if let data = UserDefaults.standard.data(forKey: self.dictionaryItemsKey),
+                    if let data = AppSettings.Dictionary.customVocabularyItemsData,
                        let items = try? JSONDecoder().decode([DictionaryItem].self, from: data) {
                         existingItems = items
                     }
@@ -106,10 +104,10 @@ class DictionaryImportExportService {
                     }
 
                     if let encoded = try? JSONEncoder().encode(existingItems) {
-                        UserDefaults.standard.set(encoded, forKey: self.dictionaryItemsKey)
+                        AppSettings.Dictionary.customVocabularyItemsData = encoded
                     }
 
-                    var existingReplacements = UserDefaults.standard.dictionary(forKey: self.wordReplacementsKey) as? [String: String] ?? [:]
+                    var existingReplacements = AppSettings.Dictionary.wordReplacements
                     var addedCount = 0
                     var updatedCount = 0
 
@@ -144,7 +142,7 @@ class DictionaryImportExportService {
                         addedCount += 1
                     }
 
-                    UserDefaults.standard.set(existingReplacements, forKey: self.wordReplacementsKey)
+                    AppSettings.Dictionary.wordReplacements = existingReplacements
 
                     var message = "Dictionary data imported successfully from \(url.lastPathComponent).\n\n"
                     message += "Dictionary Items: \(newWordsAdded) added, \(originalExistingCount) kept\n"

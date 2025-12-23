@@ -16,10 +16,10 @@ final class TranscriptInsightsService: TranscriptInsightsServicing {
 
     init(session: URLSession = SecureURLSession.makeEphemeral(),
          keychain: KeychainManager = KeychainManager(),
-         managedProvisioningClient: ManagedProvisioningClient = .shared) {
+         managedProvisioningClient: ManagedProvisioningClient? = nil) {
         self.session = session
         self.keychain = keychain
-        self.managedProvisioningClient = managedProvisioningClient
+        self.managedProvisioningClient = managedProvisioningClient ?? .shared
     }
 
     func generateInsights(for transcript: String) async throws -> TranscriptionSummaryBlock {
@@ -50,60 +50,53 @@ final class TranscriptInsightsService: TranscriptInsightsServicing {
         do {
             let (data, response) = try await session.data(for: request)
 
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw TTSError.networkError("Invalid response")
+            let responseData = try HTTPResponseHandler.handleResponse(
+                response,
+                data: data,
+                onUnauthorized: {
+                    if authorization.usedManagedCredential {
+                        self.managedProvisioningClient.invalidateCredential(for: .openAI)
+                        self.activeManagedCredential = nil
+                    }
+                },
+                clientErrorFormat: "Transcript insights request failed (%d)",
+                serverErrorFormat: "Transcript insights service unavailable (%d)",
+                unexpectedFormat: "Unexpected response: %d"
+            )
+
+            let decoded = try JSONDecoder().decode(ChatCompletionResponse.self, from: responseData)
+            guard let content = decoded.choices.first?.message.content,
+                  let payloadData = content.data(using: .utf8) else {
+                throw TTSError.apiError("Transcript insight response missing content")
             }
+            let payload = try JSONDecoder().decode(TranscriptInsightsPayload.self, from: payloadData)
 
-            switch httpResponse.statusCode {
-            case 200:
-                let decoded = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
-                guard let content = decoded.choices.first?.message.content,
-                      let payloadData = content.data(using: .utf8) else {
-                    throw TTSError.apiError("Transcript insight response missing content")
-                }
-                let payload = try JSONDecoder().decode(TranscriptInsightsPayload.self, from: payloadData)
+            let actions = payload.actionItems?.compactMap { item -> TranscriptionSummaryAction? in
+                let trimmed = item.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return nil }
+                return TranscriptionSummaryAction(text: trimmed,
+                                                  ownerHint: item.ownerHint?.nilIfEmpty,
+                                                  dueDateHint: item.dueDateHint?.nilIfEmpty)
+            } ?? []
 
-                let actions = payload.actionItems?.compactMap { item -> TranscriptionSummaryAction? in
-                    let trimmed = item.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmed.isEmpty else { return nil }
-                    return TranscriptionSummaryAction(text: trimmed,
-                                                      ownerHint: item.ownerHint?.nilIfEmpty,
-                                                      dueDateHint: item.dueDateHint?.nilIfEmpty)
-                } ?? []
-
-                let schedule: TranscriptionScheduleRecommendation?
-                if let candidate = payload.scheduleRecommendation,
-                   let title = candidate.title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
-                    schedule = TranscriptionScheduleRecommendation(
-                        title: title,
-                        startWindow: candidate.startWindow?.nilIfEmpty,
-                        durationMinutes: candidate.durationMinutes,
-                        participants: candidate.participants?.nilIfEmpty
-                    )
-                } else {
-                    schedule = nil
-                }
-
-                return TranscriptionSummaryBlock(
-                    summary: payload.summary?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
-                    actionItems: actions,
-                    scheduleRecommendation: schedule
+            let schedule: TranscriptionScheduleRecommendation?
+            if let candidate = payload.scheduleRecommendation,
+               let title = candidate.title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
+                schedule = TranscriptionScheduleRecommendation(
+                    title: title,
+                    startWindow: candidate.startWindow?.nilIfEmpty,
+                    durationMinutes: candidate.durationMinutes,
+                    participants: candidate.participants?.nilIfEmpty
                 )
-            case 401:
-                if authorization.usedManagedCredential {
-                    managedProvisioningClient.invalidateCredential(for: .openAI)
-                    activeManagedCredential = nil
-                }
-                throw TTSError.invalidAPIKey
-            case 429:
-                throw TTSError.quotaExceeded
-            case 400...499:
-                throw TTSError.apiError("Transcript insights request failed (\(httpResponse.statusCode))")
-            case 500...599:
-                throw TTSError.apiError("Transcript insights service unavailable (\(httpResponse.statusCode))")
-            default:
-                throw TTSError.apiError("Unexpected response: \(httpResponse.statusCode)")
+            } else {
+                schedule = nil
             }
+
+            return TranscriptionSummaryBlock(
+                summary: payload.summary?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+                actionItems: actions,
+                scheduleRecommendation: schedule
+            )
         } catch let error as TTSError {
             throw error
         } catch {
@@ -113,12 +106,6 @@ final class TranscriptInsightsService: TranscriptInsightsServicing {
 }
 
 private extension TranscriptInsightsService {
-    struct AuthorizationHeader {
-        let header: String
-        let value: String
-        let usedManagedCredential: Bool
-    }
-
     func authorizationHeader() async throws -> AuthorizationHeader {
         if let key = keychain.getAPIKey(for: "OpenAI"), !key.isEmpty {
             return AuthorizationHeader(header: "Authorization", value: "Bearer \(key)", usedManagedCredential: false)

@@ -15,7 +15,7 @@ class ParakeetTranscriptionService: TranscriptionService {
     }
 
     private func ensureModelsLoaded(for version: AsrModelVersion) async throws {
-        if let manager = asrManager, activeVersion == version {
+        if asrManager != nil, activeVersion == version {
             return
         }
 
@@ -46,7 +46,7 @@ class ParakeetTranscriptionService: TranscriptionService {
         let audioSamples = try readAudioSamples(from: audioURL)
 
         let durationSeconds = Double(audioSamples.count) / 16000.0
-        let isVADEnabled = UserDefaults.standard.object(forKey: "IsVADEnabled") as? Bool ?? true
+        let isVADEnabled = AppSettings.TranscriptionSettings.isVADEnabled
 
         var speechAudio = audioSamples
         if durationSeconds >= 20.0, isVADEnabled {

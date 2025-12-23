@@ -7,12 +7,11 @@ class EnhancementShortcutSettings: ObservableObject {
 
     @Published var isToggleEnhancementShortcutEnabled: Bool {
         didSet {
-            UserDefaults.standard.set(isToggleEnhancementShortcutEnabled, forKey: "isToggleEnhancementShortcutEnabled")
-            NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
+            AppSettings.Shortcuts.isToggleEnhancementShortcutEnabled = isToggleEnhancementShortcutEnabled
         }
     }
-
+    
     private init() {
-        self.isToggleEnhancementShortcutEnabled = UserDefaults.standard.object(forKey: "isToggleEnhancementShortcutEnabled") as? Bool ?? true
+        self.isToggleEnhancementShortcutEnabled = AppSettings.Shortcuts.isToggleEnhancementShortcutEnabled
     }
 }

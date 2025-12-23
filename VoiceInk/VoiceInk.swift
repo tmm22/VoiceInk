@@ -33,9 +33,9 @@ struct VoiceInkApp: App {
         // Migrate API keys from UserDefaults to Keychain (runs once on first launch after update)
         APIKeyMigrationService.migrateAPIKeysIfNeeded()
         
-        if UserDefaults.standard.object(forKey: "powerModeUIFlag") == nil {
+        if !AppSettings.contains(key: AppSettings.Keys.powerModeUIFlag) {
             let hasEnabledPowerModes = PowerModeManager.shared.configurations.contains { $0.isEnabled }
-            UserDefaults.standard.set(hasEnabledPowerModes, forKey: "powerModeUIFlag")
+            AppSettings.General.powerModeUIFlag = hasEnabledPowerModes
         }
 
         let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "Initialization")
@@ -95,7 +95,7 @@ struct VoiceInkApp: App {
         
         let enhancementService = AIEnhancementService(aiService: aiService, modelContext: container.mainContext)
         _enhancementService = StateObject(wrappedValue: enhancementService)
-        if !UserDefaults.standard.bool(forKey: "enableAIEnhancementFeatures") {
+        if !(AppSettings.General.enableAIEnhancementFeatures ?? false) {
             enhancementService.isEnhancementEnabled = false
         }
         
@@ -225,7 +225,7 @@ struct VoiceInkApp: App {
                         }
                         
                         // Start the automatic audio cleanup process only if transcript cleanup is not enabled
-                        if !UserDefaults.standard.bool(forKey: "IsTranscriptionCleanupEnabled") {
+                        if !AppSettings.Cleanup.isTranscriptionCleanupEnabled {
                             audioCleanupManager.startAutomaticCleanup(modelContext: container.mainContext)
                         }
                         

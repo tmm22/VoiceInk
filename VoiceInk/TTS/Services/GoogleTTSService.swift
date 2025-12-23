@@ -80,9 +80,9 @@ class GoogleTTSService: TTSProvider {
     
     // MARK: - Initialization
     init(session: URLSession = SecureURLSession.makeEphemeral(),
-         managedProvisioningClient: ManagedProvisioningClient = .shared) {
+         managedProvisioningClient: ManagedProvisioningClient? = nil) {
         self.session = session
-        self.managedProvisioningClient = managedProvisioningClient
+        self.managedProvisioningClient = managedProvisioningClient ?? .shared
         // Load API key from keychain if available
         self.apiKey = KeychainManager().getAPIKey(for: "Google")
     }
@@ -169,46 +169,39 @@ class GoogleTTSService: TTSProvider {
         // Make request
         do {
             let (data, response) = try await session.data(for: request)
-            
-            // Check response
-            if let httpResponse = response as? HTTPURLResponse {
-                switch httpResponse.statusCode {
-                case 200:
-                    // Parse response to get audio content
-                    let ttsResponse = try JSONDecoder().decode(GoogleTTSResponse.self, from: data)
-                    
-                    // Decode base64 audio content
-                    guard let audioData = Data(base64Encoded: ttsResponse.audioContent) else {
-                        throw TTSError.apiError("Failed to decode audio content")
-                    }
-                    
-                    return audioData
-                case 400:
-                    if let errorData = try? JSONDecoder().decode(GoogleError.self, from: data) {
-                        throw TTSError.apiError(errorData.error.message)
-                    }
-                    throw TTSError.apiError("Bad request")
-                case 401, 403:
+
+            let responseData = try HTTPResponseHandler.handleResponse(
+                response,
+                data: data,
+                unauthorizedCodes: [401, 403],
+                onUnauthorized: {
                     if authorization.usedManagedCredential {
-                        managedProvisioningClient.invalidateCredential(for: .google)
-                        activeManagedCredential = nil
+                        self.managedProvisioningClient.invalidateCredential(for: .google)
+                        self.activeManagedCredential = nil
                     }
-                    throw TTSError.invalidAPIKey
-                case 429:
-                    throw TTSError.quotaExceeded
-                case 400...499:
-                    if let errorData = try? JSONDecoder().decode(GoogleError.self, from: data) {
-                        throw TTSError.apiError(errorData.error.message)
+                },
+                errorOverrides: [
+                    400: { data in
+                        if let errorData = try? JSONDecoder().decode(GoogleError.self, from: data) {
+                            return TTSError.apiError(errorData.error.message)
+                        }
+                        return TTSError.apiError("Bad request")
                     }
-                    throw TTSError.apiError("Client error: \(httpResponse.statusCode)")
-                case 500...599:
-                    throw TTSError.apiError("Server error: \(httpResponse.statusCode)")
-                default:
-                    throw TTSError.apiError("Unexpected response: \(httpResponse.statusCode)")
+                ],
+                errorMessageDecoder: { data in
+                    (try? JSONDecoder().decode(GoogleError.self, from: data))?.error.message
                 }
+            )
+
+            // Parse response to get audio content
+            let ttsResponse = try JSONDecoder().decode(GoogleTTSResponse.self, from: responseData)
+
+            // Decode base64 audio content
+            guard let audioData = Data(base64Encoded: ttsResponse.audioContent) else {
+                throw TTSError.apiError("Failed to decode audio content")
             }
-            
-            throw TTSError.networkError("Invalid response")
+
+            return audioData
         } catch let error as TTSError {
             throw error
         } catch {
@@ -333,12 +326,6 @@ private struct GoogleErrorDetail: Codable {
 }
 
 private extension GoogleTTSService {
-    struct AuthorizationHeader {
-        let header: String
-        let value: String
-        let usedManagedCredential: Bool
-    }
-
     func authorizationHeader() async throws -> AuthorizationHeader {
         if let key = apiKey, !key.isEmpty {
             return AuthorizationHeader(header: "X-Goog-Api-Key", value: key, usedManagedCredential: false)

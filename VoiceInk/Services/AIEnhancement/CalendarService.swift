@@ -27,7 +27,11 @@ class CalendarService {
     // Check authorization status
     var isAuthorized: Bool {
         let status = EKEventStore.authorizationStatus(for: .event)
-        return status == .fullAccess || status == .authorized
+        if #available(macOS 14.0, *) {
+            return status == .fullAccess
+        }
+        // Legacy EKAuthorizationStatus.authorized raw value is 3 (macOS 13 and earlier).
+        return status.rawValue == 3
     }
     
     func requestAccess() async -> Bool {

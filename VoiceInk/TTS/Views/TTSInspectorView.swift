@@ -150,7 +150,7 @@ private struct InspectorSectionHeader: View {
 }
 
 private struct ProviderSelectionView: View {
-    @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var settings: TTSSettingsViewModel
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -158,18 +158,18 @@ private struct ProviderSelectionView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             
-            Picker("", selection: $viewModel.selectedProvider) {
+            Picker("", selection: $settings.selectedProvider) {
                 ForEach(TTSProviderType.allCases, id: \.self) { provider in
                     Label(provider.displayName, systemImage: provider.icon)
                         .tag(provider)
                 }
             }
             .labelsHidden()
-            .onChange(of: viewModel.selectedProvider) {
-                viewModel.updateAvailableVoices()
+            .onChange(of: settings.selectedProvider) {
+                settings.updateAvailableVoices()
             }
             
-            let profile = ProviderCostProfile.profile(for: viewModel.selectedProvider)
+            let profile = ProviderCostProfile.profile(for: settings.selectedProvider)
             Text(profile.detail)
                 .font(.caption2)
                 .foregroundColor(.secondary)
@@ -180,8 +180,8 @@ private struct ProviderSelectionView: View {
 }
 
 private struct VoiceSelectionView: View {
-    @EnvironmentObject var viewModel: TTSViewModel
-    @State private var showingPreview = false
+    @EnvironmentObject var settings: TTSSettingsViewModel
+    @EnvironmentObject var preview: TTSVoicePreviewViewModel
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -190,15 +190,15 @@ private struct VoiceSelectionView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Spacer()
-                if !viewModel.availableVoices.isEmpty {
+                if !settings.availableVoices.isEmpty {
                     Button {
-                        if viewModel.isPreviewPlaying {
-                            viewModel.stopPreview()
-                        } else if let voice = viewModel.selectedVoice {
-                            viewModel.previewVoice(voice)
+                        if preview.isPreviewPlaying {
+                            preview.stopPreview()
+                        } else if let voice = settings.selectedVoice {
+                            preview.previewVoice(voice)
                         }
                     } label: {
-                        Image(systemName: viewModel.isPreviewPlaying ? "stop.fill" : "play.circle")
+                        Image(systemName: preview.isPreviewPlaying ? "stop.fill" : "play.circle")
                             .foregroundColor(.accentColor)
                     }
                     .buttonStyle(.plain)
@@ -206,15 +206,15 @@ private struct VoiceSelectionView: View {
                 }
             }
             
-            Picker("", selection: $viewModel.selectedVoice) {
+            Picker("", selection: $settings.selectedVoice) {
                 Text("Default").tag(nil as Voice?)
-                ForEach(viewModel.availableVoices) { voice in
+                ForEach(settings.availableVoices) { voice in
                     Text(voice.name).tag(voice as Voice?)
                 }
             }
             .labelsHidden()
             
-            if let voice = viewModel.selectedVoice {
+            if let voice = settings.selectedVoice {
                 HStack(spacing: 8) {
                     Text(voice.language)
                         .font(.caption2)
@@ -223,7 +223,7 @@ private struct VoiceSelectionView: View {
                         .background(Color.secondary.opacity(0.1))
                         .cornerRadius(4)
                     
-                    if !viewModel.canPreview(voice) {
+                    if !preview.canPreview(voice) {
                         Image(systemName: "key.slash")
                             .font(.caption2)
                             .foregroundColor(.secondary)
@@ -237,11 +237,11 @@ private struct VoiceSelectionView: View {
 }
 
 private struct VoiceStyleControlsView: View {
-    @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var settings: TTSSettingsViewModel
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if viewModel.hasActiveStyleControls {
+            if settings.hasActiveStyleControls {
                 Divider()
                 
                 HStack {
@@ -250,33 +250,33 @@ private struct VoiceStyleControlsView: View {
                         .fontWeight(.semibold)
                     Spacer()
                     Button("Reset") {
-                        viewModel.resetStyleControls()
+                        settings.resetStyleControls()
                     }
                     .controlSize(.small)
-                    .disabled(!viewModel.canResetStyleControls)
+                    .disabled(!settings.canResetStyleControls)
                 }
                 
-                ForEach(viewModel.activeStyleControls) { control in
+                ForEach(settings.activeStyleControls) { control in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text(control.label)
                                 .font(.caption)
                             Spacer()
-                            Text(control.formattedValue(for: viewModel.currentStyleValue(for: control)))
+                            Text(control.formattedValue(for: settings.currentStyleValue(for: control)))
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
                         
                         if let step = control.step {
-                            Slider(value: viewModel.binding(for: control), in: control.range, step: step)
+                            Slider(value: settings.binding(for: control), in: control.range, step: step)
                         } else {
-                            Slider(value: viewModel.binding(for: control), in: control.range)
+                            Slider(value: settings.binding(for: control), in: control.range)
                         }
                     }
                 }
             }
             
-            if viewModel.selectedProvider == .elevenLabs {
+            if settings.selectedProvider == .elevenLabs {
                 Divider()
                 ElevenLabsPromptingView()
             }
@@ -285,7 +285,8 @@ private struct VoiceStyleControlsView: View {
 }
 
 private struct AudioSettingsView: View {
-    @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var settings: TTSSettingsViewModel
+    @EnvironmentObject var playback: TTSPlaybackViewModel
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -296,16 +297,16 @@ private struct AudioSettingsView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Spacer()
-                    Text("\(viewModel.playbackSpeed, specifier: "%.2g")×")
+                    Text("\(playback.playbackSpeed, specifier: "%.2g")×")
                         .font(.caption)
                 }
                 
                 HStack {
                     Image(systemName: "tortoise")
                         .font(.caption2)
-                    Slider(value: $viewModel.playbackSpeed, in: 0.5...2.0, step: 0.25) { editing in
+                    Slider(value: $playback.playbackSpeed, in: 0.5...2.0, step: 0.25) { editing in
                         if !editing {
-                            viewModel.applyPlaybackSpeed(save: true)
+                            playback.applyPlaybackSpeed(save: true)
                         }
                     }
                     Image(systemName: "hare")
@@ -320,16 +321,16 @@ private struct AudioSettingsView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Spacer()
-                    Text("\(Int(viewModel.volume * 100))%")
+                    Text("\(Int(playback.volume * 100))%")
                         .font(.caption)
                 }
                 
                 HStack {
                     Image(systemName: "speaker.fill")
                         .font(.caption2)
-                    Slider(value: $viewModel.volume, in: 0...1) { editing in
+                    Slider(value: $playback.volume, in: 0...1) { editing in
                         if !editing {
-                            viewModel.applyPlaybackVolume(save: true)
+                            playback.applyPlaybackVolume(save: true)
                         }
                     }
                     Image(systemName: "speaker.wave.3.fill")
@@ -339,13 +340,13 @@ private struct AudioSettingsView: View {
             
             Divider()
             
-            Toggle(isOn: $viewModel.isLoopEnabled) {
+            Toggle(isOn: $playback.isLoopEnabled) {
                 Text("Loop Playback")
                     .font(.subheadline)
             }
             .toggleStyle(.switch)
-            .onChange(of: viewModel.isLoopEnabled) {
-                viewModel.saveSettings()
+            .onChange(of: playback.isLoopEnabled) {
+                settings.saveSettings()
             }
         }
     }
@@ -353,6 +354,8 @@ private struct AudioSettingsView: View {
 
 private struct ExportSettingsView: View {
     @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var settings: TTSSettingsViewModel
+    @EnvironmentObject var importExport: TTSImportExportViewModel
     @State private var selectedTranscriptFormat: TranscriptFormat = .srt
     
     var body: some View {
@@ -362,14 +365,14 @@ private struct ExportSettingsView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
-                Picker("", selection: $viewModel.selectedFormat) {
-                    ForEach(viewModel.supportedFormats, id: \.self) { format in
+                Picker("", selection: $settings.selectedFormat) {
+                    ForEach(settings.supportedFormats, id: \.self) { format in
                         Text(format.displayName).tag(format)
                     }
                 }
                 .labelsHidden()
                 
-                if let help = viewModel.exportFormatHelpText {
+                if let help = settings.exportFormatHelpText {
                     Text(help)
                         .font(.caption2)
                         .foregroundColor(.secondary)
@@ -392,7 +395,7 @@ private struct ExportSettingsView: View {
                     .labelsHidden()
                     
                     Button {
-                        viewModel.exportTranscript(format: selectedTranscriptFormat)
+                        importExport.exportTranscript(format: selectedTranscriptFormat)
                     } label: {
                         Label("Export File", systemImage: "doc.text")
                     }
@@ -450,13 +453,13 @@ private struct CostView: View {
 }
 
 private struct SystemSettingsView: View {
-    @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var settings: TTSSettingsViewModel
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Toggle(isOn: Binding(
-                get: { viewModel.notificationsEnabled },
-                set: { viewModel.setNotificationsEnabled($0) }
+                get: { settings.notificationsEnabled },
+                set: { settings.setNotificationsEnabled($0) }
             )) {
                 VStack(alignment: .leading) {
                     Text("Batch Notifications")

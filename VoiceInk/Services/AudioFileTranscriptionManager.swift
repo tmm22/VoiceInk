@@ -136,7 +136,7 @@ class AudioTranscriptionManager: ObservableObject {
                 let powerModeName = (activePowerModeConfig?.isEnabled == true) ? activePowerModeConfig?.name : nil
                 let powerModeEmoji = (activePowerModeConfig?.isEnabled == true) ? activePowerModeConfig?.emoji : nil
 
-                if UserDefaults.standard.object(forKey: "IsTextFormattingEnabled") as? Bool ?? true {
+                if AppSettings.TranscriptionSettings.isTextFormattingEnabled {
                     text = WhisperTextFormatter.format(text)
                 }
 
@@ -205,10 +205,10 @@ class AudioTranscriptionManager: ObservableObject {
                 
                 processingPhase = .completed
                 try? await Task.sleep(nanoseconds: 1_500_000_000)
-                await finishProcessing()
+                finishProcessing()
                 
             } catch {
-                await handleError(error)
+                handleError(error)
             }
         }
     }

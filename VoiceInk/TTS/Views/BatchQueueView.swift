@@ -2,30 +2,32 @@ import SwiftUI
 
 struct BatchQueueView: View {
     @EnvironmentObject var viewModel: TTSViewModel
+    @EnvironmentObject var settings: TTSSettingsViewModel
+    @EnvironmentObject var generation: TTSSpeechGenerationViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: viewModel.isMinimalistMode ? 8 : 12) {
+        VStack(alignment: .leading, spacing: settings.isMinimalistMode ? 8 : 12) {
             header
 
-            if viewModel.batchItems.isEmpty {
+            if generation.batchItems.isEmpty {
                 emptyState
             } else {
                 queueList
             }
 
-            if viewModel.isBatchRunning {
+            if generation.isBatchRunning {
                 Button("Cancel Batch", role: .destructive) {
-                    viewModel.cancelBatchGeneration()
+                    generation.cancelBatchGeneration()
                 }
                 .buttonStyle(.bordered)
             }
         }
-        .padding(viewModel.isMinimalistMode ? 10 : 14)
+        .padding(settings.isMinimalistMode ? 10 : 14)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(Color(NSColor.controlBackgroundColor))
         )
-        .animation(.easeInOut(duration: 0.2), value: viewModel.batchItems)
+        .animation(.easeInOut(duration: 0.2), value: generation.batchItems)
     }
 
     private var header: some View {
@@ -35,8 +37,8 @@ struct BatchQueueView: View {
 
             Spacer()
 
-            if viewModel.isBatchRunning {
-                ProgressView(value: viewModel.batchProgress)
+            if generation.isBatchRunning {
+                ProgressView(value: generation.batchProgress)
                     .frame(width: 120)
             } else if viewModel.hasBatchableSegments {
                 Text("Detected \(viewModel.pendingBatchSegmentCount) segments")
@@ -61,7 +63,7 @@ struct BatchQueueView: View {
 
     private var queueList: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ForEach(viewModel.batchItems) { item in
+            ForEach(generation.batchItems) { item in
                 BatchQueueRow(item: item)
             }
         }
@@ -125,8 +127,11 @@ private struct BatchQueueRow: View {
 
 struct BatchQueueView_Previews: PreviewProvider {
     static var previews: some View {
+        let viewModel = TTSViewModel()
         BatchQueueView()
-            .environmentObject(TTSViewModel())
+            .environmentObject(viewModel)
+            .environmentObject(viewModel.settings)
+            .environmentObject(viewModel.generation)
             .padding()
             .frame(width: 600)
     }

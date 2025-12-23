@@ -680,7 +680,7 @@ VoiceInk/
 │   ├── AudioDeviceManager.swift      # Microphone selection
 │   ├── WordReplacementService.swift  # Text substitutions
 │   ├── ScreenCaptureService.swift    # OCR context
-│   ├── OllamaService.swift           # Local LLM
+│   ├── OllamaAIService.swift         # Local LLM
 │   │
 │   ├── AIEnhancement/
 │   │   ├── AIService.swift           # Multi-provider AI client
@@ -705,8 +705,8 @@ VoiceInk/
 │   │   ├── Voice.swift               # Voice model
 │   │   └── GenerationHistoryItem.swift
 │   ├── Services/
-│   │   ├── ElevenLabsService.swift
-│   │   ├── OpenAIService.swift
+│   │   ├── ElevenLabsTTSService.swift
+│   │   ├── OpenAITTSService.swift
 │   │   ├── GoogleTTSService.swift
 │   │   ├── LocalTTSService.swift
 │   │   └── AudioPlayerService.swift

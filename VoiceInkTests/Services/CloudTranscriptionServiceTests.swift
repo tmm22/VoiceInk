@@ -136,7 +136,7 @@ final class CloudTranscriptionServiceTests: XCTestCase {
     func testGroqServiceThrowsMissingAPIKeyWhenNotConfigured() async {
         // Clear any existing API key
         let keychain = KeychainManager()
-        keychain.deleteAPIKey(for: "GROQ")
+        try? keychain.deleteAPIKey(for: "GROQ")
         
         let service = GroqTranscriptionService()
         let model = MockCloudModel(name: "whisper-large-v3", displayName: "Groq Whisper", provider: .groq)
@@ -157,7 +157,7 @@ final class CloudTranscriptionServiceTests: XCTestCase {
     
     func testDeepgramServiceThrowsMissingAPIKeyWhenNotConfigured() async {
         let keychain = KeychainManager()
-        keychain.deleteAPIKey(for: "Deepgram")
+        try? keychain.deleteAPIKey(for: "Deepgram")
         
         let service = DeepgramTranscriptionService()
         let model = MockCloudModel(name: "nova-2", displayName: "Deepgram Nova 2", provider: .deepgram)
@@ -176,9 +176,9 @@ final class CloudTranscriptionServiceTests: XCTestCase {
         }
     }
     
-    func testElevenLabsServiceThrowsMissingAPIKeyWhenNotConfigured() async {
+    func testElevenLabsTranscriptionServiceThrowsMissingAPIKeyWhenNotConfigured() async {
         let keychain = KeychainManager()
-        keychain.deleteAPIKey(for: "ElevenLabs")
+        try? keychain.deleteAPIKey(for: "ElevenLabs")
         
         let service = ElevenLabsTranscriptionService()
         let model = MockCloudModel(name: "scribe_v1", displayName: "ElevenLabs Scribe", provider: .elevenLabs)
@@ -199,7 +199,7 @@ final class CloudTranscriptionServiceTests: XCTestCase {
     
     func testMistralServiceThrowsMissingAPIKeyWhenNotConfigured() async {
         let keychain = KeychainManager()
-        keychain.deleteAPIKey(for: "Mistral")
+        try? keychain.deleteAPIKey(for: "Mistral")
         
         let service = MistralTranscriptionService()
         let model = MockCloudModel(name: "mistral-stt", displayName: "Mistral STT", provider: .mistral)
@@ -220,7 +220,7 @@ final class CloudTranscriptionServiceTests: XCTestCase {
     
     func testGeminiServiceThrowsMissingAPIKeyWhenNotConfigured() async {
         let keychain = KeychainManager()
-        keychain.deleteAPIKey(for: "Gemini")
+        try? keychain.deleteAPIKey(for: "Gemini")
         
         let service = GeminiTranscriptionService()
         let model = MockCloudModel(name: "gemini-2.0-flash", displayName: "Gemini Flash", provider: .gemini)
@@ -241,7 +241,7 @@ final class CloudTranscriptionServiceTests: XCTestCase {
     
     func testSonioxServiceThrowsMissingAPIKeyWhenNotConfigured() async {
         let keychain = KeychainManager()
-        keychain.deleteAPIKey(for: "Soniox")
+        try? keychain.deleteAPIKey(for: "Soniox")
         
         let service = SonioxTranscriptionService()
         let model = MockCloudModel(name: "soniox-stt", displayName: "Soniox STT", provider: .soniox)
@@ -262,7 +262,7 @@ final class CloudTranscriptionServiceTests: XCTestCase {
     
     func testAssemblyAIServiceThrowsMissingAPIKeyWhenNotConfigured() async {
         let keychain = KeychainManager()
-        keychain.deleteAPIKey(for: "AssemblyAI")
+        try? keychain.deleteAPIKey(for: "AssemblyAI")
         
         let service = AssemblyAITranscriptionService()
         let model = MockCloudModel(name: "assemblyai-best", displayName: "AssemblyAI Best", provider: .assemblyAI)
@@ -286,10 +286,10 @@ final class CloudTranscriptionServiceTests: XCTestCase {
     func testGroqServiceThrowsAudioFileNotFoundForInvalidURL() async {
         // Set a fake API key to bypass the API key check
         let keychain = KeychainManager()
-        keychain.saveAPIKey("fake-api-key", for: "GROQ")
+        try? keychain.saveAPIKey("fake-api-key", for: "GROQ")
         
         defer {
-            keychain.deleteAPIKey(for: "GROQ")
+            try? keychain.deleteAPIKey(for: "GROQ")
         }
         
         let service = GroqTranscriptionService()
@@ -365,6 +365,7 @@ final class CloudTranscriptionServiceTests: XCTestCase {
 // MARK: - CustomModelManager Tests
 
 @available(macOS 14.0, *)
+@MainActor
 final class CustomModelManagerTests: XCTestCase {
     
     var manager: CustomModelManager!
@@ -374,14 +375,14 @@ final class CustomModelManagerTests: XCTestCase {
         manager = CustomModelManager.shared
         // Clear any existing custom models for clean test state
         for model in manager.customModels {
-            manager.deleteModel(model)
+            manager.removeCustomModel(withId: model.id)
         }
     }
     
     override func tearDown() async throws {
         // Clean up any models created during tests
         for model in manager.customModels {
-            manager.deleteModel(model)
+            manager.removeCustomModel(withId: model.id)
         }
         try await super.tearDown()
     }
@@ -389,7 +390,7 @@ final class CustomModelManagerTests: XCTestCase {
     func testAddCustomModel() {
         let initialCount = manager.customModels.count
         
-        manager.addModel(
+        let model = CustomCloudModel(
             name: "Test Model",
             displayName: "Test Display Name",
             description: "Test Description",
@@ -398,6 +399,7 @@ final class CustomModelManagerTests: XCTestCase {
             modelName: "test-model-v1",
             isMultilingual: true
         )
+        manager.addCustomModel(model)
         
         XCTAssertEqual(manager.customModels.count, initialCount + 1)
         
@@ -412,7 +414,7 @@ final class CustomModelManagerTests: XCTestCase {
     
     func testDeleteCustomModel() {
         // Add a model first
-        manager.addModel(
+        let model = CustomCloudModel(
             name: "Model To Delete",
             displayName: "Delete Me",
             description: "Will be deleted",
@@ -421,6 +423,7 @@ final class CustomModelManagerTests: XCTestCase {
             modelName: "delete-model",
             isMultilingual: false
         )
+        manager.addCustomModel(model)
         
         let countAfterAdd = manager.customModels.count
         guard let modelToDelete = manager.customModels.last else {
@@ -428,7 +431,7 @@ final class CustomModelManagerTests: XCTestCase {
             return
         }
         
-        manager.deleteModel(modelToDelete)
+        manager.removeCustomModel(withId: modelToDelete.id)
         
         XCTAssertEqual(manager.customModels.count, countAfterAdd - 1)
         XCTAssertFalse(manager.customModels.contains(where: { $0.id == modelToDelete.id }))
@@ -436,7 +439,7 @@ final class CustomModelManagerTests: XCTestCase {
     
     func testUpdateCustomModel() {
         // Add a model first
-        manager.addModel(
+        let model = CustomCloudModel(
             name: "Original Name",
             displayName: "Original Display",
             description: "Original Description",
@@ -445,6 +448,7 @@ final class CustomModelManagerTests: XCTestCase {
             modelName: "original-model",
             isMultilingual: true
         )
+        manager.addCustomModel(model)
         
         guard var modelToUpdate = manager.customModels.last else {
             XCTFail("Model should exist after adding")
@@ -463,7 +467,7 @@ final class CustomModelManagerTests: XCTestCase {
             isMultilingual: false
         )
         
-        manager.updateModel(updatedModel)
+        manager.updateCustomModel(updatedModel)
         
         // Find the model again
         guard let foundModel = manager.customModels.first(where: { $0.id == modelToUpdate.id }) else {
@@ -481,7 +485,7 @@ final class CustomModelManagerTests: XCTestCase {
     func testCustomModelAPIKeyStoredInKeychain() {
         let testAPIKey = "secure-test-api-key-\(UUID().uuidString)"
         
-        manager.addModel(
+        let model = CustomCloudModel(
             name: "Keychain Test Model",
             displayName: "Keychain Test",
             description: "Tests keychain storage",
@@ -490,6 +494,7 @@ final class CustomModelManagerTests: XCTestCase {
             modelName: "keychain-test",
             isMultilingual: true
         )
+        manager.addCustomModel(model)
         
         guard let addedModel = manager.customModels.last else {
             XCTFail("Model should exist after adding")
@@ -503,7 +508,7 @@ final class CustomModelManagerTests: XCTestCase {
     }
     
     func testCustomModelProviderIsAlwaysCustom() {
-        manager.addModel(
+        let model = CustomCloudModel(
             name: "Provider Test",
             displayName: "Provider Test",
             description: "Tests provider",
@@ -512,6 +517,7 @@ final class CustomModelManagerTests: XCTestCase {
             modelName: "provider-test",
             isMultilingual: true
         )
+        manager.addCustomModel(model)
         
         guard let model = manager.customModels.last else {
             XCTFail("Model should exist")

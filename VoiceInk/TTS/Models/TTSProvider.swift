@@ -1,14 +1,30 @@
 import Foundation
 
-// MARK: - TTS Provider Protocol
+// MARK: - TTS Provider Protocols
 @MainActor
-protocol TTSProvider {
-    var name: String { get }
+protocol SpeechSynthesizing {
+    func synthesizeSpeech(text: String, voice: Voice, settings: AudioSettings) async throws -> Data
+}
+
+@MainActor
+protocol VoiceProviding {
     var availableVoices: [Voice] { get }
     var defaultVoice: Voice { get }
+}
+
+@MainActor
+protocol StyleCustomizable {
     var styleControls: [ProviderStyleControl] { get }
-    func synthesizeSpeech(text: String, voice: Voice, settings: AudioSettings) async throws -> Data
+}
+
+@MainActor
+protocol APIKeyValidating {
     func hasValidAPIKey() -> Bool
+}
+
+@MainActor
+protocol TTSProvider: SpeechSynthesizing, VoiceProviding, StyleCustomizable, APIKeyValidating {
+    var name: String { get }
 }
 
 extension TTSProvider {

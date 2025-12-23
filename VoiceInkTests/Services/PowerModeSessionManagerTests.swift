@@ -1,4 +1,5 @@
 import XCTest
+import SwiftData
 @testable import VoiceInk
 
 /// Tests for PowerModeSessionManager - session lifecycle and state management
@@ -9,37 +10,45 @@ final class PowerModeSessionManagerTests: XCTestCase {
     
     var sessionManager: PowerModeSessionManager!
     var mockConfig: PowerModeConfig!
+    var modelContainer: ModelContainer!
+    var enhancementService: AIEnhancementService!
+    var whisperState: WhisperState!
     
     override func setUp() async throws {
         try await super.setUp()
         sessionManager = PowerModeSessionManager.shared
+        modelContainer = try ModelContainer.createInMemoryContainer()
+        enhancementService = AIEnhancementService(modelContext: modelContainer.mainContext)
+        whisperState = WhisperState(modelContext: modelContainer.mainContext, enhancementService: enhancementService)
         
         // Create mock configuration
         mockConfig = PowerModeConfig(
             id: UUID(),
             name: "Test Config",
             emoji: "🧪",
-            appIdentifier: "com.test.app",
-            urlPattern: nil,
-            isEnabled: true,
+            appConfigs: [AppConfig(bundleIdentifier: "com.test.app", appName: "Test App")],
+            urlConfigs: nil,
             isAIEnhancementEnabled: true,
-            useScreenCapture: false,
             selectedPrompt: nil,
+            selectedTranscriptionModelName: nil,
+            selectedLanguage: nil,
+            useScreenCapture: false,
             selectedAIProvider: nil,
             selectedAIModel: nil,
-            selectedLanguage: nil,
-            selectedTranscriptionModelName: nil,
-            isAutoSendEnabled: false
+            isAutoSendEnabled: false,
+            isEnabled: true,
+            isDefault: false
         )
     }
     
     override func tearDown() async throws {
-        // End any active session
-        if sessionManager.loadSession() != nil {
-            await sessionManager.endSession()
-        }
+        await sessionManager.endSession()
+        AppSettings.PowerMode.activeSessionData = nil
         
         mockConfig = nil
+        whisperState = nil
+        enhancementService = nil
+        modelContainer = nil
         try await super.tearDown()
     }
     
@@ -47,19 +56,19 @@ final class PowerModeSessionManagerTests: XCTestCase {
     
     func testSessionBeginEnd() async {
         // Test basic session lifecycle
-        XCTAssertNil(sessionManager.loadSession(), "Should have no active session")
+        XCTAssertNil(currentSession(), "Should have no active session")
         
         // Begin session
         await sessionManager.beginSession(with: mockConfig)
         
         // Should have active session
-        XCTAssertNotNil(sessionManager.loadSession(), "Should have active session")
+        XCTAssertNotNil(currentSession(), "Should have active session")
         
         // End session
         await sessionManager.endSession()
         
         // Should have no active session
-        XCTAssertNil(sessionManager.loadSession(), "Should clear session")
+        XCTAssertNil(currentSession(), "Should clear session")
     }
     
     func testSessionPersistence() async {
@@ -67,7 +76,7 @@ final class PowerModeSessionManagerTests: XCTestCase {
         await sessionManager.beginSession(with: mockConfig)
         
         // Session should persist
-        let session = sessionManager.loadSession()
+        let session = currentSession()
         XCTAssertNotNil(session)
         XCTAssertNotNil(session?.originalState)
         
@@ -84,24 +93,25 @@ final class PowerModeSessionManagerTests: XCTestCase {
             id: UUID(),
             name: "Test Config 2",
             emoji: "🔬",
-            appIdentifier: "com.test.app2",
-            urlPattern: nil,
-            isEnabled: true,
+            appConfigs: [AppConfig(bundleIdentifier: "com.test.app2", appName: "Test App 2")],
+            urlConfigs: nil,
             isAIEnhancementEnabled: false,
-            useScreenCapture: false,
             selectedPrompt: nil,
+            selectedTranscriptionModelName: nil,
+            selectedLanguage: nil,
+            useScreenCapture: false,
             selectedAIProvider: nil,
             selectedAIModel: nil,
-            selectedLanguage: nil,
-            selectedTranscriptionModelName: nil,
-            isAutoSendEnabled: false
+            isAutoSendEnabled: false,
+            isEnabled: true,
+            isDefault: false
         )
         
         // Begin second session (should replace first)
         await sessionManager.beginSession(with: config2)
         
         // Should have session
-        XCTAssertNotNil(sessionManager.loadSession())
+        XCTAssertNotNil(currentSession())
         
         // End session
         await sessionManager.endSession()
@@ -114,7 +124,7 @@ final class PowerModeSessionManagerTests: XCTestCase {
         await sessionManager.beginSession(with: mockConfig)
         
         // Get session
-        let session = sessionManager.loadSession()
+        let session = currentSession()
         XCTAssertNotNil(session?.originalState)
         
         // Original state should be captured
@@ -142,7 +152,7 @@ final class PowerModeSessionManagerTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 100_000_000)
         
         // Should still have session
-        XCTAssertNotNil(sessionManager.loadSession())
+        XCTAssertNotNil(currentSession())
         
         // End session
         await sessionManager.endSession()
@@ -184,7 +194,7 @@ final class PowerModeSessionManagerTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 200_000_000)
         
         // Should have applied without crash
-        XCTAssertNotNil(sessionManager.loadSession())
+        XCTAssertNotNil(currentSession())
         
         await sessionManager.endSession()
     }
@@ -195,14 +205,14 @@ final class PowerModeSessionManagerTests: XCTestCase {
         // Begin session
         await sessionManager.beginSession(with: mockConfig)
         
-        let originalSession = sessionManager.loadSession()
+        let originalSession = currentSession()
         XCTAssertNotNil(originalSession?.originalState)
         
         // End session (should restore state)
         await sessionManager.endSession()
         
         // Session should be cleared
-        XCTAssertNil(sessionManager.loadSession())
+        XCTAssertNil(currentSession())
     }
     
     func testStateRestorationAfterModifications() async {
@@ -220,7 +230,7 @@ final class PowerModeSessionManagerTests: XCTestCase {
         // End session (should restore original state)
         await sessionManager.endSession()
         
-        XCTAssertNil(sessionManager.loadSession())
+        XCTAssertNil(currentSession())
     }
     
     // MARK: - Observer Cleanup Tests
@@ -257,5 +267,10 @@ final class PowerModeSessionManagerTests: XCTestCase {
         
         // Clean up
         await sessionManager.endSession()
+    }
+
+    private func currentSession() -> PowerModeSession? {
+        guard let data = AppSettings.PowerMode.activeSessionData else { return nil }
+        return try? JSONDecoder().decode(PowerModeSession.self, from: data)
     }
 }

@@ -8,6 +8,7 @@ struct EmojiPickerView: View {
     @State private var isAddingCustomEmoji: Bool = false
     @FocusState private var isEmojiTextFieldFocused: Bool
     @State private var inputFeedbackMessage: String = ""
+    @State private var inputFeedbackIsError: Bool = false
     @State private var showingEmojiInUseAlert = false
     @State private var emojiForAlert: String? = nil
     private let columns: [GridItem] = [GridItem(.adaptive(minimum: 44), spacing: 10)]
@@ -27,6 +28,7 @@ struct EmojiPickerView: View {
                         ) {
                             selectedEmoji = emoji
                             inputFeedbackMessage = ""
+                            inputFeedbackIsError = false
                             isPresented = false
                         }
                     }
@@ -35,8 +37,11 @@ struct EmojiPickerView: View {
                         isAddingCustomEmoji.toggle()
                         newEmojiText = ""
                         inputFeedbackMessage = ""
+                        inputFeedbackIsError = false
                         if isAddingCustomEmoji {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            Task { @MainActor in
+                                // Best-effort delay to let the field appear.
+                                try? await Task.sleep(nanoseconds: 100_000_000)
                                 isEmojiTextFieldFocused = true
                             }
                         }
@@ -61,35 +66,39 @@ struct EmojiPickerView: View {
                                     newEmojiText = cleaned
                                 }
                                 if !newEmojiText.isEmpty && emojiManager.allEmojis.contains(newEmojiText) {
-                                    inputFeedbackMessage = "Emoji already exists!"
+                                    inputFeedbackMessage = Localization.PowerMode.emojiAlreadyExists
+                                    inputFeedbackIsError = true
                                 } else if !newEmojiText.isEmpty && !newEmojiText.isValidEmoji {
-                                    inputFeedbackMessage = "Invalid emoji."
+                                    inputFeedbackMessage = Localization.PowerMode.emojiInvalid
+                                    inputFeedbackIsError = true
                                 } else {
                                     inputFeedbackMessage = ""
+                                    inputFeedbackIsError = false
                                 }
                             }
                             .onSubmit(attemptAddCustomEmoji)
 
-                        Button("Add") {
+                        Button(Localization.PowerMode.addButton) {
                             attemptAddCustomEmoji()
                         }
                         .buttonStyle(.borderedProminent)
                         .disabled(newEmojiText.isEmpty || !newEmojiText.isValidEmoji || emojiManager.allEmojis.contains(newEmojiText))
 
-                        Button("Cancel") {
+                        Button(Localization.PowerMode.cancelButton) {
                             isAddingCustomEmoji = false
                             newEmojiText = ""
                             inputFeedbackMessage = ""
+                            inputFeedbackIsError = false
                         }
                         .buttonStyle(.bordered)
                     }
                     if !inputFeedbackMessage.isEmpty {
                         Text(inputFeedbackMessage)
                             .font(.caption)
-                            .foregroundColor(inputFeedbackMessage == "Emoji already exists!" || inputFeedbackMessage == "Invalid emoji." ? .red : .secondary)
+                            .foregroundColor(inputFeedbackIsError ? .red : .secondary)
                             .transition(.opacity)
                     }
-                    Text("Tip: Use ⌃⌘Space for emoji picker.")
+                    Text(Localization.PowerMode.emojiTip)
                         .font(.caption2)
                         .foregroundColor(.secondary)
                         .padding(.top, 2)
@@ -101,35 +110,40 @@ struct EmojiPickerView: View {
         .padding()
         .background(.regularMaterial)
         .frame(minWidth: 260, idealWidth: 300, maxWidth: 320, minHeight: 150, idealHeight: 280, maxHeight: 350)
-        .alert("Emoji in Use", isPresented: $showingEmojiInUseAlert, presenting: emojiForAlert) { emojiStr in
-            Button("OK", role: .cancel) { }
+        .alert(Localization.PowerMode.emojiInUseTitle, isPresented: $showingEmojiInUseAlert, presenting: emojiForAlert) { _ in
+            Button(Localization.PowerMode.okButton, role: .cancel) { }
         } message: { emojiStr in
-            Text("The emoji \"\(emojiStr)\" is currently used by one or more Power Modes and cannot be removed.")
+            Text(String(format: Localization.PowerMode.emojiInUseMessage, emojiStr))
         }
     }
 
     private func attemptAddCustomEmoji() {
         let trimmedEmoji = newEmojiText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedEmoji.isEmpty else {
-            inputFeedbackMessage = "Emoji cannot be empty."
+            inputFeedbackMessage = Localization.PowerMode.emojiEmpty
+            inputFeedbackIsError = true
             return
         }
         guard trimmedEmoji.isValidEmoji else {
-            inputFeedbackMessage = "Invalid emoji character."
+            inputFeedbackMessage = Localization.PowerMode.emojiInvalidCharacter
+            inputFeedbackIsError = true
             return
         }
         guard !emojiManager.allEmojis.contains(trimmedEmoji) else {
-            inputFeedbackMessage = "Emoji already exists!"
+            inputFeedbackMessage = Localization.PowerMode.emojiAlreadyExists
+            inputFeedbackIsError = true
             return
         }
 
         if emojiManager.addCustomEmoji(trimmedEmoji) {
             selectedEmoji = trimmedEmoji
             inputFeedbackMessage = ""
+            inputFeedbackIsError = false
             isAddingCustomEmoji = false
             newEmojiText = ""
         } else {
-            inputFeedbackMessage = "Could not add emoji."
+            inputFeedbackMessage = Localization.PowerMode.emojiAddFailed
+            inputFeedbackIsError = true
         }
     }
 
@@ -142,6 +156,7 @@ struct EmojiPickerView: View {
         } else {
             if emojiManager.removeCustomEmoji(emojiToRemove) {
                 if selectedEmoji == emojiToRemove {
+                    selectedEmoji = emojiManager.allEmojis.first ?? selectedEmoji
                 }
             }
         }
@@ -192,7 +207,7 @@ private struct AddEmojiButton: View {
 
     var body: some View {
         Button(action: action) {
-            Label("Add Emoji", systemImage: "plus.circle.fill")
+            Label(Localization.PowerMode.addEmojiLabel, systemImage: "plus.circle.fill")
                 .font(.title2)
                 .labelStyle(.iconOnly)
                 .foregroundColor(.accentColor)
@@ -207,7 +222,7 @@ private struct AddEmojiButton: View {
                 )
         }
         .buttonStyle(.plain)
-        .help("Add custom emoji")
+        .help(Localization.PowerMode.addCustomEmojiHelp)
     }
 }
 

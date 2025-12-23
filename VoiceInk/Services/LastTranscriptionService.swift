@@ -132,7 +132,7 @@ class LastTranscriptionService: ObservableObject {
                     textToCopy = newTranscription.text
                 }
                 
-                ClipboardManager.copyToClipboard(textToCopy)
+                _ = ClipboardManager.copyToClipboard(textToCopy)
                 
                 NotificationManager.shared.showNotification(
                     title: Localization.Transcription.copiedToClipboard,

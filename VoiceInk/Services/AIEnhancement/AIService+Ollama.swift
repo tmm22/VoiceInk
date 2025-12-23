@@ -17,7 +17,7 @@ extension AIService {
     
     /// Fetches available Ollama models
     /// - Returns: Array of available Ollama models
-    func fetchOllamaModels() async -> [OllamaService.OllamaModel] {
+    func fetchOllamaModels() async -> [OllamaAIService.OllamaModel] {
         await ollamaService.refreshModels()
         return ollamaService.availableModels
     }
@@ -45,18 +45,18 @@ extension AIService {
     /// - Parameter newURL: The new base URL for Ollama
     func updateOllamaBaseURL(_ newURL: String) {
         ollamaService.baseURL = newURL
-        userDefaults.set(newURL, forKey: "ollamaBaseURL")
+        AppSettings.Ollama.baseURL = newURL
     }
     
     /// Updates the selected Ollama model
     /// - Parameter modelName: The name of the model to select
     func updateSelectedOllamaModel(_ modelName: String) {
         ollamaService.selectedModel = modelName
-        userDefaults.set(modelName, forKey: "ollamaSelectedModel")
+        AppSettings.Ollama.selectedModel = modelName
     }
     
     /// Returns available Ollama models from the service
-    var ollamaAvailableModels: [OllamaService.OllamaModel] {
+    var ollamaAvailableModels: [OllamaAIService.OllamaModel] {
         ollamaService.availableModels
     }
     

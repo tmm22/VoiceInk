@@ -3,7 +3,7 @@ import Combine
 @testable import VoiceInk
 
 /// Tests for TTSViewModel - complex async state management with multiple tasks
-/// CRITICAL: 5+ tasks cancelled in deinit (batchTask, previewTask, articleSummaryTask, managedProvisioningTask, transcriptionTask)
+/// CRITICAL: tasks cancelled in deinit (previewTask, articleSummaryTask, managedProvisioningTask, transcriptionTask)
 @available(macOS 14.0, *)
 @MainActor
 final class TTSViewModelTests: XCTestCase {
@@ -31,10 +31,10 @@ final class TTSViewModelTests: XCTestCase {
     
     func testInitialState() {
         XCTAssertEqual(viewModel.inputText, "", "Should start with empty text")
-        XCTAssertFalse(viewModel.isGenerating, "Should not be generating")
-        XCTAssertFalse(viewModel.isPlaying, "Should not be playing")
-        XCTAssertEqual(viewModel.currentTime, 0, "Current time should be 0")
-        XCTAssertEqual(viewModel.duration, 0, "Duration should be 0")
+        XCTAssertFalse(viewModel.generation.isGenerating, "Should not be generating")
+        XCTAssertFalse(viewModel.playback.isPlaying, "Should not be playing")
+        XCTAssertEqual(viewModel.playback.currentTime, 0, "Current time should be 0")
+        XCTAssertEqual(viewModel.playback.duration, 0, "Duration should be 0")
     }
     
     func testInputTextProperty() {
@@ -59,7 +59,7 @@ final class TTSViewModelTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
         
         // Release view model - this triggers deinit which should cancel:
-        // - batchTask
+        // - batch generation task (owned by TTSSpeechGenerationViewModel)
         // - previewTask
         // - articleSummaryTask
         // - managedProvisioningTask
@@ -99,16 +99,16 @@ final class TTSViewModelTests: XCTestCase {
         
         // Try to generate (should likely fail or return early)
         // We can't directly call generate, but we can test the state
-        XCTAssertFalse(viewModel.isGenerating, "Should not start generating with empty text")
+        XCTAssertFalse(viewModel.generation.isGenerating, "Should not start generating with empty text")
     }
     
     func testIsGeneratingFlagLifecycle() {
         // Test that generation flag has proper lifecycle
-        XCTAssertFalse(viewModel.isGenerating, "Should start not generating")
+        XCTAssertFalse(viewModel.generation.isGenerating, "Should start not generating")
         
         // We can't directly test generation without mocking providers,
         // but we can verify the flag is accessible
-        _ = viewModel.isGenerating
+        _ = viewModel.generation.isGenerating
         
         XCTAssertNotNil(viewModel, "ViewModel should survive flag access")
     }
@@ -154,13 +154,14 @@ final class TTSViewModelTests: XCTestCase {
         // We need actual voices, which may not be available
         guard !viewModel.availableVoices.isEmpty else {
             XCTSkip("No voices available for testing")
+            return
         }
         
         let voice = viewModel.availableVoices[0]
         
         // Try to preview multiple times rapidly
         for _ in 0..<5 {
-            viewModel.previewVoice(voice)
+            viewModel.preview.previewVoice(voice)
             try? await Task.sleep(nanoseconds: 20_000_000) // 0.02s
         }
         
@@ -172,7 +173,7 @@ final class TTSViewModelTests: XCTestCase {
     
     func testStopPreviewWhenNotPreviewing() {
         // Should be safe to stop preview when not previewing
-        XCTAssertFalse(viewModel.isPreviewing, "Should not be previewing")
+        XCTAssertFalse(viewModel.preview.isPreviewing, "Should not be previewing")
         
         viewModel.stopPreview()
         
@@ -185,7 +186,7 @@ final class TTSViewModelTests: XCTestCase {
         weak var weakVM = viewModel
         
         if let voice = viewModel?.availableVoices.first {
-            viewModel?.previewVoice(voice)
+            viewModel?.preview.previewVoice(voice)
         }
         
         // Release while preview may be loading
@@ -200,41 +201,41 @@ final class TTSViewModelTests: XCTestCase {
     
     func testAudioPlayerStateConsistency() {
         // Test that player state properties are consistent
-        XCTAssertEqual(viewModel.currentTime, 0)
-        XCTAssertEqual(viewModel.duration, 0)
-        XCTAssertFalse(viewModel.isPlaying)
+        XCTAssertEqual(viewModel.playback.currentTime, 0)
+        XCTAssertEqual(viewModel.playback.duration, 0)
+        XCTAssertFalse(viewModel.playback.isPlaying)
         
         // These should be accessible without crash
-        _ = viewModel.playbackSpeed
-        _ = viewModel.volume
+        _ = viewModel.playback.playbackSpeed
+        _ = viewModel.playback.volume
         
         XCTAssertNotNil(viewModel, "Should maintain consistent state")
     }
     
     func testPlaybackSpeedClamping() {
         // Test that playback speed is clamped to valid range
-        viewModel.playbackSpeed = 0.5
-        XCTAssertEqual(viewModel.playbackSpeed, 0.5)
+        viewModel.playback.playbackSpeed = 0.5
+        XCTAssertEqual(viewModel.playback.playbackSpeed, 0.5)
         
-        viewModel.playbackSpeed = 2.0
-        XCTAssertEqual(viewModel.playbackSpeed, 2.0)
+        viewModel.playback.playbackSpeed = 2.0
+        XCTAssertEqual(viewModel.playback.playbackSpeed, 2.0)
         
         // Values outside range might be clamped (depending on implementation)
-        viewModel.playbackSpeed = 3.0
-        XCTAssertGreaterThanOrEqual(viewModel.playbackSpeed, 0.5)
-        XCTAssertLessThanOrEqual(viewModel.playbackSpeed, 3.0)
+        viewModel.playback.playbackSpeed = 3.0
+        XCTAssertGreaterThanOrEqual(viewModel.playback.playbackSpeed, 0.5)
+        XCTAssertLessThanOrEqual(viewModel.playback.playbackSpeed, 3.0)
     }
     
     func testVolumeClamping() {
         // Test volume clamping
-        viewModel.volume = 0.5
-        XCTAssertEqual(viewModel.volume, 0.5)
+        viewModel.playback.volume = 0.5
+        XCTAssertEqual(viewModel.playback.volume, 0.5)
         
-        viewModel.volume = 1.0
-        XCTAssertEqual(viewModel.volume, 1.0)
+        viewModel.playback.volume = 1.0
+        XCTAssertEqual(viewModel.playback.volume, 1.0)
         
-        viewModel.volume = 0.0
-        XCTAssertEqual(viewModel.volume, 0.0)
+        viewModel.playback.volume = 0.0
+        XCTAssertEqual(viewModel.playback.volume, 0.0)
     }
     
     // MARK: - Character Limit Tests
@@ -365,19 +366,19 @@ final class TTSViewModelTests: XCTestCase {
     // MARK: - Snippet Management Tests
     
     func testTextSnippetsProperty() {
-        XCTAssertNotNil(viewModel.textSnippets, "Snippets should be accessible")
+        XCTAssertNotNil(viewModel.settings.textSnippets, "Snippets should be accessible")
         
         // Initially likely empty
-        let count = viewModel.textSnippets.count
+        let count = viewModel.settings.textSnippets.count
         XCTAssertGreaterThanOrEqual(count, 0)
     }
     
     // MARK: - Transcription Recording Tests
     
     func testTranscriptionRecordingState() {
-        XCTAssertFalse(viewModel.isTranscriptionRecording, "Should not be recording initially")
-        XCTAssertEqual(viewModel.transcriptionRecordingDuration, 0)
-        XCTAssertEqual(viewModel.transcriptionRecordingLevel, 0)
+        XCTAssertFalse(viewModel.transcription.isTranscriptionRecording, "Should not be recording initially")
+        XCTAssertEqual(viewModel.transcription.transcriptionRecordingDuration, 0)
+        XCTAssertEqual(viewModel.transcription.transcriptionRecordingLevel, 0)
     }
     
     func testTranscriptionTaskCancellation() async {
@@ -395,13 +396,13 @@ final class TTSViewModelTests: XCTestCase {
     // MARK: - Loop Playback Tests
     
     func testLoopPlaybackFlag() {
-        XCTAssertFalse(viewModel.isLoopEnabled, "Loop should be disabled initially")
+        XCTAssertFalse(viewModel.playback.isLoopEnabled, "Loop should be disabled initially")
         
-        viewModel.isLoopEnabled = true
-        XCTAssertTrue(viewModel.isLoopEnabled)
+        viewModel.playback.isLoopEnabled = true
+        XCTAssertTrue(viewModel.playback.isLoopEnabled)
         
-        viewModel.isLoopEnabled = false
-        XCTAssertFalse(viewModel.isLoopEnabled)
+        viewModel.playback.isLoopEnabled = false
+        XCTAssertFalse(viewModel.playback.isLoopEnabled)
     }
     
     // MARK: - Format Switching Tests
@@ -460,7 +461,7 @@ final class TTSViewModelTests: XCTestCase {
         
         // Subscribe to some publishers
         var receivedValue = false
-        viewModel?.$isPlaying
+        viewModel?.playback.$isPlaying
             .sink { _ in receivedValue = true }
             .store(in: &cancellables)
         
@@ -486,17 +487,17 @@ final class TTSViewModelTests: XCTestCase {
     // MARK: - Appearance Preference Tests
     
     func testAppearancePreferencePersistence() {
-        let initialPreference = viewModel.appearancePreference
+        let initialPreference = viewModel.settings.appearancePreference
         
         // Change preference
-        viewModel.appearancePreference = .dark
-        XCTAssertEqual(viewModel.appearancePreference, .dark)
+        viewModel.settings.appearancePreference = .dark
+        XCTAssertEqual(viewModel.settings.appearancePreference, .dark)
         
-        viewModel.appearancePreference = .light
-        XCTAssertEqual(viewModel.appearancePreference, .light)
+        viewModel.settings.appearancePreference = .light
+        XCTAssertEqual(viewModel.settings.appearancePreference, .light)
         
         // Restore
-        viewModel.appearancePreference = initialPreference
+        viewModel.settings.appearancePreference = initialPreference
     }
     
     // MARK: - Memory Leak Tests
@@ -504,7 +505,7 @@ final class TTSViewModelTests: XCTestCase {
     func testViewModelDoesNotLeak() async {
         weak var weakViewModel: TTSViewModel?
         
-        await autoreleasepool {
+        do {
             let vm = TTSViewModel()
             weakViewModel = vm
             
@@ -524,14 +525,14 @@ final class TTSViewModelTests: XCTestCase {
         weak var weakViewModel: TTSViewModel?
         var localCancellables = Set<AnyCancellable>()
         
-        await autoreleasepool {
+        do {
             let vm = TTSViewModel()
             weakViewModel = vm
             
             // Subscribe to publishers
-            vm.$isGenerating.sink { _ in }.store(in: &localCancellables)
-            vm.$isPlaying.sink { _ in }.store(in: &localCancellables)
-            vm.$currentTime.sink { _ in }.store(in: &localCancellables)
+            vm.generation.$isGenerating.sink { _ in }.store(in: &localCancellables)
+            vm.playback.$isPlaying.sink { _ in }.store(in: &localCancellables)
+            vm.playback.$currentTime.sink { _ in }.store(in: &localCancellables)
         }
         
         localCancellables.removeAll()
@@ -545,7 +546,7 @@ final class TTSViewModelTests: XCTestCase {
     func testViewModelWithTasksDoesNotLeak() async {
         weak var weakViewModel: TTSViewModel?
         
-        await autoreleasepool {
+        do {
             let vm = TTSViewModel()
             weakViewModel = vm
             
@@ -553,7 +554,7 @@ final class TTSViewModelTests: XCTestCase {
             vm.inputText = "Text 1\n---\nText 2\n---\nText 3"
             
             if let voice = vm.availableVoices.first {
-                vm.previewVoice(voice)
+                vm.preview.previewVoice(voice)
             }
         }
         

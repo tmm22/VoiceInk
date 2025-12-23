@@ -167,9 +167,7 @@ struct ModelManagementView: View {
                                 }
                             },
                             setDefaultAction: {
-                                Task {
-                                    await whisperState.setDefaultTranscriptionModel(model)
-                                }
+                                whisperState.setDefaultTranscriptionModel(model)
                             },
                             downloadAction: {
                                 if let localModel = model as? LocalModel {
@@ -215,12 +213,13 @@ struct ModelManagementView: View {
                         // Add Custom Model Card at the bottom
                         AddCustomModelCardView(
                             customModelManager: customModelManager,
+                            onModelAdded: {
+                                // Refresh the models when a new custom model is added
+                                whisperState.refreshAllAvailableModels()
+                                customModelToEdit = nil // Clear editing state
+                            },
                             editingModel: customModelToEdit
-                        ) {
-                            // Refresh the models when a new custom model is added
-                            whisperState.refreshAllAvailableModels()
-                            customModelToEdit = nil // Clear editing state
-                        }
+                        )
                     }
                 }
             }
