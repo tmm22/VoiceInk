@@ -28,6 +28,10 @@ final class TTSHistoryViewModel: ObservableObject {
     private let maxHistoryItems = 5
     private let historyMemoryLimitBytes = 2 * 1024 * 1024
     private let historyDiskLimitBytes = 50 * 1024 * 1024
+    
+    /// Cached total disk usage in bytes for history items stored on disk.
+    /// Updated incrementally when items are added/removed to avoid recalculating on every operation.
+    private var cachedDiskBytes: Int = 0
     private let historyCacheDirectory: URL = {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         return base.appendingPathComponent("VoiceInk/RecentGenerations", isDirectory: true)
@@ -87,6 +91,10 @@ final class TTSHistoryViewModel: ObservableObject {
     }
 
     func removeHistoryItem(_ item: GenerationHistoryItem) {
+        // Update cached disk bytes before deletion
+        if item.audioFileURL != nil {
+            cachedDiskBytes = max(0, cachedDiskBytes - item.audioSizeBytes)
+        }
         deleteHistoryAudio(for: item)
         recentGenerations.removeAll { $0.id == item.id }
     }
@@ -94,6 +102,7 @@ final class TTSHistoryViewModel: ObservableObject {
     func clearHistory() {
         recentGenerations.forEach { deleteHistoryAudio(for: $0) }
         recentGenerations.removeAll()
+        cachedDiskBytes = 0
         clearHistoryCacheDirectory()
     }
 
@@ -107,10 +116,16 @@ final class TTSHistoryViewModel: ObservableObject {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
 
+        // Find and remove duplicates, updating cached disk bytes
         let duplicates = recentGenerations.filter {
             $0.matches(provider: provider, voiceID: voice.id, text: trimmedText)
         }
-        duplicates.forEach { deleteHistoryAudio(for: $0) }
+        for duplicate in duplicates {
+            if duplicate.audioFileURL != nil {
+                cachedDiskBytes = max(0, cachedDiskBytes - duplicate.audioSizeBytes)
+            }
+            deleteHistoryAudio(for: duplicate)
+        }
         recentGenerations.removeAll { $0.matches(provider: provider, voiceID: voice.id, text: trimmedText) }
 
         let storedAudio = storeHistoryAudio(audioData, format: format)
@@ -128,10 +143,21 @@ final class TTSHistoryViewModel: ObservableObject {
         )
 
         recentGenerations.insert(item, at: 0)
+        
+        // Update cached disk bytes for new item stored on disk
+        if storedAudio.url != nil {
+            cachedDiskBytes += storedAudio.sizeBytes
+        }
 
+        // Handle overflow items, updating cached disk bytes
         if recentGenerations.count > maxHistoryItems {
             let overflow = recentGenerations.suffix(recentGenerations.count - maxHistoryItems)
-            overflow.forEach { deleteHistoryAudio(for: $0) }
+            for overflowItem in overflow {
+                if overflowItem.audioFileURL != nil {
+                    cachedDiskBytes = max(0, cachedDiskBytes - overflowItem.audioSizeBytes)
+                }
+                deleteHistoryAudio(for: overflowItem)
+            }
             recentGenerations.removeLast(recentGenerations.count - maxHistoryItems)
         }
 
@@ -228,18 +254,15 @@ final class TTSHistoryViewModel: ObservableObject {
         try? FileManager.default.removeItem(at: url)
     }
 
+    /// Enforces the disk limit by removing oldest items until under the limit.
+    /// Uses the cached disk bytes value for O(1) lookup instead of recalculating.
     private func enforceHistoryDiskLimit() {
-        var diskBytes = recentGenerations.reduce(0) { result, item in
-            guard item.audioFileURL != nil else { return result }
-            return result + item.audioSizeBytes
-        }
-
-        while diskBytes > historyDiskLimitBytes, let last = recentGenerations.last {
+        while cachedDiskBytes > historyDiskLimitBytes, let last = recentGenerations.last {
+            if last.audioFileURL != nil {
+                cachedDiskBytes = max(0, cachedDiskBytes - last.audioSizeBytes)
+            }
             deleteHistoryAudio(for: last)
             recentGenerations.removeLast()
-            if last.audioFileURL != nil {
-                diskBytes = max(0, diskBytes - last.audioSizeBytes)
-            }
         }
     }
 

@@ -5,6 +5,7 @@ import SwiftData
 import AppKit
 import KeyboardShortcuts
 import os
+import Combine
 
 // MARK: - Recording State Machine
 enum RecordingState: Equatable {
@@ -68,7 +69,14 @@ class WhisperState: NSObject, ObservableObject {
     
     let modelContext: ModelContext
     
-    // Transcription Services
+    // MARK: - Model Manager (Phase 1 Refactoring)
+    
+    /// The ModelManager coordinates all model providers
+    /// This is the new architecture for model management
+    let modelManager: ModelManager
+    
+    // MARK: - Transcription Services
+    
     private(set) var localTranscriptionService: LocalTranscriptionService?
     private(set) lazy var cloudTranscriptionService = CloudTranscriptionService()
     private(set) lazy var nativeAppleTranscriptionService = NativeAppleTranscriptionService()
@@ -111,6 +119,9 @@ class WhisperState: NSObject, ObservableObject {
     @Published var fastConformerDownloadProgress: [String: Double] = [:]
     @Published var senseVoiceDownloadProgress: [String: Double] = [:]
     
+    /// Cancellables for Combine subscriptions
+    private var cancellables = Set<AnyCancellable>()
+    
     init(modelContext: ModelContext, enhancementService: AIEnhancementService? = nil) {
         self.modelContext = modelContext
         let appSupportDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -124,7 +135,13 @@ class WhisperState: NSObject, ObservableObject {
         self.enhancementService = enhancementService
         self.licenseViewModel = LicenseViewModel()
         
+        // Initialize ModelManager with the models directory
+        self.modelManager = ModelManager(modelsDirectory: self.modelsDirectory)
+        
         super.init()
+        
+        // Set up bindings from ModelManager to WhisperState for backward compatibility
+        setupModelManagerBindings()
         
         // Configure the session manager
         if let enhancementService = enhancementService {
@@ -144,6 +161,83 @@ class WhisperState: NSObject, ObservableObject {
         refreshAllAvailableModels()
     }
     
+    // MARK: - ModelManager Bindings
+    
+    /// Set up Combine bindings to sync ModelManager state with WhisperState
+    /// This ensures backward compatibility while delegating to ModelManager
+    private func setupModelManagerBindings() {
+        // Sync local provider's whisperModels to availableModels
+        modelManager.localProvider.$whisperModels
+            .sink { [weak self] models in
+                self?.availableModels = models
+            }
+            .store(in: &cancellables)
+        
+        // Sync local provider's isModelLoaded
+        modelManager.localProvider.$isModelLoaded
+            .sink { [weak self] loaded in
+                self?.isModelLoaded = loaded
+            }
+            .store(in: &cancellables)
+        
+        // Sync local provider's loadedModel
+        modelManager.localProvider.$loadedModel
+            .sink { [weak self] model in
+                self?.loadedLocalModel = model
+            }
+            .store(in: &cancellables)
+        
+        // Sync local provider's isModelLoading
+        modelManager.localProvider.$isModelLoading
+            .sink { [weak self] loading in
+                self?.isModelLoading = loading
+            }
+            .store(in: &cancellables)
+        
+        // Sync local provider's download progress
+        modelManager.localProvider.$downloadProgress
+            .sink { [weak self] progress in
+                guard let self = self else { return }
+                // Merge local provider progress into WhisperState's downloadProgress
+                for (key, value) in progress {
+                    self.downloadProgress[key] = value
+                }
+            }
+            .store(in: &cancellables)
+        
+        // Sync ModelManager's allAvailableModels
+        modelManager.$allAvailableModels
+            .sink { [weak self] models in
+                self?.allAvailableModels = models
+            }
+            .store(in: &cancellables)
+        
+        // Sync ModelManager's currentModel
+        modelManager.$currentModel
+            .sink { [weak self] model in
+                self?.currentTranscriptionModel = model
+            }
+            .store(in: &cancellables)
+        
+        // Sync Parakeet download states
+        modelManager.parakeetProvider.$downloadStates
+            .sink { [weak self] states in
+                self?.parakeetDownloadStates = states
+            }
+            .store(in: &cancellables)
+        
+        // Sync Parakeet download progress
+        modelManager.parakeetProvider.$downloadProgress
+            .sink { [weak self] progress in
+                guard let self = self else { return }
+                // Merge Parakeet progress into WhisperState's downloadProgress
+                for (key, value) in progress {
+                    self.downloadProgress[key] = value
+                }
+            }
+            .store(in: &cancellables)
+    }
+    
     private func createRecordingsDirectoryIfNeeded() {
         do {
             try FileManager.default.createDirectory(at: recordingsDirectory, withIntermediateDirectories: true, attributes: nil)
@@ -154,5 +248,6 @@ class WhisperState: NSObject, ObservableObject {
     
     deinit {
         NotificationCenter.default.removeObserver(self)
+        cancellables.removeAll()
     }
 }
