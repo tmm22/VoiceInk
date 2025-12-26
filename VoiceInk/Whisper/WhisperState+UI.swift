@@ -8,35 +8,75 @@ extension WhisperState {
     // MARK: - Recorder Panel Management
 
     func showRecorderPanel() {
-        // Delegate to UIManager (Phase 4 refactoring)
-        uiManager?.showRecordingUI()
+        // Show the appropriate recorder panel based on recorderType
+        if recorderType == "notch" {
+            if notchWindowManager == nil {
+                notchWindowManager = NotchWindowManager(whisperState: self, recorder: recorder)
+            }
+            notchWindowManager?.show()
+        } else {
+            if miniWindowManager == nil {
+                miniWindowManager = MiniWindowManager(whisperState: self, recorder: recorder)
+            }
+            miniWindowManager?.show()
+        }
     }
 
     func hideRecorderPanel() {
-        // Delegate to UIManager (Phase 4 refactoring)
-        uiManager?.hideRecordingUI()
+        // Hide the appropriate recorder panel based on recorderType
+        if recorderType == "notch" {
+            notchWindowManager?.hide()
+        } else {
+            miniWindowManager?.hide()
+        }
     }
     
     // MARK: - Mini Recorder Management
 
     func toggleMiniRecorder() async {
-        // Delegate to UIManager (Phase 4 refactoring)
-        await uiManager?.toggleRecordingUI()
+        // Toggle the mini recorder visibility and recording state
+        if isMiniRecorderVisible {
+            // Stop recording and hide the recorder
+            await toggleRecord()
+        } else {
+            // Show the recorder and start recording
+            isMiniRecorderVisible = true
+            showRecorderPanel()
+            SoundManager.shared.playStartSound()
+            await toggleRecord()
+        }
     }
     
     func dismissMiniRecorder() async {
-        // Delegate to UIManager (Phase 4 refactoring)
-        await uiManager?.dismissRecordingUI()
+        // Dismiss the mini recorder without stopping recording (recording already stopped)
+        isMiniRecorderVisible = false
+        hideRecorderPanel()
+        
+        // Clean up window managers
+        if recorderType == "notch" {
+            notchWindowManager = nil
+        } else {
+            miniWindowManager = nil
+        }
+        
+        recordingState = .idle
     }
     
     func resetOnLaunch() async {
-        // Delegate to UIManager (Phase 4 refactoring)
-        await uiManager?.resetOnLaunch()
+        // Reset state on app launch
+        isMiniRecorderVisible = false
+        recordingState = .idle
+        miniWindowManager?.hide()
+        notchWindowManager?.hide()
+        miniWindowManager = nil
+        notchWindowManager = nil
     }
 
     func cancelRecording() async {
-        // Delegate to UIManager (Phase 4 refactoring)
-        await uiManager?.cancelRecording()
+        // Cancel the current recording
+        shouldCancelRecording = true
+        await recordingSessionManager.cancelRecording()
+        await dismissMiniRecorder()
     }
     
     // MARK: - Notification Handling
