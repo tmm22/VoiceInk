@@ -6,18 +6,10 @@ import AppKit
 import KeyboardShortcuts
 import os
 import Combine
-
-// MARK: - Recording State Machine
-enum RecordingState: Equatable {
-    case idle
-    case recording
-    case transcribing
-    case enhancing
-    case busy
-}
+import CoreMedia
 
 @MainActor
-class WhisperState: NSObject, ObservableObject {
+class WhisperState: NSObject, ObservableObject, RecordingSessionDelegate {
     @Published var recordingState: RecordingState = .idle
     @Published var isModelLoaded = false
     @Published var loadedLocalModel: WhisperModel?
@@ -45,6 +37,8 @@ class WhisperState: NSObject, ObservableObject {
                     self?.showRecorderPanel()
                 }
             }
+            // Notify UIManager of recorder type change
+            uiManager?.handleRecorderTypeChange(from: oldValue, to: recorderType)
             AppSettings.TranscriptionSettings.recorderType = recorderType
         }
     }
@@ -52,9 +46,9 @@ class WhisperState: NSObject, ObservableObject {
     @Published var isMiniRecorderVisible = false {
         didSet {
             if isMiniRecorderVisible {
-                showRecorderPanel()
+                uiManager?.showRecordingUI()
             } else {
-                hideRecorderPanel()
+                uiManager?.hideRecordingUI()
             }
         }
     }
@@ -74,6 +68,18 @@ class WhisperState: NSObject, ObservableObject {
     /// The ModelManager coordinates all model providers
     /// This is the new architecture for model management
     let modelManager: ModelManager
+
+    /// The RecordingSessionManager handles recording lifecycle
+    /// This is the new architecture for recording session management
+    var recordingSessionManager: RecordingSessionManager!
+
+    /// The TranscriptionProcessor handles transcription processing
+    /// This is the new architecture for transcription processing (Phase 3)
+    var transcriptionProcessor: TranscriptionProcessor!
+
+    /// The UIManager handles UI state and interactions
+    /// This is the new architecture for UI management (Phase 4)
+    var uiManager: UIManager!
     
     // MARK: - Transcription Services
     
@@ -137,8 +143,22 @@ class WhisperState: NSObject, ObservableObject {
         
         // Initialize ModelManager with the models directory
         self.modelManager = ModelManager(modelsDirectory: self.modelsDirectory)
-        
+
         super.init()
+
+        // Initialize RecordingSessionManager after super.init()
+        self.recordingSessionManager = RecordingSessionManager(
+            recorder: self.recorder,
+            recordingsDirectory: self.recordingsDirectory,
+            delegate: self
+        )
+
+        // Initialize TranscriptionProcessor after super.init()
+        self.transcriptionProcessor = TranscriptionProcessor()
+        configureTranscriptionProcessor()
+
+        // Initialize UIManager after super.init()
+        self.uiManager = UIManager(whisperState: self)
         
         // Set up bindings from ModelManager to WhisperState for backward compatibility
         setupModelManagerBindings()
@@ -151,7 +171,7 @@ class WhisperState: NSObject, ObservableObject {
         // Set the whisperState reference after super.init()
         self.localTranscriptionService = LocalTranscriptionService(modelsDirectory: self.modelsDirectory, whisperState: self)
         
-        setupNotifications()
+        uiManager?.setupNotifications()
         createModelsDirectoryIfNeeded()
         createFastConformerDirectoryIfNeeded()
         createSenseVoiceDirectoryIfNeeded()
@@ -237,6 +257,26 @@ class WhisperState: NSObject, ObservableObject {
             }
             .store(in: &cancellables)
     }
+
+    /// Configure the TranscriptionProcessor with available services
+    private func configureTranscriptionProcessor() {
+        // Register transcription services with the processor
+        if let localService = localTranscriptionService {
+            transcriptionProcessor.registerService(localService, for: ModelProvider.local.rawValue)
+        }
+        transcriptionProcessor.registerService(parakeetTranscriptionService, for: ModelProvider.parakeet.rawValue)
+        transcriptionProcessor.registerService(fastConformerTranscriptionService, for: ModelProvider.fastConformer.rawValue)
+        transcriptionProcessor.registerService(senseVoiceTranscriptionService, for: ModelProvider.senseVoice.rawValue)
+        transcriptionProcessor.registerService(nativeAppleTranscriptionService, for: ModelProvider.nativeApple.rawValue)
+        transcriptionProcessor.registerService(cloudTranscriptionService, for: "cloud")
+        // Note: Other cloud providers would be registered here as well
+
+        // Configure enhancement and prompt detection services
+        transcriptionProcessor.configure(
+            enhancementService: enhancementService,
+            promptDetectionService: promptDetectionService
+        )
+    }
     
     private func createRecordingsDirectoryIfNeeded() {
         do {
@@ -245,7 +285,68 @@ class WhisperState: NSObject, ObservableObject {
             logger.error("Error creating recordings directory: \(error.localizedDescription)")
         }
     }
-    
+
+    // MARK: - RecordingSessionDelegate
+
+    func sessionDidStart() {
+        // Recording session started successfully
+        logger.info("🎙️ Recording session started")
+        recordingState = .recording
+    }
+
+    func sessionDidComplete(audioURL: URL) {
+        // Recording completed, now transcribe
+        Task {
+            let transcription = await createTranscription(from: audioURL)
+            await transcribeAudio(on: transcription)
+        }
+    }
+
+    func sessionDidCancel() {
+        // Recording was cancelled
+        logger.info("🚫 Recording session cancelled")
+        recordingState = .idle
+        shouldCancelRecording = false
+    }
+
+    func sessionDidFail(error: Error) {
+        // Recording failed
+        logger.error("❌ Recording session failed: \(error.localizedDescription)")
+        recordingState = .idle
+        shouldCancelRecording = false
+
+        // Use UIManager to show error
+        uiManager?.showError(error)
+    }
+
+    private func createTranscription(from audioURL: URL) async -> Transcription {
+        let audioAsset = AVURLAsset(url: audioURL)
+        let duration: TimeInterval
+        do {
+            let assetDuration = try await audioAsset.load(.duration)
+            duration = CMTimeGetSeconds(assetDuration)
+        } catch {
+            logger.error("Failed to load recording duration: \(error.localizedDescription)")
+            duration = 0.0
+        }
+
+        let transcription = Transcription(
+            text: "",
+            duration: duration,
+            audioFileURL: audioURL.absoluteString,
+            transcriptionStatus: .pending
+        )
+        modelContext.insert(transcription)
+        do {
+            try modelContext.save()
+        } catch {
+            logger.error("Failed to save transcription: \(error.localizedDescription)")
+        }
+        NotificationCenter.default.post(name: .transcriptionCreated, object: transcription)
+
+        return transcription
+    }
+
     deinit {
         NotificationCenter.default.removeObserver(self)
         cancellables.removeAll()

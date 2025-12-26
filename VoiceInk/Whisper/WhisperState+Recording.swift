@@ -5,43 +5,15 @@ import AVFoundation
 extension WhisperState {
     func toggleRecord() async {
         if recordingState == .recording {
-            recorder.stopRecording()
-            if let recordedFile {
-                if !shouldCancelRecording {
-                    let audioAsset = AVURLAsset(url: recordedFile)
-                    let duration: TimeInterval
-                    do {
-                        let assetDuration = try await audioAsset.load(.duration)
-                        duration = CMTimeGetSeconds(assetDuration)
-                    } catch {
-                        logger.error("Failed to load recording duration: \(error.localizedDescription)")
-                        duration = 0.0
-                    }
-
-                    let transcription = Transcription(
-                        text: "",
-                        duration: duration,
-                        audioFileURL: recordedFile.absoluteString,
-                        transcriptionStatus: .pending
-                    )
-                    modelContext.insert(transcription)
-                    do {
-                        try modelContext.save()
-                    } catch {
-                        logger.error("Failed to save transcription: \(error.localizedDescription)")
-                    }
-                    NotificationCenter.default.post(name: .transcriptionCreated, object: transcription)
-
-                    await transcribeAudio(on: transcription)
-                } else {
-                    recordingState = .idle
-                    await cleanupModelResources()
-                }
-            } else {
-                logger.error("❌ No recorded file found after stopping recording")
+            // Stop the recording session
+            do {
+                try await recordingSessionManager.stopRecording()
+            } catch {
+                logger.error("❌ Failed to stop recording session: \(error.localizedDescription)")
                 recordingState = .idle
             }
         } else {
+            // Start a new recording session
             guard currentTranscriptionModel != nil else {
                 NotificationManager.shared.showNotification(
                     title: Localization.Models.noModelSelected,
@@ -49,59 +21,52 @@ extension WhisperState {
                 )
                 return
             }
+
             shouldCancelRecording = false
-            requestRecordPermission { [weak self] granted in
-                guard let self else { return }
-                if granted {
-                    Task { [weak self] in
+
+            // Request permission and start recording
+            let granted = await recordingSessionManager.requestRecordPermission()
+            if granted {
+                do {
+                    await ActiveWindowService.shared.applyConfigurationForCurrentApp()
+
+                    // Load model and prepare enhancement service in background
+                    Task.detached { [weak self] in
                         guard let self = self else { return }
-                        do {
-                            let fileName = "\(UUID().uuidString).wav"
-                            let permanentURL = self.recordingsDirectory.appendingPathComponent(fileName)
-                            self.recordedFile = permanentURL
 
-                            try await self.recorder.startRecording(toOutputFile: permanentURL)
-
-                            self.recordingState = .recording
-
-                            await ActiveWindowService.shared.applyConfigurationForCurrentApp()
-
-                            Task.detached { [weak self] in
-                                guard let self = self else { return }
-
-                                if let model = await self.currentTranscriptionModel, model.provider == .local {
-                                    if let localWhisperModel = await self.availableModels.first(where: { $0.name == model.name }),
-                                       await self.whisperContext == nil {
-                                        do {
-                                            try await self.loadModel(localWhisperModel)
-                                        } catch {
-                                            self.logger.error("❌ Model loading failed: \(error.localizedDescription)")
-                                        }
-                                    }
-                                } else if let parakeetModel = await self.currentTranscriptionModel as? ParakeetModel {
-                                    do {
-                                        try await self.parakeetTranscriptionService.loadModel(for: parakeetModel)
-                                    } catch {
-                                        self.logger.error("❌ Failed to load Parakeet model: \(error.localizedDescription)")
-                                    }
-                                }
-
-                                if let enhancementService = self.enhancementService {
-                                    await enhancementService.captureClipboardContext()
-                                    await enhancementService.captureScreenContext()
+                        if let model = await self.currentTranscriptionModel, model.provider == .local {
+                            if let localWhisperModel = await self.availableModels.first(where: { $0.name == model.name }),
+                                await self.whisperContext == nil {
+                                do {
+                                    try await self.loadModel(localWhisperModel)
+                                } catch {
+                                    self.logger.error("❌ Model loading failed: \(error.localizedDescription)")
                                 }
                             }
+                        } else if let parakeetModel = await self.currentTranscriptionModel as? ParakeetModel {
+                            do {
+                                try await self.parakeetTranscriptionService.loadModel(for: parakeetModel)
+                            } catch {
+                                self.logger.error("❌ Failed to load Parakeet model: \(error.localizedDescription)")
+                            }
+                        }
 
-                        } catch {
-                            self.logger.error("❌ Failed to start recording: \(error.localizedDescription)")
-                            NotificationManager.shared.showNotification(title: Localization.Recording.failedToStart, type: .error)
-                            await self.dismissMiniRecorder()
-                            self.recordedFile = nil
+                        if let enhancementService = self.enhancementService {
+                            await enhancementService.captureClipboardContext()
+                            await enhancementService.captureScreenContext()
                         }
                     }
-                } else {
-                    self.logger.error("❌ Recording permission denied.")
+
+                    // Start the recording session
+                    try await recordingSessionManager.startRecording()
+
+                } catch {
+                    logger.error("❌ Failed to start recording session: \(error.localizedDescription)")
+                    NotificationManager.shared.showNotification(title: Localization.Recording.failedToStart, type: .error)
+                    await dismissMiniRecorder()
                 }
+            } else {
+                logger.error("❌ Recording permission denied.")
             }
         }
     }
@@ -121,7 +86,7 @@ extension WhisperState {
         }
     }
 
-    private func transcribeAudio(on transcription: Transcription) async {
+    internal func transcribeAudio(on transcription: Transcription) async {
         guard let urlString = transcription.audioFileURL, let url = URL(string: urlString) else {
             logger.error("❌ Invalid audio file URL in transcription object.")
             recordingState = .idle

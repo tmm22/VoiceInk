@@ -330,12 +330,11 @@ final class WorkflowIntegrationTests: XCTestCase {
             XCTSkip("No models available")
             return
         }
-        
+
         whisperState.currentTranscriptionModel = model
-        
+
         let expectation = expectation(description: "Transcription notification")
-        expectation.isInverted = true // We don't expect it in test environment
-        
+
         let observer = NotificationCenter.default.addObserver(
             forName: .transcriptionCreated,
             object: nil,
@@ -343,20 +342,20 @@ final class WorkflowIntegrationTests: XCTestCase {
         ) { _ in
             expectation.fulfill()
         }
-        
+
         defer {
             NotificationCenter.default.removeObserver(observer)
         }
-        
+
         // Try to create a transcription
         await whisperState.toggleRecord()
         try await Task.sleep(nanoseconds: 200_000_000)
-        
+
         whisperState.shouldCancelRecording = true
         await whisperState.toggleRecord()
-        
-        // Wait a bit (but expect no notification in test env)
-        await fulfillment(of: [expectation], timeout: 1.0)
+
+        // Wait for transcription notification (refactoring now properly creates transcriptions)
+        await fulfillment(of: [expectation], timeout: 2.0)
     }
     
     // MARK: - Memory Integration Tests

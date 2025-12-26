@@ -378,7 +378,7 @@ extension WhisperState {
     }
     
     // MARK: - Resource Management
-    
+
     func cleanupModelResources() async {
         await whisperContext?.releaseResources()
         whisperContext = nil
@@ -387,6 +387,9 @@ extension WhisperState {
         parakeetTranscriptionService.cleanup()
         fastConformerTranscriptionService.cleanup()
         senseVoiceTranscriptionService.cleanup()
+
+        // Reset recording state to idle when cleaning up resources
+        recordingState = .idle
     }
     
     // MARK: - Helper Methods

@@ -30,10 +30,10 @@ final class LocalModelProvider: ObservableObject, LoadableModelProviderProtocol 
     
     let providerType: ModelProvider = .local
     let modelsDirectory: URL
-    
-    /// The WhisperContext for the currently loaded model
-    private(set) var whisperContext: WhisperContext?
-    
+
+    /// Context manager for thread-safe Whisper context operations
+    private let contextManager: WhisperContextManager
+
     /// Prompt manager for transcription hints
     let whisperPrompt = WhisperPrompt()
     
@@ -45,6 +45,7 @@ final class LocalModelProvider: ObservableObject, LoadableModelProviderProtocol 
     /// - Parameter modelsDirectory: Directory where models are stored
     init(modelsDirectory: URL) {
         self.modelsDirectory = modelsDirectory
+        self.contextManager = WhisperContextManager.shared
         createModelsDirectoryIfNeeded()
         loadAvailableModels()
     }
@@ -110,25 +111,21 @@ final class LocalModelProvider: ObservableObject, LoadableModelProviderProtocol 
         // Skip if already loaded
         if let loaded = loadedModel,
            loaded.name == model.name,
-           whisperContext != nil {
+           await contextManager.isContextLoaded(for: model.name) {
             return
         }
 
         // Unload existing model first
-        if whisperContext != nil {
+        if loadedModel != nil {
             await unloadModel()
         }
-        
+
         isModelLoading = true
         defer { isModelLoading = false }
-        
+
         do {
-            whisperContext = try await WhisperContext.createContext(path: model.url.path)
-            
-            // Set the prompt from UserDefaults to ensure we have the latest
-            let currentPrompt = AppSettings.TranscriptionSettings.prompt ?? whisperPrompt.transcriptionPrompt
-            await whisperContext?.setPrompt(currentPrompt)
-            
+            _ = try await contextManager.loadContext(for: model.name, modelURL: model.url)
+
             isModelLoaded = true
             loadedModel = model
         } catch {
@@ -138,8 +135,9 @@ final class LocalModelProvider: ObservableObject, LoadableModelProviderProtocol 
     
     /// Unload the current model from memory
     func unloadModel() async {
-        await whisperContext?.releaseResources()
-        whisperContext = nil
+        if let modelName = loadedModel?.name {
+            await contextManager.unloadContext(for: modelName)
+        }
         isModelLoaded = false
         loadedModel = nil
     }
@@ -296,8 +294,7 @@ final class LocalModelProvider: ObservableObject, LoadableModelProviderProtocol 
     
     /// Clean up all model resources
     func cleanupModelResources() async {
-        await whisperContext?.releaseResources()
-        whisperContext = nil
+        await contextManager.unloadAllContexts()
         isModelLoaded = false
     }
     
