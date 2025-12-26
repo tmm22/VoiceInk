@@ -22,6 +22,7 @@ class LicenseViewModel: ObservableObject {
     let contributionNote = "Consider supporting continued development or sharing improvements with the community."
 
     private func makeURL(_ string: String) -> URL {
+        // Force unwrap safe: hardcoded valid fallback URL
         URL(string: string) ?? URL(string: "https://github.com/tmm22/VoiceInk")!
     }
 

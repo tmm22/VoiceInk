@@ -6,6 +6,7 @@ final class OpenAISummarizationService: TextSummarizationService {
     private let keychain: KeychainManager
     private let managedProvisioningClient: ManagedProvisioningClient
     private var activeManagedCredential: ManagedCredential?
+    // Force unwrap safe: hardcoded valid URL
     private let endpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
     private let model = "gpt-4o-mini"
 

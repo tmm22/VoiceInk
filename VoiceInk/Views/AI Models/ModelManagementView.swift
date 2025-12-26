@@ -284,6 +284,7 @@ struct ModelManagementView: View {
     // MARK: - Import Panel
     private func presentImportPanel() {
         let panel = NSOpenPanel()
+        // Force unwrap safe: "bin" and "gguf" are valid file extensions
         panel.allowedContentTypes = [UTType(filenameExtension: "bin")!, UTType(filenameExtension: "gguf")!]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false

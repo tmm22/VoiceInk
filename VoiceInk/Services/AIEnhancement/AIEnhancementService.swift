@@ -23,6 +23,7 @@ class AIEnhancementService: ObservableObject {
 
     @Published var contextSettings: AIContextSettings {
         didSet {
+            // Best-effort persistence; encoding failure is non-critical as defaults will be used on next launch
             if let encoded = try? JSONEncoder().encode(contextSettings) {
                 AppSettings.Enhancements.contextSettingsData = encoded
             }
@@ -125,6 +126,7 @@ class AIEnhancementService: ObservableObject {
         self.isEnhancementEnabled = AppSettings.Enhancements.isEnhancementEnabled
         
         // Load Context Settings
+        // Decode failure is acceptable; will use default settings if stored data is corrupted
         if let data = AppSettings.Enhancements.contextSettingsData,
            let settings = try? JSONDecoder().decode(AIContextSettings.self, from: data) {
             self.contextSettings = settings
@@ -149,6 +151,7 @@ class AIEnhancementService: ObservableObject {
         }
 
         // Load custom prompts
+        // Decode failure is acceptable; will use empty prompts array if stored data is corrupted
         if let savedPromptsData = AppSettings.Enhancements.customPromptsData,
            let decodedPrompts = try? JSONDecoder().decode([CustomPrompt].self, from: savedPromptsData) {
             self.customPrompts = decodedPrompts
@@ -275,6 +278,7 @@ class AIEnhancementService: ObservableObject {
         )
         
         // Serialize context for debugging/storage
+        // Encoding failure is non-critical; debug context is optional
         if let jsonData = try? JSONEncoder().encode(context),
            let jsonString = String(data: jsonData, encoding: .utf8) {
             self.lastCapturedContextJSON = truncateForStorage(jsonString, limit: maxStoredContextCharacters)
