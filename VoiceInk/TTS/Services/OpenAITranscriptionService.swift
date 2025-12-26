@@ -44,32 +44,23 @@ final class OpenAITranscriptionService: AudioTranscribing {
         request.httpMethod = "POST"
         let authorization = try await authorizationHeader()
         request.setValue(authorization.value, forHTTPHeaderField: authorization.header)
-
-        let boundary = "Boundary-\(UUID().uuidString)"
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 90
 
-        let modelName = self.model
-        let bodyURL = try await Task.detached(priority: .utility) {
-            try Self.makeBodyFile(
-                boundary: boundary,
-                model: modelName,
-                fileURL: fileURL,
-                filename: filename,
-                mimeType: mimeType,
-                languageHint: languageHint
-            )
-        }.value
-        defer {
-            try? FileManager.default.removeItem(at: bodyURL)
-        }
+        // Build multipart form data
+        var formData = MultipartFormDataBuilder()
+        request.setValue(formData.contentType, forHTTPHeaderField: "Content-Type")
 
-        if let fileSize = (try? FileManager.default.attributesOfItem(atPath: bodyURL.path)[.size] as? Int64) {
-            request.setValue(String(fileSize), forHTTPHeaderField: "Content-Length")
-        }
+        try await Self.createRequestBody(
+            fileURL: fileURL,
+            filename: filename,
+            mimeType: mimeType,
+            languageHint: languageHint,
+            formData: &formData
+        )
+        let body = formData.finalize()
 
         do {
-            let (data, response) = try await session.upload(for: request, fromFile: bodyURL)
+            let (data, response) = try await session.upload(for: request, from: body)
 
             let responseData = try HTTPResponseHandler.handleResponse(
                 response,
@@ -129,64 +120,33 @@ private extension OpenAITranscriptionService {
         return "audio/wav"
     }
 
-    nonisolated static func makeBodyFile(boundary: String,
-                                         model: String,
-                                         fileURL: URL,
-                                         filename: String,
-                                         mimeType: String,
-                                         languageHint: String?) throws -> URL {
-        let bodyURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension("multipart")
+    nonisolated static func createRequestBody(
+        fileURL: URL,
+        filename: String,
+        mimeType: String,
+        languageHint: String?,
+        formData: inout MultipartFormDataBuilder
+    ) async throws {
+        // Load audio data
+        let audioData = try Data(contentsOf: fileURL)
 
-        FileManager.default.createFile(atPath: bodyURL.path, contents: nil)
+        // Add form fields
+        formData.addField(name: "model", value: "whisper-1")
+        formData.addField(name: "response_format", value: "verbose_json")
+        formData.addField(name: "temperature", value: "0")
+        formData.addField(name: "timestamp_granularities[]", value: "segment")
 
-        do {
-            let bodyHandle = try FileHandle(forWritingTo: bodyURL)
-            defer { try? bodyHandle.close() }
-
-            func append(_ string: String) {
-                bodyHandle.write(Data(string.utf8))
-            }
-
-            append("--\(boundary)\r\n")
-            append("Content-Disposition: form-data; name=\"model\"\r\n\r\n")
-            append("\(model)\r\n")
-
-            append("--\(boundary)\r\n")
-            append("Content-Disposition: form-data; name=\"response_format\"\r\n\r\n")
-            append("verbose_json\r\n")
-
-            append("--\(boundary)\r\n")
-            append("Content-Disposition: form-data; name=\"temperature\"\r\n\r\n")
-            append("0\r\n")
-
-            append("--\(boundary)\r\n")
-            append("Content-Disposition: form-data; name=\"timestamp_granularities[]\"\r\n\r\nsegment\r\n")
-
-            if let languageHint {
-                append("--\(boundary)\r\n")
-                append("Content-Disposition: form-data; name=\"language\"\r\n\r\n")
-                append("\(languageHint)\r\n")
-            }
-
-            append("--\(boundary)\r\n")
-            append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n")
-            append("Content-Type: \(mimeType)\r\n\r\n")
-
-            let inputHandle = try FileHandle(forReadingFrom: fileURL)
-            defer { try? inputHandle.close() }
-            while let chunk = try inputHandle.read(upToCount: 64 * 1024), !chunk.isEmpty {
-                bodyHandle.write(chunk)
-            }
-
-            append("\r\n")
-            append("--\(boundary)--\r\n")
-        } catch {
-            throw TTSError.apiError("Failed to prepare transcription request: \(error.localizedDescription)")
+        if let languageHint {
+            formData.addField(name: "language", value: languageHint)
         }
 
-        return bodyURL
+        // Add file
+        formData.addFile(
+            name: "file",
+            filename: filename,
+            data: audioData,
+            contentType: mimeType
+        )
     }
 
     static func toMilliseconds(_ value: Double?) -> TimeInterval {
