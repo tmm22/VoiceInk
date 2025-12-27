@@ -29,24 +29,7 @@ struct CloudModelCardView: View {
     }
     
     private var providerKey: String {
-        switch model.provider {
-        case .groq:
-            return "GROQ"
-        case .elevenLabs:
-            return "ElevenLabs"
-        case .deepgram:
-            return "Deepgram"
-        case .mistral:
-            return "Mistral"
-        case .gemini:
-            return "Gemini"
-        case .soniox:
-            return "Soniox"
-        case .zai:
-            return "ZAI"
-        default:
-            return model.provider.rawValue
-        }
+        return ModelCapabilityRegistry.shared.getAPIKeyName(for: model.provider) ?? model.provider.rawValue
     }
     
     var body: some View {
@@ -279,26 +262,11 @@ struct CloudModelCardView: View {
     
     private func verifyAPIKey() {
         guard !apiKey.isEmpty else { return }
-        
+
         isVerifying = true
         verificationStatus = .verifying
-        
-        switch model.provider {
-        case .groq:
-            aiService.selectedProvider = .groq
-        case .elevenLabs:
-            aiService.selectedProvider = .elevenLabs
-        case .deepgram:
-            aiService.selectedProvider = .deepgram
-        case .mistral:
-            aiService.selectedProvider = .mistral
-        case .gemini:
-            aiService.selectedProvider = .gemini
-        case .soniox:
-            aiService.selectedProvider = .soniox
-        case .zai:
-            aiService.selectedProvider = .zai
-        default:
+
+        guard let aiProvider = ModelCapabilityRegistry.shared.getAIServiceProvider(for: model.provider) else {
             // This case should ideally not be hit for cloud models in this view
             #if DEBUG
             print("Warning: verifyAPIKey called for unsupported provider \(model.provider.rawValue)")
@@ -307,6 +275,8 @@ struct CloudModelCardView: View {
             verificationStatus = .failure
             return
         }
+
+        aiService.selectedProvider = aiProvider
         
         aiService.saveAPIKey(apiKey) { isValid, errorMessage in
             DispatchQueue.main.async {

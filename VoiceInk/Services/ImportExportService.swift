@@ -158,10 +158,13 @@ class ImportExportService {
                     return
                 }
 
-                do {
-                    let jsonData = try Data(contentsOf: url)
-                    let decoder = JSONDecoder()
-                    let importedSettings = try decoder.decode(VoiceLinkCommunityExportedSettings.self, from: jsonData)
+                Task { @MainActor in
+                    do {
+                        let jsonData = try await FileDataLoader.loadData(from: url)
+                        let importedSettings = try await Task.detached(priority: .utility) {
+                            let decoder = JSONDecoder()
+                            return try decoder.decode(VoiceLinkCommunityExportedSettings.self, from: jsonData)
+                        }.value
                     
                     if importedSettings.version != self.currentSettingsVersion {
                         self.showAlert(title: "Version Mismatch", message: "The imported settings file (version \(importedSettings.version)) is from a different version than your application (version \(self.currentSettingsVersion)). Proceeding with import, but be aware of potential incompatibilities.")
@@ -279,10 +282,11 @@ class ImportExportService {
                         }
                     }
 
-                    self.showRestartAlert(message: "Settings imported successfully from \(url.lastPathComponent). All settings (including general app settings) have been applied.")
+                        self.showRestartAlert(message: "Settings imported successfully from \(url.lastPathComponent). All settings (including general app settings) have been applied.")
 
-                } catch {
-                    self.showAlert(title: "Import Error", message: "Error importing settings: \(error.localizedDescription). The file might be corrupted or not in the correct format.")
+                    } catch {
+                        self.showAlert(title: "Import Error", message: "Error importing settings: \(error.localizedDescription). The file might be corrupted or not in the correct format.")
+                    }
                 }
             } else {
                 self.showAlert(title: "Import Canceled", message: "The settings import operation was canceled.")

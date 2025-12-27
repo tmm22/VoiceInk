@@ -20,8 +20,10 @@ class AudioPreprocessor {
     func preprocessAudio(from url: URL) async throws -> (data: Data, duration: TimeInterval) {
         logger.info("🔄 Starting audio preprocessing for \(url.lastPathComponent)")
 
-        // Simplified implementation - just get file data and duration
-        let audioData = try Data(contentsOf: url)
+        // Avoid blocking the main actor for large files.
+        let audioData = try await Task.detached(priority: .utility) {
+            try Data(contentsOf: url, options: .mappedIfSafe)
+        }.value
 
         // Get duration using AVFoundation
         let asset = AVURLAsset(url: url)

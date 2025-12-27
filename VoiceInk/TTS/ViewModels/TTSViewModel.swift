@@ -101,7 +101,12 @@ class TTSViewModel: ObservableObject {
         )
         self.playback = playbackViewModel
         self.preview = previewViewModel
-        let resolvedElevenLabs = elevenLabsService ?? ElevenLabsTTSService()
+
+        let resolvedManagedProvisioningClient = managedProvisioningClient ?? .shared
+        let keychainManager = KeychainManager()
+        let authorizationService = AuthorizationService(keychain: keychainManager, managedProvisioningClient: resolvedManagedProvisioningClient)
+
+        let resolvedElevenLabs = elevenLabsService ?? ElevenLabsTTSService(authorizationService: authorizationService)
         let resolvedOpenAI = openAIService ?? OpenAITTSService()
         let resolvedGoogle = googleService ?? GoogleTTSService()
         let resolvedLocal = localService ?? LocalTTSService()
@@ -112,8 +117,6 @@ class TTSViewModel: ObservableObject {
         self.history = historyViewModel
         self.generation = generationViewModel
 
-        let resolvedManagedProvisioningClient = managedProvisioningClient ?? .shared
-        let keychainManager = KeychainManager()
         let settingsViewModel = TTSSettingsViewModel(
             playback: playbackViewModel,
             preview: previewViewModel,
