@@ -182,8 +182,8 @@ class NativeAppleModelCapabilities: ProviderCapabilities {
     let supportedProvider: ModelProvider = .nativeApple
 
     func checkAvailability(model: any TranscriptionModel, whisperState: WhisperState?) -> Bool {
-        // Native Apple models are available on macOS 15+
-        if #available(macOS 15, *) {
+        // Native Apple models require macOS 26+ (SpeechAnalyzer/SpeechTranscriber APIs)
+        if #available(macOS 26, *) {
             return true
         } else {
             return false
@@ -205,8 +205,7 @@ class GroqModelCapabilities: ProviderCapabilities {
     let supportedProvider: ModelProvider = .groq
 
     func checkAvailability(model: any TranscriptionModel, whisperState: WhisperState?) -> Bool {
-        let keychain = KeychainManager()
-        return keychain.hasAPIKey(for: getAPIKeyName())
+        return KeychainManager.shared.hasAPIKey(for: getAPIKeyName())
     }
 
     func getAPIKeyName() -> String {
@@ -222,8 +221,7 @@ class ElevenLabsModelCapabilities: ProviderCapabilities {
     let supportedProvider: ModelProvider = .elevenLabs
 
     func checkAvailability(model: any TranscriptionModel, whisperState: WhisperState?) -> Bool {
-        let keychain = KeychainManager()
-        return keychain.hasAPIKey(for: getAPIKeyName())
+        return KeychainManager.shared.hasAPIKey(for: getAPIKeyName())
     }
 
     func getAPIKeyName() -> String {
@@ -239,8 +237,7 @@ class DeepgramModelCapabilities: ProviderCapabilities {
     let supportedProvider: ModelProvider = .deepgram
 
     func checkAvailability(model: any TranscriptionModel, whisperState: WhisperState?) -> Bool {
-        let keychain = KeychainManager()
-        return keychain.hasAPIKey(for: getAPIKeyName())
+        return KeychainManager.shared.hasAPIKey(for: getAPIKeyName())
     }
 
     func getAPIKeyName() -> String {
@@ -256,8 +253,7 @@ class MistralModelCapabilities: ProviderCapabilities {
     let supportedProvider: ModelProvider = .mistral
 
     func checkAvailability(model: any TranscriptionModel, whisperState: WhisperState?) -> Bool {
-        let keychain = KeychainManager()
-        return keychain.hasAPIKey(for: getAPIKeyName())
+        return KeychainManager.shared.hasAPIKey(for: getAPIKeyName())
     }
 
     func getAPIKeyName() -> String {
@@ -273,8 +269,7 @@ class GeminiModelCapabilities: ProviderCapabilities {
     let supportedProvider: ModelProvider = .gemini
 
     func checkAvailability(model: any TranscriptionModel, whisperState: WhisperState?) -> Bool {
-        let keychain = KeychainManager()
-        return keychain.hasAPIKey(for: getAPIKeyName())
+        return KeychainManager.shared.hasAPIKey(for: getAPIKeyName())
     }
 
     func getAPIKeyName() -> String {
@@ -290,8 +285,7 @@ class SonioxModelCapabilities: ProviderCapabilities {
     let supportedProvider: ModelProvider = .soniox
 
     func checkAvailability(model: any TranscriptionModel, whisperState: WhisperState?) -> Bool {
-        let keychain = KeychainManager()
-        return keychain.hasAPIKey(for: getAPIKeyName())
+        return KeychainManager.shared.hasAPIKey(for: getAPIKeyName())
     }
 
     func getAPIKeyName() -> String {
@@ -307,8 +301,7 @@ class AssemblyAIModelCapabilities: ProviderCapabilities {
     let supportedProvider: ModelProvider = .assemblyAI
 
     func checkAvailability(model: any TranscriptionModel, whisperState: WhisperState?) -> Bool {
-        let keychain = KeychainManager()
-        return keychain.hasAPIKey(for: getAPIKeyName())
+        return KeychainManager.shared.hasAPIKey(for: getAPIKeyName())
     }
 
     func getAPIKeyName() -> String {
@@ -324,8 +317,7 @@ class ZAIModelCapabilities: ProviderCapabilities {
     let supportedProvider: ModelProvider = .zai
 
     func checkAvailability(model: any TranscriptionModel, whisperState: WhisperState?) -> Bool {
-        let keychain = KeychainManager()
-        return keychain.hasAPIKey(for: getAPIKeyName())
+        return KeychainManager.shared.hasAPIKey(for: getAPIKeyName())
     }
 
     func getAPIKeyName() -> String {
