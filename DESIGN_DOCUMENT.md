@@ -729,15 +729,39 @@ VoiceInk/
 │   ├── BrowserURLService.swift       # URL detection
 │   └── PowerModeView.swift           # UI
 │
-├── Whisper/
-│   ├── WhisperState.swift            # Central orchestrator
+├── Whisper/                          # SOLID architecture (refactored 2025-12-27)
+│   ├── WhisperState.swift            # Central orchestrator (backward compatible)
+│   ├── ModelManager.swift            # Provider coordination with Combine
+│   ├── RecordingState.swift          # Recording state enum
 │   ├── WhisperState+UI.swift
 │   ├── WhisperState+ModelManagement.swift
 │   ├── WhisperState+Parakeet.swift
 │   ├── WhisperState+FastConformer.swift
 │   ├── LibWhisper.swift              # C bindings
 │   ├── WhisperPrompt.swift           # Prompt management
-│   └── WhisperTextFormatter.swift    # Output formatting
+│   ├── WhisperTextFormatter.swift    # Output formatting
+│   ├── Protocols/                    # SOLID protocol definitions
+│   │   ├── ModelProviderProtocol.swift
+│   │   ├── RecordingSessionProtocol.swift
+│   │   ├── TranscriptionProcessorProtocol.swift
+│   │   └── UIManagerProtocol.swift
+│   ├── Providers/                    # Model provider implementations
+│   │   ├── LocalModelProvider.swift
+│   │   └── ParakeetModelProvider.swift
+│   ├── Managers/                     # State and resource managers
+│   │   ├── RecordingSessionManager.swift
+│   │   ├── AudioBufferManager.swift
+│   │   └── UIManager.swift
+│   ├── Processors/                   # Transcription pipeline
+│   │   ├── TranscriptionProcessor.swift
+│   │   ├── AudioPreprocessor.swift
+│   │   └── TranscriptionResultProcessor.swift
+│   ├── Actors/                       # Thread-safe actors
+│   │   └── WhisperContextManager.swift
+│   ├── Coordinators/                 # Workflow coordination
+│   │   └── InferenceCoordinator.swift
+│   └── Models/                       # Data models
+│       └── WhisperContextWrapper.swift
 │
 ├── Views/
 │   ├── ContentView.swift             # Main navigation
@@ -1040,6 +1064,9 @@ xcodebuild test -project VoiceInk.xcodeproj -scheme VoiceInk
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** November 2025  
+**Document Version:** 1.1
+**Last Updated:** December 2025
 **Maintainer:** VoiceInk Engineering Team
+
+**Recent Updates:**
+- **v1.1** (2025-12-27): Updated Whisper directory structure to reflect SOLID refactoring with new Protocols/, Providers/, Managers/, Processors/, Actors/, Coordinators/, and Models/ subdirectories.

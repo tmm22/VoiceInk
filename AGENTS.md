@@ -235,10 +235,34 @@ VoiceInk/
 │   ├── ScreenCaptureService.swift
 │   ├── CloudTranscription/     # Cloud provider integrations
 │   └── OllamaAIService.swift
-├── Whisper/                    # Local Whisper integration
-│   ├── WhisperState.swift
-│   ├── LibWhisper.swift
-│   └── WhisperState+*.swift    # Feature extensions
+├── Whisper/                    # Local Whisper integration (SOLID architecture)
+│   ├── WhisperState.swift      # Main coordinator (backward compatible)
+│   ├── ModelManager.swift      # Model coordination with Combine bindings
+│   ├── RecordingState.swift    # Recording state enum
+│   ├── LibWhisper.swift        # C bindings to whisper.cpp
+│   ├── WhisperState+*.swift    # Feature extensions (UI, Recording, Parakeet, etc.)
+│   ├── Protocols/              # SOLID protocol definitions
+│   │   ├── ModelProviderProtocol.swift
+│   │   ├── RecordingSessionProtocol.swift
+│   │   ├── TranscriptionProcessorProtocol.swift
+│   │   └── UIManagerProtocol.swift
+│   ├── Providers/              # Model provider implementations
+│   │   ├── LocalModelProvider.swift      # Whisper.cpp models
+│   │   └── ParakeetModelProvider.swift   # Parakeet models
+│   ├── Managers/               # State and resource managers
+│   │   ├── RecordingSessionManager.swift
+│   │   ├── AudioBufferManager.swift
+│   │   └── UIManager.swift
+│   ├── Processors/             # Transcription processing pipeline
+│   │   ├── TranscriptionProcessor.swift
+│   │   ├── AudioPreprocessor.swift
+│   │   └── TranscriptionResultProcessor.swift
+│   ├── Actors/                 # Thread-safe actors
+│   │   └── WhisperContextManager.swift   # @globalActor for Whisper ops
+│   ├── Coordinators/           # Workflow coordination
+│   │   └── InferenceCoordinator.swift    # Priority queue with cancellation
+│   └── Models/                 # Data models
+│       └── WhisperContextWrapper.swift
 ├── TTS/                        # Text-to-Speech workspace
 │   ├── Models/
 │   ├── Services/               # Provider implementations
@@ -1667,11 +1691,16 @@ This guide is a living document. If you find errors, outdated information, or ha
 
 ---
 
-**Last Updated:** December 5, 2025  
-**Maintained By:** VoiceInk Community  
+**Last Updated:** December 27, 2025
+**Maintained By:** VoiceInk Community
 **License:** GPL v3 (same as project)
 
 **Recent Updates:**
+- **v1.7** (2025-12-27) - WhisperState SOLID Refactoring
+  - Updated **Codebase Structure** section with new Whisper architecture
+  - Documented new subdirectories: Protocols/, Providers/, Managers/, Processors/, Actors/, Coordinators/, Models/
+  - Added descriptions for all new components (ModelManager, RecordingState, WhisperContextManager, etc.)
+  - Architecture follows SOLID principles with protocol-based extensibility
 - **v1.6** (2025-12-05) - AI Context Awareness System
   - Added **AI Context System** section documenting the new v2 architecture
   - Detailed the structured context pipeline (`AIContext`, `Builder`, `Renderer`)

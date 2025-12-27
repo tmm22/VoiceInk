@@ -2,7 +2,8 @@
 
 ## Overview
 
-- Added dedicated FastConformer provider backed by ONNX Runtime, delivering ~4.3% WER CTC decoding with sub‑250 ms latency on Apple Silicon.
+- **SOLID Architecture Refactoring (2025-12-27)**: Complete refactoring of WhisperState into a clean, protocol-based architecture with proper separation of concerns.
+- Added dedicated FastConformer provider backed by ONNX Runtime, delivering ~4.3% WER CTC decoding with sub‑250 ms latency on Apple Silicon.
 - Expanded Whisper local model metadata so `.gguf` exports (e.g., Distil‑Whisper Large v3 and Whisper Large v3 Turbo q5_0) download, index, and import without manual renaming.
 - Reworked the download pipeline to stream multi‑gigabyte payloads straight to disk, keeping memory usage flat and enabling simultaneous progress reporting for model, Core ML encoder, and tokenizer assets.
 
@@ -56,6 +57,70 @@ Both entries use explicit Hugging Face `?download=1` links plus filename overrid
 - ✅ Download each new predefined GGUF model and confirm it appears under **Local Models** with the correct badges/highlights.
 - ✅ Import a third‑party `.gguf` file via Finder; ensure it shows up under “Imported Local Model” with full action menu.
 - ✅ Delete a GGUF model and confirm both the primary file and any paired CoreML encoder directory are removed.
+
+## WhisperState SOLID Architecture (2025-12-27)
+
+### Overview
+
+The local transcription system has been refactored following SOLID principles to improve maintainability, testability, and extensibility. The refactoring maintains full backward compatibility while introducing a clean, protocol-based architecture.
+
+### New Architecture
+
+```
+VoiceInk/Whisper/
+├── Protocols/                    # Interface definitions
+│   ├── ModelProviderProtocol.swift
+│   ├── RecordingSessionProtocol.swift
+│   ├── TranscriptionProcessorProtocol.swift
+│   └── UIManagerProtocol.swift
+├── Providers/                    # Model provider implementations
+│   ├── LocalModelProvider.swift  # Whisper.cpp models
+│   └── ParakeetModelProvider.swift
+├── Managers/                     # State and resource managers
+│   ├── RecordingSessionManager.swift
+│   ├── AudioBufferManager.swift
+│   └── UIManager.swift
+├── Processors/                   # Transcription pipeline
+│   ├── TranscriptionProcessor.swift
+│   ├── AudioPreprocessor.swift
+│   └── TranscriptionResultProcessor.swift
+├── Actors/                       # Thread-safe actors
+│   └── WhisperContextManager.swift
+├── Coordinators/                 # Workflow coordination
+│   └── InferenceCoordinator.swift
+├── Models/                       # Data models
+│   └── WhisperContextWrapper.swift
+├── ModelManager.swift            # Provider coordination
+├── RecordingState.swift          # State enum
+└── WhisperState.swift            # Main coordinator (backward compatible)
+```
+
+### Key Components
+
+| Component | Responsibility |
+|-----------|---------------|
+| `ModelProviderProtocol` | Type-safe model handling with associated types |
+| `LocalModelProvider` | Whisper.cpp model download, loading, and inference |
+| `ParakeetModelProvider` | Parakeet model management |
+| `RecordingSessionManager` | Clean state machine for recording flow |
+| `WhisperContextManager` | Thread-safe Whisper context via `@globalActor` |
+| `InferenceCoordinator` | Priority-based inference queue with cancellation |
+| `TranscriptionProcessor` | Service registry for transcription providers |
+
+### Benefits
+
+- **Single Responsibility**: Each class has one clear purpose
+- **Open/Closed**: Protocol-based extensibility for new providers
+- **Testability**: 57 new tests covering the refactored architecture
+- **Thread Safety**: Proper use of `@MainActor` and actors
+- **Memory Safety**: Proper cleanup and weak references
+
+### Verification
+
+See `WHISPERSTATE_REFACTORING_VERIFICATION_REPORT.md` for comprehensive verification results including:
+- 93.9% test pass rate (168/179 tests)
+- Full backward compatibility verification
+- SOLID principles adherence assessment
 
 ## Reference Commands
 
