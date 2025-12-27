@@ -27,8 +27,30 @@
    - Or Product → Build
 
 5. **Run:**
-   - Press Cmd+R to run
-   - Or click Play button
+    - Press Cmd+R to run
+    - Or click Play button
+
+---
+
+## Running Automated Tests (CLI)
+
+- The repo includes [`run_tests.sh`](run_tests.sh:1), which runs the unit test bundle (`VoiceInkTests`) via `xcodebuild`.
+
+### UI test bundle signing limitation (when signing is disabled)
+
+If you run tests with code signing disabled (for example using an empty identity like `CODE_SIGN_IDENTITY=""`), `xcodebuild` may still attempt to build UI testing bundles, which can fail due to UI test bundle signing requirements.
+
+**Safe workarounds:**
+
+1. **Run unit tests only (recommended):** ensure UI tests are excluded.
+   - This is the intent of [`run_tests.sh`](run_tests.sh:16) (it uses `-only-testing:VoiceInkTests`).
+2. **Compile-only / build-only sanity check:** run a build without executing tests.
+   - Example (Debug build without signing):
+     ```bash
+     xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug build \
+       CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+     ```
+3. **If you need UI tests:** configure signing for the UI test bundle targets in Xcode (assign a valid Team / signing identity) so the UI test runner can be built and launched.
 
 ### Option 2: Archive for Distribution
 

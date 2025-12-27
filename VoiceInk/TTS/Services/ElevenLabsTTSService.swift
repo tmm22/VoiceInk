@@ -7,7 +7,7 @@ class ElevenLabsTTSService: TTSProvider {
     private var apiKey: String?
     private let baseURL = "https://api.elevenlabs.io/v1"
     private let session: URLSession
-    private let managedProvisioningClient: ManagedProvisioningClient
+    private let authorizationService: AuthorizationService
     private var activeManagedCredential: ManagedCredential?
     private var voicesByModel: [String: [Voice]] = [:]
     private var fallbackVoices: [Voice] = Voice.elevenLabsVoices
@@ -66,9 +66,9 @@ class ElevenLabsTTSService: TTSProvider {
     
     // MARK: - Initialization
     init(session: URLSession = SecureURLSession.makeEphemeral(),
-         managedProvisioningClient: ManagedProvisioningClient? = nil) {
+         authorizationService: AuthorizationService? = nil) {
         self.session = session
-        self.managedProvisioningClient = managedProvisioningClient ?? .shared
+        self.authorizationService = authorizationService ?? AuthorizationService()
         // Load API key from keychain if available
         self.apiKey = KeychainManager().getAPIKey(for: "ElevenLabs")
     }
@@ -82,7 +82,7 @@ class ElevenLabsTTSService: TTSProvider {
     
     func hasValidAPIKey() -> Bool {
         if let key = apiKey, !key.isEmpty { return true }
-        return managedProvisioningClient.isEnabled && managedProvisioningClient.configuration != nil
+        return authorizationService.hasManagedProvisioningConfiguration
     }
 
     func cachedVoices(for modelID: String) -> [Voice]? {
@@ -126,7 +126,7 @@ class ElevenLabsTTSService: TTSProvider {
         // Prepare request
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        let authorization = try await authorizationHeader()
+        let authorization = try await authorizationService.authorizationHeader(for: "ElevenLabs", headerType: HeaderType.elevenLabs)
         request.setValue(authorization.value, forHTTPHeaderField: authorization.header)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("audio/mpeg", forHTTPHeaderField: "Accept")
@@ -162,7 +162,7 @@ class ElevenLabsTTSService: TTSProvider {
                 data: data,
                 onUnauthorized: {
                     if authorization.usedManagedCredential {
-                        self.managedProvisioningClient.invalidateCredential(for: .elevenLabs)
+                        self.authorizationService.invalidateManagedCredential(for: .elevenLabs)
                         self.activeManagedCredential = nil
                     }
                 },
@@ -265,20 +265,6 @@ class ElevenLabsTTSService: TTSProvider {
     }
 }
 
-private extension ElevenLabsTTSService {
-    func authorizationHeader() async throws -> AuthorizationHeader {
-        if let key = apiKey, !key.isEmpty {
-            return AuthorizationHeader(header: "xi-api-key", value: key, usedManagedCredential: false)
-        }
-
-        guard let credential = try await managedProvisioningClient.credential(for: .elevenLabs) else {
-            throw TTSError.invalidAPIKey
-        }
-
-        activeManagedCredential = credential
-        return AuthorizationHeader(header: "xi-api-key", value: credential.token, usedManagedCredential: true)
-    }
-}
 
 // MARK: - Request/Response Models
 private struct ElevenLabsRequest: Codable {

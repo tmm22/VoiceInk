@@ -80,78 +80,82 @@ class DictionaryImportExportService {
                     return
                 }
 
-                do {
-                    let jsonData = try Data(contentsOf: url)
-                    let decoder = JSONDecoder()
-                    decoder.dateDecodingStrategy = .iso8601
-                    let importedData = try decoder.decode(DictionaryExportData.self, from: jsonData)
+                Task { @MainActor in
+                    do {
+                        let jsonData = try await FileDataLoader.loadData(from: url)
+                        let importedData = try await Task.detached(priority: .utility) {
+                            let decoder = JSONDecoder()
+                            decoder.dateDecodingStrategy = .iso8601
+                            return try decoder.decode(DictionaryExportData.self, from: jsonData)
+                        }.value
 
-                    var existingItems: [DictionaryItem] = []
-                    if let data = AppSettings.Dictionary.customVocabularyItemsData,
-                       let items = try? JSONDecoder().decode([DictionaryItem].self, from: data) {
-                        existingItems = items
-                    }
-
-                    let existingWordsLower = Set(existingItems.map { $0.word.lowercased() })
-                    let originalExistingCount = existingItems.count
-                    var newWordsAdded = 0
-
-                    for importedWord in importedData.dictionaryItems {
-                        if !existingWordsLower.contains(importedWord.lowercased()) {
-                            existingItems.append(DictionaryItem(word: importedWord))
-                            newWordsAdded += 1
+                        var existingItems: [DictionaryItem] = []
+                        if let data = AppSettings.Dictionary.customVocabularyItemsData,
+                           let items = try? JSONDecoder().decode([DictionaryItem].self, from: data) {
+                            existingItems = items
                         }
-                    }
 
-                    if let encoded = try? JSONEncoder().encode(existingItems) {
-                        AppSettings.Dictionary.customVocabularyItemsData = encoded
-                    }
+                        let existingWordsLower = Set(existingItems.map { $0.word.lowercased() })
+                        let originalExistingCount = existingItems.count
+                        var newWordsAdded = 0
 
-                    var existingReplacements = AppSettings.Dictionary.wordReplacements
-                    var addedCount = 0
-                    var updatedCount = 0
+                        for importedWord in importedData.dictionaryItems {
+                            if !existingWordsLower.contains(importedWord.lowercased()) {
+                                existingItems.append(DictionaryItem(word: importedWord))
+                                newWordsAdded += 1
+                            }
+                        }
 
-                    for (importedKey, importedReplacement) in importedData.wordReplacements {
-                        let normalizedImportedKey = self.normalizeReplacementKey(importedKey)
-                        let importedWords = self.extractWords(from: normalizedImportedKey)
+                        if let encoded = try? JSONEncoder().encode(existingItems) {
+                            AppSettings.Dictionary.customVocabularyItemsData = encoded
+                        }
 
-                        var modifiedExisting: [String: String] = [:]
-                        for (existingKey, existingReplacement) in existingReplacements {
-                            var existingWords = self.extractWords(from: existingKey)
-                            var modified = false
+                        var existingReplacements = AppSettings.Dictionary.wordReplacements
+                        var addedCount = 0
+                        var updatedCount = 0
 
-                            for importedWord in importedWords {
-                                if let index = existingWords.firstIndex(where: { $0.lowercased() == importedWord.lowercased() }) {
-                                    existingWords.remove(at: index)
-                                    modified = true
+                        for (importedKey, importedReplacement) in importedData.wordReplacements {
+                            let normalizedImportedKey = self.normalizeReplacementKey(importedKey)
+                            let importedWords = self.extractWords(from: normalizedImportedKey)
+
+                            var modifiedExisting: [String: String] = [:]
+                            for (existingKey, existingReplacement) in existingReplacements {
+                                var existingWords = self.extractWords(from: existingKey)
+                                var modified = false
+
+                                for importedWord in importedWords {
+                                    if let index = existingWords.firstIndex(where: { $0.lowercased() == importedWord.lowercased() }) {
+                                        existingWords.remove(at: index)
+                                        modified = true
+                                    }
+                                }
+
+                                if !existingWords.isEmpty {
+                                    let newKey = existingWords.joined(separator: ", ")
+                                    modifiedExisting[newKey] = existingReplacement
+                                }
+
+                                if modified {
+                                    updatedCount += 1
                                 }
                             }
 
-                            if !existingWords.isEmpty {
-                                let newKey = existingWords.joined(separator: ", ")
-                                modifiedExisting[newKey] = existingReplacement
-                            }
-
-                            if modified {
-                                updatedCount += 1
-                            }
+                            existingReplacements = modifiedExisting
+                            existingReplacements[normalizedImportedKey] = importedReplacement
+                            addedCount += 1
                         }
 
-                        existingReplacements = modifiedExisting
-                        existingReplacements[normalizedImportedKey] = importedReplacement
-                        addedCount += 1
+                        AppSettings.Dictionary.wordReplacements = existingReplacements
+
+                        var message = "Dictionary data imported successfully from \(url.lastPathComponent).\n\n"
+                        message += "Dictionary Items: \(newWordsAdded) added, \(originalExistingCount) kept\n"
+                        message += "Word Replacements: \(addedCount) added, \(updatedCount) updated"
+
+                        self.showAlert(title: "Import Successful", message: message)
+
+                    } catch {
+                        self.showAlert(title: "Import Error", message: "Error importing dictionary data: \(error.localizedDescription). The file might be corrupted or not in the correct format.")
                     }
-
-                    AppSettings.Dictionary.wordReplacements = existingReplacements
-
-                    var message = "Dictionary data imported successfully from \(url.lastPathComponent).\n\n"
-                    message += "Dictionary Items: \(newWordsAdded) added, \(originalExistingCount) kept\n"
-                    message += "Word Replacements: \(addedCount) added, \(updatedCount) updated"
-
-                    self.showAlert(title: "Import Successful", message: message)
-
-                } catch {
-                    self.showAlert(title: "Import Error", message: "Error importing dictionary data: \(error.localizedDescription). The file might be corrupted or not in the correct format.")
                 }
             } else {
                 self.showAlert(title: "Import Canceled", message: "Import operation was canceled.")

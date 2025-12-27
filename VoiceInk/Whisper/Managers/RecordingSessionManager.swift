@@ -75,8 +75,10 @@ class RecordingSessionManager: NSObject, ObservableObject, RecordingSessionProto
             recorder.stopRecording()
 
             if let url = currentRecordingURL {
-                // Load the recorded audio data
-                recordedAudioData = try? Data(contentsOf: url)
+                // Avoid blocking the main actor for large recordings.
+                recordedAudioData = try? await Task.detached(priority: .utility) {
+                    try Data(contentsOf: url, options: .mappedIfSafe)
+                }.value
                 state = .idle
                 logger.info("✅ Recording session stopped successfully")
                 await delegate?.sessionDidComplete(audioURL: url)

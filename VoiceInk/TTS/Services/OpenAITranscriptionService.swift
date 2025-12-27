@@ -19,7 +19,6 @@ final class OpenAITranscriptionService: AudioTranscribing {
     private var activeManagedCredential: ManagedCredential?
 
     private let endpoint = URL(string: "https://api.openai.com/v1/audio/transcriptions")!
-    private let model = "whisper-1"
 
     init(session: URLSession = SecureURLSession.makeEphemeral(),
          keychain: KeychainManager = KeychainManager(),
@@ -46,21 +45,28 @@ final class OpenAITranscriptionService: AudioTranscribing {
         request.setValue(authorization.value, forHTTPHeaderField: authorization.header)
         request.timeoutInterval = 90
 
-        // Build multipart form data
-        var formData = MultipartFormDataBuilder()
-        request.setValue(formData.contentType, forHTTPHeaderField: "Content-Type")
+        // Build multipart request body on disk and stream via upload(fromFile:)
+        // to avoid loading large audio files into memory.
+        let (bodyURL, contentType) = try await Task.detached(priority: .utility) {
+            try Self.makeRequestBodyFile(
+                fileURL: fileURL,
+                filename: filename,
+                mimeType: mimeType,
+                languageHint: languageHint
+            )
+        }.value
+        defer {
+            // Best-effort cleanup; file may already be gone.
+            try? FileManager.default.removeItem(at: bodyURL)
+        }
 
-        try await Self.createRequestBody(
-            fileURL: fileURL,
-            filename: filename,
-            mimeType: mimeType,
-            languageHint: languageHint,
-            formData: &formData
-        )
-        let body = formData.finalize()
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        if let fileSize = (try? FileManager.default.attributesOfItem(atPath: bodyURL.path)[.size] as? Int64) {
+            request.setValue(String(fileSize), forHTTPHeaderField: "Content-Length")
+        }
 
         do {
-            let (data, response) = try await session.upload(for: request, from: body)
+            let (data, response) = try await session.upload(for: request, fromFile: bodyURL)
 
             let responseData = try HTTPResponseHandler.handleResponse(
                 response,
@@ -120,33 +126,71 @@ private extension OpenAITranscriptionService {
         return "audio/wav"
     }
 
-    nonisolated static func createRequestBody(
+    nonisolated static func makeRequestBodyFile(
         fileURL: URL,
         filename: String,
         mimeType: String,
-        languageHint: String?,
-        formData: inout MultipartFormDataBuilder
-    ) async throws {
-        // Load audio data
-        let audioData = try Data(contentsOf: fileURL)
+        languageHint: String?
+    ) throws -> (url: URL, contentType: String) {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        let bodyURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("multipart")
 
-        // Add form fields
-        formData.addField(name: "model", value: "whisper-1")
-        formData.addField(name: "response_format", value: "verbose_json")
-        formData.addField(name: "temperature", value: "0")
-        formData.addField(name: "timestamp_granularities[]", value: "segment")
+        FileManager.default.createFile(atPath: bodyURL.path, contents: nil)
 
-        if let languageHint {
-            formData.addField(name: "language", value: languageHint)
+        do {
+            let outputHandle = try FileHandle(forWritingTo: bodyURL)
+            defer { try? outputHandle.close() }
+
+            func write(_ string: String) {
+                outputHandle.write(Data(string.utf8))
+            }
+
+            func writeField(name: String, value: String) {
+                write("--\(boundary)\r\n")
+                write("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n")
+                write(value)
+                write("\r\n")
+            }
+
+            // Fields
+            // NOTE: Keep this constant local to avoid actor-isolation issues in Swift 6.
+            writeField(name: "model", value: "whisper-1")
+            writeField(name: "response_format", value: "verbose_json")
+            writeField(name: "temperature", value: "0")
+            writeField(name: "timestamp_granularities[]", value: "segment")
+
+            if let languageHint {
+                writeField(name: "language", value: languageHint)
+            }
+
+            // File part header
+            write("--\(boundary)\r\n")
+            write("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n")
+            write("Content-Type: \(mimeType)\r\n\r\n")
+
+            // Stream the audio bytes into the body file.
+            let inputHandle = try FileHandle(forReadingFrom: fileURL)
+            defer { try? inputHandle.close() }
+
+            let chunkSize = 64 * 1024
+            while let chunk = try inputHandle.read(upToCount: chunkSize), !chunk.isEmpty {
+                outputHandle.write(chunk)
+            }
+
+            write("\r\n")
+
+            // Final boundary
+            write("--\(boundary)--\r\n")
+
+        } catch {
+            // Cleanup temp file on failure.
+            try? FileManager.default.removeItem(at: bodyURL)
+            throw error
         }
 
-        // Add file
-        formData.addFile(
-            name: "file",
-            filename: filename,
-            data: audioData,
-            contentType: mimeType
-        )
+        return (bodyURL, "multipart/form-data; boundary=\(boundary)")
     }
 
     static func toMilliseconds(_ value: Double?) -> TimeInterval {

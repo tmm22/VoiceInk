@@ -95,6 +95,7 @@ actor TranscriptionQueue {
 - ✅ Use `async/await` for network calls and file I/O
 - ✅ Use `Task` for background work
 - ✅ Avoid blocking file reads on the main actor (prefer `URLSession.upload(fromFile:)` or async loaders)
+- ✅ For local file reads that would otherwise use `Data(contentsOf:)`, prefer [`FileDataLoader.loadData(from:options:)`](VoiceInk/Services/FileDataLoader.swift:9) (uses `.mappedIfSafe` by default and runs in a detached task to avoid main-actor stalls)
 - ⛔ Never block the main thread
 - ⛔ Avoid completion handlers (use async/await instead)
 - ⛔ Never call `@MainActor` methods from `deinit` (use direct cleanup instead)
@@ -1101,6 +1102,24 @@ class AudioDeviceManager: ObservableObject {
 }
 ```
 
+### 5. Provider Capability Registry (avoid `switch` statements)
+
+VoiceInk uses a registry-based capability system for model providers so that adding a new provider does **not** require touching multiple `switch provider` call sites.
+
+See [`ModelCapabilityRegistry`](VoiceInk/Whisper/ModelCapabilityRegistry.swift:28) and the [`ProviderCapabilities`](VoiceInk/Whisper/ModelCapabilityRegistry.swift:7) protocol.
+
+**Why:** This follows the Open/Closed Principle: provider-specific behavior lives in a single capability type, not scattered conditionals.
+
+**How to add a new provider capability:**
+
+1. Create a new capability type that conforms to [`ProviderCapabilities`](VoiceInk/Whisper/ModelCapabilityRegistry.swift:7).
+   - Implement `checkAvailability(model:whisperState:)` to decide whether the model is usable.
+   - Implement `getAPIKeyName()` if the provider requires a Keychain API key.
+   - Implement `getAIServiceProvider()` if the provider maps to an `AIProvider`.
+2. Register it in [`ModelCapabilityRegistry.registerAllCapabilities()`](VoiceInk/Whisper/ModelCapabilityRegistry.swift:80).
+3. Use the registry from call sites instead of adding new `switch` cases.
+   - Example: [`ModelCapabilityRegistry.isModelAvailable(_:whisperState:)`](VoiceInk/Whisper/ModelCapabilityRegistry.swift:58)
+
 ---
 
 ## AI Context System
@@ -1258,6 +1277,11 @@ class NewProviderService: TTSProvider {
     }
 }
 ```
+
+**Authorization headers (required):**
+- TTS providers must use the centralized authorization helper [`AuthorizationService`](VoiceInk/TTS/Utilities/AuthorizationService.swift:5).
+- Do **not** add per-provider `authorizationHeader()` helpers (avoid duplicated header logic and inconsistent managed-credential fallback).
+- Request headers via [`AuthorizationService.authorizationHeader(for:headerType:)`](VoiceInk/TTS/Utilities/AuthorizationService.swift:22) using the appropriate [`HeaderType`](VoiceInk/TTS/Utilities/AuthorizationService.swift:69) (see convenience cases in [`HeaderType` extension](VoiceInk/TTS/Utilities/AuthorizationService.swift:90)).
 
 2. **Update Provider Enum**
 
@@ -1696,6 +1720,11 @@ This guide is a living document. If you find errors, outdated information, or ha
 **License:** GPL v3 (same as project)
 
 **Recent Updates:**
+- **v1.8** (2025-12-27) - Documentation Guidance Updates
+  - Documented provider capability registry guidance via [`ModelCapabilityRegistry`](VoiceInk/Whisper/ModelCapabilityRegistry.swift:28) and [`ProviderCapabilities`](VoiceInk/Whisper/ModelCapabilityRegistry.swift:7)
+  - Documented centralized TTS authorization header usage via [`AuthorizationService`](VoiceInk/TTS/Utilities/AuthorizationService.swift:5) and [`AuthorizationService.authorizationHeader(for:headerType:)`](VoiceInk/TTS/Utilities/AuthorizationService.swift:22)
+  - Documented non-blocking local file I/O guidance via [`FileDataLoader.loadData(from:options:)`](VoiceInk/Services/FileDataLoader.swift:9)
+  - Added build/test note about UI test bundle signing limitations when signing is disabled (see [`BUILD_AND_TEST_GUIDE.md`](BUILD_AND_TEST_GUIDE.md:39))
 - **v1.7** (2025-12-27) - WhisperState SOLID Refactoring
   - Updated **Codebase Structure** section with new Whisper architecture
   - Documented new subdirectories: Protocols/, Providers/, Managers/, Processors/, Actors/, Coordinators/, Models/
