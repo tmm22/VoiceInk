@@ -25,8 +25,27 @@ class AIEnhancementService: ObservableObject {
         didSet {
             AppSettings.Enhancements.isCloudSyncEnabled = isCloudSyncEnabled
             if isCloudSyncEnabled {
-                // Trigger initial sync when enabled
-                CloudSyncService.shared.syncPrompts(customPrompts)
+                // Fetch remote prompts first to prevent overwriting cloud data
+                if let remotePrompts = CloudSyncService.shared.fetchPrompts() {
+                    // Start with remote prompts
+                    var mergedPrompts = remotePrompts
+                    let remoteIds = Set(remotePrompts.map { $0.id })
+                    
+                    // Add local prompts valid non-duplicates
+                    let localUniquePrompts = customPrompts.filter { !remoteIds.contains($0.id) }
+                    mergedPrompts.append(contentsOf: localUniquePrompts)
+                    
+                    // Update local storage (without triggering sync loop usually, but safe due to flag)
+                    self.isSyncingFromCloud = true
+                    self.customPrompts = mergedPrompts
+                    self.isSyncingFromCloud = false
+                    
+                    // Now safe to push the merged set
+                    CloudSyncService.shared.syncPrompts(mergedPrompts)
+                } else {
+                    // No remote data, safe to push local
+                    CloudSyncService.shared.syncPrompts(customPrompts)
+                }
             }
         }
     }
