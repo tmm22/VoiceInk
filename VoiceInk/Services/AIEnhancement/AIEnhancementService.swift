@@ -351,15 +351,13 @@ class AIEnhancementService: ObservableObject {
     
     private func setupCloudSync() {
         CloudSyncService.shared.onPromptsChanged = { [weak self] remotePrompts in
-            Task { @MainActor [weak self] in
-                guard let self = self else { return }
-                guard self.isCloudSyncEnabled else { return } // Ignore updates if disabled
-                
-                self.logger.info("Received \(remotePrompts.count) prompts from CloudSync")
-                self.isSyncingFromCloud = true
-                self.customPrompts = remotePrompts
-                self.isSyncingFromCloud = false
-            }
+            guard let self = self else { return }
+            guard self.isCloudSyncEnabled else { return } // Ignore updates if disabled
+            
+            self.logger.info("Received \(remotePrompts.count) prompts from CloudSync")
+            self.isSyncingFromCloud = true
+            self.customPrompts = remotePrompts
+            self.isSyncingFromCloud = false
         }
     }
 }

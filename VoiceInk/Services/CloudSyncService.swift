@@ -2,6 +2,7 @@ import Foundation
 import os
 
 /// Service responsible for syncing data to iCloud using NSUbiquitousKeyValueStore
+@MainActor
 class CloudSyncService: ObservableObject {
     static let shared = CloudSyncService()
     
@@ -84,9 +85,8 @@ class CloudSyncService: ObservableObject {
         if changedKeys.contains(customPromptsKey) {
             logger.info("Detected external change for custom prompts")
             if let newPrompts = fetchPrompts() {
-                DispatchQueue.main.async { [weak self] in
-                    self?.onPromptsChanged?(newPrompts)
-                }
+                // Already on MainActor
+                onPromptsChanged?(newPrompts)
             }
         }
     }
