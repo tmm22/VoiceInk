@@ -149,8 +149,14 @@ struct EnhancementSettingsView: View {
                     }
                     
                     VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
-                        Text("Enhancement Prompts & Persona")
-                            .voiceInkHeadline()
+                        HStack {
+                            Text("Enhancement Prompts & Persona")
+                                .voiceInkHeadline()
+                            Spacer()
+                            Toggle("Sync with iCloud", isOn: $enhancementService.isCloudSyncEnabled)
+                                .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+                                .controlSize(.small)
+                        }
                         
                         // Personal Context Section (Moved to top of card)
                         VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {

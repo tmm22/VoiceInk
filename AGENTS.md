@@ -242,7 +242,8 @@ VoiceInk/
 │   ├── AudioDeviceManager.swift
 │   ├── ScreenCaptureService.swift
 │   ├── CloudTranscription/     # Cloud provider integrations
-│   └── OllamaAIService.swift
+│   ├── OllamaAIService.swift
+│   └── CloudSyncService.swift  # iCloud Sync integration
 ├── Whisper/                    # Local Whisper integration (SOLID architecture)
 │   ├── WhisperState.swift      # Main coordinator (backward compatible)
 │   ├── ModelManager.swift      # Model coordination with Combine bindings

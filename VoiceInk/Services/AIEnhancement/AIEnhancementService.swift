@@ -20,6 +20,16 @@ class AIEnhancementService: ObservableObject {
             NotificationCenter.default.post(name: .enhancementToggleChanged, object: nil)
         }
     }
+    
+    @Published var isCloudSyncEnabled: Bool {
+        didSet {
+            AppSettings.Enhancements.isCloudSyncEnabled = isCloudSyncEnabled
+            if isCloudSyncEnabled {
+                // Trigger initial sync when enabled
+                CloudSyncService.shared.syncPrompts(customPrompts)
+            }
+        }
+    }
 
     @Published var contextSettings: AIContextSettings {
         didSet {
@@ -38,8 +48,16 @@ class AIEnhancementService: ObservableObject {
             } catch {
                 logger.error("Failed to encode custom prompts for persistence: \(error.localizedDescription)")
             }
+            
+            // Sync to Cloud
+            if !isSyncingFromCloud && isCloudSyncEnabled {
+                CloudSyncService.shared.syncPrompts(customPrompts)
+            }
         }
     }
+    
+    // Flag to prevent loop when updating from cloud
+    private var isSyncingFromCloud = false
 
     @Published var selectedPromptId: UUID? {
         didSet {
@@ -124,6 +142,7 @@ class AIEnhancementService: ObservableObject {
         self.contextRenderer = AIContextRenderer()
 
         self.isEnhancementEnabled = AppSettings.Enhancements.isEnhancementEnabled
+        self.isCloudSyncEnabled = AppSettings.Enhancements.isCloudSyncEnabled
         
         // Load Context Settings
         // Decode failure is acceptable; will use default settings if stored data is corrupted
@@ -177,6 +196,7 @@ class AIEnhancementService: ObservableObject {
             object: nil
         )
 
+        setupCloudSync()
         initializePredefinedPrompts()
     }
 
@@ -325,6 +345,20 @@ class AIEnhancementService: ObservableObject {
             self.objectWillChange.send()
             if !self.aiService.isAPIKeyValid {
                 self.isEnhancementEnabled = false
+            }
+        }
+    }
+    
+    private func setupCloudSync() {
+        CloudSyncService.shared.onPromptsChanged = { [weak self] remotePrompts in
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                guard self.isCloudSyncEnabled else { return } // Ignore updates if disabled
+                
+                self.logger.info("Received \(remotePrompts.count) prompts from CloudSync")
+                self.isSyncingFromCloud = true
+                self.customPrompts = remotePrompts
+                self.isSyncingFromCloud = false
             }
         }
     }
