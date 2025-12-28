@@ -197,7 +197,7 @@ class SystemInfoService {
 
     private func getLicenseStatus() -> String {
         // Check for existing license key and activation
-        let licenseKey = AppSettings.string(forKey: AppSettings.Keys.licenseKey, default: "")
+        let licenseKey = AppSettings.licenseKey ?? ""
         if !licenseKey.isEmpty {
             return "Licensed (Pro)"
         }

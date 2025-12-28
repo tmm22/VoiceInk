@@ -229,6 +229,13 @@ VoiceInk/
 │   ├── Onboarding/             # First-run experience
 │   ├── Components/             # Reusable UI components
 │   └── Common/                 # Shared view utilities
+├── Utilities/
+│   ├── AppLogger.swift               # OSLog wrapper
+│   ├── Localization.swift            # String localization
+│   ├── DesignSystem.swift            # UI constants
+│   ├── View+VoiceInkStyle.swift      # SwiftUI modifiers
+│   ├── AppSettings.swift             # Centralized settings wrapper
+│   └── AuthorizationHeader.swift     # Shared auth header struct
 ├── Services/                   # Business logic
 │   ├── TranscriptionService.swift
 │   ├── AIEnhancementService.swift
