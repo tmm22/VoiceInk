@@ -7,6 +7,21 @@ optimization, concurrency cleanup
 This document records the recent rectifications and improvements applied to the
 VoiceLink Community codebase, following the updated audit.
 
+## Refactoring and Cleanup (2025-12-29)
+
+### Settings Centralization
+- **Issue**: Settings logic was split between `AppSettings` and `UserDefaultsManager`, leading to scattered persistence logic and potential duplication.
+- **Fix**: Consolidated all persistence into `AppSettings`. Migrated license/trial key management to `AppSettings+License.swift`. Deleted `UserDefaultsManager.swift`.
+- **Files**:
+  - `VoiceInk/Utilities/AppSettings+License.swift`
+  - `VoiceInk/Services/UserDefaultsManager.swift` (Deleted)
+
+### Shared Utilities
+- **Issue**: `AuthorizationHeader` struct was isolated in TTS Utilities but needed by other services.
+- **Fix**: Moved to `VoiceInk/Utilities/AuthorizationHeader.swift` and added documentation.
+- **Files**:
+  - `VoiceInk/Utilities/AuthorizationHeader.swift`
+
 ## Performance and Memory Improvements (2025-12-20)
 
 ### Stream Audio Preprocessing to Reduce Peak Memory

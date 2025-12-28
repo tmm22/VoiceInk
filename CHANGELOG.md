@@ -2,6 +2,15 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2025-12-29
+
+### Refactoring (Tier 4)
+- **Settings Centralization**: Consolidated scattered `UserDefaults` access into a unified `AppSettings` structure.
+  - Eliminated `VoiceInk/Services/UserDefaultsManager.swift`.
+  - Migrated license and trial date storage to `AppSettings+License.swift` with obfuscation.
+- **Shared Utilities**: Relocated `AuthorizationHeader.swift` to `VoiceInk/Utilities` to promote reuse across services.
+- **Documentation**: Added missing HeaderDoc comments to shared utilities.
+
 ## 2025-12-27
 
 ### Architecture - WhisperState SOLID Refactoring

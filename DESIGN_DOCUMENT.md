@@ -97,7 +97,7 @@ VoiceInk is a **privacy-focused, native macOS application** for voice-to-text tr
 | **Presentation** | SwiftUI views, MenuBar, Recorder panels, Hotkey handling |
 | **Orchestration** | WhisperState coordinates all recording/transcription workflows |
 | **Service** | Business logic, API integrations, provider abstractions |
-| **Data** | Persistence (SwiftData), secure storage (Keychain), settings (UserDefaults) |
+| **Data** | Persistence (SwiftData), secure storage (Keychain), settings (AppSettings via UserDefaults) |
 
 ---
 
@@ -783,7 +783,9 @@ VoiceInk/
 │   ├── AppLogger.swift               # OSLog wrapper
 │   ├── Localization.swift            # String localization
 │   ├── DesignSystem.swift            # UI constants
-│   └── View+VoiceInkStyle.swift      # SwiftUI modifiers
+│   ├── View+VoiceInkStyle.swift      # SwiftUI modifiers
+│   ├── AppSettings.swift             # Centralized settings wrapper
+│   └── AuthorizationHeader.swift     # Shared auth header struct
 │
 └── Notifications/
     ├── NotificationManager.swift

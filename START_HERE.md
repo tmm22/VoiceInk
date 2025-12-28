@@ -55,6 +55,11 @@
 
 ---
 
+## 📌 Recent Changes (2025-12-29)
+
+- **Refactoring**: Centralized settings management in `AppSettings`, removing legacy `UserDefaults` handling.
+- **Cleanup**: Moved shared utilities to common location and improved documentation.
+
 ## 📌 Recent Changes (2025-12-20)
 
 - Performance: streamed audio preprocessing and transcription uploads.

@@ -69,6 +69,10 @@ Recent stability, security, and performance improvements are documented in
 - ✅ Streamed audio preprocessing and transcription uploads to reduce memory.
 - ✅ Disk-cached recent TTS history audio with size limits and cleanup.
 
+### Recent Changes (2025-12-29)
+- Refactoring: Centralized settings management in `AppSettings`.
+- Cleanup: Relocated `AuthorizationHeader` and consolidated utilities.
+
 ### Recent Changes (2025-12-20)
 - Performance: streamed audio preprocessing and transcription uploads.
 - Memory: capped OCR/browser context and stored AI request payloads.
