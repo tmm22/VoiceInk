@@ -31,7 +31,7 @@ class AIEnhancementService: ObservableObject {
                     var mergedPrompts = remotePrompts
                     let remoteIds = Set(remotePrompts.map { $0.id })
                     
-                    // Add local prompts valid non-duplicates
+                    // Add local prompts that are non-duplicates
                     let localUniquePrompts = customPrompts.filter { !remoteIds.contains($0.id) }
                     mergedPrompts.append(contentsOf: localUniquePrompts)
                     
