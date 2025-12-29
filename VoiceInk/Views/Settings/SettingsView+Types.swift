@@ -15,6 +15,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     case audio = "Audio"
     case transcription = "Transcription"
     case shortcuts = "Shortcuts"
+    case enhancement = "Enhancement"
     case data = "Data"
     case permissions = "Permissions"
     
@@ -26,6 +27,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .audio: return "speaker.wave.2.fill"
         case .transcription: return "waveform.circle"
         case .shortcuts: return "command"
+        case .enhancement: return "sparkles"
         case .data: return "lock.shield"
         case .permissions: return "hand.raised.fill"
         }

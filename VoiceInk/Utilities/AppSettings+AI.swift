@@ -82,6 +82,11 @@ extension AppSettings {
             get { bool(forKey: Keys.useScreenCaptureContext, default: false) }
             set { setValue(newValue, forKey: Keys.useScreenCaptureContext) }
         }
+        
+        static var isCloudSyncEnabled: Bool {
+            get { bool(forKey: "isCloudSyncEnabled", default: false) }
+            set { setValue(newValue, forKey: "isCloudSyncEnabled") }
+        }
     }
 
     enum Shortcuts {

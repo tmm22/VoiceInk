@@ -76,6 +76,11 @@ VoiceInk is a **privacy-focused, native macOS application** for voice-to-text tr
 │  │  │  Power Mode     │  │   AI Service    │  │  Audio Device   │      │   │
 │  │  │   Manager       │  │  (Multi-provider)│  │   Manager       │      │   │
 │  │  └─────────────────┘  └─────────────────┘  └─────────────────┘      │   │
+│  │                                                                      │   │
+│  │  ┌─────────────────┐                                                 │   │
+│  │  │ CloudSyncService│                                                 │   │
+│  │  │ (iCloud Sync)   │                                                 │   │
+│  │  └─────────────────┘                                                 │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                   │                                        │
 │  ┌────────────────────────────────▼────────────────────────────────────┐   │

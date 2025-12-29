@@ -20,6 +20,35 @@ class AIEnhancementService: ObservableObject {
             NotificationCenter.default.post(name: .enhancementToggleChanged, object: nil)
         }
     }
+    
+    @Published var isCloudSyncEnabled: Bool {
+        didSet {
+            AppSettings.Enhancements.isCloudSyncEnabled = isCloudSyncEnabled
+            if isCloudSyncEnabled {
+                // Fetch remote prompts first to prevent overwriting cloud data
+                if let remotePrompts = CloudSyncService.shared.fetchPrompts() {
+                    // Start with remote prompts
+                    var mergedPrompts = remotePrompts
+                    let remoteIds = Set(remotePrompts.map { $0.id })
+                    
+                    // Add local prompts that are non-duplicates
+                    let localUniquePrompts = customPrompts.filter { !remoteIds.contains($0.id) }
+                    mergedPrompts.append(contentsOf: localUniquePrompts)
+                    
+                    // Update local storage (without triggering sync loop usually, but safe due to flag)
+                    self.isSyncingFromCloud = true
+                    self.customPrompts = mergedPrompts
+                    self.isSyncingFromCloud = false
+                    
+                    // Now safe to push the merged set
+                    CloudSyncService.shared.syncPrompts(mergedPrompts)
+                } else {
+                    // No remote data, safe to push local
+                    CloudSyncService.shared.syncPrompts(customPrompts)
+                }
+            }
+        }
+    }
 
     @Published var contextSettings: AIContextSettings {
         didSet {
@@ -38,8 +67,16 @@ class AIEnhancementService: ObservableObject {
             } catch {
                 logger.error("Failed to encode custom prompts for persistence: \(error.localizedDescription)")
             }
+            
+            // Sync to Cloud
+            if !isSyncingFromCloud && isCloudSyncEnabled {
+                CloudSyncService.shared.syncPrompts(customPrompts)
+            }
         }
     }
+    
+    // Flag to prevent loop when updating from cloud
+    private var isSyncingFromCloud = false
 
     @Published var selectedPromptId: UUID? {
         didSet {
@@ -124,6 +161,7 @@ class AIEnhancementService: ObservableObject {
         self.contextRenderer = AIContextRenderer()
 
         self.isEnhancementEnabled = AppSettings.Enhancements.isEnhancementEnabled
+        self.isCloudSyncEnabled = AppSettings.Enhancements.isCloudSyncEnabled
         
         // Load Context Settings
         // Decode failure is acceptable; will use default settings if stored data is corrupted
@@ -177,6 +215,7 @@ class AIEnhancementService: ObservableObject {
             object: nil
         )
 
+        setupCloudSync()
         initializePredefinedPrompts()
     }
 
@@ -326,6 +365,18 @@ class AIEnhancementService: ObservableObject {
             if !self.aiService.isAPIKeyValid {
                 self.isEnhancementEnabled = false
             }
+        }
+    }
+    
+    private func setupCloudSync() {
+        CloudSyncService.shared.onPromptsChanged = { [weak self] remotePrompts in
+            guard let self = self else { return }
+            guard self.isCloudSyncEnabled else { return } // Ignore updates if disabled
+            
+            self.logger.info("Received \(remotePrompts.count) prompts from CloudSync")
+            self.isSyncingFromCloud = true
+            self.customPrompts = remotePrompts
+            self.isSyncingFromCloud = false
         }
     }
 }

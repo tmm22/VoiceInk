@@ -23,5 +23,7 @@
 	<array>
 		<string>$(AppIdentifierPrefix)com.tmm22.VoiceLinkCommunity</string>
 	</array>
+	<key>com.apple.developer.ubiquity-kvstore-identifier</key>
+	<string>$(TeamIdentifierPrefix)$(CFBundleIdentifier)</string>
 </dict>
 </plist>

@@ -11,6 +11,12 @@ All notable changes to the VoiceLink Community application are documented here.
 - **Shared Utilities**: Relocated `AuthorizationHeader.swift` to `VoiceInk/Utilities` to promote reuse across services.
 - **Documentation**: Added missing HeaderDoc comments to shared utilities.
 
+### AI Enhancement & CloudSync
+- **CloudSync**: Implemented iCloud Key-Value Store synchronization for AI enhancement profiles.
+- **Opt-in Privacy**: Introduced "Sync with iCloud" toggle in Settings -> Enhancement.
+- **UI UX**: Added dedicated "Enhancement" settings tab (renamed from internal "AI").
+- **Documentation**: Added `CLOUDSYNC_DOCUMENTATION.md` and updated `DESIGN_DOCUMENT.md`/`AGENTS.md`.
+
 ## 2025-12-27
 
 ### Architecture - WhisperState SOLID Refactoring

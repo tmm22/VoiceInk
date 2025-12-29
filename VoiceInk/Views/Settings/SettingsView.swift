@@ -67,6 +67,10 @@ struct SettingsView: View {
             SearchableSetting(tab: .shortcuts, section: "VoiceInk Shortcuts", keywords: ["hotkey", "shortcut", "keyboard", "trigger", "option", "command", "push to talk", "hands-free"]),
             SearchableSetting(tab: .shortcuts, section: "Other App Shortcuts", keywords: ["paste last", "transcript", "enhanced", "retry", "cancel", "middle click", "mouse"]),
             
+            // AI
+            SearchableSetting(tab: .enhancement, section: "AI Enhancement", keywords: ["ai", "enhancement", "llm", "openai", "anthropic", "google", "ollama", "local", "model", "token", "prompt", "persona"]),
+            SearchableSetting(tab: .enhancement, section: "Cloud Sync", keywords: ["icloud", "sync", "cloud", "backup", "restore", "devices"]),
+            
             // Data
             SearchableSetting(tab: .data, section: "Trash", keywords: ["trash", "deleted", "recover", "restore", "transcriptions"]),
             SearchableSetting(tab: .data, section: "Data & Privacy", keywords: ["privacy", "data", "cleanup", "storage", "history", "delete"]),
@@ -180,6 +184,7 @@ struct SettingsView: View {
         case .audio: audioSettings
         case .transcription: transcriptionSettings
         case .shortcuts: shortcutsSettings
+        case .enhancement: EnhancementSettingsView()
         case .data: dataSettings
         case .permissions: PermissionsView().voiceInkSectionPadding()
         }
