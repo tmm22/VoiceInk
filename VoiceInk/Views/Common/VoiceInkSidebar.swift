@@ -22,6 +22,7 @@ struct VoiceInkSidebar: View {
                         ForEach(section.items) { item in
                             NavigationLink(value: item) {
                                 Label(item.displayName, systemImage: item.icon)
+                                    .symbolRenderingMode(.monochrome)
                             }
                         }
                     } header: {
