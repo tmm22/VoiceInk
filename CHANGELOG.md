@@ -2,6 +2,12 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2025-12-31
+
+### Bug Fixes
+- **Sidebar Styling**: Fixed an issue where the "Text to Speech" sidebar item displayed incorrect colors (blue/teal) when the sidebar lost focus.
+- **Persistent Selection**: Implemented persistent active styling to ensure the selected sidebar item remains visually active (Blue/White) even when focus is transferred to detail views.
+
 ## 2025-12-29
 
 ### Refactoring (Tier 4)
