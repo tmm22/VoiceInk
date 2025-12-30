@@ -21,9 +21,22 @@ struct VoiceInkSidebar: View {
                     Section {
                         ForEach(section.items) { item in
                             NavigationLink(value: item) {
-                                Label(item.displayName, systemImage: item.icon)
-                                    .symbolRenderingMode(.monochrome)
+                                Label {
+                                    Text(item.displayName)
+                                        .foregroundStyle(selectedView == item ? .white : .primary)
+                                } icon: {
+                                    Image(systemName: item.icon)
+                                        .renderingMode(.template)
+                                        .foregroundStyle(selectedView == item ? .white : .primary)
+                                }
                             }
+                            .listRowBackground(
+                                selectedView == item ?
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(VoiceInkTheme.Palette.accent)
+                                    .padding(.horizontal, 4) // Slight inset to match sidebar style
+                                : nil
+                            )
                         }
                     } header: {
                         if let title = section.title {
