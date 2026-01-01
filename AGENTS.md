@@ -1506,17 +1506,25 @@ print("🔊 Sample rate: \(sampleRate)")
 3. **Read Contributing Guidelines** - See `CONTRIBUTING.md`
 4. **Check Code of Conduct** - See `CODE_OF_CONDUCT.md`
 
-### Development Workflow
+### Development Workflow (Graphite)
+
+This project uses **Graphite** for branch management and PR creation. AI agents MUST use Graphite CLI (`gt`) commands instead of standard `git`/`gh` commands for branching and PR workflows.
+
+**Trunk Branches:**
+- `custom-main-v2` - Primary working branch for this fork (base new features here)
+- `main` - Tracks upstream repository (for syncing upstream changes)
 
 1. **Fork the Repository**
    ```bash
    git clone https://github.com/YOUR_USERNAME/VoiceInk.git
    cd VoiceInk
+   gt init --trunk custom-main-v2
+   gt trunk --add main  # Add upstream tracking
    ```
 
 2. **Create Feature Branch**
    ```bash
-   git checkout -b feature/your-feature-name
+   gt create feature/your-feature-name
    ```
 
 3. **Make Changes**
@@ -1526,20 +1534,53 @@ print("🔊 Sample rate: \(sampleRate)")
 
 4. **Commit Changes**
    ```bash
-   git add .
-   git commit -m "Add feature: description
-   
+   gt commit -m "Add feature: description
+
    - Detail 1
    - Detail 2
-   
+
    Co-authored-by: factory-droid[bot] <138933559+factory-droid[bot]@users.noreply.github.com>"
    ```
 
-5. **Push and Create PR**
+5. **Submit PR**
    ```bash
-   git push origin feature/your-feature-name
-   gh pr create --title "Add feature: description" --body "Detailed description..."
+   gt submit
    ```
+
+### Stacked PRs (When to Use)
+
+Use stacked PRs when:
+- **Large features**: Break into logical, reviewable chunks (e.g., "add model" → "add service" → "add UI")
+- **Dependent changes**: When change B depends on change A that isn't merged yet
+- **Incremental refactoring**: Each refactor step should be reviewed independently
+
+**Stacking Workflow:**
+```bash
+# Create first branch in stack
+gt create step-1-add-model
+# Make changes, commit
+gt commit -m "feat: Add new data model"
+
+# Create second branch stacked on first
+gt create step-2-add-service
+# Make changes, commit
+gt commit -m "feat: Add service layer"
+
+# Create third branch stacked on second
+gt create step-3-add-ui
+# Make changes, commit
+gt commit -m "feat: Add UI components"
+
+# Submit entire stack as linked PRs
+gt submit --stack
+```
+
+**Managing Stacks:**
+```bash
+gt log              # View your stack
+gt sync             # Sync with remote and update stack
+gt restack          # Rebase stack after changes to earlier PRs
+```
 
 ### Commit Message Format
 
@@ -1655,6 +1696,20 @@ None - purely additive feature
 | `PowerModeSessionManager.swift` | Context detection |
 | `AIEnhancementService.swift` | AI text processing |
 
+### Graphite Commands (AI Agents Must Use)
+
+| Task | Graphite Command | Notes |
+|------|------------------|-------|
+| Create new branch | `gt create branch-name` | Use instead of `git checkout -b` |
+| Commit changes | `gt commit -m "message"` | Auto-stages all changes |
+| Submit PR | `gt submit` | Creates PR on GitHub |
+| Submit entire stack | `gt submit --stack` | For stacked PRs |
+| Sync with trunk | `gt sync` | Pulls latest and rebases |
+| View current stack | `gt log` | Shows branch relationships |
+| Rebase stack | `gt restack` | After editing earlier commits |
+| Switch branches | `gt checkout branch-name` | Navigate stack |
+| Amend last commit | `gt modify --amend` | Edit previous commit |
+
 ### Important Constants
 
 ```swift
@@ -1723,11 +1778,17 @@ This guide is a living document. If you find errors, outdated information, or ha
 
 ---
 
-**Last Updated:** December 27, 2025
+**Last Updated:** January 2, 2026
 **Maintained By:** VoiceInk Community
 **License:** GPL v3 (same as project)
 
 **Recent Updates:**
+- **v1.9** (2026-01-02) - Graphite Integration
+  - Configured Graphite CLI for stacked PRs workflow
+  - Updated **Development Workflow** section to use `gt` commands instead of `git`/`gh`
+  - Added **Stacked PRs (When to Use)** section with workflow examples
+  - Added **Graphite Commands** quick reference table for AI agents
+  - AI agents MUST use Graphite commands for branching, commits, and PR submission
 - **v1.8** (2025-12-27) - Documentation Guidance Updates
   - Documented provider capability registry guidance via [`ModelCapabilityRegistry`](VoiceInk/Whisper/ModelCapabilityRegistry.swift:28) and [`ProviderCapabilities`](VoiceInk/Whisper/ModelCapabilityRegistry.swift:7)
   - Documented centralized TTS authorization header usage via [`AuthorizationService`](VoiceInk/TTS/Utilities/AuthorizationService.swift:5) and [`AuthorizationService.authorizationHeader(for:headerType:)`](VoiceInk/TTS/Utilities/AuthorizationService.swift:22)
