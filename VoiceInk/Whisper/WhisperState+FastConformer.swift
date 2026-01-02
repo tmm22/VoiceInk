@@ -1,5 +1,8 @@
 import Foundation
 import AppKit
+import OSLog
+
+private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "WhisperState+FastConformer")
 
 extension WhisperState {
     private func fastConformerDefaultsKey(for modelName: String) -> String {
@@ -8,10 +11,19 @@ extension WhisperState {
 
     func isFastConformerModelDownloaded(_ model: FastConformerModel) -> Bool {
         let directory = fastConformerModelDirectory(for: model)
-        let modelFile = directory.appendingPathComponent("model.onnx")
         let tokenizerFile = directory.appendingPathComponent("tokens.txt")
-        return FileManager.default.fileExists(atPath: modelFile.path) &&
-            FileManager.default.fileExists(atPath: tokenizerFile.path)
+        
+        let tokenizerExists = FileManager.default.fileExists(atPath: tokenizerFile.path)
+        let modelExists = OnnxModelFileLocator.modelExists(in: directory)
+        
+        if !tokenizerExists {
+            logger.debug("Tokenizer file missing for model: \(model.name)")
+        }
+        if !modelExists {
+            logger.debug("ONNX model file missing for model: \(model.name)")
+        }
+        
+        return tokenizerExists && modelExists
     }
 
     private func fastConformerModelDirectory(for model: FastConformerModel) -> URL {
@@ -36,7 +48,10 @@ extension WhisperState {
                 throw WhisperStateError.modelLoadFailed
             }
 
-            let modelFile = directory.appendingPathComponent("model.onnx")
+            let filename = modelURL.lastPathComponent.lowercased().hasSuffix(".onnx") 
+                ? modelURL.lastPathComponent 
+                : "model.onnx"
+            let modelFile = directory.appendingPathComponent(filename)
             let tokenizerFile = directory.appendingPathComponent("tokens.txt")
 
             try await downloadFileWithProgress(
