@@ -1542,9 +1542,27 @@ This project uses **Graphite** for branch management and PR creation. AI agents 
    Co-authored-by: factory-droid[bot] <138933559+factory-droid[bot]@users.noreply.github.com>"
    ```
 
-5. **Submit PR**
+5. **Push and Create PR (Graphite)**
+   
+   This project uses [Graphite](https://graphite.dev) for PR management. Always use Graphite CLI (`gt`) instead of `gh`:
+   
    ```bash
-   gt submit
+   # Track your branch with Graphite
+   gt track
+   
+   # Submit PR with AI-generated description (recommended)
+   gt submit --stack --publish --ai
+   
+   # Or submit interactively to write your own description
+   gt submit --stack --publish
+   ```
+   
+   **Important:** Always use `--ai` flag or interactive mode when submitting PRs. Never use `--no-interactive` without `--ai`, as this causes GitHub's default PR template to override your description.
+   
+   **Fallback (GitHub CLI):** Only if Graphite is unavailable:
+   ```bash
+   git push origin feature/your-feature-name
+   gh pr create --title "type: description" --body "Detailed description..."
    ```
 
 ### Stacked PRs (When to Use)
