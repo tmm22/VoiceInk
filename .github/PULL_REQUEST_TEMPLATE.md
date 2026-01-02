@@ -1,20 +1,14 @@
-# ⚠️ This Project Does Not Accept Pull Requests
+## Summary
+<!-- Brief description of what this PR does -->
 
-Thank you for your interest in contributing to VoiceInk!
+## Changes
+<!-- List the key changes -->
+- 
 
-However, **this project is not currently accepting pull requests.**
+## Testing
+<!-- How was this tested? -->
+- [ ] Build verified (`xcodebuild`)
+- [ ] Manual testing completed
 
-## Please close this PR
-
-## Alternative ways to contribute:
-
-- 🐛 **Report bugs**: Open an [issue](../../issues) with detailed information
-- 💡 **Suggest features**: Share your ideas via [issues](../../issues) or [discussions](../../discussions)
-- 🍴 **Fork the project**: You're welcome to create and maintain your own fork
-- 📖 **Improve documentation**: Suggest corrections or clarifications via issues
-
-Thank you for understanding, and I appreciate your interest in VoiceInk!
-
----
-
-For more information, see [CONTRIBUTING.md](../CONTRIBUTING.md)
+## Notes
+<!-- Any additional context, screenshots, or considerations -->
