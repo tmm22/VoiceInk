@@ -1589,8 +1589,8 @@ gt create step-3-add-ui
 # Make changes, commit
 gt commit -m "feat: Add UI components"
 
-# Submit entire stack as linked PRs
-gt submit --stack
+# Submit entire stack as linked PRs (always use --ai)
+gt submit --stack --ai
 ```
 
 **Managing Stacks:**
@@ -1720,13 +1720,15 @@ None - purely additive feature
 |------|------------------|-------|
 | Create new branch | `gt create branch-name` | Use instead of `git checkout -b` |
 | Commit changes | `gt commit -m "message"` | Auto-stages all changes |
-| Submit PR | `gt submit` | Creates PR on GitHub |
-| Submit entire stack | `gt submit --stack` | For stacked PRs |
+| Submit PR | `gt submit --ai` | **Always use `--ai`** for auto-generated descriptions |
+| Submit entire stack | `gt submit --stack --ai` | **Always use `--ai`** for stacked PRs |
 | Sync with trunk | `gt sync` | Pulls latest and rebases |
 | View current stack | `gt log` | Shows branch relationships |
 | Rebase stack | `gt restack` | After editing earlier commits |
 | Switch branches | `gt checkout branch-name` | Navigate stack |
 | Amend last commit | `gt modify --amend` | Edit previous commit |
+
+> **CRITICAL:** Always include `--ai` when submitting PRs. Without it, PRs are created with empty descriptions (just the template placeholders). The `--ai` flag auto-generates descriptions from commit messages.
 
 ### Important Constants
 
