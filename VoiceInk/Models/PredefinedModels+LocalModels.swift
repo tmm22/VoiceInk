@@ -202,11 +202,28 @@ extension PredefinedModels {
             requiresMetal: true,
             isMultilingualModel: false,
             supportedLanguages: ["en": "English"],
-            modelURL: "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-fast-conformer-ctc-en-24500/resolve/main/model.onnx?download=1",
-            tokenizerURL: "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-fast-conformer-ctc-en-24500/resolve/main/tokens.txt?download=1",
+            modelURL: "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-fast-conformer-ctc-en-24500/resolve/main/model.onnx?download=true",
+            tokenizerURL: "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-fast-conformer-ctc-en-24500/resolve/main/tokens.txt?download=true",
             checksum: nil,
             badges: ["Fast", "CTC"],
             highlight: "Greedy CTC decoding keeps latency under 250 ms on M-series CPUs."
+        ),
+        FastConformerModel(
+            name: "parakeet-tdt-ctc-110m",
+            displayName: "Parakeet 110M",
+            description: "NVIDIA's compact Parakeet model with 110M parameters. Ultra-fast English transcription with punctuation and case preservation.",
+            size: "126 MB",
+            speed: 0.95,
+            accuracy: 0.92,
+            ramUsage: 0.4,
+            requiresMetal: false,
+            isMultilingualModel: false,
+            supportedLanguages: ["en": "English"],
+            modelURL: "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet_tdt_ctc_110m-en-36000/resolve/main/model.int8.onnx?download=true",
+            tokenizerURL: "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet_tdt_ctc_110m-en-36000/resolve/main/tokens.txt?download=true",
+            checksum: nil,
+            badges: ["Compact", "Fast"],
+            highlight: "5x smaller than FastConformer 1.1B with minimal accuracy trade-off."
         ),
         
         // SenseVoice Models
