@@ -31,13 +31,16 @@ final class FastConformerTranscriptionService: TranscriptionService {
         guard !features.isEmpty else { throw WhisperStateError.transcriptionFailed }
 
         let session = try ensureSession(for: fastConformerModel)
-        let (inputName, outputName) = try sessionMetadata(for: fastConformerModel, session: session)
+        let outputName = try outputMetadata(for: fastConformerModel, session: session)
         let tokenizer = try tokenizer(for: fastConformerModel)
-        let inputValue = try makeInputTensor(from: features)
+        
+        let (audioSignal, lengthTensor) = try makeInputTensors(from: features)
 
-        let outputs = try session.run(withInputs: [inputName: inputValue],
-                                      outputNames: [outputName],
-                                      runOptions: nil)
+        let outputs = try session.run(
+            withInputs: ["audio_signal": audioSignal, "length": lengthTensor],
+            outputNames: [outputName],
+            runOptions: nil
+        )
         guard let outputValue = outputs[outputName] else {
             throw WhisperStateError.transcriptionFailed
         }
@@ -116,42 +119,48 @@ final class FastConformerTranscriptionService: TranscriptionService {
         return session
     }
 
-    private func sessionMetadata(for model: FastConformerModel, session: ORTSession) throws -> (String, String) {
+    private func outputMetadata(for model: FastConformerModel, session: ORTSession) throws -> String {
         cacheLock.lock()
         if let cached = metadataCache[model.name] {
             cacheLock.unlock()
-            return cached
+            return cached.1
         }
         cacheLock.unlock()
-        guard let inputName = try session.inputNames().first,
-              let outputName = try session.outputNames().first else {
+        guard let outputName = try session.outputNames().first else {
             throw WhisperStateError.modelLoadFailed
         }
-        let tuple = (inputName, outputName)
         cacheLock.lock()
-        metadataCache[model.name] = tuple
+        metadataCache[model.name] = ("audio_signal", outputName)
         cacheLock.unlock()
-        return tuple
+        return outputName
     }
 
-    private func makeInputTensor(from features: [[Float]]) throws -> ORTValue {
+    private func makeInputTensors(from features: [[Float]]) throws -> (audioSignal: ORTValue, length: ORTValue) {
         let frames = features.count
         let dimension = featureExtractor.featureDimension
-        var flattened: [Float] = []
-        flattened.reserveCapacity(frames * dimension)
-        for frame in features {
-            flattened.append(contentsOf: frame)
+        
+        var transposed = [Float](repeating: 0, count: frames * dimension)
+        for (frameIdx, frame) in features.enumerated() {
+            for (featureIdx, value) in frame.enumerated() {
+                transposed[featureIdx * frames + frameIdx] = value
+            }
         }
 
-        let dataLength = flattened.count * MemoryLayout<Float>.size
-        let tensorData = NSMutableData(length: dataLength) ?? NSMutableData()
-        flattened.withUnsafeBytes { buffer in
+        let audioDataLength = transposed.count * MemoryLayout<Float>.size
+        let audioTensorData = NSMutableData(length: audioDataLength) ?? NSMutableData()
+        transposed.withUnsafeBytes { buffer in
             guard let baseAddress = buffer.baseAddress else { return }
-            memcpy(tensorData.mutableBytes, baseAddress, dataLength)
+            memcpy(audioTensorData.mutableBytes, baseAddress, audioDataLength)
         }
 
-        let shape: [NSNumber] = [NSNumber(value: 1), NSNumber(value: frames), NSNumber(value: dimension)]
-        return try ORTValue(tensorData: tensorData, elementType: .float, shape: shape)
+        let audioShape: [NSNumber] = [1, NSNumber(value: dimension), NSNumber(value: frames)]
+        let audioSignal = try ORTValue(tensorData: audioTensorData, elementType: .float, shape: audioShape)
+        
+        var lengthValue: Int64 = Int64(frames)
+        let lengthData = NSMutableData(bytes: &lengthValue, length: MemoryLayout<Int64>.size)
+        let lengthTensor = try ORTValue(tensorData: lengthData, elementType: .int64, shape: [1])
+        
+        return (audioSignal, lengthTensor)
     }
 
     private func extractLogits(from value: ORTValue) throws -> (data: [Float], frameCount: Int, vocabSize: Int) {
