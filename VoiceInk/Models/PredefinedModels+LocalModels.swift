@@ -212,18 +212,18 @@ extension PredefinedModels {
             name: "parakeet-tdt-ctc-110m",
             displayName: "Parakeet 110M",
             description: "NVIDIA's compact Parakeet model with 110M parameters. Ultra-fast English transcription with punctuation and case preservation.",
-            size: "126 MB",
+            size: "458 MB",
             speed: 0.95,
             accuracy: 0.92,
-            ramUsage: 0.4,
+            ramUsage: 1.0,
             requiresMetal: false,
             isMultilingualModel: false,
             supportedLanguages: ["en": "English"],
-            modelURL: "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet_tdt_ctc_110m-en-36000/resolve/main/model.int8.onnx?download=true",
+            modelURL: "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet_tdt_ctc_110m-en-36000/resolve/main/model.onnx?download=true",
             tokenizerURL: "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet_tdt_ctc_110m-en-36000/resolve/main/tokens.txt?download=true",
             checksum: nil,
             badges: ["Compact", "Fast"],
-            highlight: "5x smaller than FastConformer 1.1B with minimal accuracy trade-off."
+            highlight: "Lightweight 110M parameter model with excellent speed-accuracy balance."
         ),
         
         // SenseVoice Models
