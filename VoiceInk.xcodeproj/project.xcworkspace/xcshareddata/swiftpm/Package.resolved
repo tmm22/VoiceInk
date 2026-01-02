@@ -15,7 +15,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/FluidInference/FluidAudio",
       "state" : {
-        "revision" : "892da4f9a9815b812554d6801a1faae1a60b20c0"
+        "revision" : "a402e327c942ac275e58615ca4a99ad2a8b5140e"
       }
     },
     {
@@ -51,7 +51,7 @@
       "location" : "https://github.com/ejbills/mediaremote-adapter",
       "state" : {
         "branch" : "master",
-        "revision" : "3529aa25023082a2ceadebcd2c9c4a9430ee96b9"
+        "revision" : "78aae86c03adab11a7b352211cc82381737cf854"
       }
     },
     {
@@ -68,8 +68,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sparkle-project/Sparkle",
       "state" : {
-        "revision" : "9a1d2a19d3595fcf8d9c447173f9a1687b3dcadb",
-        "version" : "2.8.0"
+        "revision" : "5581748cef2bae787496fe6d61139aebe0a451f6",
+        "version" : "2.8.1"
       }
     },
     {
