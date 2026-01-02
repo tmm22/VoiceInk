@@ -1,6 +1,9 @@
 import Foundation
 import AVFoundation
 import OnnxRuntimeBindings
+import OSLog
+
+private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "FastConformerTranscriptionService")
 
 final class FastConformerTranscriptionService: TranscriptionService {
     private let modelsDirectory: URL
@@ -92,9 +95,13 @@ final class FastConformerTranscriptionService: TranscriptionService {
             throw WhisperStateError.modelLoadFailed
         }
 
-        let modelPath = modelsDirectory
-            .appendingPathComponent(model.name)
-            .appendingPathComponent("model.onnx")
+        let modelDirectory = modelsDirectory.appendingPathComponent(model.name)
+        guard let modelPath = OnnxModelFileLocator.findModelFile(in: modelDirectory) else {
+            logger.error("No ONNX model file found in directory: \(modelDirectory.path)")
+            throw WhisperStateError.modelLoadFailed
+        }
+        
+        logger.info("Loading ONNX model: \(modelPath.lastPathComponent) for \(model.name)")
 
         let options = try ORTSessionOptions()
         _ = try? options.setGraphOptimizationLevel(.all)
