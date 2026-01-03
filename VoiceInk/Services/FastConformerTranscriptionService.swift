@@ -158,7 +158,7 @@ final class FastConformerTranscriptionService: TranscriptionService {
         
         var lengthValue: Int64 = Int64(frames)
         let lengthData = NSMutableData(bytes: &lengthValue, length: MemoryLayout<Int64>.size)
-        let lengthTensor = try ORTValue(tensorData: lengthData, elementType: .int64, shape: [1])
+        let lengthTensor = try ORTValue(tensorData: lengthData, elementType: .int64, shape: [NSNumber(value: 1)])
         
         return (audioSignal, lengthTensor)
     }
