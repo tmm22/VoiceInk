@@ -153,7 +153,7 @@ final class FastConformerTranscriptionService: TranscriptionService {
             memcpy(audioTensorData.mutableBytes, baseAddress, audioDataLength)
         }
 
-        let audioShape: [NSNumber] = [1, NSNumber(value: dimension), NSNumber(value: frames)]
+        let audioShape: [NSNumber] = [NSNumber(value: 1), NSNumber(value: dimension), NSNumber(value: frames)]
         let audioSignal = try ORTValue(tensorData: audioTensorData, elementType: .float, shape: audioShape)
         
         var lengthValue: Int64 = Int64(frames)
