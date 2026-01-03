@@ -178,7 +178,7 @@ enum AppSettings {
         if Thread.isMainThread {
             NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
         } else {
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
             }
         }

@@ -70,7 +70,8 @@ class LastTranscriptionService: ObservableObject {
         
         let textToPaste = lastTranscription.text
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 150_000_000)
             CursorPaster.pasteAtCursor(textToPaste)
         }
     }
@@ -95,7 +96,8 @@ class LastTranscriptionService: ObservableObject {
             }
         }()
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 150_000_000)
             CursorPaster.pasteAtCursor(textToPaste)
         }
     }

@@ -41,7 +41,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // Running: focus current window and route in-place to Transcribe Audio
             menuBarManager?.focusMainWindow()
             NotificationCenter.default.post(name: .navigateToDestination, object: nil, userInfo: ["destination": "Transcribe Audio"])
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 NotificationCenter.default.post(name: .openFileForTranscription, object: nil, userInfo: ["url": url])
             }
         }

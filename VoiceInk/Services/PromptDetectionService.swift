@@ -46,15 +46,14 @@ class PromptDetectionService {
         )
     }
     
+    @MainActor
     func applyDetectionResult(_ result: PromptDetectionResult, to enhancementService: AIEnhancementService) async {
-        await MainActor.run {
-            if result.shouldEnableAI {
-                if !enhancementService.isEnhancementEnabled {
-                    enhancementService.isEnhancementEnabled = true
-                }
-                if let promptId = result.selectedPromptId {
-                    enhancementService.selectedPromptId = promptId
-                }
+        if result.shouldEnableAI {
+            if !enhancementService.isEnhancementEnabled {
+                enhancementService.isEnhancementEnabled = true
+            }
+            if let promptId = result.selectedPromptId {
+                enhancementService.selectedPromptId = promptId
             }
         }
         
@@ -63,15 +62,14 @@ class PromptDetectionService {
         }
     }
     
+    @MainActor
     func restoreOriginalSettings(_ result: PromptDetectionResult, to enhancementService: AIEnhancementService) async {
         if result.shouldEnableAI {
-            await MainActor.run {
-                if enhancementService.isEnhancementEnabled != result.originalEnhancementState {
-                    enhancementService.isEnhancementEnabled = result.originalEnhancementState
-                }
-                if let originalId = result.originalPromptId, enhancementService.selectedPromptId != originalId {
-                    enhancementService.selectedPromptId = originalId
-                }
+            if enhancementService.isEnhancementEnabled != result.originalEnhancementState {
+                enhancementService.isEnhancementEnabled = result.originalEnhancementState
+            }
+            if let originalId = result.originalPromptId, enhancementService.selectedPromptId != originalId {
+                enhancementService.selectedPromptId = originalId
             }
         }
     }

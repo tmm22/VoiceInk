@@ -45,7 +45,7 @@ class DictionaryImportExportService {
             savePanel.title = "Export Dictionary Data"
             savePanel.message = "Choose a location to save your dictionary items and word replacements."
 
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 if savePanel.runModal() == .OK {
                     if let url = savePanel.url {
                         do {
@@ -73,7 +73,7 @@ class DictionaryImportExportService {
         openPanel.title = "Import Dictionary Data"
         openPanel.message = "Choose a dictionary file to import. New items will be added, existing items will be kept."
 
-        DispatchQueue.main.async {
+        Task { @MainActor in
             if openPanel.runModal() == .OK {
                 guard let url = openPanel.url else {
                     self.showAlert(title: "Import Error", message: "Could not get the file URL.")
@@ -176,7 +176,7 @@ class DictionaryImportExportService {
     }
 
     private func showAlert(title: String, message: String) {
-        DispatchQueue.main.async {
+        Task { @MainActor in
             let alert = NSAlert()
             alert.messageText = title
             alert.informativeText = message

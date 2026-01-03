@@ -63,7 +63,8 @@ struct TextEditorView: View {
         }
         .onAppear {
             // Auto-focus on appear
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 100_000_000)
                 isFocused = true
             }
         }
