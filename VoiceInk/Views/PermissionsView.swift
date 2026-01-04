@@ -135,7 +135,8 @@ struct PermissionCard: View {
                         checkPermission()
                         
                         // Reset the animation after a delay
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 500_000_000)
                             isRefreshing = false
                         }
                     }) {

@@ -274,7 +274,7 @@ struct OnboardingPermissionsView: View {
         switch permissions[currentPermissionIndex].type {
         case .microphone:
             AVCaptureDevice.requestAccess(for: .audio) { granted in
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     self.permissionStates[self.currentPermissionIndex] = granted
                     if granted {
                         withAnimation {

@@ -53,7 +53,8 @@ struct AnimatedSaveButton: View {
                 }
                 
                 // Reset the animation after a delay
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
                     withAnimation {
                         isSaved = false
                     }

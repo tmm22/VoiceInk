@@ -225,7 +225,8 @@ struct AddCustomModelCardView: View {
         isSaving = true
         
         // Simulate a brief save operation for better UX
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 500_000_000)
             if let editing = editingModel {
                 // Update existing model
                 let updatedModel = CustomCloudModel(

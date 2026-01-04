@@ -279,7 +279,7 @@ struct CloudModelCardView: View {
         aiService.selectedProvider = aiProvider
         
         aiService.saveAPIKey(apiKey) { isValid, errorMessage in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self.isVerifying = false
                 if isValid {
                     self.verificationStatus = .success
@@ -304,9 +304,6 @@ struct CloudModelCardView: View {
                     self.verificationStatus = .failure
                     self.verificationError = errorMessage
                 }
-                
-                // Restore original provider
-                // aiService.selectedProvider = originalProvider // This line was removed as per the new_code
             }
         }
     }

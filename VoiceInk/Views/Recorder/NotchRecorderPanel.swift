@@ -124,12 +124,15 @@ class NotchRecorderPanel: KeyablePanel {
     }
     
     func hide(completion: @escaping () -> Void) {
-        completion()
+        Task { @MainActor in
+            completion()
+        }
     }
     
     @objc private func handleScreenParametersChange() {
         // Add a small delay to ensure we get the correct screen metrics
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 100_000_000)
             guard let self = self else { return }
             let metrics = NotchRecorderPanel.calculateWindowMetrics()
             self.setFrame(metrics.frame, display: true)

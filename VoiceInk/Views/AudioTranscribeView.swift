@@ -237,7 +237,7 @@ struct AudioTranscribeView: View {
                     }
                     
                     if let finalURL = fileURL {
-                        DispatchQueue.main.async {
+                        Task { @MainActor in
                             self.validateAndSetAudioFile(finalURL)
                         }
                         return

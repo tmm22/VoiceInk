@@ -99,7 +99,8 @@ struct OnboardingView: View {
         }
         
         // Show secondary elements
-        DispatchQueue.main.asyncAfter(deadline: .now() + animationDelay * 3) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(animationDelay * 3 * 1_000_000_000))
             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                 showSecondaryElements = true
             }
@@ -187,7 +188,8 @@ struct TypewriterRoles: View {
             guard charIndex < targetText.count else {
                 // Typing complete, pause then delete
                 isTyping = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + pauseDuration) {
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: UInt64(pauseDuration * 1_000_000_000))
                     startDeletingAnimation()
                 }
                 return
@@ -198,7 +200,8 @@ struct TypewriterRoles: View {
             charIndex += 1
             
             // Schedule next character
-            DispatchQueue.main.asyncAfter(deadline: .now() + typingSpeed) {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(typingSpeed * 1_000_000_000))
                 typeNextCharacter()
             }
         }
@@ -213,7 +216,8 @@ struct TypewriterRoles: View {
             guard !displayedText.isEmpty else {
                 isDeleting = false
                 currentIndex = (currentIndex + 1) % roles.count
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 300_000_000)
                     startTypingAnimation()
                 }
                 return
@@ -222,7 +226,8 @@ struct TypewriterRoles: View {
             displayedText.removeLast()
             
             // Schedule next deletion
-            DispatchQueue.main.asyncAfter(deadline: .now() + deleteSpeed) {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(deleteSpeed * 1_000_000_000))
                 deleteNextCharacter()
             }
         }
@@ -296,7 +301,8 @@ struct OnboardingBackgroundView: View {
         }
         
         // Start particles
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 200_000_000)
             particlesActive = true
         }
     }
@@ -370,4 +376,3 @@ struct ScaleButtonStyle: ButtonStyle {
 #Preview {
     OnboardingView(hasCompletedOnboarding: .constant(false))
 } 
-

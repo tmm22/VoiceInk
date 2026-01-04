@@ -208,7 +208,12 @@ struct RecorderPromptButton: View {
                 }
             }
             enhancementDismissWorkItem = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                if !Task.isCancelled {
+                    work.perform()
+                }
+            }
         }
     }
 }
@@ -267,7 +272,12 @@ struct RecorderPowerModeButton: View {
                 }
             }
             powerDismissWorkItem = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                if !Task.isCancelled {
+                    work.perform()
+                }
+            }
         }
     }
 }

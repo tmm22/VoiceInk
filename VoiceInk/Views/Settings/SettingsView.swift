@@ -149,7 +149,7 @@ struct SettingsView: View {
         .alert("Reset Onboarding", isPresented: $showResetOnboardingAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Reset", role: .destructive) {
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     hasCompletedOnboarding = false
                 }
             }

@@ -30,67 +30,67 @@ final class LocalTTSService: NSObject, TTSProvider {
         }
 
         return try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.main.async {
-                let utterance = AVSpeechUtterance(string: text)
-                guard let systemVoice = LocalTTSService.resolveVoice(identifier: voice.id, language: voice.language) else {
-                    continuation.resume(throwing: TTSError.invalidVoice)
-                    return
-                }
+            let utterance = AVSpeechUtterance(string: text)
+            guard let systemVoice = LocalTTSService.resolveVoice(identifier: voice.id, language: voice.language) else {
+                continuation.resume(throwing: TTSError.invalidVoice)
+                return
+            }
 
-                utterance.voice = systemVoice
+            utterance.voice = systemVoice
 
-                let rateMultiplier = min(max(settings.speed, 0.5), 2.0)
-                let baseRate = AVSpeechUtteranceDefaultSpeechRate
-                let minimumRate = AVSpeechUtteranceMinimumSpeechRate
-                let maximumRate = AVSpeechUtteranceMaximumSpeechRate
-                let proposedRate = baseRate * Float(rateMultiplier)
-                utterance.rate = min(max(proposedRate, minimumRate), maximumRate)
-                utterance.pitchMultiplier = Float(min(max(settings.pitch, 0.5), 2.0))
-                utterance.volume = Float(min(max(settings.volume, 0.0), 1.0))
+            let rateMultiplier = min(max(settings.speed, 0.5), 2.0)
+            let baseRate = AVSpeechUtteranceDefaultSpeechRate
+            let minimumRate = AVSpeechUtteranceMinimumSpeechRate
+            let maximumRate = AVSpeechUtteranceMaximumSpeechRate
+            let proposedRate = baseRate * Float(rateMultiplier)
+            utterance.rate = min(max(proposedRate, minimumRate), maximumRate)
+            utterance.pitchMultiplier = Float(min(max(settings.pitch, 0.5), 2.0))
+            utterance.volume = Float(min(max(settings.volume, 0.0), 1.0))
 
-                let synthesizer = AVSpeechSynthesizer()
-                let destinationURL = FileManager.default.temporaryDirectory
-                    .appendingPathComponent(UUID().uuidString)
-                    .appendingPathExtension("wav")
+            let synthesizer = AVSpeechSynthesizer()
+            let destinationURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString)
+                .appendingPathExtension("wav")
 
-                var audioFile: AVAudioFile?
-                var hasCompleted = false
+            var audioFile: AVAudioFile?
+            var hasCompleted = false
 
-                synthesizer.write(utterance) { buffer in
-                    guard !hasCompleted else { return }
+            synthesizer.write(utterance) { buffer in
+                guard !hasCompleted else { return }
 
-                    do {
-                        guard let pcmBuffer = buffer as? AVAudioPCMBuffer else {
-                            return
-                        }
+                do {
+                    guard let pcmBuffer = buffer as? AVAudioPCMBuffer else {
+                        return
+                    }
 
-                        if pcmBuffer.frameLength == 0 {
-                            hasCompleted = true
-                            audioFile = nil
-                            Task {
-                                do {
-                                    let data = try await AudioFileLoader.loadData(from: destinationURL)
-                                    try? FileManager.default.removeItem(at: destinationURL)
-                                    continuation.resume(returning: data)
-                                } catch {
-                                    try? FileManager.default.removeItem(at: destinationURL)
-                                    continuation.resume(throwing: TTSError.apiError(error.localizedDescription))
-                                }
-                            }
-                            return
-                        }
-
-                        if audioFile == nil {
-                            audioFile = try AVAudioFile(
-                                forWriting: destinationURL,
-                                settings: pcmBuffer.format.settings
-                            )
-                        }
-
-                        try audioFile?.write(from: pcmBuffer)
-                    } catch {
+                    if pcmBuffer.frameLength == 0 {
                         hasCompleted = true
-                        synthesizer.stopSpeaking(at: .immediate)
+                        audioFile = nil
+                        Task { @MainActor in
+                            do {
+                                let data = try await AudioFileLoader.loadData(from: destinationURL)
+                                try? FileManager.default.removeItem(at: destinationURL)
+                                continuation.resume(returning: data)
+                            } catch {
+                                try? FileManager.default.removeItem(at: destinationURL)
+                                continuation.resume(throwing: TTSError.apiError(error.localizedDescription))
+                            }
+                        }
+                        return
+                    }
+
+                    if audioFile == nil {
+                        audioFile = try AVAudioFile(
+                            forWriting: destinationURL,
+                            settings: pcmBuffer.format.settings
+                        )
+                    }
+
+                    try audioFile?.write(from: pcmBuffer)
+                } catch {
+                    hasCompleted = true
+                    synthesizer.stopSpeaking(at: .immediate)
+                    Task { @MainActor in
                         try? FileManager.default.removeItem(at: destinationURL)
                         continuation.resume(throwing: TTSError.apiError(error.localizedDescription))
                     }
