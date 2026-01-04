@@ -32,7 +32,8 @@ final class AnnouncementsService {
             self?.fetchAndMaybeShow()
         }
         // Do an initial fetch shortly after launch
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+        Task { [weak self] @MainActor in
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
             self?.fetchAndMaybeShow()
         }
     }
@@ -58,7 +59,7 @@ final class AnnouncementsService {
 
             guard let next = valid.first else { return }
 
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 let url = next.url.flatMap { URL(string: $0) }
                 AnnouncementManager.shared.showAnnouncement(
                     title: next.title,

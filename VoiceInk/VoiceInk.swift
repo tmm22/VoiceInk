@@ -60,7 +60,7 @@ struct VoiceInkApp: App {
             logger.warning("Using in-memory storage as fallback. Data will not persist between sessions.")
             
             // Show alert to user about storage issue
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 let alert = NSAlert()
                 alert.messageText = "Storage Warning"
                 alert.informativeText = "VoiceInk couldn't access its storage location. Your transcriptions will not be saved between sessions."
@@ -232,7 +232,8 @@ struct VoiceInkApp: App {
                         // Process any pending open-file request now that the main ContentView is ready.
                         if let pendingURL = appDelegate.pendingOpenFileURL {
                             NotificationCenter.default.post(name: .navigateToDestination, object: nil, userInfo: ["destination": "Transcribe Audio"])
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            Task { @MainActor in
+                                try? await Task.sleep(nanoseconds: 300_000_000)
                                 NotificationCenter.default.post(name: .openFileForTranscription, object: nil, userInfo: ["url": pendingURL])
                             }
                             appDelegate.pendingOpenFileURL = nil
@@ -366,7 +367,7 @@ struct WindowAccessor: NSViewRepresentable {
     
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
-        DispatchQueue.main.async {
+        Task { @MainActor in
             if let window = view.window {
                 callback(window)
             }

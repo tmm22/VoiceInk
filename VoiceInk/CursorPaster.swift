@@ -23,7 +23,8 @@ class CursorPaster {
 
         _ = ClipboardManager.setClipboard(text, transient: shouldRestoreClipboard)
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 50_000_000)
             if AppSettings.Clipboard.useAppleScriptPaste {
                 _ = pasteUsingAppleScript()
             } else {
@@ -35,7 +36,8 @@ class CursorPaster {
             let restoreDelay = AppSettings.Clipboard.clipboardRestoreDelay
             let delay = restoreDelay > 0 ? restoreDelay : 1.5
 
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
                 if !savedContents.isEmpty {
                     pasteboard.clearContents()
                     for (type, data) in savedContents {

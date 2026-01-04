@@ -24,7 +24,7 @@ private func audioDevicePropertyListener(
 ) -> OSStatus {
     guard let clientData = clientData else { return noErr }
     let manager = Unmanaged<AudioDeviceManager>.fromOpaque(clientData).takeUnretainedValue()
-    DispatchQueue.main.async {
+    Task { @MainActor in
         manager.handleDeviceListChange()
     }
     return noErr

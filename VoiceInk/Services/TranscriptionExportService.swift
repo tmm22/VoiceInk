@@ -280,7 +280,7 @@ class TranscriptionExportService {
                 try data.write(to: url, options: .atomic)
                 
                 // Show success notification
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     NotificationManager.shared.showNotification(
                         title: String(format: Localization.Export.success, url.lastPathComponent),
                         type: .success
@@ -293,7 +293,7 @@ class TranscriptionExportService {
     }
     
     private func showError(_ message: String) {
-        DispatchQueue.main.async {
+        Task { @MainActor in
             NotificationManager.shared.showNotification(
                 title: String(format: Localization.Export.failed, message),
                 type: .error

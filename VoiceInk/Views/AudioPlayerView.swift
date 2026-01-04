@@ -420,7 +420,8 @@ struct AudioPlayerView: View {
         guard let currentTranscriptionModel = whisperState.currentTranscriptionModel else {
             errorMessage = "No transcription model selected"
             showRetranscribeError = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
                 withAnimation { showRetranscribeError = false }
             }
             return
@@ -434,7 +435,8 @@ struct AudioPlayerView: View {
                 await MainActor.run {
                     isRetranscribing = false
                     showRetranscribeSuccess = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 3_000_000_000)
                         withAnimation { showRetranscribeSuccess = false }
                     }
                 }
@@ -443,7 +445,8 @@ struct AudioPlayerView: View {
                     isRetranscribing = false
                     errorMessage = error.localizedDescription
                     showRetranscribeError = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 3_000_000_000)
                         withAnimation { showRetranscribeError = false }
                     }
                 }
