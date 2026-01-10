@@ -74,52 +74,47 @@ final class MetricsManager: NSObject, MXMetricManagerSubscriber {
     }
     
     private func processMetricPayload(_ payload: MXMetricPayload) {
-        do {
-            AppLogger.metrics.info("Received metric payload for period: \(payload.timeStampBegin) - \(payload.timeStampEnd)")
+        AppLogger.metrics.info("Received metric payload for period: \(payload.timeStampBegin) - \(payload.timeStampEnd)")
+        
+        if let cpuMetrics = payload.cpuMetrics {
+            let cpuTime = cpuMetrics.cumulativeCPUTime.value
+            AppLogger.metrics.info("CPU - Cumulative time: \(cpuTime, format: .fixed(precision: 2))s")
             
-            if let cpuMetrics = payload.cpuMetrics {
-                let cpuTime = cpuMetrics.cumulativeCPUTime.value
-                AppLogger.metrics.info("CPU - Cumulative time: \(cpuTime, format: .fixed(precision: 2))s")
-                
-                if let instructionCount = cpuMetrics.cumulativeCPUInstructions {
-                    AppLogger.metrics.info("CPU - Instructions: \(instructionCount.value)")
-                }
-            }
-            
-            if let memoryMetrics = payload.memoryMetrics {
-                let peakMemoryMB = Double(memoryMetrics.peakMemoryUsage.value) / 1_048_576
-                AppLogger.metrics.info("Memory - Peak usage: \(peakMemoryMB, format: .fixed(precision: 2)) MB")
-                
-                let avgSuspendedMB = Double(memoryMetrics.averageSuspendedMemory.averageMeasurement.value) / 1_048_576
-                AppLogger.metrics.info("Memory - Avg suspended: \(avgSuspendedMB, format: .fixed(precision: 2)) MB")
-            }
-            
-            if let diskMetrics = payload.diskIOMetrics {
-                let writesKB = Double(diskMetrics.cumulativeLogicalWrites.value) / 1024
-                AppLogger.metrics.info("Disk - Cumulative writes: \(writesKB, format: .fixed(precision: 2)) KB")
-            }
-            
-            if let launchMetrics = payload.applicationLaunchMetrics {
-                if let firstDraw = launchMetrics.histogrammedTimeToFirstDraw.averageMeasurement {
-                    let launchTimeMs = firstDraw.value * 1000
-                    AppLogger.metrics.info("Launch - Avg time to first draw: \(launchTimeMs, format: .fixed(precision: 2)) ms")
-                }
-                
-                if let resumeTime = launchMetrics.histogrammedApplicationResumeTime.averageMeasurement {
-                    let resumeTimeMs = resumeTime.value * 1000
-                    AppLogger.metrics.info("Launch - Avg resume time: \(resumeTimeMs, format: .fixed(precision: 2)) ms")
-                }
-            }
-            
-            if let responsiveness = payload.applicationResponsivenessMetrics {
-                let hangTime = responsiveness.histogrammedApplicationHangTime.averageMeasurement?.value ?? 0
-                AppLogger.metrics.info("Responsiveness - Avg hang time: \(hangTime, format: .fixed(precision: 2))s")
-            }
-            
-            try storeLatestMetricsSummary(payload)
-        } catch {
-            AppLogger.metrics.error("Failed to process metric payload: \(error.localizedDescription)")
+            let instructionCount = cpuMetrics.cumulativeCPUInstructions
+            AppLogger.metrics.info("CPU - Instructions: \(instructionCount.value)")
         }
+        
+        if let memoryMetrics = payload.memoryMetrics {
+            let peakMemoryMB = Double(memoryMetrics.peakMemoryUsage.value) / 1_048_576
+            AppLogger.metrics.info("Memory - Peak usage: \(peakMemoryMB, format: .fixed(precision: 2)) MB")
+            
+            let avgSuspendedMB = Double(memoryMetrics.averageSuspendedMemory.averageMeasurement.value) / 1_048_576
+            AppLogger.metrics.info("Memory - Avg suspended: \(avgSuspendedMB, format: .fixed(precision: 2)) MB")
+        }
+        
+        if let diskMetrics = payload.diskIOMetrics {
+            let writesKB = Double(diskMetrics.cumulativeLogicalWrites.value) / 1024
+            AppLogger.metrics.info("Disk - Cumulative writes: \(writesKB, format: .fixed(precision: 2)) KB")
+        }
+        
+        if let launchMetrics = payload.applicationLaunchMetrics {
+            if let avgLaunchTime = calculateHistogramAverage(launchMetrics.histogrammedTimeToFirstDraw) {
+                let launchTimeMs = avgLaunchTime * 1000
+                AppLogger.metrics.info("Launch - Avg time to first draw: \(launchTimeMs, format: .fixed(precision: 2)) ms")
+            }
+            
+            if let avgResumeTime = calculateHistogramAverage(launchMetrics.histogrammedApplicationResumeTime) {
+                let resumeTimeMs = avgResumeTime * 1000
+                AppLogger.metrics.info("Launch - Avg resume time: \(resumeTimeMs, format: .fixed(precision: 2)) ms")
+            }
+        }
+        
+        if let responsiveness = payload.applicationResponsivenessMetrics {
+            let hangTime = calculateHistogramAverage(responsiveness.histogrammedApplicationHangTime) ?? 0
+            AppLogger.metrics.info("Responsiveness - Avg hang time: \(hangTime, format: .fixed(precision: 2))s")
+        }
+        
+        storeLatestMetricsSummary(payload)
     }
     
     private func processDiagnosticPayload(_ payload: MXDiagnosticPayload) {
@@ -146,7 +141,7 @@ final class MetricsManager: NSObject, MXMetricManagerSubscriber {
         }
     }
     
-    private func storeLatestMetricsSummary(_ payload: MXMetricPayload) throws {
+    private func storeLatestMetricsSummary(_ payload: MXMetricPayload) {
         let hangCount = calculateTotalHangCount(from: payload.applicationResponsivenessMetrics)
         
         let summary = MetricsSummary(
@@ -154,18 +149,37 @@ final class MetricsManager: NSObject, MXMetricManagerSubscriber {
             timestampEnd: payload.timeStampEnd,
             peakMemoryBytes: payload.memoryMetrics.map { Double($0.peakMemoryUsage.value) },
             cumulativeCPUSeconds: payload.cpuMetrics?.cumulativeCPUTime.value,
-            avgLaunchTimeSeconds: payload.applicationLaunchMetrics?.histogrammedTimeToFirstDraw.averageMeasurement?.value,
-            avgResumeTimeSeconds: payload.applicationLaunchMetrics?.histogrammedApplicationResumeTime.averageMeasurement?.value,
+            avgLaunchTimeSeconds: payload.applicationLaunchMetrics.flatMap { calculateHistogramAverage($0.histogrammedTimeToFirstDraw) },
+            avgResumeTimeSeconds: payload.applicationLaunchMetrics.flatMap { calculateHistogramAverage($0.histogrammedApplicationResumeTime) },
             cumulativeDiskWritesBytes: payload.diskIOMetrics.map { Double($0.cumulativeLogicalWrites.value) },
             hangCount: hangCount
         )
         
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        let data = try encoder.encode(summary)
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(summary)
+            
+            UserDefaults.standard.set(data, forKey: Self.summaryKey)
+            AppLogger.metrics.debug("Stored metrics summary to UserDefaults")
+        } catch {
+            AppLogger.metrics.error("Failed to encode metrics summary: \(error.localizedDescription)")
+        }
+    }
+    
+    private func calculateHistogramAverage<UnitType: Unit>(_ histogram: MXHistogram<UnitType>) -> Double? {
+        var totalValue: Double = 0
+        var totalCount: Int = 0
         
-        UserDefaults.standard.set(data, forKey: Self.summaryKey)
-        AppLogger.metrics.debug("Stored metrics summary to UserDefaults")
+        let enumerator = histogram.bucketEnumerator
+        while let bucket = enumerator.nextObject() as? MXHistogramBucket<UnitType> {
+            let bucketMidpoint = (bucket.bucketStart.value + bucket.bucketEnd.value) / 2.0
+            totalValue += bucketMidpoint * Double(bucket.bucketCount)
+            totalCount += bucket.bucketCount
+        }
+        
+        guard totalCount > 0 else { return nil }
+        return totalValue / Double(totalCount)
     }
     
     private func calculateTotalHangCount(from responsiveness: MXAppResponsivenessMetric?) -> Int? {
@@ -175,8 +189,8 @@ final class MetricsManager: NSObject, MXMetricManagerSubscriber {
         
         var totalCount = 0
         let enumerator = histogram.bucketEnumerator
-        while let bucket = enumerator.nextObject() as? MXHistogramBucket {
-            totalCount += bucket.bucketCount.intValue
+        while let bucket = enumerator.nextObject() as? MXHistogramBucket<UnitDuration> {
+            totalCount += bucket.bucketCount
         }
         
         return totalCount > 0 ? totalCount : nil
