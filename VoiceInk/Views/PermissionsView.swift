@@ -269,7 +269,6 @@ struct PermissionsView: View {
                             }
                         },
                         checkPermission: { permissionManager.checkAccessibilityPermissions() },
-                        infoTipTitle: "Accessibility Access",
                         infoTipMessage: "\(AppBrand.communityName) uses Accessibility permissions to paste the transcribed text directly into other applications at your cursor's position. This allows for a seamless dictation experience across your Mac."
                     )
                     
@@ -288,7 +287,6 @@ struct PermissionsView: View {
                             }
                         },
                         checkPermission: { permissionManager.checkScreenRecordingPermission() },
-                        infoTipTitle: "Screen Recording Access",
                         infoTipMessage: "\(AppBrand.communityName) captures on-screen text to understand the context of your voice input, which significantly improves transcription accuracy. Your privacy is important: this data is processed locally and is not stored.",
                         infoTipLink: "https://tryvoiceink.com/docs/contextual-awareness"
                     )

@@ -68,6 +68,11 @@ class ActiveWindowService: ObservableObject {
             await PowerModeSessionManager.shared.beginSession(with: config)
         }
     }
+
+    /// Backward-compatible alias used by older callers.
+    func applyConfigurationForCurrentApp() async {
+        await applyConfiguration()
+    }
     
     func captureApplicationContext() async -> ApplicationContext? {
         guard let frontmostApp = NSWorkspace.shared.frontmostApplication,

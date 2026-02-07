@@ -52,12 +52,6 @@ struct DashboardPromotionsSection: View {
         }
     }
 
-    private func dismissAffiliatePromotion() {
-        withAnimation(.easeInOut(duration: 0.3)) {
-            isAffiliatePromotionDismissed = true
-        }
-        UserDefaults.standard.affiliatePromotionDismissed = true
-    }
 }
 
 private struct DashboardPromotionCard: View {
@@ -69,6 +63,7 @@ private struct DashboardPromotionCard: View {
     let actionTitle: String
     let actionIcon: String
     let action: () -> Void
+    let onDismiss: (() -> Void)? = nil
     
     private static let defaultGradient: LinearGradient = LinearGradient(
         colors: [

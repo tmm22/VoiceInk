@@ -24,6 +24,7 @@ struct Localization {
         static let cancel = NSLocalizedString("Cancel", comment: "General cancel action")
         static let error = NSLocalizedString("Error", comment: "General error label")
         static let success = NSLocalizedString("Success", comment: "General success label")
+        static let learnMore = NSLocalizedString("Learn more", comment: "General learn more action")
     }
     
     enum Transcription {

@@ -13,7 +13,7 @@ struct TranscriptionListItem: View {
                 get: { isChecked },
                 set: { _ in onToggleCheck() }
             ))
-            .toggleStyle(CircularCheckboxStyle())
+            .toggleStyle(TranscriptionListCircularCheckboxStyle())
             .labelsHidden()
 
             VStack(alignment: .leading, spacing: 4) {
@@ -56,7 +56,7 @@ struct TranscriptionListItem: View {
     }
 }
 
-struct CircularCheckboxStyle: ToggleStyle {
+private struct TranscriptionListCircularCheckboxStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         Button(action: {
             configuration.isOn.toggle()

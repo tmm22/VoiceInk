@@ -47,7 +47,7 @@ extension TTSSettingsViewModel {
 
         Task.detached(priority: .utility) {
             do {
-                try LocalTTSService.removeCachedPocketVoiceEmbedding(for: voice.id)
+                try await LocalTTSService.removeCachedPocketVoiceEmbedding(for: voice.id)
             } catch {
                 AppLogger.audio.warning("Failed to remove cached Pocket voice embedding for \(voice.id): \(error.localizedDescription)")
             }

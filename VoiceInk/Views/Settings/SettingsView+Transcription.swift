@@ -52,3 +52,18 @@ extension SettingsView {
         }
     }
 }
+
+private struct ExperimentalFeaturesSection: View {
+    @AppStorage("enableAIEnhancementFeatures") private var enableAIEnhancementFeatures = false
+
+    var body: some View {
+        VoiceInkSection(
+            icon: "flask",
+            title: "Experimental",
+            subtitle: "Preview and advanced options"
+        ) {
+            Toggle("Enable advanced AI enhancement settings", isOn: $enableAIEnhancementFeatures)
+                .toggleStyle(.switch)
+        }
+    }
+}

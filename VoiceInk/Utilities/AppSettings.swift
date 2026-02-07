@@ -45,6 +45,7 @@ enum AppSettings {
         static let currentModel = "CurrentModel"
         static let isSystemMuteEnabled = "isSystemMuteEnabled"
         static let isPauseMediaEnabled = "isPauseMediaEnabled"
+        static let audioResumptionDelay = "audioResumptionDelay"
         static let lastUsedMicrophoneDeviceID = "lastUsedMicrophoneDeviceID"
         static let audioInputMode = "audioInputMode"
         static let selectedAudioDeviceUID = "selectedAudioDeviceUID"

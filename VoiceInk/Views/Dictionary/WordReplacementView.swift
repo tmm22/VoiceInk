@@ -221,6 +221,58 @@ struct WordReplacementView: View {
             Text(alertMessage)
         }
     }
+
+    private func addReplacement() {
+        let original = originalWord.trimmingCharacters(in: .whitespacesAndNewlines)
+        let replacement = replacementWord.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let tokens = original
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !tokens.isEmpty && !replacement.isEmpty else { return }
+
+        let newTokens = Set(tokens.map { $0.lowercased() })
+
+        for existingReplacement in wordReplacements {
+            let existingTokens = existingReplacement.originalText
+                .split(separator: ",")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+                .filter { !$0.isEmpty }
+
+            if let duplicate = existingTokens.first(where: { newTokens.contains($0) }) {
+                alertMessage = "'\(duplicate)' already exists in word replacements"
+                showAlert = true
+                return
+            }
+        }
+
+        let newReplacement = WordReplacement(originalText: original, replacementText: replacement)
+        modelContext.insert(newReplacement)
+
+        do {
+            try modelContext.save()
+            originalWord = ""
+            replacementWord = ""
+        } catch {
+            // Roll back the optimistic insert if persistence fails.
+            modelContext.delete(newReplacement)
+            alertMessage = "Failed to add replacement: \(error.localizedDescription)"
+            showAlert = true
+        }
+    }
+
+    private func removeReplacement(_ replacement: WordReplacement) {
+        modelContext.delete(replacement)
+
+        do {
+            try modelContext.save()
+        } catch {
+            modelContext.rollback()
+            alertMessage = "Failed to remove replacement: \(error.localizedDescription)"
+            showAlert = true
+        }
+    }
 }
 
 struct EmptyStateView: View {
@@ -421,58 +473,10 @@ struct AddReplacementSheet: View {
     private func addReplacement() {
         let original = originalWord.trimmingCharacters(in: .whitespacesAndNewlines)
         let replacement = replacementWord.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !original.isEmpty, !replacement.isEmpty else { return }
 
-        let tokens = original
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        guard !tokens.isEmpty && !replacement.isEmpty else { return }
-
-        // Check for duplicates
-        let newTokensPairs = tokens.map { (original: $0, lowercased: $0.lowercased()) }
-
-        for existingReplacement in wordReplacements {
-            let existingTokens = existingReplacement.originalText
-                .split(separator: ",")
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-                .filter { !$0.isEmpty }
-
-            for tokenPair in newTokensPairs {
-                if existingTokens.contains(tokenPair.lowercased) {
-                    alertMessage = "'\(tokenPair.original)' already exists in word replacements"
-                    showAlert = true
-                    return
-                }
-            }
-        }
-
-        // Add new replacement
-        let newReplacement = WordReplacement(originalText: original, replacementText: replacement)
-        modelContext.insert(newReplacement)
-
-        do {
-            try modelContext.save()
-            originalWord = ""
-            replacementWord = ""
-        } catch {
-            // Rollback the insert to maintain UI consistency
-            modelContext.delete(newReplacement)
-            alertMessage = "Failed to add replacement: \(error.localizedDescription)"
-            showAlert = true
-        }
-    }
-
-    private func removeReplacement(_ replacement: WordReplacement) {
-        modelContext.delete(replacement)
-
-        do {
-            try modelContext.save()
-        } catch {
-            // Rollback the delete to restore UI consistency
-            modelContext.rollback()
-            alertMessage = "Failed to remove replacement: \(error.localizedDescription)"
-            showAlert = true
-        }
+        manager.addReplacement(original: original, replacement: replacement)
+        dismiss()
     }
 }
 

@@ -301,11 +301,11 @@ class HotkeyManager: ObservableObject {
             pendingFnKeyState = isKeyPressed
             pendingFnEventTime = eventTime
             fnDebounceTask?.cancel()
-            fnDebounceTask = Task { [weak self, pendingState = isKeyPressed] in
+            fnDebounceTask = Task { [weak self, pendingState = isKeyPressed, pendingTime = eventTime] in
                 try? await Task.sleep(nanoseconds: 75_000_000) // 75ms
                 guard let self = self else { return }
                 if self.pendingFnKeyState == pendingState {
-                    self.processKeyPress(isKeyPressed: pendingState)
+                    self.processKeyPress(isKeyPressed: pendingState, eventTime: pendingTime)
                 }
             }
             return
@@ -317,15 +317,15 @@ class HotkeyManager: ObservableObject {
             return // Should not reach here
         }
 
-        processKeyPress(isKeyPressed: isKeyPressed)
+        processKeyPress(isKeyPressed: isKeyPressed, eventTime: eventTime)
     }
     
-    private func processKeyPress(isKeyPressed: Bool, eventTime: TimeInterval) async {
+    private func processKeyPress(isKeyPressed: Bool, eventTime: TimeInterval) {
         guard isKeyPressed != currentKeyState else { return }
         currentKeyState = isKeyPressed
 
         if isKeyPressed {
-            keyPressStartTime = Date()
+            keyPressEventTime = eventTime
 
             if isHandsFreeMode {
                 isHandsFreeMode = false
@@ -339,10 +339,8 @@ class HotkeyManager: ObservableObject {
                 whisperState.handleToggleMiniRecorder()
             }
         } else {
-            let now = Date()
-
-            if let startTime = keyPressStartTime {
-                let pressDuration = now.timeIntervalSince(startTime)
+            if let startTime = keyPressEventTime {
+                let pressDuration = eventTime - startTime
 
                 if pressDuration < briefPressThreshold {
                     isHandsFreeMode = true
@@ -352,7 +350,7 @@ class HotkeyManager: ObservableObject {
                 }
             }
 
-            keyPressStartTime = nil
+            keyPressEventTime = nil
         }
     }
     
@@ -365,7 +363,7 @@ class HotkeyManager: ObservableObject {
         guard !shortcutCurrentKeyState else { return }
         shortcutCurrentKeyState = true
         lastShortcutTriggerTime = Date()
-        shortcutKeyPressEventTime = eventTime
+        shortcutKeyPressEventTime = Date().timeIntervalSince1970
 
         if isShortcutHandsFreeMode {
             isShortcutHandsFreeMode = false
@@ -385,7 +383,7 @@ class HotkeyManager: ObservableObject {
         shortcutCurrentKeyState = false
 
         if let startTime = shortcutKeyPressEventTime {
-            let pressDuration = eventTime - startTime
+            let pressDuration = Date().timeIntervalSince1970 - startTime
 
             if pressDuration < briefPressThreshold {
                 isShortcutHandsFreeMode = true

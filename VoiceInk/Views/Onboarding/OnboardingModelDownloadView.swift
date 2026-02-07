@@ -198,10 +198,10 @@ struct OnboardingModelDownloadView: View {
                         VStack(alignment: .leading, spacing: 16) {
                             // Model name and details
                             VStack(alignment: .center, spacing: 8) {
-                                Text(turboModel.displayName)
+                                Text(turboModel?.displayName ?? "Turbo Model")
                                     .font(.headline)
                                     .foregroundColor(.white)
-                                Text("\(turboModel.size) • \(turboModel.language)")
+                                Text("\(turboModel?.size ?? "Unknown") • \(turboModel?.language ?? "Unknown")")
                                     .font(.caption)
                                     .foregroundColor(.white.opacity(0.7))
                             }
@@ -212,17 +212,18 @@ struct OnboardingModelDownloadView: View {
                             
                             // Performance indicators in a more compact layout
                             HStack(spacing: 20) {
-                                performanceIndicator(label: "Speed", value: turboModel.speed)
-                                performanceIndicator(label: "Accuracy", value: turboModel.accuracy)
-                                ramUsageLabel(gb: turboModel.ramUsage)
+                                performanceIndicator(label: "Speed", value: turboModel?.speed ?? 0)
+                                performanceIndicator(label: "Accuracy", value: turboModel?.accuracy ?? 0)
+                                ramUsageLabel(gb: turboModel?.ramUsage ?? 0)
                             }
                             .frame(maxWidth: .infinity, alignment: .center)
                             
                             // Download progress
                             if isDownloading {
                                 DownloadProgressView(
-                                    modelName: turboModel.name,
-                                    downloadProgress: whisperState.downloadProgress
+                                    modelName: turboModel?.name ?? "ggml-large-v3-turbo-q5_0",
+                                    downloadProgress: whisperState.downloadProgress,
+                                    supportsCoreML: turboModel?.supportsCoreMLEncoder ?? false
                                 )
                                 .transition(.opacity)
                             }

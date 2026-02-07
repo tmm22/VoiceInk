@@ -137,6 +137,17 @@ class AudioPlayerManager: ObservableObject {
         waveformSamples = samples
         isLoadingWaveform = false
     }
+
+    func cleanup() {
+        stopTimer()
+        audioPlayer?.stop()
+        audioPlayer = nil
+        isPlaying = false
+        currentTime = 0
+        duration = 0
+        waveformSamples = []
+        isLoadingWaveform = false
+    }
     
     deinit {
         timer?.invalidate()

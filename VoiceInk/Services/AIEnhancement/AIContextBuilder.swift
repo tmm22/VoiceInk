@@ -13,6 +13,7 @@ class AIContextBuilder {
     private let calendarService: CalendarService
     private let browserContentService: BrowserContentService
     private let conversationHistoryService: ConversationHistoryService?
+    private let modelContext: ModelContext?
     private let tokenBudgetManager: TokenBudgetManager
     private let cacheManager = ContextCacheManager.shared
     
@@ -42,6 +43,7 @@ class AIContextBuilder {
         self.selectedFileService = selectedFileService
         self.calendarService = calendarService
         self.browserContentService = browserContentService
+        self.modelContext = modelContext
         if let context = modelContext {
             self.conversationHistoryService = ConversationHistoryService(modelContext: context)
         } else {
@@ -249,9 +251,16 @@ class AIContextBuilder {
         }
         
         // Vocabulary
-        let vocabulary = customVocabularyService.getCustomVocabulary().components(separatedBy: ", ")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        let vocabulary: [String]
+        if let context = modelContext {
+            vocabulary = customVocabularyService
+                .getCustomVocabulary(from: context)
+                .components(separatedBy: ", ")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+        } else {
+            vocabulary = []
+        }
         
         // Temporal & Session & PowerMode & UserBio (Low token usage, pass through)
         let now = Date()

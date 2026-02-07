@@ -145,7 +145,8 @@ struct PowerModeView: View {
                     .frame(height: 1)
                     .padding(.horizontal, 24)
                 
-                if isReorderMode {
+                Group {
+                    if isReorderMode {
                     VStack(spacing: 12) {
                         List {
                             ForEach(powerModeManager.configurations) { config in
@@ -251,6 +252,7 @@ struct PowerModeView: View {
                                 }
                             }
                         }
+                    }
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -57,7 +57,7 @@ class Recorder: NSObject, ObservableObject {
     }
     
     private func configureAudioSession(with deviceID: AudioDeviceID) async throws {
-        try AudioDeviceConfiguration.setDefaultInputDevice(deviceID)
+        _ = deviceID
     }
     
     func startRecording(toOutputFile url: URL) async throws {

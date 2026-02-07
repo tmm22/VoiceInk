@@ -66,7 +66,8 @@ class PowerModeShortcutManager {
             return
         }
 
-        await whisperState.toggleMiniRecorder(powerModeId: powerModeId)
+        await ActiveWindowService.shared.applyConfiguration(powerModeId: powerModeId)
+        await whisperState.toggleMiniRecorder()
     }
     
     private func canProcessHotkeyAction(whisperState: WhisperState) -> Bool {

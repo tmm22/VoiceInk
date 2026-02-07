@@ -517,4 +517,16 @@ struct APIKeyManagementView: View {
         default: return nil
         }
     }
+
+    @ViewBuilder
+    private func bulletPoint(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text("•")
+                .foregroundColor(.secondary)
+            Text(text)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
 }

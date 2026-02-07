@@ -94,6 +94,7 @@ class ImportExportService {
             audioFeedbackSettings: soundManager.settings,
             isSystemMuteEnabled: mediaController.isSystemMuteEnabled,
             isPauseMediaEnabled: playbackController.isPauseMediaEnabled,
+            audioResumptionDelay: mediaController.audioResumptionDelay,
             isTextFormattingEnabled: AppSettings.TranscriptionSettings.isTextFormattingEnabled,
             isExperimentalFeaturesEnabled: AppSettings.General.isExperimentalFeaturesEnabled,
             restoreClipboardAfterPaste: AppSettings.Clipboard.restoreClipboardAfterPaste,

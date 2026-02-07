@@ -243,7 +243,6 @@ struct EnhancementSettingsView: View {
                     .padding(VoiceInkSpacing.lg)
                     .voiceInkCardBackground()
                     
-                    EnhancementShortcutsSection()
                 }
                 .opacity(enhancementService.isEnhancementEnabled ? 1.0 : 0.8)
                 

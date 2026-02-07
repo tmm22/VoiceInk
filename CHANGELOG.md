@@ -76,6 +76,14 @@ All notable changes to the VoiceLink Community application are documented here.
 - Performed parser-level verification across Swift sources with `swiftc -frontend -parse`.
 - Full `xcodebuild build/test` remains blocked in this sandbox environment due SwiftPM/package sandbox restrictions (`sandbox-exec: sandbox_apply: Operation not permitted`).
 
+### Build Recovery & Debug Validation
+- Resolved additional compile-time drift to restore a clean Debug build flow for TTS voice testing:
+  - Restored compatibility APIs and call sites in Power Mode (`ActiveWindowService`, `PowerModeShortcutManager`, `PowerModeView`, `PowerModeConfigView`).
+  - Fixed recorder/history/hotkey integration issues in `Recorder`, `HistoryWindowController`, and `HotkeyManager`.
+  - Reconciled UI and helper API mismatches in `InfoTip`, `PermissionsView`, `EnhancementSettingsView`, `EnhancementShortcutsView`, `DashboardPromotionsSection`, and `APIKeyManagementView`.
+  - Fixed dictionary/context/model download regressions in `WordReplacementView`, `AIContextBuilder`, and `OnboardingModelDownloadView`.
+- Completed a fresh clean Debug build with `xcodebuild ... clean build` (macOS destination, local derived data), producing `VoiceLink Community.app` successfully with warnings only.
+
 ## 2025-12-31
 
 ### Bug Fixes

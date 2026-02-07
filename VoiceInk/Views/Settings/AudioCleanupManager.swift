@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import OSLog
 
 /// A utility class that manages automatic cleanup of audio files while preserving transcript data
 @MainActor

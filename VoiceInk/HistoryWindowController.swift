@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import AppKit
 
+@MainActor
 class HistoryWindowController: NSObject, NSWindowDelegate {
     static let shared = HistoryWindowController()
 
@@ -30,7 +31,7 @@ class HistoryWindowController: NSObject, NSWindowDelegate {
     }
 
     private func createHistoryWindow(modelContainer: ModelContainer, whisperState: WhisperState) -> NSWindow {
-        let historyView = TranscriptionHistoryView()
+        let historyView = TranscriptionHistoryView(modelContext: modelContainer.mainContext)
             .modelContainer(modelContainer)
             .environmentObject(whisperState)
             .environmentObject(whisperState.enhancementService!)

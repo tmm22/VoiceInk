@@ -15,11 +15,19 @@ class MediaController: ObservableObject {
             AppSettings.Audio.isSystemMuteEnabled = isSystemMuteEnabled
         }
     }
+
+    var audioResumptionDelay: Double {
+        get { AppSettings.Audio.audioResumptionDelay }
+        set { AppSettings.Audio.audioResumptionDelay = max(0, newValue) }
+    }
     
     private init() {
         // Set default if not already set
         if !AppSettings.contains(key: AppSettings.Keys.isSystemMuteEnabled) {
             AppSettings.Audio.isSystemMuteEnabled = true
+        }
+        if !AppSettings.contains(key: AppSettings.Keys.audioResumptionDelay) {
+            AppSettings.Audio.audioResumptionDelay = 0
         }
     }
     

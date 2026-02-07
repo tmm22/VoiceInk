@@ -83,16 +83,21 @@ private struct EnhancementShortcutRow: View {
 
 private struct KeyChip: View {
     let label: String
+    var isActive: Bool? = nil
 
     var body: some View {
         Text(label)
             .font(.system(size: 12, weight: .medium, design: .monospaced))
-            .foregroundColor(.primary)
+            .foregroundColor(isActive == false ? .secondary : .primary)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(Color(NSColor.controlBackgroundColor))
+                    .fill(
+                        isActive == true
+                            ? Color.accentColor.opacity(0.18)
+                            : Color(NSColor.controlBackgroundColor)
+                    )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 4, style: .continuous)

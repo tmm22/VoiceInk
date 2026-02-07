@@ -23,6 +23,7 @@ struct ConfigurationView: View {
     @FocusState var isNameFieldFocused: Bool
     
     // State for configuration
+    @State var powerModeConfigId: UUID
     @State var configName: String = Localization.PowerMode.addNewPowerModeLabel
     @State var selectedEmoji: String = "💼"
     @State var isShowingEmojiPicker = false

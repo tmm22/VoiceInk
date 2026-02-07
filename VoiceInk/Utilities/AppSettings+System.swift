@@ -61,6 +61,11 @@ extension AppSettings {
             set { setValue(newValue, forKey: Keys.isPauseMediaEnabled) }
         }
 
+        static var audioResumptionDelay: Double {
+            get { double(forKey: Keys.audioResumptionDelay, default: 0) }
+            set { setValue(newValue, forKey: Keys.audioResumptionDelay) }
+        }
+
         static var audioRetentionPeriod: Int {
             get { integer(forKey: Keys.audioRetentionPeriod, default: 0) }
             set { setValue(newValue, forKey: Keys.audioRetentionPeriod) }
