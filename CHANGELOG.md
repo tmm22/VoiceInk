@@ -10,6 +10,25 @@ All notable changes to the VoiceLink Community application are documented here.
 - Updated `KeyboardShortcuts` `2.4.0` pin to current upstream tag revision `834156b492d82c4c003c680629dfad377a59a07f`.
 - Verified no newer pins were required for `AXSwift`, `KeySender`, `LaunchAtLogin-Modern`, `onnxruntime-swift-package-manager`, `Sparkle`, `swift-atomics`, and `Zip`.
 
+### Upstream Sync
+- Merged latest `upstream/main` into `custom-main-v2` via merge commit `087e7bf` (upstream tip at merge: `a4cee17`).
+- Preserved fork-prepared implementations during conflicts for:
+  - `VoiceInk/Views/KeyboardShortcutsListView.swift`
+  - `VoiceInk/Views/Settings/PowerModeSettingsSection.swift`
+  - `VoiceInk/Views/TranscriptionCard.swift`
+  - `VoiceInk/Views/TranscriptionHistoryView.swift`
+- Preserved fork deletion of `VoiceInk/Services/UserDefaultsManager.swift` during merge conflict resolution.
+
+### Standards Alignment
+- Fixed merge-side structural issue in `VoiceInk/PowerMode/PowerModeSessionManager.swift` and kept session lifecycle behavior coherent.
+- Added `@MainActor` to `VoiceInk/Services/FillerWordManager.swift` to align with strict concurrency guidance.
+- Replaced new unguarded runtime prints with structured logging/error handling in:
+  - `VoiceInk/MenuBarManager.swift`
+  - `VoiceInk/Services/ImportExportService.swift`
+  - `VoiceInk/Views/History/TranscriptionHistoryView.swift`
+  - `VoiceInk/Views/AI Models/CloudModelCardRowView.swift`
+- Removed redundant `MainActor.run` in `VoiceInk/PowerMode/ActiveWindowService.swift` where class isolation already guarantees main-actor execution.
+
 ## 2025-12-31
 
 ### Bug Fixes

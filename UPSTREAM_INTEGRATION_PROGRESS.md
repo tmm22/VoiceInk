@@ -1,8 +1,47 @@
 # Upstream Integration Progress
 
 **Date Started:** December 8, 2025  
-**Date Updated:** December 12, 2025  
+**Date Updated:** February 7, 2026  
 **Objective:** Incorporate upstream fixes from `Beingpax/VoiceInk` into VoiceLink Community fork
+
+---
+
+## Session 3: February 7, 2026
+
+**Objective:** Sync `custom-main-v2` to latest `upstream/main` while preserving fork-prepared behavior.
+
+### Sync Result
+
+- Upstream tip merged: `a4cee17` (`upstream/main` at merge time)
+- Fork merge commit: `087e7bf` (`Merge upstream/main into custom-main-v2`)
+- Divergence after merge: `0 behind / 293 ahead` versus `upstream/main`
+
+### Conflict Strategy Applied
+
+- Used fork-first conflict resolution where features were already prepared in this branch.
+- Preserved fork implementations for:
+  - `VoiceInk/Views/KeyboardShortcutsListView.swift`
+  - `VoiceInk/Views/Settings/PowerModeSettingsSection.swift`
+  - `VoiceInk/Views/TranscriptionCard.swift`
+  - `VoiceInk/Views/TranscriptionHistoryView.swift`
+- Preserved fork-side deletion of `VoiceInk/Services/UserDefaultsManager.swift`.
+
+### Post-Merge Standards Alignment
+
+- Fixed merged control-flow issue in `VoiceInk/PowerMode/PowerModeSessionManager.swift`.
+- Added missing `@MainActor` isolation to `VoiceInk/Services/FillerWordManager.swift`.
+- Replaced/contained newly introduced runtime prints via structured logging and explicit error handling in:
+  - `VoiceInk/MenuBarManager.swift`
+  - `VoiceInk/Services/ImportExportService.swift`
+  - `VoiceInk/Views/History/TranscriptionHistoryView.swift`
+  - `VoiceInk/Views/AI Models/CloudModelCardRowView.swift`
+- Removed redundant `MainActor.run` usage from `VoiceInk/PowerMode/ActiveWindowService.swift`.
+
+### Validation
+
+- Verified merge state has no unresolved conflicts.
+- Ran targeted syntax checks (`swiftc -parse`) on merge-sensitive files.
+- Full project test/build execution remains environment-dependent and should be re-run in local Xcode.
 
 ---
 
