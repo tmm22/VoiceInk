@@ -68,6 +68,9 @@ All notable changes to the VoiceLink Community application are documented here.
     - `VoiceInk/Views/Dictionary/VocabularyView.swift`
     - `VoiceInk/Views/Dictionary/DictionarySettingsView.swift`
 - Fixed `CustomCloudModel` API key property conflicts and initialization consistency in `VoiceInk/Models/TranscriptionModel.swift`.
+- Fixed a Debug launch crash caused by missing `whisper.framework` embedding:
+  - Restored `whisper.xcframework` build-file entries in `VoiceInk.xcodeproj/project.pbxproj` so the framework is properly linked and embedded in app bundles.
+  - Prevents `DYLD, Code 1, Library missing` on `@rpath/whisper.framework/Versions/Current/whisper`.
 
 ### Verification
 - Performed parser-level verification across Swift sources with `swiftc -frontend -parse`.
