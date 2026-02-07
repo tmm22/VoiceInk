@@ -273,6 +273,32 @@ struct CommandStripView: View {
                     Label("Preview Voices", systemImage: voicePreviewButtonIcon)
                 }
                 .disabled(settings.availableVoices.isEmpty)
+
+                if settings.canHideSelectedPocketVoice {
+                    Button(role: .destructive) {
+                        settings.hideSelectedPocketVoice()
+                    } label: {
+                        Label("Hide Selected Pocket Voice", systemImage: "eye.slash")
+                    }
+                }
+
+                if settings.hasHiddenPocketVoices {
+                    Menu {
+                        ForEach(settings.sortedHiddenPocketVoiceIDs, id: \.self) { voiceID in
+                            Button(settings.pocketVoiceDisplayName(for: voiceID)) {
+                                settings.restorePocketVoice(withID: voiceID)
+                            }
+                        }
+
+                        Divider()
+
+                        Button("Restore All Pocket Voices") {
+                            settings.restoreAllPocketVoices()
+                        }
+                    } label: {
+                        Label("Restore Hidden Pocket Voices", systemImage: "eye")
+                    }
+                }
             }
             
             Section("Text") {

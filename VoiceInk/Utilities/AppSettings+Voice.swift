@@ -79,6 +79,14 @@ extension AppSettings {
             }
             set { updateValue(newValue, forKey: Keys.ttsElevenLabsTags) }
         }
+
+        static var hiddenPocketVoiceIDs: [String]? {
+            get {
+                guard defaults.object(forKey: Keys.ttsHiddenPocketVoiceIDs) != nil else { return nil }
+                return defaults.array(forKey: Keys.ttsHiddenPocketVoiceIDs) as? [String] ?? []
+            }
+            set { updateValue(newValue, forKey: Keys.ttsHiddenPocketVoiceIDs) }
+        }
     }
 
     enum Transcription {

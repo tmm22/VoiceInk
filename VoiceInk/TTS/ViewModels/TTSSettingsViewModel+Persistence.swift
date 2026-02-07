@@ -120,6 +120,12 @@ extension TTSSettingsViewModel {
             normalizeElevenLabsTagsIfNeeded()
         }
 
+        if let storedHiddenPocketVoiceIDs = AppSettings.TTS.hiddenPocketVoiceIDs {
+            hiddenPocketVoiceIDs = Set(storedHiddenPocketVoiceIDs.filter { LocalTTSService.isPocketVoiceID($0) })
+        } else {
+            hiddenPocketVoiceIDs = []
+        }
+
         managedProvisioningEnabled = managedProvisioningClient.isEnabled
         managedProvisioningConfiguration = managedProvisioningClient.configuration
 

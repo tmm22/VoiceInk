@@ -187,6 +187,14 @@ final class TTSServiceTests: XCTestCase {
         let localService = LocalTTSService()
         XCTAssertFalse(localService.defaultVoice.id.hasPrefix("pocket-tts:"))
     }
+
+    func testLocalTTSPocketVoiceHelpers() {
+        XCTAssertTrue(LocalTTSService.isPocketVoiceID("pocket-tts:alba"))
+        XCTAssertFalse(LocalTTSService.isPocketVoiceID("com.apple.speech.synthesis.voice.samantha"))
+
+        XCTAssertEqual(LocalTTSService.pocketVoiceName(for: "pocket-tts:azelma"), "Pocket TTS - Azelma")
+        XCTAssertNil(LocalTTSService.pocketVoiceName(for: "not-a-pocket-voice"))
+    }
     
     // MARK: - AudioSettings Tests
     

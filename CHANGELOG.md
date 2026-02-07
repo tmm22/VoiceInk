@@ -39,6 +39,17 @@ All notable changes to the VoiceLink Community application are documented here.
 - Updated Tight Ass Mode format guidance in `VoiceInk/TTS/ViewModels/TTSSettingsViewModel+Computed.swift` to reflect on-device system + Pocket voice support.
 - Added regression tests in `VoiceInkTests/TTS/TTSServiceTests.swift` to verify Pocket voices are exposed and default selection remains a system voice.
 
+### TTS (Pocket Voice Visibility Controls)
+- Added user-controlled hide/restore behavior for Pocket voices in Tight Ass Mode so users can remove a voice from selection without uninstalling anything.
+- Added persisted hidden Pocket voice IDs in app settings (`hiddenPocketVoiceIDs`) with typed access via `AppSettings+Voice`.
+- Added `TTSSettingsViewModel+PocketVoices.swift` for centralized visibility filtering, hide/restore commands, and persistence.
+- Added best-effort removal of cached Pocket voice embeddings on hide at `~/.cache/fluidaudio/Models/kokoro/voices/<voice-id>.json`.
+- Added hide/restore controls in:
+  - TTS command strip
+  - TTS inspector voice section
+  - TTS settings general section (including restore-all)
+- Added regression tests in `VoiceInkTests/TTS/TTSViewModelTests.swift` for hide/restore filtering and persistence across view model instances.
+
 ### Build Stabilization
 - Resolved stale cloud transcription references:
   - Added retry/timeout constants in `VoiceInk/Services/CloudTranscription/GroqTranscriptionService.swift`.

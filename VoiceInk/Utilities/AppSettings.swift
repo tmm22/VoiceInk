@@ -19,6 +19,7 @@ enum AppSettings {
         static let ttsElevenLabsPrompt = "elevenLabs.prompt"
         static let ttsElevenLabsModel = "elevenLabs.model"
         static let ttsElevenLabsTags = "elevenLabs.tags"
+        static let ttsHiddenPocketVoiceIDs = "hiddenPocketVoiceIDs"
         static let ttsSelectedTranscriptionProvider = "selectedTranscriptionProvider"
         static let aiSelectedProvider = "selectedAIProvider"
         static let aiCustomProviderBaseURL = "customProviderBaseURL"

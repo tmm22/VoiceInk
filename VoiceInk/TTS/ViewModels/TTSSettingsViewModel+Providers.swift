@@ -7,7 +7,7 @@ extension TTSSettingsViewModel {
             requestElevenLabsVoices(for: elevenLabsModel)
         } else {
             elevenLabsVoiceTask?.cancel()
-            availableVoices = provider.availableVoices
+            availableVoices = visibleVoices(from: provider.availableVoices, providerType: selectedProvider)
             reconcileVoiceSelection(with: provider)
         }
         refreshStyleControls(for: selectedProvider)

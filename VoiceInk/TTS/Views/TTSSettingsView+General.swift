@@ -14,6 +14,8 @@ extension TTSSettingsView {
             appearanceSettingsGroup()
             
             notificationsSettingsGroup()
+
+            pocketVoiceSettingsGroup()
             
             cacheSettingsGroup()
             
@@ -96,6 +98,44 @@ extension TTSSettingsView {
         }
     }
     
+    // MARK: - Pocket Voice Settings
+    @ViewBuilder
+    private func pocketVoiceSettingsGroup() -> some View {
+        GroupBox("Pocket Voices") {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Hide Pocket voices you do not want to use. Hidden voices are removed from pickers and can be restored at any time.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                if settings.hasHiddenPocketVoices {
+                    ForEach(settings.sortedHiddenPocketVoiceIDs, id: \.self) { voiceID in
+                        HStack {
+                            Text(settings.pocketVoiceDisplayName(for: voiceID))
+                                .font(.caption)
+                            Spacer()
+                            Button("Restore") {
+                                settings.restorePocketVoice(withID: voiceID)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                    }
+
+                    Button("Restore All Hidden Pocket Voices") {
+                        settings.restoreAllPocketVoices()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                } else {
+                    Text("No Pocket voices are hidden.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.vertical, 8)
+        }
+    }
+
     // MARK: - Cache Settings
     @ViewBuilder
     private func cacheSettingsGroup() -> some View {

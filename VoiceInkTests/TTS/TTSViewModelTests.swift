@@ -10,9 +10,12 @@ final class TTSViewModelTests: XCTestCase {
     
     var viewModel: TTSViewModel!
     var cancellables: Set<AnyCancellable>!
+    var originalHiddenPocketVoiceIDs: [String]?
     
     override func setUp() async throws {
         try await super.setUp()
+        originalHiddenPocketVoiceIDs = AppSettings.TTS.hiddenPocketVoiceIDs
+        AppSettings.TTS.hiddenPocketVoiceIDs = nil
         viewModel = TTSViewModel()
         cancellables = Set<AnyCancellable>()
         
@@ -24,6 +27,8 @@ final class TTSViewModelTests: XCTestCase {
         cancellables?.removeAll()
         cancellables = nil
         viewModel = nil
+        AppSettings.TTS.hiddenPocketVoiceIDs = originalHiddenPocketVoiceIDs
+        originalHiddenPocketVoiceIDs = nil
         try await super.tearDown()
     }
     
@@ -300,6 +305,44 @@ final class TTSViewModelTests: XCTestCase {
         _ = viewModel.availableVoices
         
         XCTAssertNotNil(viewModel, "Should update voices after provider switch")
+    }
+
+    func testHideAndRestorePocketVoiceUpdatesAvailableVoices() throws {
+        viewModel.selectedProvider = .tightAss
+        viewModel.settings.updateAvailableVoices()
+
+        guard let pocketVoice = viewModel.availableVoices.first(where: { LocalTTSService.isPocketVoiceID($0.id) }) else {
+            throw XCTSkip("No Pocket voice available for testing")
+        }
+
+        viewModel.settings.hidePocketVoice(pocketVoice)
+
+        XCTAssertTrue(viewModel.settings.hiddenPocketVoiceIDs.contains(pocketVoice.id))
+        XCTAssertFalse(viewModel.availableVoices.contains(where: { $0.id == pocketVoice.id }))
+
+        viewModel.settings.restorePocketVoice(withID: pocketVoice.id)
+
+        XCTAssertFalse(viewModel.settings.hiddenPocketVoiceIDs.contains(pocketVoice.id))
+        XCTAssertTrue(viewModel.availableVoices.contains(where: { $0.id == pocketVoice.id }))
+    }
+
+    func testHiddenPocketVoicesPersistAcrossViewModelInstances() throws {
+        let localService = LocalTTSService()
+        guard let pocketVoice = localService.availableVoices.first(where: { LocalTTSService.isPocketVoiceID($0.id) }) else {
+            throw XCTSkip("No Pocket voice available for testing")
+        }
+
+        viewModel.settings.hidePocketVoice(pocketVoice)
+
+        let persistedIDs = Set(AppSettings.TTS.hiddenPocketVoiceIDs ?? [])
+        XCTAssertTrue(persistedIDs.contains(pocketVoice.id))
+
+        let secondViewModel = TTSViewModel()
+        secondViewModel.selectedProvider = .tightAss
+        secondViewModel.settings.updateAvailableVoices()
+
+        XCTAssertTrue(secondViewModel.settings.hiddenPocketVoiceIDs.contains(pocketVoice.id))
+        XCTAssertFalse(secondViewModel.availableVoices.contains(where: { $0.id == pocketVoice.id }))
     }
     
     // MARK: - Translation Tests

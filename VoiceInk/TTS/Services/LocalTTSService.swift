@@ -34,6 +34,34 @@ final class LocalTTSService: NSObject, TTSProvider {
         return systemVoices.first ?? LocalTTSService.fallbackVoice
     }
 
+    static var pocketVoiceIDs: [String] {
+        pocketVoices.map(\.id)
+    }
+
+    static func isPocketVoiceID(_ id: String) -> Bool {
+        pocketVoiceIdentifier(from: id) != nil
+    }
+
+    static func pocketVoiceName(for id: String) -> String? {
+        pocketVoices.first(where: { $0.id == id })?.name
+    }
+
+    static func removeCachedPocketVoiceEmbedding(for id: String) throws {
+        guard let pocketVoiceID = pocketVoiceIdentifier(from: id) else { return }
+
+        let cacheURL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".cache")
+            .appendingPathComponent("fluidaudio")
+            .appendingPathComponent("Models")
+            .appendingPathComponent("kokoro")
+            .appendingPathComponent("voices")
+            .appendingPathComponent("\(pocketVoiceID).json")
+
+        if FileManager.default.fileExists(atPath: cacheURL.path) {
+            try FileManager.default.removeItem(at: cacheURL)
+        }
+    }
+
     func hasValidAPIKey() -> Bool { true }
 
     func synthesizeSpeech(text: String, voice: Voice, settings: AudioSettings) async throws -> Data {

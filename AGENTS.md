@@ -1393,6 +1393,38 @@ GroupBox {
 }
 ```
 
+### Pocket TTS Voice Lifecycle (Hide / Restore)
+
+When working with Pocket voices in Tight Ass Mode, use this pattern so users can remove voices from selection without breaking defaults:
+
+1. **Voice ID conventions**
+- Pocket voices should use the `pocket-tts:<voice-id>` identifier format.
+- Keep Pocket voice identity checks centralized (for example, `isPocketVoiceID(_:)`) to avoid prefix drift.
+
+2. **Persist hidden state in settings**
+- Store hidden Pocket voice IDs in `AppSettings` as `[String]` (key: `hiddenPocketVoiceIDs`).
+- Expose a typed accessor in `AppSettings+Voice.swift` instead of reading raw `UserDefaults` in view models.
+
+3. **Filter in provider refresh path**
+- After loading provider voices, filter through a single helper (for example, `visibleVoices(from:providerType:)`) so all UI surfaces stay consistent.
+- Never mutate provider voice lists globally; apply filtering at view-model state level.
+
+4. **Hide behavior requirements**
+- When hiding the currently previewing voice, stop preview first.
+- Persist hidden IDs immediately after mutation.
+- Attempt best-effort cache cleanup for Pocket embedding files at:
+  - `~/.cache/fluidaudio/Models/kokoro/voices/<voice-id>.json`
+- Cache deletion must not fail the user flow; log and continue.
+
+5. **Restore behavior requirements**
+- Support restoring one voice and restoring all hidden voices.
+- Ensure restored voices reappear in all selection menus after provider refresh.
+
+6. **Required regression tests**
+- Add service tests for Pocket voice helper APIs (voice IDs/name mapping/detection).
+- Add view-model tests for hide/restore filtering and persistence across new VM instances.
+- Test setup/teardown should preserve and restore `AppSettings.TTS.hiddenPocketVoiceIDs` to avoid cross-test pollution.
+
 ### Adding a Cloud Transcription Provider
 
 1. **Create Service**

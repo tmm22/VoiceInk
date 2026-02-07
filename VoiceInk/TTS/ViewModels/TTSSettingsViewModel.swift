@@ -13,6 +13,13 @@ final class TTSSettingsViewModel: ObservableObject {
     }
     @Published var selectedVoice: Voice?
     @Published var availableVoices: [Voice] = []
+    @Published var hiddenPocketVoiceIDs: Set<String> = [] {
+        didSet {
+            guard hiddenPocketVoiceIDs != oldValue else { return }
+            guard !isLoadingSettings else { return }
+            persistHiddenPocketVoiceIDs()
+        }
+    }
     @Published var isMinimalistMode: Bool = false {
         didSet {
             guard isMinimalistMode != oldValue else { return }
