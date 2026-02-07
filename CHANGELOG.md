@@ -2,6 +2,14 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-02-07
+
+### Dependencies
+- Updated Swift Package pin for **FluidAudio** to revision `b354014c37b8aa7705aeaabcbb234c80ba93aae0` in both Xcode package references and `Package.resolved`.
+- Updated `mediaremote-adapter` (branch `master`) pin to revision `979bd77540b7f1389d294cc49e8bb2aa9675ed6b`.
+- Updated `KeyboardShortcuts` `2.4.0` pin to current upstream tag revision `834156b492d82c4c003c680629dfad377a59a07f`.
+- Verified no newer pins were required for `AXSwift`, `KeySender`, `LaunchAtLogin-Modern`, `onnxruntime-swift-package-manager`, `Sparkle`, `swift-atomics`, and `Zip`.
+
 ## 2025-12-31
 
 ### Bug Fixes
