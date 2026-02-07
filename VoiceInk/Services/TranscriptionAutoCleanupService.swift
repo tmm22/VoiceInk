@@ -32,8 +32,9 @@ final class TranscriptionAutoCleanupService {
             Task { [weak self] in
                 guard let self = self, let modelContext = self.modelContext else { return }
                 await self.sweepOldTranscriptions(modelContext: modelContext)
+                await self.cleanupOrphanAudioFiles(modelContext: modelContext)
             }
-        } else {}
+        }
     }
 
     func stopMonitoring() {
@@ -50,7 +51,6 @@ final class TranscriptionAutoCleanupService {
 
         let minutes = AppSettings.Cleanup.transcriptionRetentionMinutes
         if minutes > 0 {
-            // Trigger a sweep based on the retention window
             if let modelContext = self.modelContext {
                 Task { [weak self] in
                     guard let self = self else { return }

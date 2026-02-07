@@ -108,7 +108,6 @@ struct EmojiPickerView: View {
             }
         }
         .padding()
-        .background(.regularMaterial)
         .frame(minWidth: 260, idealWidth: 300, maxWidth: 320, minHeight: 150, idealHeight: 280, maxHeight: 350)
         .alert(Localization.PowerMode.emojiInUseTitle, isPresented: $showingEmojiInUseAlert, presenting: emojiForAlert) { _ in
             Button(Localization.PowerMode.okButton, role: .cancel) { }
@@ -176,10 +175,6 @@ private struct EmojiButton: View {
                 Text(emoji)
                     .font(.largeTitle) 
                     .frame(width: 44, height: 44)
-                    .background(
-                        Circle()
-                            .fill(isSelected ? Color.accentColor.opacity(0.25) : Color.clear)
-                    )
                     .overlay( 
                         Circle()
                             .strokeBorder(isSelected ? Color.accentColor : Color.gray.opacity(0.3), lineWidth: isSelected ? 2 : 1)
@@ -212,10 +207,6 @@ private struct AddEmojiButton: View {
                 .labelStyle(.iconOnly)
                 .foregroundColor(.accentColor)
                 .frame(width: 44, height: 44)
-                .background(
-                    Circle()
-                        .fill(Color.secondary.opacity(0.1))
-                )
                 .overlay(
                     Circle()
                         .strokeBorder(Color.gray.opacity(0.3), lineWidth: 1)

@@ -1,10 +1,11 @@
 import Foundation
 import AppKit
 import UniformTypeIdentifiers
+import SwiftData
 
 struct DictionaryExportData: Codable {
     let version: String
-    let dictionaryItems: [String]
+    let vocabularyWords: [String]
     let wordReplacements: [String: String]
     let exportDate: Date
 }
@@ -14,7 +15,8 @@ class DictionaryImportExportService {
 
     private init() {}
 
-    func exportDictionary() {
+    func exportDictionary(from context: ModelContext) {
+        // Fetch vocabulary words from SwiftData
         var dictionaryWords: [String] = []
         if let data = AppSettings.Dictionary.customVocabularyItemsData,
            let items = try? JSONDecoder().decode([DictionaryItem].self, from: data) {
@@ -27,7 +29,7 @@ class DictionaryImportExportService {
 
         let exportData = DictionaryExportData(
             version: version,
-            dictionaryItems: dictionaryWords,
+            vocabularyWords: dictionaryWords,
             wordReplacements: wordReplacements,
             exportDate: Date()
         )
@@ -43,7 +45,7 @@ class DictionaryImportExportService {
             savePanel.allowedContentTypes = [UTType.json]
             savePanel.nameFieldStringValue = "VoiceInk_Dictionary.json"
             savePanel.title = "Export Dictionary Data"
-            savePanel.message = "Choose a location to save your dictionary items and word replacements."
+            savePanel.message = "Choose a location to save your vocabulary and word replacements."
 
             Task { @MainActor in
                 if savePanel.runModal() == .OK {
@@ -64,7 +66,7 @@ class DictionaryImportExportService {
         }
     }
 
-    func importDictionary() {
+    func importDictionary(into context: ModelContext) {
         let openPanel = NSOpenPanel()
         openPanel.allowedContentTypes = [UTType.json]
         openPanel.canChooseFiles = true

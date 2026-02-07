@@ -1,4 +1,5 @@
 import Foundation
+import KeyboardShortcuts
 
 struct PowerModeConfig: Codable, Identifiable, Equatable {
     var id: UUID
@@ -16,9 +17,10 @@ struct PowerModeConfig: Codable, Identifiable, Equatable {
     var isAutoSendEnabled: Bool = false
     var isEnabled: Bool = true
     var isDefault: Bool = false
+    var hotkeyShortcut: String? = nil
         
     enum CodingKeys: String, CodingKey {
-        case id, name, emoji, appConfigs, urlConfigs, isAIEnhancementEnabled, selectedPrompt, selectedLanguage, useScreenCapture, selectedAIProvider, selectedAIModel, isAutoSendEnabled, isEnabled, isDefault
+        case id, name, emoji, appConfigs, urlConfigs, isAIEnhancementEnabled, selectedPrompt, selectedLanguage, useScreenCapture, selectedAIProvider, selectedAIModel, isAutoSendEnabled, isEnabled, isDefault, hotkeyShortcut
         case selectedWhisperModel
         case selectedTranscriptionModelName
     }
@@ -26,7 +28,7 @@ struct PowerModeConfig: Codable, Identifiable, Equatable {
     init(id: UUID = UUID(), name: String, emoji: String, appConfigs: [AppConfig]? = nil,
          urlConfigs: [URLConfig]? = nil, isAIEnhancementEnabled: Bool, selectedPrompt: String? = nil,
          selectedTranscriptionModelName: String? = nil, selectedLanguage: String? = nil, useScreenCapture: Bool = false,
-         selectedAIProvider: String? = nil, selectedAIModel: String? = nil, isAutoSendEnabled: Bool = false, isEnabled: Bool = true, isDefault: Bool = false) {
+         selectedAIProvider: String? = nil, selectedAIModel: String? = nil, isAutoSendEnabled: Bool = false, isEnabled: Bool = true, isDefault: Bool = false, hotkeyShortcut: String? = nil) {
         self.id = id
         self.name = name
         self.emoji = emoji
@@ -42,6 +44,7 @@ struct PowerModeConfig: Codable, Identifiable, Equatable {
         self.selectedLanguage = selectedLanguage ?? AppSettings.TranscriptionSettings.selectedLanguage ?? "en"
         self.isEnabled = isEnabled
         self.isDefault = isDefault
+        self.hotkeyShortcut = hotkeyShortcut
     }
 
     init(from decoder: Decoder) throws {
@@ -60,6 +63,7 @@ struct PowerModeConfig: Codable, Identifiable, Equatable {
         isAutoSendEnabled = try container.decodeIfPresent(Bool.self, forKey: .isAutoSendEnabled) ?? false
         isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
         isDefault = try container.decodeIfPresent(Bool.self, forKey: .isDefault) ?? false
+        hotkeyShortcut = try container.decodeIfPresent(String.self, forKey: .hotkeyShortcut)
 
         if let newModelName = try container.decodeIfPresent(String.self, forKey: .selectedTranscriptionModelName) {
             selectedTranscriptionModelName = newModelName
@@ -87,6 +91,7 @@ struct PowerModeConfig: Codable, Identifiable, Equatable {
         try container.encodeIfPresent(selectedTranscriptionModelName, forKey: .selectedTranscriptionModelName)
         try container.encode(isEnabled, forKey: .isEnabled)
         try container.encode(isDefault, forKey: .isDefault)
+        try container.encodeIfPresent(hotkeyShortcut, forKey: .hotkeyShortcut)
     }
     
     
@@ -158,6 +163,7 @@ class PowerModeManager: ObservableObject {
         } catch {
             AppLogger.storage.error("Failed to encode Power Mode configs: \(error.localizedDescription)")
         }
+        NotificationCenter.default.post(name: NSNotification.Name("PowerModeConfigurationsDidChange"), object: nil)
     }
 
     func addConfiguration(_ config: PowerModeConfig) {
@@ -168,6 +174,7 @@ class PowerModeManager: ObservableObject {
     }
 
     func removeConfiguration(with id: UUID) {
+        KeyboardShortcuts.setShortcut(nil, for: .powerMode(id: id))
         configurations.removeAll { $0.id == id }
         saveConfigurations()
     }
@@ -229,18 +236,18 @@ class PowerModeManager: ObservableObject {
         return configurations.contains { $0.isDefault }
     }
     
-    func setAsDefault(configId: UUID) {
-        // Clear any existing default
+    func setAsDefault(configId: UUID, skipSave: Bool = false) {
         for index in configurations.indices {
             configurations[index].isDefault = false
         }
-        
-        // Set the specified config as default
+
         if let index = configurations.firstIndex(where: { $0.id == configId }) {
             configurations[index].isDefault = true
         }
-        
-        saveConfigurations()
+
+        if !skipSave {
+            saveConfigurations()
+        }
     }
     
     func enableConfiguration(with id: UUID) {

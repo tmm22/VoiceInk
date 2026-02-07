@@ -24,6 +24,7 @@ struct GeneralSettings: Codable {
     let audioFeedbackSettings: AudioFeedbackSettings?
     let isSystemMuteEnabled: Bool?
     let isPauseMediaEnabled: Bool?
+    let audioResumptionDelay: Double?
     let isTextFormattingEnabled: Bool?
     let isExperimentalFeaturesEnabled: Bool?
     let restoreClipboardAfterPaste: Bool?
@@ -34,7 +35,7 @@ struct VoiceLinkCommunityExportedSettings: Codable {
     let version: String
     let customPrompts: [CustomPrompt]
     let powerModeConfigs: [PowerModeConfig]
-    let dictionaryItems: [DictionaryItem]?
+    let vocabularyWords: [VocabularyWordData]?
     let wordReplacements: [String: String]?
     let generalSettings: GeneralSettings?
     let customEmojis: [String]?
@@ -103,7 +104,7 @@ class ImportExportService {
             version: currentSettingsVersion,
             customPrompts: exportablePrompts,
             powerModeConfigs: powerConfigs,
-            dictionaryItems: exportedDictionaryItems,
+            vocabularyWords: exportedDictionaryItems,
             wordReplacements: exportedWordReplacements,
             generalSettings: generalSettingsToExport,
             customEmojis: emojiManager.customEmojis,
@@ -196,13 +197,19 @@ class ImportExportService {
                     }
 
                     if let itemsToImport = importedSettings.dictionaryItems {
-                        if let encoded = try? JSONEncoder().encode(itemsToImport) {
+                        do {
+                            let encoded = try JSONEncoder().encode(itemsToImport)
                             AppSettings.Dictionary.customVocabularyItemsData = encoded
+                            try whisperState.modelContext.save()
+                            self.logger.info("Successfully imported vocabulary words to SwiftData.")
+                        } catch {
+                            self.logger.error("Failed to import vocabulary words to SwiftData: \(error.localizedDescription)")
                         }
                     } else {
                         self.logger.info("No custom vocabulary items (for spelling) found in the imported file. Existing items remain unchanged.")
                     }
 
+                    // Import word replacements to SwiftData
                     if let replacementsToImport = importedSettings.wordReplacements {
                         AppSettings.Dictionary.wordReplacements = replacementsToImport
                     } else {
@@ -265,6 +272,9 @@ class ImportExportService {
                         if let pauseMedia = general.isPauseMediaEnabled {
                             playbackController.isPauseMediaEnabled = pauseMedia
                         }
+                        if let audioDelay = general.audioResumptionDelay {
+                            mediaController.audioResumptionDelay = audioDelay
+                        }
                         if let experimentalEnabled = general.isExperimentalFeaturesEnabled {
                             AppSettings.General.isExperimentalFeaturesEnabled = experimentalEnabled
                             if experimentalEnabled == false {
@@ -279,6 +289,12 @@ class ImportExportService {
                         }
                         if let clipboardDelay = general.clipboardRestoreDelay {
                             AppSettings.Clipboard.clipboardRestoreDelay = clipboardDelay
+                        }
+                        if let restoreClipboard = general.restoreClipboardAfterPaste {
+                            UserDefaults.standard.set(restoreClipboard, forKey: "restoreClipboardAfterPaste")
+                        }
+                        if let clipboardDelay = general.clipboardRestoreDelay {
+                            UserDefaults.standard.set(clipboardDelay, forKey: "clipboardRestoreDelay")
                         }
                     }
 

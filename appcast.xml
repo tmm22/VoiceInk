@@ -3,20 +3,21 @@
     <channel>
         <title>VoiceLink Community Releases</title>
         <item>
-            <title>1.61</title>
-            <pubDate>Sat, 08 Nov 2025 11:50:19 +0545</pubDate>
-            <sparkle:version>161</sparkle:version>
-            <sparkle:shortVersionString>1.61</sparkle:shortVersionString>
+            <title>1.69</title>
+            <pubDate>Sun, 12 Jan 2026 12:00:00 +0545</pubDate>
+            <sparkle:version>169</sparkle:version>
+            <sparkle:shortVersionString>1.69</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 
-                <h3>What's New in Version 1.61</h3>
+                <h3>What's New in Version 1.69</h3>
                 <ul>
-                    <li>Minor improvements and fixes</li>
+                    <li>Fix recording Issue</li>
+                    <li>Added export logs option in settings</li>
                 </ul>
 
             ]]></description>
-            <enclosure url="https://github.com/Beingpax/VoiceInk/releases/download/v1.61/VoiceInk.dmg" length="24558601" type="application/octet-stream" sparkle:edSignature="SoDJAIDhAQXA7FvRqgF0a1zTKNKhYQxCvNjylNJkj4SBgZmQfNDFq9GZogk3uIPS12LJBvuk9Gu714fJ7MMmBg=="/>
+            <enclosure url="https://github.com/Beingpax/VoiceInk/releases/download/v1.69/VoiceInk.dmg" length="10786047" type="application/octet-stream" sparkle:edSignature="tPVfTDY+CKBMxW5EW+KsbhsH5YiVDyY9VFplI71EiDu56GZu0fWxd/p/V2WRdPHX+8FKfVpmSJwhzVgCHL7FBg=="/>
         </item>
     </channel>
 </rss>

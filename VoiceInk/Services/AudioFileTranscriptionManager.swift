@@ -66,10 +66,10 @@ class AudioTranscriptionManager: ObservableObject {
                 guard let currentModel = whisperState.currentTranscriptionModel else {
                     throw TranscriptionError.noModelSelected
                 }
-                
-                // Initialize local transcription service if needed
-                if localTranscriptionService == nil {
-                    localTranscriptionService = LocalTranscriptionService(modelsDirectory: whisperState.modelsDirectory, whisperState: whisperState)
+
+                let serviceRegistry = TranscriptionServiceRegistry(whisperState: whisperState, modelsDirectory: whisperState.modelsDirectory)
+                defer {
+                    serviceRegistry.cleanup()
                 }
                 
                 // Initialize parakeet transcription service if needed
@@ -88,15 +88,14 @@ class AudioTranscriptionManager: ObservableObject {
                 // Get audio duration
                 let audioAsset = AVURLAsset(url: url)
                 let duration = CMTimeGetSeconds(try await audioAsset.load(.duration))
-                
-                // Create permanent copy of the audio file
+
                 let recordingsDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                     .appendingPathComponent("com.tmm22.VoiceLinkCommunity")
                     .appendingPathComponent("Recordings")
-                
+
                 let fileName = "transcribed_\(UUID().uuidString).wav"
                 let permanentURL = recordingsDirectory.appendingPathComponent(fileName)
-                
+
                 try FileManager.default.createDirectory(at: recordingsDirectory, withIntermediateDirectories: true)
                 try await audioProcessor.transcodeToWhisperWav(from: url, to: permanentURL)
                 
@@ -140,7 +139,7 @@ class AudioTranscriptionManager: ObservableObject {
                     text = WhisperTextFormatter.format(text)
                 }
 
-                text = WordReplacementService.shared.applyReplacements(to: text)
+                text = WordReplacementService.shared.applyReplacements(to: text, using: modelContext)
                 
                 // Handle enhancement if enabled
                 if let enhancementService = whisperState.enhancementService,
@@ -168,6 +167,7 @@ class AudioTranscriptionManager: ObservableObject {
                         modelContext.insert(transcription)
                         try modelContext.save()
                         NotificationCenter.default.post(name: .transcriptionCreated, object: transcription)
+                        NotificationCenter.default.post(name: .transcriptionCompleted, object: transcription)
                         currentTranscription = transcription
                     } catch {
                         logger.error("Enhancement failed: \(error.localizedDescription)")
@@ -184,6 +184,7 @@ class AudioTranscriptionManager: ObservableObject {
                         modelContext.insert(transcription)
                         try modelContext.save()
                         NotificationCenter.default.post(name: .transcriptionCreated, object: transcription)
+                        NotificationCenter.default.post(name: .transcriptionCompleted, object: transcription)
                         currentTranscription = transcription
                     }
                 } else {
@@ -200,6 +201,7 @@ class AudioTranscriptionManager: ObservableObject {
                     modelContext.insert(transcription)
                     try modelContext.save()
                     NotificationCenter.default.post(name: .transcriptionCreated, object: transcription)
+                    NotificationCenter.default.post(name: .transcriptionCompleted, object: transcription)
                     currentTranscription = transcription
                 }
                 

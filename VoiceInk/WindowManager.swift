@@ -108,13 +108,13 @@ final class WindowManager: NSObject {
         if let window = mainWindow {
             return window
         }
-        
+
         if let window = NSApplication.shared.windows.first(where: { $0.identifier == Self.mainWindowIdentifier }) {
             mainWindow = window
             window.delegate = self
             return window
         }
-        
+
         return nil
     }
 }

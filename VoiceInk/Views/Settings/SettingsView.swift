@@ -160,7 +160,7 @@ struct SettingsView: View {
                 }
             }
         } message: {
-            Text("Are you sure you want to reset the onboarding? You'll see the introduction screens again the next time you launch the app.")
+            Text("You'll see the introduction screens again the next time you launch the app.")
         }
         .sheet(isPresented: $showTrashView) {
             TrashView(modelContext: whisperState.modelContext)
@@ -182,7 +182,7 @@ struct SettingsView: View {
     func updateTrashCount() {
         trashItemCount = TrashCleanupService.shared.getTrashCount(modelContext: whisperState.modelContext)
     }
-    
+
     @ViewBuilder
     private func settingsContent(for tab: SettingsTab) -> some View {
         switch tab {

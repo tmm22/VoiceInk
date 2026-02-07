@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 extension View {
     func placeholder<Content: View>(
@@ -69,6 +70,7 @@ struct PowerModeView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             VStack(spacing: 0) {
+                // Header Section
                 VStack(spacing: 12) {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
@@ -135,6 +137,8 @@ struct PowerModeView: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
                 .padding(.bottom, 16)
+                .frame(maxWidth: .infinity)
+                .background(Color(NSColor.windowBackgroundColor))
                 
                 Rectangle()
                     .fill(Color(NSColor.separatorColor))
@@ -220,35 +224,80 @@ struct PowerModeView: View {
                                                 Text(String(format: Localization.PowerMode.createFirstPowerMode, AppBrand.communityName))
                                                     .font(.system(size: 14))
                                                     .foregroundColor(.secondary)
-                                                    .multilineTextAlignment(.center)
-                                                    .lineSpacing(2)
                                             }
                                         }
-                                        
-                                        Spacer()
                                     }
-                                    .frame(maxWidth: .infinity)
-                                    .frame(minHeight: geometry.size.height)
-                                } else {
-                                    VStack(spacing: 0) {
-                                        PowerModeConfigurationsGrid(
-                                            powerModeManager: powerModeManager,
-                                            onEditConfig: { config in
-                                                configurationMode = .edit(config)
-                                                navigationPath.append(configurationMode!)
+                                    .padding(.vertical, 12)
+                                    .padding(.horizontal, 14)
+                                    .background(CardBackground(isSelected: false))
+                                    .listRowInsets(EdgeInsets())
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                                    .padding(.vertical, 6)
+                                }
+                                .onMove(perform: powerModeManager.moveConfigurations)
+                            }
+                            .listStyle(.plain)
+                            .listRowSeparator(.hidden)
+                            .scrollContentBackground(.hidden)
+                            .background(Color(NSColor.controlBackgroundColor))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 20)
+                    } else {
+                        GeometryReader { geometry in
+                            ScrollView {
+                                VStack(spacing: 0) {
+                                    if powerModeManager.configurations.isEmpty {
+                                        VStack(spacing: 24) {
+                                            Spacer()
+                                                .frame(height: geometry.size.height * 0.2)
+                                            
+                                            VStack(spacing: 16) {
+                                                Image(systemName: "square.grid.2x2.fill")
+                                                    .font(.system(size: 48, weight: .regular))
+                                                    .foregroundColor(.secondary.opacity(0.6))
+                                                
+                                                VStack(spacing: 8) {
+                                                    Text("No Power Modes Yet")
+                                                        .font(.system(size: 20, weight: .medium))
+                                                        .foregroundColor(.primary)
+                                                    
+                                                    Text("Create first power mode to automate your VoiceInk workflow based on apps/website you are using")
+                                                        .font(.system(size: 14))
+                                                        .foregroundColor(.secondary)
+                                                        .multilineTextAlignment(.center)
+                                                        .lineSpacing(2)
+                                                }
                                             }
-                                        )
-                                        .padding(.horizontal, 24)
-                                        .padding(.vertical, 20)
-                                        
-                                        Spacer()
-                                            .frame(height: 40)
+                                            
+                                            Spacer()
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .frame(minHeight: geometry.size.height)
+                                    } else {
+                                        VStack(spacing: 0) {
+                                            PowerModeConfigurationsGrid(
+                                                powerModeManager: powerModeManager,
+                                                onEditConfig: { config in
+                                                    configurationMode = .edit(config)
+                                                    navigationPath.append(configurationMode!)
+                                                }
+                                            )
+                                            .padding(.horizontal, 24)
+                                            .padding(.vertical, 20)
+                                            
+                                            Spacer()
+                                                .frame(height: 40)
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(NSColor.controlBackgroundColor))
             }
             .background(Color(NSColor.controlBackgroundColor))
             .navigationDestination(for: ConfigurationMode.self) { mode in
@@ -259,11 +308,9 @@ struct PowerModeView: View {
 }
 
 
-
-// New component for section headers
 struct SectionHeader: View {
     let title: String
-    
+
     var body: some View {
         Text(title)
             .font(.system(size: 16, weight: .bold))

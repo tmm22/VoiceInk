@@ -61,7 +61,7 @@ extension WhisperState {
         
         recordingState = .idle
     }
-    
+
     func resetOnLaunch() async {
         // Reset state on app launch
         isMiniRecorderVisible = false
@@ -85,12 +85,14 @@ extension WhisperState {
     // Keeping these methods for backward compatibility
 
     @objc public func handleToggleMiniRecorder() {
+        logger.notice("handleToggleMiniRecorder: .toggleMiniRecorder notification received")
         Task {
             await toggleMiniRecorder()
         }
     }
 
     @objc public func handleDismissMiniRecorder() {
+        logger.notice("handleDismissMiniRecorder: .dismissMiniRecorder notification received")
         Task {
             await dismissMiniRecorder()
         }

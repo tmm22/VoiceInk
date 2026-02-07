@@ -102,7 +102,7 @@ struct CloudModel: TranscriptionModel {
     }
 }
 
-// A new struct for custom cloud models
+/// Custom cloud model with API key stored in Keychain.
 struct CustomCloudModel: TranscriptionModel, Codable {
     let id: UUID
     let name: String
@@ -147,7 +147,12 @@ struct CustomCloudModel: TranscriptionModel, Codable {
         Self.secureEndpointURL(from: apiEndpoint)
     }
 
-    init(id: UUID = UUID(), name: String, displayName: String, description: String, apiEndpoint: String, apiKey: String, modelName: String, isMultilingual: Bool = true, supportedLanguages: [String: String]? = nil) {
+    /// API key retrieved from Keychain by model ID.
+    var apiKey: String {
+        APIKeyManager.shared.getCustomModelAPIKey(forModelId: id) ?? ""
+    }
+
+    init(id: UUID = UUID(), name: String, displayName: String, description: String, apiEndpoint: String, modelName: String, isMultilingual: Bool = true, supportedLanguages: [String: String]? = nil) {
         self.id = id
         self.name = name
         self.displayName = displayName

@@ -279,7 +279,7 @@ struct CloudModelCardView: View {
         aiService.selectedProvider = aiProvider
         
         aiService.saveAPIKey(apiKey) { isValid, errorMessage in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self.isVerifying = false
                 if isValid {
                     self.verificationStatus = .success
@@ -295,7 +295,7 @@ struct CloudModelCardView: View {
                         return
                     }
                     self.isConfiguredState = true
-                    
+
                     // Collapse the configuration section after successful verification
                     withAnimation(.easeInOut(duration: 0.3)) {
                         self.isExpanded = false
@@ -304,31 +304,30 @@ struct CloudModelCardView: View {
                     self.verificationStatus = .failure
                     self.verificationError = errorMessage
                 }
-                
-                // Restore original provider
-                // aiService.selectedProvider = originalProvider // This line was removed as per the new_code
             }
         }
     }
     
     private func clearAPIKey() {
         let keychain = KeychainManager()
-        try? keychain.deleteAPIKey(for: providerKey)
+        do {
+            try keychain.deleteAPIKey(for: providerKey)
+        } catch {
+            AppLogger.storage.error("Failed to clear API key for \(providerKey, privacy: .public): \(error.localizedDescription)")
+        }
         apiKey = ""
         verificationStatus = .none
         verificationError = nil
         isConfiguredState = false
-        
+
         // If this model is currently the default, clear it
         if isCurrent {
-            Task {
-                await MainActor.run {
-                    whisperState.currentTranscriptionModel = nil
-                    AppSettings.TranscriptionSettings.currentTranscriptionModel = nil
-                }
+            Task { @MainActor in
+                whisperState.currentTranscriptionModel = nil
+                AppSettings.TranscriptionSettings.currentTranscriptionModel = nil
             }
         }
-        
+
         withAnimation(.easeInOut(duration: 0.3)) {
             isExpanded = false
         }

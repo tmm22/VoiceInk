@@ -62,11 +62,13 @@ struct ConfigurationView: View {
     init(mode: ConfigurationMode, powerModeManager: PowerModeManager) {
         self.mode = mode
         self.powerModeManager = powerModeManager
-        
+
         // Always fetch the most current configuration data
         switch mode {
         case .add:
-            _isAIEnhancementEnabled = State(initialValue: true)
+            let newId = UUID()
+            _powerModeConfigId = State(initialValue: newId)
+            _isAIEnhancementEnabled = State(initialValue: false)
             _selectedPromptId = State(initialValue: nil)
             _selectedTranscriptionModelName = State(initialValue: nil)
             _selectedLanguage = State(initialValue: nil)
@@ -81,6 +83,7 @@ struct ConfigurationView: View {
         case .edit(let config):
             // Get the latest version of this config from PowerModeManager
             let latestConfig = powerModeManager.getConfiguration(with: config.id) ?? config
+            _powerModeConfigId = State(initialValue: latestConfig.id)
             _isAIEnhancementEnabled = State(initialValue: latestConfig.isAIEnhancementEnabled)
             _selectedPromptId = State(initialValue: latestConfig.selectedPrompt.flatMap { UUID(uuidString: $0) })
             _selectedTranscriptionModelName = State(initialValue: latestConfig.selectedTranscriptionModelName)
@@ -123,15 +126,7 @@ struct ConfigurationView: View {
                 onDismiss: { isShowingAppPicker = false }
             )
         }
-        .sheet(isPresented: $isEditingPrompt) {
-            PromptEditorView(mode: .add)
-        }
-        .sheet(item: $selectedPromptForEdit) { prompt in
-            PromptEditorView(mode: .edit(prompt))
-        }
         .powerModeValidationAlert(errors: validationErrors, isPresented: $showValidationAlert)
-        .navigationTitle("") // Explicitly set an empty title for this view
-        .toolbar(.hidden) // Attempt to hide the navigation bar area
         .onAppear {
             // Set AI provider and model for new power modes after environment objects are available
             if case .add = mode {
@@ -146,6 +141,11 @@ struct ConfigurationView: View {
             // Select first prompt if AI enhancement is enabled and no prompt is selected
             if isAIEnhancementEnabled && selectedPromptId == nil {
                 selectedPromptId = enhancementService.allPrompts.first?.id
+            }
+
+            // Focus the name field for faster keyboard-driven setup
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isNameFieldFocused = true
             }
         }
     }

@@ -167,9 +167,9 @@ class WhisperState: NSObject, ObservableObject, RecordingSessionDelegate {
         if let enhancementService = enhancementService {
             PowerModeSessionManager.shared.configure(whisperState: self, enhancementService: enhancementService)
         }
-        
-        // Set the whisperState reference after super.init()
-        self.localTranscriptionService = LocalTranscriptionService(modelsDirectory: self.modelsDirectory, whisperState: self)
+
+        // Initialize the transcription service registry
+        self.serviceRegistry = TranscriptionServiceRegistry(whisperState: self, modelsDirectory: self.modelsDirectory)
         
         uiManager?.setupNotifications()
         createModelsDirectoryIfNeeded()

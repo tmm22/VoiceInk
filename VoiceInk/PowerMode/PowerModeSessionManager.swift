@@ -58,12 +58,16 @@ class PowerModeSessionManager {
             originalState: originalState
         )
         saveSession(newSession)
-        
         NotificationCenter.default.addObserver(self, selector: #selector(updateSessionSnapshot), name: .AppSettingsDidChange, object: nil)
 
+        // Always apply the new configuration
         isApplyingPowerModeConfig = true
         await applyConfiguration(config)
         isApplyingPowerModeConfig = false
+    }
+
+    var hasActiveSession: Bool {
+        return loadSession() != nil
     }
 
     func endSession() async {

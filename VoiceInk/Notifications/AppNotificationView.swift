@@ -65,7 +65,7 @@ struct AppNotificationView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
-        .frame(minWidth: 280, maxWidth: 380, minHeight: 44)
+        .frame(minWidth: 220, maxWidth: 750, minHeight: 44)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(.clear)

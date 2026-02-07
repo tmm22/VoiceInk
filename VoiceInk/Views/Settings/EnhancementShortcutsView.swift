@@ -3,7 +3,7 @@ import KeyboardShortcuts
 
 struct EnhancementShortcutsView: View {
     @ObservedObject private var shortcutSettings = EnhancementShortcutSettings.shared
-    
+
     var body: some View {
         VStack(spacing: 12) {
             EnhancementShortcutRow(
@@ -19,69 +19,6 @@ struct EnhancementShortcutsView: View {
             )
         }
         .background(Color.clear)
-    }
-}
-
-struct EnhancementShortcutsSection: View {
-    @State private var isExpanded = false
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                    isExpanded.toggle()
-                }
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "command")
-                        .font(.system(size: 20))
-                        .foregroundColor(.accentColor)
-                        .frame(width: 24, height: 24)
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Enhancement Shortcuts")
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                        Text("Keep enhancement prompts handy")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.down")
-                        .rotationEffect(.degrees(isExpanded ? 0 : -90))
-                        .foregroundColor(.secondary)
-                        .font(.system(size: 14, weight: .semibold))
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            
-            if isExpanded {
-                Divider()
-                    .transition(.opacity)
-                
-                VStack(alignment: .leading, spacing: 16) {
-                    EnhancementShortcutsView()
-                    
-                    Text("Enhancement shortcuts are available only when the recorder is visible and VoiceInk is running.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(16)
-                .transition(
-                    .asymmetric(
-                        insertion: .opacity.combined(with: .scale(scale: 0.98, anchor: .top)),
-                        removal: .opacity
-                    )
-                )
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(CardBackground(isSelected: false))
     }
 }
 
@@ -146,37 +83,23 @@ private struct EnhancementShortcutRow: View {
 
 private struct KeyChip: View {
     let label: String
-    var isActive: Bool? = nil
 
     var body: some View {
-        let active = isActive ?? true
-
         Text(label)
-            .font(.system(size: 13, weight: .semibold, design: .rounded))
-            .foregroundColor(active ? .primary : .secondary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .font(.system(size: 12, weight: .medium, design: .monospaced))
+            .foregroundColor(.primary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
             .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color(NSColor.controlBackgroundColor).opacity(active ? 0.9 : 0.6),
-                                Color(NSColor.controlBackgroundColor).opacity(active ? 0.7 : 0.5)
-                            ]),
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Color(NSColor.controlBackgroundColor))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .strokeBorder(
-                        Color(NSColor.separatorColor).opacity(active ? 0.4 : 0.2),
-                        lineWidth: 1
+                        Color(NSColor.separatorColor).opacity(0.5),
+                        lineWidth: 0.5
                     )
             )
-            .shadow(color: Color(NSColor.shadowColor).opacity(active ? 0.15 : 0.05), radius: 2, x: 0, y: 1)
-            .opacity(active ? 1.0 : 0.6)
     }
 }

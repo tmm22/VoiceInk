@@ -10,10 +10,6 @@ struct TranscriptionOutputFilter {
         #"\{.*?\}"#      // {}
     ]
 
-    private static let fillerWords = [
-        "uh", "um", "uhm", "umm", "uhh", "uhhh", "ah", "eh",
-        "hmm", "hm", "mmm", "mm", "mh", "ha", "ehh"
-    ]
     static func filter(_ text: String) -> String {
         var filteredText = text
 
@@ -32,12 +28,14 @@ struct TranscriptionOutputFilter {
             }
         }
 
-        // Remove filler words
-        for fillerWord in fillerWords {
-            let pattern = "\\b\(NSRegularExpression.escapedPattern(for: fillerWord))\\b[,.]?"
-            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
-                let range = NSRange(filteredText.startIndex..., in: filteredText)
-                filteredText = regex.stringByReplacingMatches(in: filteredText, options: [], range: range, withTemplate: "")
+        // Remove filler words (if enabled)
+        if FillerWordManager.shared.isEnabled {
+            for fillerWord in FillerWordManager.shared.fillerWords {
+                let pattern = "\\b\(NSRegularExpression.escapedPattern(for: fillerWord))\\b[,.]?"
+                if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+                    let range = NSRange(filteredText.startIndex..., in: filteredText)
+                    filteredText = regex.stringByReplacingMatches(in: filteredText, options: [], range: range, withTemplate: "")
+                }
             }
         }
 

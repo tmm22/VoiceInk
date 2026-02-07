@@ -124,27 +124,44 @@ struct ProcessingIndicator: View {
 
 // MARK: - Progress Animation Component
 struct ProgressAnimation: View {
+    let color: Color
+    let animationSpeed: Double
+
+    private let dotCount = 5
+    private let dotSize: CGFloat = 3
+    private let dotSpacing: CGFloat = 2
+
     @State private var currentDot = 0
     @State private var timer: Timer?
-    let animationSpeed: Double
-    
+
+    init(color: Color = .white, animationSpeed: Double = 0.3) {
+        self.color = color
+        self.animationSpeed = animationSpeed
+    }
+
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(0..<5, id: \.self) { index in
-                Circle()
-                    .fill(Color.white.opacity(index <= currentDot ? 0.8 : 0.2))
-                    .frame(width: 3.5, height: 3.5)
+        HStack(spacing: dotSpacing) {
+            ForEach(0..<dotCount, id: \.self) { index in
+                RoundedRectangle(cornerRadius: dotSize / 2)
+                    .fill(color.opacity(index <= currentDot ? 0.85 : 0.25))
+                    .frame(width: dotSize, height: dotSize)
             }
         }
         .onAppear {
-            timer = Timer.scheduledTimer(withTimeInterval: animationSpeed, repeats: true) { _ in
-                currentDot = (currentDot + 1) % 7
-                if currentDot >= 5 { currentDot = -1 }
-            }
+            startAnimation()
         }
         .onDisappear {
             timer?.invalidate()
             timer = nil
+        }
+    }
+
+    private func startAnimation() {
+        timer?.invalidate()
+        currentDot = 0
+        timer = Timer.scheduledTimer(withTimeInterval: animationSpeed, repeats: true) { _ in
+            currentDot = (currentDot + 1) % (dotCount + 2)
+            if currentDot > dotCount { currentDot = -1 }
         }
     }
 }
@@ -285,7 +302,7 @@ struct RecorderStatusDisplay: View {
         self.menuBarHeight = menuBarHeight
         self.recordingDuration = recordingDuration
     }
-    
+
     var body: some View {
         Group {
             if currentState == .enhancing {
@@ -336,6 +353,7 @@ struct RecorderStatusDisplay: View {
                 }
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: currentState)
     }
     
     private func formatDuration(_ duration: TimeInterval) -> String {

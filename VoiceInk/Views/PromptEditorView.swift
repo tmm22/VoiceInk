@@ -20,12 +20,12 @@ struct PromptEditorView: View {
     let mode: Mode
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var enhancementService: AIEnhancementService
+    var onDismiss: (() -> Void)?
     @State private var title: String
     @State private var promptText: String
     @State private var selectedIcon: PromptIcon
     @State private var description: String
     @State private var triggerWords: [String]
-    @State private var showingPredefinedPrompts = false
     @State private var useSystemInstructions: Bool
     @State private var showingIconPicker = false
     
@@ -36,8 +36,9 @@ struct PromptEditorView: View {
         return false
     }
     
-    init(mode: Mode) {
+    init(mode: Mode, onDismiss: (() -> Void)? = nil) {
         self.mode = mode
+        self.onDismiss = onDismiss
         switch mode {
         case .add:
             _title = State(initialValue: "")
@@ -58,93 +59,68 @@ struct PromptEditorView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header with modern styling
-            HStack {
+            HStack(spacing: 12) {
                 Text(isEditingPredefinedPrompt ? "Edit Trigger Words" : (mode == .add ? "New Prompt" : "Edit Prompt"))
-                    .font(.title2)
-                    .fontWeight(.bold)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                
                 Spacer()
-                HStack(spacing: 12) {
-                    Button("Cancel") {
+                
+                Button(action: {
+                    if let onDismiss = onDismiss {
+                        onDismiss()
+                    } else {
                         dismiss()
                     }
-                    .buttonStyle(.plain)
-                    .foregroundColor(.secondary)
-                    
-                    Button {
-                        save()
-                        dismiss()
-                    } label: {
-                        Text("Save")
-                            .fontWeight(.medium)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isEditingPredefinedPrompt ? false : (title.isEmpty || promptText.isEmpty))
-                    .keyboardShortcut(.return, modifiers: .command)
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .padding(6)
+                        .background(Color.secondary.opacity(0.1))
+                        .clipShape(Circle())
                 }
+                .buttonStyle(.plain)
+                .help("Close")
             }
-            .padding()
-            .background(
-                Color(NSColor.windowBackgroundColor)
-                    .shadow(color: .black.opacity(0.1), radius: 8, y: 2)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(Color(NSColor.windowBackgroundColor))
+            .overlay(
+                Divider().opacity(0.5), alignment: .bottom
             )
             
             ScrollView {
                 VStack(spacing: 24) {
                     if isEditingPredefinedPrompt {
-                        // Simplified view for predefined prompts - only trigger word editing
                         VStack(alignment: .leading, spacing: 16) {
                             Text("Editing: \(title)")
-                                .font(.title2)
-                                .fontWeight(.semibold)
+                                .font(.title3)
+                                .fontWeight(.medium)
                                 .foregroundColor(.primary)
-                                .padding(.horizontal)
-                                .padding(.top, 8)
                             
                             Text("You can only customize the trigger words for system prompts.")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
-                                .padding(.horizontal)
                             
-                            // Trigger Words Field using reusable component
                             TriggerWordsEditor(triggerWords: $triggerWords)
-                                .padding(.horizontal)
                         }
+                        .padding(.horizontal, 20)
                         .padding(.vertical, 20)
                         
                     } else {
-                        // Full editing interface for custom prompts
-                        // Title and Icon Section with improved layout
-                        HStack(spacing: 20) {
-                            // Title Field
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Title")
-                                    .font(.headline)
-                                    .foregroundColor(.secondary)
-                                TextField("Enter a short, descriptive title", text: $title)
-                                    .textFieldStyle(.roundedBorder)
-                                    .font(.body)
-                            }
-                            .frame(maxWidth: .infinity)
-                            
-                            // Icon Selector with preview
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Icon")
-                                    .font(.headline)
-                                    .foregroundColor(.secondary)
-                                
-                                // Preview of selected icon - clickable to open popover (square button)
-                                Button(action: {
-                                    showingIconPicker = true
-                                }) {
+                        VStack(spacing: 24) {
+                            HStack(alignment: .top, spacing: 16) {
+                                Button(action: { showingIconPicker = true }) {
                                     Image(systemName: selectedIcon)
-                                        .font(.system(size: 20))
+                                        .font(.system(size: 24))
                                         .foregroundColor(.primary)
-                                        .frame(width: 48, height: 48)
+                                        .frame(width: 56, height: 56)
                                         .background(Color(NSColor.controlBackgroundColor))
-                                        .cornerRadius(8)
+                                        .cornerRadius(10)
                                         .overlay(
-                                            RoundedRectangle(cornerRadius: 8)
+                                            RoundedRectangle(cornerRadius: 10)
                                                 .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
                                         )
                                 }
@@ -214,67 +190,166 @@ struct PromptEditorView: View {
                                 HStack(spacing: 8) {
                                     Toggle("Use System Instructions", isOn: $useSystemInstructions)
                                     
-                                    InfoTip(
-                                        title: "System Instructions",
-                                        message: "If enabled, your instructions are combined with a general-purpose template to improve transcription quality.\n\nDisable for full control over the AI's system prompt (for advanced users)."
+                                    TextField("Prompt Name", text: $title)
+                                        .textFieldStyle(.plain)
+                                        .font(.system(size: 14))
+                                        .padding(8)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                                                .background(Color(NSColor.controlBackgroundColor).cornerRadius(6))
+                                        )
+                                }
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Description")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                
+                                TextField("Brief description of what this prompt does", text: $description)
+                                    .textFieldStyle(.plain)
+                                    .font(.system(size: 13))
+                                    .padding(8)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                                            .background(Color(NSColor.controlBackgroundColor).cornerRadius(6))
                                     )
+                            }
+                            
+                            Divider().padding(.vertical, 4)
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Instructions")
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                
+                                ZStack(alignment: .topLeading) {
+                                    TextEditor(text: $promptText)
+                                        .font(.system(.body, design: .monospaced))
+                                        .frame(minHeight: 180)
+                                        .padding(8)
+                                        .background(Color(NSColor.controlBackgroundColor))
+                                        .cornerRadius(6)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                                        )
+                                    
+                                    if promptText.isEmpty {
+                                        Text("Enter your custom prompt instructions here...")
+                                            .font(.system(.body, design: .monospaced))
+                                            .foregroundColor(.secondary.opacity(0.5))
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 12)
+                                            .allowsHitTesting(false                                        )
+                                    }
                                 }
-                                .padding(.bottom, 4)
-                            }
-
-                            TextEditor(text: $promptText)
-                                .font(.system(.body, design: .monospaced))
-                                .frame(minHeight: 200)
-                                .padding(12)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color(NSColor.textBackgroundColor))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                                )
-                        }
-                        .padding(.horizontal)
-                        
-                        // Trigger Words Field using reusable component
-                        TriggerWordsEditor(triggerWords: $triggerWords)
-                            .padding(.horizontal)
-                        
-                        if case .add = mode {
-                            // Popover keeps templates accessible without taking space in the layout
-                            Button("Start with a Predefined Template") {
-                                showingPredefinedPrompts.toggle()
-                            }
-                            .font(.headline)
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 12)
-                            .background(
-                                Capsule()
-                                    .fill(Color(.windowBackgroundColor).opacity(0.9))
-                            )
-                            .overlay(
-                                Capsule()
-                                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                            )
-                            .buttonStyle(.plain)
-                            .padding(.horizontal)
-                            .popover(isPresented: $showingPredefinedPrompts, arrowEdge: .bottom) {
-                                PredefinedPromptsView { template in
-                                    title = template.title
-                                    promptText = template.promptText
-                                    selectedIcon = template.icon
-                                    description = template.description
-                                    showingPredefinedPrompts = false
+                                
+                                if !isEditingPredefinedPrompt {
+                                    HStack(spacing: 8) {
+                                        Toggle("Use System Template", isOn: $useSystemInstructions)
+                                            .toggleStyle(.switch)
+                                            .controlSize(.small)
+                                        
+                                        InfoTip("If enabled, your instructions are combined with a general-purpose template to improve transcription quality.\n\nDisable for full control over the AI's system prompt (for advanced users).")
+                                    }
+                                    .padding(.top, 4)
                                 }
                             }
+                            
+                            Divider().padding(.vertical, 4)
+                            
+                            TriggerWordsEditor(triggerWords: $triggerWords)
+                            
+                            if case .add = mode, !isEditingPredefinedPrompt {
+                                HStack {
+                                    Menu {
+                                        ForEach(PromptTemplates.all, id: \.title) { template in
+                                            Button {
+                                                title = template.title
+                                                promptText = template.promptText
+                                                selectedIcon = template.icon
+                                                description = template.description
+                                            } label: {
+                                                HStack {
+                                                    Text(template.title)
+                                                    Spacer()
+                                                    Image(systemName: template.icon)
+                                                }
+                                            }
+                                        }
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "sparkles")
+                                                .foregroundColor(.accentColor)
+                                            Text("Start with Template")
+                                                .foregroundColor(.primary)
+                                            Image(systemName: "chevron.down")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        .padding(.vertical, 6)
+                                        .padding(.horizontal, 10)
+                                        .background(Color(NSColor.controlBackgroundColor))
+                                        .cornerRadius(6)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .stroke(Color.secondary.opacity(0.15), lineWidth: 1)
+                                        )
+                                    }
+                                    .menuStyle(.borderlessButton)
+                                    .fixedSize()
+                                    
+                                    Spacer()
+                                }
+                            }
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 20)
                     }
                 }
-                .padding(.vertical, 20)
+            }
+            
+            VStack(spacing: 0) {
+                Divider()
+                HStack {
+                    Button("Cancel") {
+                        if let onDismiss = onDismiss {
+                            onDismiss()
+                        } else {
+                            dismiss()
+                        }
+                    }
+                    .keyboardShortcut(.escape, modifiers: [])
+                    .buttonStyle(.plain)
+                    .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Button {
+                        save()
+                        if let onDismiss = onDismiss {
+                            onDismiss()
+                        } else {
+                            dismiss()
+                        }
+                    } label: {
+                        Text("Save Changes")
+                            .frame(minWidth: 100)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isEditingPredefinedPrompt ? false : (title.isEmpty || promptText.isEmpty))
+                    .keyboardShortcut(.return, modifiers: .command)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .background(Color(NSColor.windowBackgroundColor))
             }
         }
-        .frame(minWidth: 700, minHeight: 500)
+        .frame(minWidth: 400, minHeight: 500)
+        .background(Color(NSColor.windowBackgroundColor))
     }
     
     private func save() {
@@ -305,45 +380,62 @@ struct PromptEditorView: View {
     }
 }
 
-// Reusable Trigger Words Editor Component
+// MARK: - Trigger Words Editor
 struct TriggerWordsEditor: View {
     @Binding var triggerWords: [String]
     @State private var newTriggerWord: String = ""
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Trigger Words")
-                .font(.headline)
-                .foregroundColor(.secondary)
+            HStack(spacing: 6) {
+                Text("Trigger Words")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                InfoTip("Add multiple words that can activate this prompt.")
+            }
             
-            Text("Add multiple words that can activate this prompt")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+            HStack {
+                TextField("Add trigger word (e.g. 'summarize')", text: $newTriggerWord)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13))
+                    .padding(6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                            .background(Color(NSColor.controlBackgroundColor).cornerRadius(6))
+                    )
+                    .onSubmit {
+                        addTriggerWord()
+                    }
+                
+                Button(action: { addTriggerWord() }) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 12, weight: .bold))
+                        .frame(width: 26, height: 26)
+                        .background(Color.accentColor.opacity(0.1))
+                        .foregroundColor(.accentColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
+                .disabled(newTriggerWord.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
             
-            // Display existing trigger words as tags
             if !triggerWords.isEmpty {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 140, maximum: 220))], spacing: 8) {
+                TagLayout(alignment: .leading, spacing: 6) {
                     ForEach(triggerWords, id: \.self) { word in
                         TriggerWordItemView(word: word) {
                             triggerWords.removeAll { $0 == word }
                         }
                     }
                 }
-            }
-            
-            // Input for new trigger word
-            HStack {
-                TextField("Add trigger word", text: $newTriggerWord)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.body)
-                    .onSubmit {
-                        addTriggerWord()
-                    }
-                
-                Button("Add") {
-                    addTriggerWord()
-                }
-                .disabled(newTriggerWord.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .padding(.top, 4)
+            } else {
+                Text("No trigger words added")
+                    .font(.caption)
+                    .foregroundColor(.secondary.opacity(0.7))
+                    .italic()
+                    .padding(.top, 2)
             }
         }
     }
@@ -352,7 +444,6 @@ struct TriggerWordsEditor: View {
         let trimmedWord = newTriggerWord.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedWord.isEmpty else { return }
         
-        // Check for duplicates (case insensitive)
         let lowerCaseWord = trimmedWord.lowercased()
         guard !triggerWords.contains(where: { $0.lowercased() == lowerCaseWord }) else { return }
         
@@ -361,49 +452,90 @@ struct TriggerWordsEditor: View {
     }
 }
 
-
+// MARK: - Trigger Word Item
 struct TriggerWordItemView: View {
     let word: String
     let onDelete: () -> Void
     @State private var isHovered = false
     
     var body: some View {
-        HStack(spacing: 6) {
-            Text(word)
-                .font(.system(size: 13))
-                .lineLimit(1)
-                .foregroundColor(.primary)
-            
-            Spacer(minLength: 8)
+        HStack(spacing: 4) {
+                Text(word)
+                    .font(.system(size: 12))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: 120, alignment: .leading)
+                    .foregroundColor(.primary)
             
             Button(action: onDelete) {
-                Image(systemName: "xmark.circle.fill")
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(isHovered ? .red : .secondary)
-                    .contentTransition(.symbolEffect(.replace))
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.secondary)
             }
-            .buttonStyle(.borderless)
-            .help("Remove word")
-            .onHover { hover in
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isHovered = hover
-                }
-            }
+            .buttonStyle(.plain)
+            .padding(.leading, 2)
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color(.windowBackgroundColor).opacity(0.4))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 6)
+        .padding(.vertical, 4)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(4)
+        .overlay(
+            RoundedRectangle(cornerRadius: 4)
                 .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Tag Layout
+struct TagLayout: Layout {
+    var alignment: Alignment = .leading
+    var spacing: CGFloat = 8
+    
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var height: CGFloat = 0
+        var currentRowWidth: CGFloat = 0
+        
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            
+            if currentRowWidth + size.width > maxWidth {
+                // New row
+                height += size.height + spacing
+                currentRowWidth = size.width + spacing
+            } else {
+                // Same row
+                currentRowWidth += size.width + spacing
+            }
+            
+            if height == 0 {
+                height = size.height
+            }
+        }
+        
+        return CGSize(width: maxWidth, height: height)
+    }
+    
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        let maxHeight = subviews.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0
+        
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            
+            if x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += maxHeight + spacing
+            }
+            
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
         }
     }
 }
 
-// Icon Picker Popover - shows icons in a grid format without category labels
+// MARK: - Icon Picker
 struct IconPickerPopover: View {
     @Binding var selectedIcon: PromptIcon
     @Binding var isPresented: Bool

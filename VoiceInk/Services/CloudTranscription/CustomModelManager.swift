@@ -28,9 +28,8 @@ class CustomModelManager: ObservableObject {
         
         customModels.append(model)
         saveCustomModels()
-        logger.info("Added custom model: \(model.displayName)")
     }
-    
+
     func removeCustomModel(withId id: UUID) {
         customModels.removeAll { $0.id == id }
         
@@ -39,9 +38,9 @@ class CustomModelManager: ObservableObject {
         try? KeychainManager.shared.deleteAPIKey(for: "custom_model_\(id.uuidString)")
         
         saveCustomModels()
-        logger.info("Removed custom model with ID: \(id)")
+        APIKeyManager.shared.deleteCustomModelAPIKey(forModelId: id)
     }
-    
+
     func updateCustomModel(_ updatedModel: CustomCloudModel) {
         if let index = customModels.firstIndex(where: { $0.id == updatedModel.id }) {
             // Update API key in Keychain if it was changed (present in transient)
@@ -55,7 +54,6 @@ class CustomModelManager: ObservableObject {
             
             customModels[index] = updatedModel
             saveCustomModels()
-            logger.info("Updated custom model: \(updatedModel.displayName)")
         }
     }
     

@@ -25,7 +25,14 @@ class ActiveWindowService: ObservableObject {
         self.whisperState = whisperState
     }
     
-    func applyConfigurationForCurrentApp() async {
+    func applyConfiguration(powerModeId: UUID? = nil) async {
+        if let powerModeId = powerModeId,
+           let config = PowerModeManager.shared.getConfiguration(with: powerModeId) {
+            PowerModeManager.shared.setActiveConfiguration(config)
+            await PowerModeSessionManager.shared.beginSession(with: config)
+            return
+        }
+
         guard let frontmostApp = NSWorkspace.shared.frontmostApplication,
               let bundleIdentifier = frontmostApp.bundleIdentifier else {
             return
@@ -59,8 +66,6 @@ class ActiveWindowService: ObservableObject {
             // No need for MainActor.run - this class is already @MainActor
             PowerModeManager.shared.setActiveConfiguration(config)
             await PowerModeSessionManager.shared.beginSession(with: config)
-        } else {
-            // If no config found, keep the current active configuration (don't clear it)
         }
     }
     

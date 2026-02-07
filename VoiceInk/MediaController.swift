@@ -1,13 +1,11 @@
-import AppKit
-import Combine
 import Foundation
-import SwiftUI
 import CoreAudio
 
 /// Controls system audio management during recording
 @MainActor
 class MediaController: ObservableObject {
     static let shared = MediaController()
+
     private var didMuteAudio = false
     private var wasAudioMutedBeforeRecording = false
     private var currentMuteTask: Task<Bool, Never>?
@@ -115,9 +113,28 @@ class MediaController: ObservableObject {
     }
 }
 
-extension UserDefaults {
-    func contains(key: String) -> Bool {
-        return object(forKey: key) != nil
+        let delay = audioResumptionDelay
+        let shouldUnmute = didMuteAudio && !wasAudioMutedBeforeRecording
+        let myGeneration = muteGeneration
+
+        let task = Task { [weak self] in
+            if delay > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            }
+
+            guard let self = self else { return }
+            guard !Task.isCancelled else { return }
+            guard self.muteGeneration == myGeneration else { return }
+
+            if shouldUnmute {
+                _ = self.setSystemMuted(false)
+            }
+
+            self.didMuteAudio = false
+        }
+
+        unmuteTask = task
+        await task.value
     }
     
     var isSystemMuteEnabled: Bool {

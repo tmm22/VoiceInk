@@ -51,6 +51,13 @@ struct DashboardPromotionsSection: View {
             NSWorkspace.shared.open(url)
         }
     }
+
+    private func dismissAffiliatePromotion() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            isAffiliatePromotionDismissed = true
+        }
+        UserDefaults.standard.affiliatePromotionDismissed = true
+    }
 }
 
 private struct DashboardPromotionCard: View {
@@ -73,8 +80,8 @@ private struct DashboardPromotionCard: View {
     )
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top) {
+        ZStack(alignment: .topTrailing) {
+            VStack(alignment: .leading, spacing: 14) {
                 Text(badge.uppercased())
                     .font(.system(size: 11, weight: .heavy))
                     .tracking(0.8)
@@ -84,42 +91,44 @@ private struct DashboardPromotionCard: View {
                     .clipShape(Capsule())
                     .foregroundColor(.white)
 
-                Spacer()
+                Text(title)
+                    .font(.system(size: 20, weight: .heavy, design: .rounded))
+                    .foregroundColor(.white)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                Image(systemName: accentSymbol)
-                    .font(.system(size: 20, weight: .bold))
+                Text(message)
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.white.opacity(0.85))
-                    .padding(10)
-                    .background(.white.opacity(0.18))
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            }
+                    .fixedSize(horizontal: false, vertical: true)
 
-            Text(title)
-                .font(.system(size: 20, weight: .heavy, design: .rounded))
-                .foregroundColor(.white)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text(message)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.white.opacity(0.85))
-                .fixedSize(horizontal: false, vertical: true)
-
-            Button(action: action) {
-                HStack(spacing: 6) {
-                    Text(actionTitle)
-                    Image(systemName: actionIcon)
+                Button(action: action) {
+                    HStack(spacing: 6) {
+                        Text(actionTitle)
+                        Image(systemName: actionIcon)
+                    }
+                    .font(.system(size: 13, weight: .semibold))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 9)
+                    .background(.white.opacity(0.22))
+                    .clipShape(Capsule())
+                    .foregroundColor(.white)
                 }
-                .font(.system(size: 13, weight: .semibold))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 9)
-                .background(.white.opacity(0.22))
-                .clipShape(Capsule())
-                .foregroundColor(.white)
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+
+            if let onDismiss = onDismiss {
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                .buttonStyle(.plain)
+                .padding(12)
+                .help("Dismiss this promotion")
+            }
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .fill(Self.defaultGradient)

@@ -4,6 +4,17 @@ import AVFoundation
 import FluidAudio
 import os.log
 
+enum ParakeetTranscriptionError: LocalizedError {
+    case modelValidationFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .modelValidationFailed(let message):
+            return message
+        }
+    }
+}
+
 class ParakeetTranscriptionService: TranscriptionService {
     private var asrManager: AsrManager?
     private var vadManager: VadManager?
@@ -20,6 +31,14 @@ class ParakeetTranscriptionService: TranscriptionService {
         }
 
         cleanup()
+
+        // Validate models before loading
+        let isValid = try await AsrModels.isModelValid(version: version)
+
+        if !isValid {
+            logger.error("Model validation failed for \(version == .v2 ? "v2" : "v3"). Models are corrupted.")
+            throw ParakeetTranscriptionError.modelValidationFailed("Parakeet models are corrupted. Please delete and re-download the model.")
+        }
 
         let manager = AsrManager(config: .default)
         let models = try await AsrModels.loadFromCache(

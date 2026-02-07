@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 import AppKit
 
 @MainActor
@@ -9,11 +10,44 @@ class MenuBarManager: ObservableObject {
             updateAppActivationPolicy()
         }
     }
-    
-    
+
+    private var modelContainer: ModelContainer?
+    private var whisperState: WhisperState?
+
     init() {
         self.isMenuBarOnly = AppSettings.General.isMenuBarOnly ?? false
         updateAppActivationPolicy()
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowDidClose),
+            name: NSWindow.willCloseNotification,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func windowDidClose(_ notification: Notification) {
+        guard isMenuBarOnly else { return }
+
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(100))
+            guard let self, self.isMenuBarOnly else { return }
+            let hasVisibleWindows = NSApplication.shared.windows.contains {
+                $0.isVisible && $0.level == .normal && !$0.styleMask.contains(.nonactivatingPanel)
+            }
+            if !hasVisibleWindows {
+                NSApplication.shared.setActivationPolicy(.accessory)
+            }
+        }
+    }
+
+    func configure(modelContainer: ModelContainer, whisperState: WhisperState) {
+        self.modelContainer = modelContainer
+        self.whisperState = whisperState
     }
     
     func toggleMenuBarOnly() {
@@ -89,6 +123,19 @@ class MenuBarManager: ObservableObject {
             print("MenuBarManager: Posted navigation notification for \(destination)")
             #endif
         }
+    }
+
+    func openHistoryWindow() {
+        guard let modelContainer = modelContainer,
+              let whisperState = whisperState else {
+            AppLogger.ui.error("MenuBarManager dependencies were not configured before opening history window")
+            return
+        }
+        NSApplication.shared.setActivationPolicy(.regular)
+        HistoryWindowController.shared.showHistoryWindow(
+            modelContainer: modelContainer,
+            whisperState: whisperState
+        )
     }
 }
 

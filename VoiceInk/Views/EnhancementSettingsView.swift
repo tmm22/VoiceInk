@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 struct EnhancementSettingsView: View {
     @EnvironmentObject private var enhancementService: AIEnhancementService
     @State private var isEditingPrompt = false
-    @State private var isSettingsExpanded = true
+    @State private var isShortcutsExpanded = false
     @State private var selectedPromptForEdit: CustomPrompt?
     @AppStorage("enableAIEnhancementFeatures") private var enableAIEnhancementFeatures = false
     
@@ -20,6 +20,17 @@ struct EnhancementSettingsView: View {
             return "\(minutes)m \(remainingSeconds)s"
         }
         return "\(totalSeconds)s"
+    }
+    
+    private var isPanelOpen: Bool {
+        isEditingPrompt || selectedPromptForEdit != nil
+    }
+    
+    private func closePanel() {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.9)) {
+            isEditingPrompt = false
+            selectedPromptForEdit = nil
+        }
     }
     
     var body: some View {
@@ -206,20 +217,103 @@ struct EnhancementSettingsView: View {
                             },
                             onEditPrompt: { prompt in
                                 selectedPromptForEdit = prompt
-                            },
-                            onDeletePrompt: { prompt in
-                                enhancementService.deletePrompt(prompt)
-                            },
-                            onAddNewPrompt: {
+                            }
+                        },
+                        onDeletePrompt: { prompt in
+                            enhancementService.deletePrompt(prompt)
+                        }
+                    )
+                    .padding(.vertical, 8)
+                } header: {
+                    HStack {
+                        Text("Enhancement Prompts")
+                        Spacer()
+                        Button {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.9)) {
                                 isEditingPrompt = true
                             }
-                        )
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 18))
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Add new prompt")
                     }
                     .padding(VoiceInkSpacing.lg)
                     .voiceInkCardBackground()
                     
                     EnhancementShortcutsSection()
                 }
+                .opacity(enhancementService.isEnhancementEnabled ? 1.0 : 0.8)
+                
+                Section {
+                    DisclosureGroup(isExpanded: $isShortcutsExpanded) {
+                        EnhancementShortcutsView()
+                            .padding(.vertical, 8)
+                    } label: {
+                        HStack {
+                            Text("Shortcuts")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation {
+                                isShortcutsExpanded.toggle()
+                            }
+                        }
+                    }
+                }
+                .opacity(enhancementService.isEnhancementEnabled ? 1.0 : 0.8)
+            }
+            .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .background(Color(NSColor.controlBackgroundColor))
+            .disabled(isPanelOpen)
+            .blur(radius: isPanelOpen ? 2 : 0)
+            .animation(.spring(response: 0.4, dampingFraction: 0.9), value: isPanelOpen)
+            
+            if isPanelOpen {
+                Color.black.opacity(0.2)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        closePanel()
+                    }
+                    .transition(.opacity)
+                    .zIndex(1)
+            }
+            
+            if isPanelOpen {
+                HStack(spacing: 0) {
+                    Spacer()
+                    
+                    Group {
+                        if let prompt = selectedPromptForEdit {
+                            PromptEditorView(mode: .edit(prompt)) {
+                                closePanel()
+                            }
+                        } else if isEditingPrompt {
+                            PromptEditorView(mode: .add) {
+                                closePanel()
+                            }
+                        }
+                    }
+                    .frame(width: 450)
+                    .frame(maxHeight: .infinity)
+                    .background(
+                        Color(NSColor.windowBackgroundColor)
+                    )
+                    .overlay(
+                        Divider(), alignment: .leading
+                    )
+                    .shadow(color: .black.opacity(0.15), radius: 12, x: -4, y: 0)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
+                .ignoresSafeArea()
+                .zIndex(2)
             }
             .padding(VoiceInkSpacing.lg)
         }
@@ -231,10 +325,11 @@ struct EnhancementSettingsView: View {
         .sheet(item: $selectedPromptForEdit) { prompt in
             PromptEditorView(mode: .edit(prompt))
         }
+        .frame(minWidth: 500, minHeight: 400)
     }
 }
 
-// MARK: - Drag & Drop Reorderable Grid
+// MARK: - Reorderable Grid
 private struct ReorderablePromptGrid: View {
     @EnvironmentObject private var enhancementService: AIEnhancementService
     
@@ -242,7 +337,6 @@ private struct ReorderablePromptGrid: View {
     let onPromptSelected: (CustomPrompt) -> Void
     let onEditPrompt: ((CustomPrompt) -> Void)?
     let onDeletePrompt: ((CustomPrompt) -> Void)?
-    let onAddNewPrompt: (() -> Void)?
     
     @State private var draggingItem: CustomPrompt?
     
@@ -294,32 +388,18 @@ private struct ReorderablePromptGrid: View {
                             )
                         )
                     }
-                    
-                    if let onAddNewPrompt = onAddNewPrompt {
-                        CustomPrompt.addNewButton {
-                            onAddNewPrompt()
-                        }
-                        .help("Add new prompt")
-                        .onDrop(
-                            of: [UTType.text],
-                            delegate: PromptEndDropDelegate(
-                                prompts: $enhancementService.customPrompts,
-                                draggingItem: $draggingItem
-                            )
-                        )
-                    }
                 }
                 .padding(.vertical, 12)
                 .padding(.horizontal, 16)
                 
                 HStack {
                     Image(systemName: "info.circle")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
                     
                     Text("Double-click to edit • Right-click for more options")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
                 }
                 .padding(.top, 8)
                 .padding(.horizontal, 16)
@@ -328,7 +408,7 @@ private struct ReorderablePromptGrid: View {
     }
 }
 
-// MARK: - Drop Delegates
+// MARK: - Drop Delegate
 private struct PromptDropDelegate: DropDelegate {
     let item: CustomPrompt
     @Binding var prompts: [CustomPrompt]
@@ -339,7 +419,6 @@ private struct PromptDropDelegate: DropDelegate {
         guard let fromIndex = prompts.firstIndex(of: draggingItem),
               let toIndex = prompts.firstIndex(of: item) else { return }
         
-        // Move item as you hover for immediate visual update
         if prompts[toIndex].id != draggingItem.id {
             withAnimation(.easeInOut(duration: 0.12)) {
                 let from = fromIndex
@@ -355,29 +434,6 @@ private struct PromptDropDelegate: DropDelegate {
     
     func performDrop(info: DropInfo) -> Bool {
         draggingItem = nil
-        return true
-    }
-}
-
-private struct PromptEndDropDelegate: DropDelegate {
-    @Binding var prompts: [CustomPrompt]
-    @Binding var draggingItem: CustomPrompt?
-    
-    func validateDrop(info: DropInfo) -> Bool { true }
-    func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
-    
-    func performDrop(info: DropInfo) -> Bool {
-        guard let draggingItem = draggingItem,
-              let currentIndex = prompts.firstIndex(of: draggingItem) else {
-            self.draggingItem = nil
-            return false
-        }
-        
-        // Move to end if dropped on the trailing "Add New" tile
-        withAnimation(.easeInOut(duration: 0.12)) {
-            prompts.move(fromOffsets: IndexSet(integer: currentIndex), toOffset: prompts.endIndex)
-        }
-        self.draggingItem = nil
         return true
     }
 }

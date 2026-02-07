@@ -6,6 +6,7 @@ struct ModelSettingsView: View {
     @AppStorage("IsTextFormattingEnabled") private var isTextFormattingEnabled = true
     @AppStorage("IsVADEnabled") private var isVADEnabled = true
     @AppStorage("AppendTrailingSpace") private var appendTrailingSpace = true
+    @AppStorage("PrewarmModelOnWake") private var prewarmModelOnWake = true
     @State private var customPrompt: String = ""
     @State private var isEditing: Bool = false
     
@@ -16,8 +17,7 @@ struct ModelSettingsView: View {
                     .font(.headline)
                 
                 InfoTip(
-                    title: "Output Format Guide",
-                    message: "Unlike GPT, Voice Models(whisper) follows the style of your prompt rather than instructions. Use examples of your desired output format instead of commands.",
+                    "Unlike GPT, Voice Models(whisper) follows the style of your prompt rather than instructions. Use examples of your desired output format instead of commands.",
                     learnMoreURL: "https://cookbook.openai.com/examples/whisper_prompting_guide#comparison-with-gpt-prompting"
                 )
                 
@@ -67,17 +67,10 @@ struct ModelSettingsView: View {
 
             Divider().padding(.vertical, 4)
 
-            HStack {
-                Toggle(isOn: $appendTrailingSpace) {
-                    Text("Add space after paste")
-                }
-                .toggleStyle(.switch)
-                
-                InfoTip(
-                    title: "Trailing Space",
-                    message: "Automatically add a space after pasted text. Useful for space-delimited languages."
-                )
+            Toggle(isOn: $appendTrailingSpace) {
+                Text("Add Space After Paste")
             }
+            .toggleStyle(.switch)
 
             HStack {
                 Toggle(isOn: $isTextFormattingEnabled) {
@@ -85,10 +78,7 @@ struct ModelSettingsView: View {
                 }
                 .toggleStyle(.switch)
                 
-                InfoTip(
-                    title: "Automatic Text Formatting",
-                    message: "Apply intelligent text formatting to break large block of text into paragraphs."
-                )
+                InfoTip("Apply intelligent text formatting to break large block of text into paragraphs.")
             }
 
             HStack {
@@ -96,12 +86,20 @@ struct ModelSettingsView: View {
                     Text("Voice Activity Detection (VAD)")
                 }
                 .toggleStyle(.switch)
-                
-                InfoTip(
-                    title: "Voice Activity Detection",
-                    message: "Detect speech segments and filter out silence to improve accuracy of local models."
-                )
+
+                InfoTip("Detect speech segments and filter out silence to improve accuracy of local models.")
             }
+
+            HStack {
+                Toggle(isOn: $prewarmModelOnWake) {
+                    Text("Prewarm model (Experimental)")
+                }
+                .toggleStyle(.switch)
+
+                InfoTip("Turn this on if transcriptions with local models are taking longer than expected. Runs silent background transcription on app launch and wake to trigger optimization.")
+            }
+
+            FillerWordsSettingsView()
 
         }
         .padding()

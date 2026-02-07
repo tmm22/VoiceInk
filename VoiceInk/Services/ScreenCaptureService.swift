@@ -1,7 +1,6 @@
 import Foundation
 import AppKit
 import Vision
-import os
 import ScreenCaptureKit
 
 @MainActor
@@ -95,7 +94,6 @@ class ScreenCaptureService: ObservableObject {
             return NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
             
         } catch {
-            logger.notice("📸 Screen capture failed: \(error.localizedDescription, privacy: .public)")
             return nil
         }
     }
@@ -188,11 +186,8 @@ class ScreenCaptureService: ObservableObject {
         }
 
         guard let windowInfo = getActiveWindowInfo() else {
-            logger.notice("📸 No active window found")
             return nil
         }
-        
-        logger.notice("📸 Capturing: \(windowInfo.title, privacy: .public) (\(windowInfo.ownerName, privacy: .public))")
 
         var contextText = """
         Active Window: \(windowInfo.title)
@@ -206,11 +201,8 @@ class ScreenCaptureService: ObservableObject {
             
             if let extractedText, !extractedText.isEmpty {
                 contextText += "Window Content:\n\(extractedText)"
-                let preview = String(extractedText.prefix(100))
-                logger.notice("📸 Text extracted: \(preview, privacy: .public)\(extractedText.count > 100 ? "..." : "")")
             } else {
                 contextText += "Window Content:\nNo text detected via OCR"
-                logger.notice("📸 No text extracted from window")
             }
             
             // No need for MainActor.run - this class is already @MainActor
@@ -218,8 +210,7 @@ class ScreenCaptureService: ObservableObject {
             
             return contextText
         }
-        
-        logger.notice("📸 Window capture failed")
+
         return nil
     }
 } 

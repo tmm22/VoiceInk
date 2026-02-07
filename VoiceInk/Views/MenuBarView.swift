@@ -8,8 +8,9 @@ struct MenuBarView: View {
     @EnvironmentObject var updaterViewModel: UpdaterViewModel
     @EnvironmentObject var enhancementService: AIEnhancementService
     @EnvironmentObject var aiService: AIService
+    @ObservedObject var audioDeviceManager = AudioDeviceManager.shared
     @State private var launchAtLoginEnabled = LaunchAtLogin.isEnabled
-    @State private var menuRefreshTrigger = false  // Added to force menu updates
+    @State private var menuRefreshTrigger = false
     @State private var isHovered = false
     @AppStorage("enableAIEnhancementFeatures") private var enableAIEnhancementFeatures = false
     
@@ -160,7 +161,7 @@ struct MenuBarView: View {
             }
             
             Divider()
-            
+
             Button("Retry Last Transcription") {
                 LastTranscriptionService.retryLastTranscription(from: whisperState.modelContext, whisperState: whisperState)
             }
@@ -170,7 +171,7 @@ struct MenuBarView: View {
             }
             
             Button("History") {
-                menuBarManager.openMainWindowAndNavigate(to: "History")
+                menuBarManager.openHistoryWindow()
             }
             .keyboardShortcut("h", modifiers: [.command, .shift])
             

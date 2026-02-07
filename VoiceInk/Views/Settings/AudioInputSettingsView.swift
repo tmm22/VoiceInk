@@ -14,7 +14,7 @@ struct AudioInputSettingsView: View {
             
             if audioDeviceManager.inputMode == .custom {
                 customDeviceSection
-            } else if audioDeviceManager.inputMode == .prioritized {
+            case .prioritized:
                 prioritizedDevicesSection
             }
         }
@@ -180,7 +180,7 @@ struct AudioInputSettingsView: View {
                     .voiceInkHeadline()
                 
                 Spacer()
-                
+
                 Button(action: { audioDeviceManager.loadAvailableDevices() }) {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }

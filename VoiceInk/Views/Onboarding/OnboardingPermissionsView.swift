@@ -149,15 +149,9 @@ struct OnboardingPermissionsView: View {
                                             }
                                         )
                                         .onAppear {
-                                            // Auto-select built-in microphone if no device is selected
-                                            if audioDeviceManager.selectedDeviceID == nil && !audioDeviceManager.availableDevices.isEmpty {
-                                                let builtInDevice = audioDeviceManager.availableDevices.first { device in
-                                                    device.name.lowercased().contains("built-in") || 
-                                                    device.name.lowercased().contains("internal")
-                                                }
-                                                let deviceToSelect = builtInDevice ?? audioDeviceManager.availableDevices.first
-                                                if let device = deviceToSelect {
-                                                    audioDeviceManager.selectDevice(id: device.id)
+                                            if !audioDeviceManager.availableDevices.isEmpty {
+                                                if let deviceID = audioDeviceManager.findBestAvailableDevice() {
+                                                    audioDeviceManager.selectDevice(id: deviceID)
                                                     audioDeviceManager.selectInputMode(.custom)
                                                     withAnimation {
                                                         permissionStates[currentPermissionIndex] = true
@@ -252,8 +246,8 @@ struct OnboardingPermissionsView: View {
         // Check microphone permission
         permissionStates[0] = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
         
-        // Check if device is selected or system default mode is being used
-        permissionStates[1] = audioDeviceManager.selectedDeviceID != nil || audioDeviceManager.inputMode == .systemDefault
+        // Check if device is selected
+        permissionStates[1] = audioDeviceManager.selectedDeviceID != nil
         
         // Check accessibility permission
         permissionStates[2] = AXIsProcessTrusted()
@@ -287,9 +281,9 @@ struct OnboardingPermissionsView: View {
             
         case .audioDeviceSelection:
             audioDeviceManager.loadAvailableDevices()
-            
+
             if audioDeviceManager.availableDevices.isEmpty {
-                audioDeviceManager.selectInputMode(.systemDefault)
+                audioDeviceManager.selectInputMode(.custom)
                 withAnimation {
                     permissionStates[currentPermissionIndex] = true
                     showAnimation = true
@@ -297,23 +291,13 @@ struct OnboardingPermissionsView: View {
                 moveToNext()
                 return
             }
-            
-            // If no device is selected yet, auto-select the built-in microphone or first available device
-            if audioDeviceManager.selectedDeviceID == nil {
-                let builtInDevice = audioDeviceManager.availableDevices.first { device in
-                    device.name.lowercased().contains("built-in") || 
-                    device.name.lowercased().contains("internal")
-                }
-                
-                let deviceToSelect = builtInDevice ?? audioDeviceManager.availableDevices.first
-                
-                if let device = deviceToSelect {
-                    audioDeviceManager.selectDevice(id: device.id)
-                    audioDeviceManager.selectInputMode(.custom)
-                    withAnimation {
-                        permissionStates[currentPermissionIndex] = true
-                        showAnimation = true
-                    }
+
+            if let deviceID = audioDeviceManager.findBestAvailableDevice() {
+                audioDeviceManager.selectDevice(id: deviceID)
+                audioDeviceManager.selectInputMode(.custom)
+                withAnimation {
+                    permissionStates[currentPermissionIndex] = true
+                    showAnimation = true
                 }
             }
             moveToNext()

@@ -25,6 +25,14 @@ struct HelpAndResourcesSection: View {
                     title: "Documentation",
                     url: "https://tryvoiceink.com/docs"
                 )
+                
+                resourceLink(
+                    icon: "exclamationmark.bubble.fill",
+                    title: "Feedback or Issues?",
+                    action: {
+                        EmailSupport.openSupportEmail()
+                    }
+                )
             }
         }
         .padding(18)
@@ -38,9 +46,11 @@ struct HelpAndResourcesSection: View {
         )
     }
     
-    private func resourceLink(icon: String, title: String, url: String) -> some View {
+    private func resourceLink(icon: String, title: String, url: String? = nil, action: (() -> Void)? = nil) -> some View {
         Button(action: {
-            if let url = URL(string: url) {
+            if let action = action {
+                action()
+            } else if let urlString = url, let url = URL(string: urlString) {
                 NSWorkspace.shared.open(url)
             }
         }) {

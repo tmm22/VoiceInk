@@ -70,12 +70,12 @@ class GeminiTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProv
         guard let apiKey = keychain.getAPIKey(for: "Gemini"), !apiKey.isEmpty else {
             throw CloudTranscriptionError.missingAPIKey
         }
-        
+
         let urlString = "https://generativelanguage.googleapis.com/v1beta/models/\(model.name):generateContent"
         guard let apiURL = URL(string: urlString) else {
             throw CloudTranscriptionError.dataEncodingError
         }
-        
+
         return APIConfig(url: apiURL, apiKey: apiKey, modelName: model.name)
     }
     

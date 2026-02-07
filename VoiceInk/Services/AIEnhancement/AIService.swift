@@ -1,5 +1,4 @@
 import Foundation
-import os
 
 // MARK: - AIService Class
 /// Main AI service for managing AI providers, API keys, and model selection.
@@ -95,7 +94,7 @@ class AIService: ObservableObject {
         } else {
             self.selectedProvider = .gemini
         }
-        
+
         if selectedProvider.requiresAPIKey {
             // Try Keychain first
             if let savedKey = keychain.getAPIKey(for: selectedProvider.rawValue) {
@@ -105,7 +104,7 @@ class AIService: ObservableObject {
         } else {
             self.isAPIKeyValid = true
         }
-        
+
         loadSavedModelSelections()
         loadSavedOpenRouterModels()
     }
@@ -159,7 +158,7 @@ class AIService: ObservableObject {
     
     func clearAPIKey() {
         guard selectedProvider.requiresAPIKey else { return }
-        
+
         apiKey = ""
         isAPIKeyValid = false
         // Best-effort cleanup; key may already be missing.

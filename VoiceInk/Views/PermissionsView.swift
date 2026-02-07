@@ -87,11 +87,10 @@ struct PermissionCard: View {
     let buttonTitle: String
     let buttonAction: () -> Void
     let checkPermission: () -> Void
-    var infoTipTitle: String?
     var infoTipMessage: String?
     var infoTipLink: String?
     @State private var isRefreshing = false
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 16) {
@@ -100,23 +99,23 @@ struct PermissionCard: View {
                     Circle()
                         .fill(isGranted ? Color.green.opacity(0.15) : Color.orange.opacity(0.15))
                         .frame(width: 44, height: 44)
-                    
+
                     Image(systemName: isGranted ? "\(icon).fill" : icon)
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundColor(isGranted ? .green : .orange)
                         .symbolRenderingMode(.hierarchical)
                 }
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text(title)
                             .font(.headline)
-                        if let infoTipTitle = infoTipTitle, let infoTipMessage = infoTipMessage {
-                            InfoTip(
-                                title: infoTipTitle,
-                                message: infoTipMessage,
-                                learnMoreURL: infoTipLink ?? ""
-                            )
+                        if let message = infoTipMessage {
+                            if let link = infoTipLink, !link.isEmpty {
+                                InfoTip(message, learnMoreURL: link)
+                            } else {
+                                InfoTip(message)
+                            }
                         }
                     }
                     Text(description)

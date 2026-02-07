@@ -1,6 +1,5 @@
 import Foundation
 import SwiftData
-import OSLog
 
 /// A utility class that manages automatic cleanup of audio files while preserving transcript data
 @MainActor
@@ -15,9 +14,7 @@ class AudioCleanupManager {
     private let defaultRetentionDays = 7
     private let cleanupCheckInterval: TimeInterval = 86400 // Check once per day (in seconds)
     
-    private init() {
-        logger.info("AudioCleanupManager initialized")
-    }
+    private init() {}
     
     /// Start the automatic cleanup process
     func startAutomaticCleanup(modelContext: ModelContext) {
@@ -26,33 +23,28 @@ class AudioCleanupManager {
         
         // Cancel any existing timer
         cleanupTimer?.invalidate()
-        
+
         // Perform initial cleanup
         Task {
             await performCleanup()
         }
-        
+
         // Schedule regular cleanup
         cleanupTimer = Timer.scheduledTimer(withTimeInterval: cleanupCheckInterval, repeats: true) { [weak self] _ in
             Task { [weak self] in
                 await self?.performCleanup()
             }
         }
-        
-        logger.info("Automatic cleanup scheduled")
     }
     
     /// Stop the automatic cleanup process
     func stopAutomaticCleanup() {
-        logger.info("Stopping automatic audio cleanup")
         cleanupTimer?.invalidate()
         cleanupTimer = nil
     }
     
     /// Get information about the files that would be cleaned up
     func getCleanupInfo(modelContext: ModelContext) async -> (fileCount: Int, totalSize: Int64, transcriptions: [Transcription]) {
-        logger.info("Analyzing potential audio cleanup")
-        
         // Get retention period from UserDefaults
         let retentionDays = AppSettings.Audio.audioRetentionPeriod
         let effectiveRetentionDays = retentionDays > 0 ? retentionDays : defaultRetentionDays
@@ -60,10 +52,9 @@ class AudioCleanupManager {
         // Calculate the cutoff date
         let calendar = Calendar.current
         guard let cutoffDate = calendar.date(byAdding: .day, value: -effectiveRetentionDays, to: Date()) else {
-            logger.error("Failed to calculate cutoff date")
             return (0, 0, [])
         }
-        
+
         do {
             // Create a predicate to find transcriptions with audio files older than the cutoff date
             let descriptor = FetchDescriptor<Transcription>(
@@ -101,7 +92,6 @@ class AudioCleanupManager {
             logger.info("Found \(fileCount) files eligible for cleanup, totaling \(self.formatFileSize(totalSize))")
             return (fileCount, totalSize, eligibleTranscriptions)
         } catch {
-            logger.error("Error analyzing files for cleanup: \(error.localizedDescription)")
             return (0, 0, [])
         }
     }
@@ -130,12 +120,9 @@ class AudioCleanupManager {
         // Calculate the cutoff date
         let calendar = Calendar.current
         guard let cutoffDate = calendar.date(byAdding: .day, value: -effectiveRetentionDays, to: Date()) else {
-            logger.error("Failed to calculate cutoff date")
             return
         }
-        
-        logger.info("Cutoff date for audio cleanup: \(cutoffDate)")
-        
+
         do {
             // Create a predicate to find transcriptions with audio files older than the cutoff date
             let descriptor = FetchDescriptor<Transcription>(
@@ -176,7 +163,7 @@ class AudioCleanupManager {
                 logger.info("Cleanup complete. Deleted \(deletedCount) files. Failed: \(errorCount)")
             }
         } catch {
-            logger.error("Error during audio cleanup: \(error.localizedDescription)")
+            // Silently fail - cleanup is non-critical
         }
     }
     

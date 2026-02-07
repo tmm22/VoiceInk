@@ -1,16 +1,14 @@
 import Foundation
 import SwiftUI
+import SwiftData
 
 class CustomVocabularyService {
     static let shared = CustomVocabularyService()
 
-    private init() {
-        // Migrate old key to new key if needed
-        migrateOldDataIfNeeded()
-    }
+    private init() {}
 
-    func getCustomVocabulary() -> String {
-        guard let customWords = getCustomVocabularyWords(), !customWords.isEmpty else {
+    func getCustomVocabulary(from context: ModelContext) -> String {
+        guard let customWords = getCustomVocabularyWords(from: context), !customWords.isEmpty else {
             return ""
         }
 
@@ -24,7 +22,7 @@ class CustomVocabularyService {
         }
 
         do {
-            let items = try JSONDecoder().decode([DictionaryItem].self, from: data)
+            let items = try context.fetch(descriptor)
             let words = items.map { $0.word }
             return words.isEmpty ? nil : words
         } catch {
