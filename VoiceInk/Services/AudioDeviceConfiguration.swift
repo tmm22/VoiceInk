@@ -40,7 +40,7 @@ class AudioDeviceConfiguration {
         queue: OperationQueue = .main
     ) -> NSObjectProtocol {
         return NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("AudioDeviceChanged"),
+            forName: .audioDeviceChanged,
             object: nil,
             queue: queue,
             using: { _ in handler() }

@@ -18,13 +18,13 @@ class WordReplacementService {
         
         // Apply replacements (case-insensitive)
         for replacement in replacements {
-            let originalGroup = replacement.originalText
-            let replacementText = replacement.replacementText
+            let originalGroup = replacement.key
+            let replacementText = replacement.value
 
             // Split comma-separated originals at apply time only
             let variants = originalGroup
                 .split(separator: ",")
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .map { String($0).trimmingCharacters(in: CharacterSet.whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
 
             for original in variants {

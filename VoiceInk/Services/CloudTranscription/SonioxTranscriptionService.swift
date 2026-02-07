@@ -1,14 +1,8 @@
 import Foundation
-import SwiftData
 
 class SonioxTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProvider {
     let supportedProvider: ModelProvider = .soniox
     private let apiBase = "https://api.soniox.com/v1"
-    private let modelContext: ModelContext
-
-    init(modelContext: ModelContext) {
-        self.modelContext = modelContext
-    }
     
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         let config = try getAPIConfig(for: model)
@@ -159,8 +153,13 @@ class SonioxTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProv
             return []
         }
 
-        let words = vocabularyWords
-            .map { $0.word.trimmingCharacters(in: .whitespacesAndNewlines) }
+        // Decode persisted vocabulary entries without depending on UI model types.
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return []
+        }
+
+        let words = json.compactMap { $0["word"] as? String }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
 
         // De-duplicate while preserving order

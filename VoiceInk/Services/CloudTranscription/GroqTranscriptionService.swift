@@ -4,6 +4,9 @@ import os
 class GroqTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProvider {
     let supportedProvider: ModelProvider = .groq
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "GroqService")
+    private let baseTimeout: TimeInterval = 120
+    private let initialRetryDelay: TimeInterval = 1
+    private let maxRetries: Int = 3
     
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         return try await transcribeWithRetry(audioURL: audioURL, model: model)

@@ -29,6 +29,39 @@ All notable changes to the VoiceLink Community application are documented here.
   - `VoiceInk/Views/AI Models/CloudModelCardRowView.swift`
 - Removed redundant `MainActor.run` in `VoiceInk/PowerMode/ActiveWindowService.swift` where class isolation already guarantees main-actor execution.
 
+### TTS (Pocket TTS)
+- Added Pocket TTS voice options to Tight Ass Mode in `VoiceInk/TTS/Services/LocalTTSService.swift`:
+  - `pocket-tts:alba`
+  - `pocket-tts:azelma`
+  - `pocket-tts:cosette`
+  - `pocket-tts:javert`
+- Added routing logic so Tight Ass Mode synthesizes with Pocket TTS for `pocket-tts:*` identifiers while keeping system AVSpeech voices as fallback/default.
+- Updated Tight Ass Mode format guidance in `VoiceInk/TTS/ViewModels/TTSSettingsViewModel+Computed.swift` to reflect on-device system + Pocket voice support.
+- Added regression tests in `VoiceInkTests/TTS/TTSServiceTests.swift` to verify Pocket voices are exposed and default selection remains a system voice.
+
+### Build Stabilization
+- Resolved stale cloud transcription references:
+  - Added retry/timeout constants in `VoiceInk/Services/CloudTranscription/GroqTranscriptionService.swift`.
+  - Fixed Soniox custom vocabulary extraction in `VoiceInk/Services/CloudTranscription/SonioxTranscriptionService.swift`.
+- Fixed audio-device notification and mode consistency:
+  - Added `audioDeviceChanged` and `audioDeviceSwitchRequired` notifications in `VoiceInk/Notifications/AppNotifications.swift`.
+  - Updated `VoiceInk/Services/AudioDeviceManager.swift` and `VoiceInk/Services/AudioDeviceConfiguration.swift` to use typed notifications and exhaustive mode handling.
+- Fixed transcription-service API drift:
+  - Updated `VoiceInk/Services/AudioFileTranscriptionManager.swift` and `VoiceInk/Services/AudioFileTranscriptionService.swift` to match current `WordReplacementService` signature and local service initialization.
+- Repaired dictionary/vocabulary model drift:
+  - Added `VoiceInk/Models/VocabularyWordData.swift`.
+  - Reworked import/export and vocabulary persistence in:
+    - `VoiceInk/Services/DictionaryImportExportService.swift`
+    - `VoiceInk/Services/ImportExportService.swift`
+    - `VoiceInk/Services/CustomVocabularyService.swift`
+    - `VoiceInk/Views/Dictionary/VocabularyView.swift`
+    - `VoiceInk/Views/Dictionary/DictionarySettingsView.swift`
+- Fixed `CustomCloudModel` API key property conflicts and initialization consistency in `VoiceInk/Models/TranscriptionModel.swift`.
+
+### Verification
+- Performed parser-level verification across Swift sources with `swiftc -frontend -parse`.
+- Full `xcodebuild build/test` remains blocked in this sandbox environment due SwiftPM/package sandbox restrictions (`sandbox-exec: sandbox_apply: Operation not permitted`).
+
 ## 2025-12-31
 
 ### Bug Fixes

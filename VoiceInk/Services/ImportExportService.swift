@@ -67,9 +67,9 @@ class ImportExportService {
         // Export custom models
         let customModels = CustomModelManager.shared.customModels
 
-        var exportedDictionaryItems: [DictionaryItem]? = nil
+        var exportedDictionaryItems: [VocabularyWordData]? = nil
         if let data = AppSettings.Dictionary.customVocabularyItemsData,
-           let items = try? JSONDecoder().decode([DictionaryItem].self, from: data) {
+           let items = try? JSONDecoder().decode([VocabularyWordData].self, from: data) {
             exportedDictionaryItems = items
         }
 
@@ -196,14 +196,13 @@ class ImportExportService {
                         }
                     }
 
-                    if let itemsToImport = importedSettings.dictionaryItems {
+                    if let itemsToImport = importedSettings.vocabularyWords {
                         do {
                             let encoded = try JSONEncoder().encode(itemsToImport)
                             AppSettings.Dictionary.customVocabularyItemsData = encoded
-                            try whisperState.modelContext.save()
-                            self.logger.info("Successfully imported vocabulary words to SwiftData.")
+                            self.logger.info("Successfully imported vocabulary words.")
                         } catch {
-                            self.logger.error("Failed to import vocabulary words to SwiftData: \(error.localizedDescription)")
+                            self.logger.error("Failed to import vocabulary words: \(error.localizedDescription)")
                         }
                     } else {
                         self.logger.info("No custom vocabulary items (for spelling) found in the imported file. Existing items remain unchanged.")

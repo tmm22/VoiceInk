@@ -110,13 +110,18 @@ struct CustomCloudModel: TranscriptionModel, Codable {
     let description: String
     let provider: ModelProvider = .custom
     let apiEndpoint: String
-    // apiKey is no longer stored directly; it's retrieved from Keychain
-    // We use a transient property to hold it temporarily during creation/editing
+    // API key is persisted in Keychain; this is only for edit/create flows.
     var transientApiKey: String?
     
     var apiKey: String {
-        get { 
-            transientApiKey ?? KeychainManager.shared.getAPIKey(for: "custom_model_\(id.uuidString)") ?? "" 
+        get {
+            if let transientApiKey, !transientApiKey.isEmpty {
+                return transientApiKey
+            }
+            if let key = APIKeyManager.shared.getCustomModelAPIKey(forModelId: id), !key.isEmpty {
+                return key
+            }
+            return KeychainManager.shared.getAPIKey(for: "custom_model_\(id.uuidString)") ?? ""
         }
         set {
             transientApiKey = newValue
@@ -147,18 +152,23 @@ struct CustomCloudModel: TranscriptionModel, Codable {
         Self.secureEndpointURL(from: apiEndpoint)
     }
 
-    /// API key retrieved from Keychain by model ID.
-    var apiKey: String {
-        APIKeyManager.shared.getCustomModelAPIKey(forModelId: id) ?? ""
-    }
-
-    init(id: UUID = UUID(), name: String, displayName: String, description: String, apiEndpoint: String, modelName: String, isMultilingual: Bool = true, supportedLanguages: [String: String]? = nil) {
+    init(
+        id: UUID = UUID(),
+        name: String,
+        displayName: String,
+        description: String,
+        apiEndpoint: String,
+        modelName: String,
+        isMultilingual: Bool = true,
+        supportedLanguages: [String: String]? = nil,
+        apiKey: String? = nil
+    ) {
         self.id = id
         self.name = name
         self.displayName = displayName
         self.description = description
         self.apiEndpoint = apiEndpoint
-        self.transientApiKey = apiKey // Store temporarily; manager must save to Keychain
+        self.transientApiKey = apiKey
         self.modelName = modelName
         self.isMultilingualModel = isMultilingual
         self.supportedLanguages = supportedLanguages ?? PredefinedModels.getLanguageDictionary(isMultilingual: isMultilingual)
@@ -178,12 +188,7 @@ struct CustomCloudModel: TranscriptionModel, Codable {
         modelName = try container.decode(String.self, forKey: .modelName)
         isMultilingualModel = try container.decode(Bool.self, forKey: .isMultilingualModel)
         supportedLanguages = try container.decode([String: String].self, forKey: .supportedLanguages)
-        
-        // Legacy handling: Check if we can decode "apiKey" from the container using a dynamic key
-        // But I limited CodingKeys. 
-        // To support migration at the Model level, I would need to include apiKey in CodingKeys but omit it in encode.
-        // Or simpler: Handle migration in CustomModelManager using a separate struct as planned.
-        // So here, I will just implement standard decoding excluding apiKey.
+        transientApiKey = nil
     }
     
     func encode(to encoder: Encoder) throws {

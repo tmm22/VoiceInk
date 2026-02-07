@@ -15,7 +15,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/FluidInference/FluidAudio",
       "state" : {
-        "revision" : "b354014c37b8aa7705aeaabcbb234c80ba93aae0"
+        "revision" : "a402e327c942ac275e58615ca4a99ad2a8b5140e"
       }
     },
     {
@@ -23,7 +23,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sindresorhus/KeyboardShortcuts",
       "state" : {
-        "revision" : "834156b492d82c4c003c680629dfad377a59a07f",
+        "revision" : "1aef85578fdd4f9eaeeb8d53b7b4fc31bf08fe27",
         "version" : "2.4.0"
       }
     },
@@ -51,7 +51,7 @@
       "location" : "https://github.com/ejbills/mediaremote-adapter",
       "state" : {
         "branch" : "master",
-        "revision" : "979bd77540b7f1389d294cc49e8bb2aa9675ed6b"
+        "revision" : "78aae86c03adab11a7b352211cc82381737cf854"
       }
     },
     {

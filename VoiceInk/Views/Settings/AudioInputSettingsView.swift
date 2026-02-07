@@ -14,7 +14,7 @@ struct AudioInputSettingsView: View {
             
             if audioDeviceManager.inputMode == .custom {
                 customDeviceSection
-            case .prioritized:
+            } else if audioDeviceManager.inputMode == .prioritized {
                 prioritizedDevicesSection
             }
         }

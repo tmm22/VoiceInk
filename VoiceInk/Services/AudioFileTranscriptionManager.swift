@@ -76,6 +76,14 @@ class AudioTranscriptionManager: ObservableObject {
                 if parakeetTranscriptionService == nil {
                     parakeetTranscriptionService = ParakeetTranscriptionService()
                 }
+
+                // Initialize local transcription service if needed
+                if localTranscriptionService == nil {
+                    localTranscriptionService = LocalTranscriptionService(
+                        modelsDirectory: whisperState.modelsDirectory,
+                        whisperState: whisperState
+                    )
+                }
                 
                 // Initialize SenseVoice transcription service if needed
                 if senseVoiceTranscriptionService == nil {
@@ -139,7 +147,7 @@ class AudioTranscriptionManager: ObservableObject {
                     text = WhisperTextFormatter.format(text)
                 }
 
-                text = WordReplacementService.shared.applyReplacements(to: text, using: modelContext)
+                text = WordReplacementService.shared.applyReplacements(to: text)
                 
                 // Handle enhancement if enabled
                 if let enhancementService = whisperState.enhancementService,

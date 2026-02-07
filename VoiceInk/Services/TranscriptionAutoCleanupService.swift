@@ -32,7 +32,6 @@ final class TranscriptionAutoCleanupService {
             Task { [weak self] in
                 guard let self = self, let modelContext = self.modelContext else { return }
                 await self.sweepOldTranscriptions(modelContext: modelContext)
-                await self.cleanupOrphanAudioFiles(modelContext: modelContext)
             }
         }
     }

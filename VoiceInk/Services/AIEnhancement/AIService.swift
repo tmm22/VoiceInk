@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 // MARK: - AIService Class
 /// Main AI service for managing AI providers, API keys, and model selection.

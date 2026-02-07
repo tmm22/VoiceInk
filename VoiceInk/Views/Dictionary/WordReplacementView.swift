@@ -221,6 +221,7 @@ struct WordReplacementView: View {
             Text(alertMessage)
         }
     }
+}
 
 struct EmptyStateView: View {
     @Binding var showAddModal: Bool

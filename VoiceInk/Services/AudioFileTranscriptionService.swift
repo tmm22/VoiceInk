@@ -35,7 +35,10 @@ class AudioTranscriptionService: ObservableObject {
         self.modelContext = modelContext
         self.whisperState = whisperState
         self.enhancementService = whisperState.enhancementService
-        self.serviceRegistry = TranscriptionServiceRegistry(whisperState: whisperState, modelsDirectory: whisperState.modelsDirectory)
+        self.localTranscriptionService = LocalTranscriptionService(
+            modelsDirectory: whisperState.modelsDirectory,
+            whisperState: whisperState
+        )
     }
     
     func retranscribeAudio(from url: URL, using model: any TranscriptionModel) async throws -> Transcription {
@@ -76,7 +79,7 @@ class AudioTranscriptionService: ObservableObject {
                 text = WhisperTextFormatter.format(text)
             }
 
-            text = WordReplacementService.shared.applyReplacements(to: text, using: modelContext)
+            text = WordReplacementService.shared.applyReplacements(to: text)
             logger.notice("✅ Word replacements applied")
 
             let audioAsset = AVURLAsset(url: url)

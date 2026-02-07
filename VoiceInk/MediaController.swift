@@ -112,33 +112,3 @@ class MediaController: ObservableObject {
         }
     }
 }
-
-        let delay = audioResumptionDelay
-        let shouldUnmute = didMuteAudio && !wasAudioMutedBeforeRecording
-        let myGeneration = muteGeneration
-
-        let task = Task { [weak self] in
-            if delay > 0 {
-                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-            }
-
-            guard let self = self else { return }
-            guard !Task.isCancelled else { return }
-            guard self.muteGeneration == myGeneration else { return }
-
-            if shouldUnmute {
-                _ = self.setSystemMuted(false)
-            }
-
-            self.didMuteAudio = false
-        }
-
-        unmuteTask = task
-        await task.value
-    }
-    
-    var isSystemMuteEnabled: Bool {
-        get { AppSettings.Audio.isSystemMuteEnabled }
-        set { AppSettings.Audio.isSystemMuteEnabled = newValue }
-    }
-}

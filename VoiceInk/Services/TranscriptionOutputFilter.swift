@@ -3,6 +3,12 @@ import os
 
 struct TranscriptionOutputFilter {
     private static let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "TranscriptionOutputFilter")
+    private static let fillerWordsDefaultsKey = "FillerWords"
+    private static let removeFillerWordsDefaultsKey = "RemoveFillerWords"
+    private static let defaultFillerWords = [
+        "uh", "um", "uhm", "umm", "uhh", "uhhh", "ah", "eh",
+        "hmm", "hm", "mmm", "mm", "mh", "ha", "ehh"
+    ]
     
     private static let hallucinationPatterns = [
         #"\[.*?\]"#,     // []
@@ -29,8 +35,9 @@ struct TranscriptionOutputFilter {
         }
 
         // Remove filler words (if enabled)
-        if FillerWordManager.shared.isEnabled {
-            for fillerWord in FillerWordManager.shared.fillerWords {
+        if UserDefaults.standard.bool(forKey: removeFillerWordsDefaultsKey) {
+            let fillerWords = UserDefaults.standard.stringArray(forKey: fillerWordsDefaultsKey) ?? defaultFillerWords
+            for fillerWord in fillerWords {
                 let pattern = "\\b\(NSRegularExpression.escapedPattern(for: fillerWord))\\b[,.]?"
                 if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
                     let range = NSRange(filteredText.startIndex..., in: filteredText)

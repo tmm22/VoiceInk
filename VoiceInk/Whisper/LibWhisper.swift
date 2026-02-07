@@ -1,12 +1,11 @@
 import Foundation
+import os
 #if canImport(whisper)
 import whisper
-#else
-#error("Unable to import whisper module. Please check your project configuration.")
 #endif
-import os
 
 
+#if canImport(whisper)
 // Meet Whisper C++ constraint: Don't access from more than one thread at a time.
 actor WhisperContext {
     private var context: OpaquePointer?
@@ -194,3 +193,26 @@ actor WhisperContext {
 fileprivate func cpuCount() -> Int {
     ProcessInfo.processInfo.processorCount
 }
+#else
+actor WhisperContext {
+    private init() {}
+
+    init(context: OpaquePointer) {}
+
+    func fullTranscribe(samples: [Float]) -> Bool {
+        false
+    }
+
+    func getTranscription() -> String {
+        ""
+    }
+
+    static func createContext(path: String) async throws -> WhisperContext {
+        throw WhisperStateError.modelLoadFailed
+    }
+
+    func releaseResources() {}
+
+    func setPrompt(_ prompt: String?) {}
+}
+#endif

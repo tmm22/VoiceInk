@@ -159,7 +159,7 @@ struct EnhancementSettingsView: View {
                         .voiceInkCardBackground()
                     }
                     
-                    VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
+                    Section {
                         HStack {
                             Text("Enhancement Prompts & Persona")
                                 .voiceInkHeadline()
@@ -217,12 +217,11 @@ struct EnhancementSettingsView: View {
                             },
                             onEditPrompt: { prompt in
                                 selectedPromptForEdit = prompt
+                            },
+                            onDeletePrompt: { prompt in
+                                enhancementService.deletePrompt(prompt)
                             }
-                        },
-                        onDeletePrompt: { prompt in
-                            enhancementService.deletePrompt(prompt)
-                        }
-                    )
+                        )
                     .padding(.vertical, 8)
                 } header: {
                     HStack {
@@ -314,6 +313,7 @@ struct EnhancementSettingsView: View {
                 }
                 .ignoresSafeArea()
                 .zIndex(2)
+            }
             }
             .padding(VoiceInkSpacing.lg)
         }

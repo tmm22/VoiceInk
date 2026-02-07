@@ -97,6 +97,8 @@ class AudioDeviceManager: ObservableObject {
         switch inputMode {
         case .systemDefault:
             logger.notice("🎙️ Using System Default mode")
+        case .custom:
+            logger.notice("🎙️ Using Custom Device mode")
         case .prioritized:
             selectHighestPriorityAvailableDevice()
             return
@@ -298,16 +300,12 @@ class AudioDeviceManager: ObservableObject {
         if mode == .systemDefault {
             selectedDeviceID = nil
             AppSettings.AudioInput.selectedAudioDeviceUID = nil
-        } else if selectedDeviceID == nil {
-            if inputMode == .custom {
-                if let firstDevice = availableDevices.first {
-                    selectDevice(id: firstDevice.id)
-                }
+        } else if mode == .custom, selectedDeviceID == nil {
+            if let firstDevice = availableDevices.first {
+                selectDevice(id: firstDevice.id)
             }
-        case .prioritized:
-            if selectedDeviceID == nil {
-                selectHighestPriorityAvailableDevice()
-            }
+        } else if mode == .prioritized, selectedDeviceID == nil {
+            selectHighestPriorityAvailableDevice()
         }
 
         notifyDeviceChange()
@@ -539,6 +537,6 @@ class AudioDeviceManager: ObservableObject {
     }
     
     private func notifyDeviceChange() {
-        NotificationCenter.default.post(name: NSNotification.Name("AudioDeviceChanged"), object: nil)
+        NotificationCenter.default.post(name: .audioDeviceChanged, object: nil)
     }
 } 

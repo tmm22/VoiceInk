@@ -86,7 +86,6 @@ class CustomModelManager: ObservableObject {
                     displayName: legacy.displayName,
                     description: legacy.description,
                     apiEndpoint: legacy.apiEndpoint,
-                    apiKey: "", // Not needed here as we just saved it to keychain, and transient is not needed for load
                     modelName: legacy.modelName,
                     isMultilingual: legacy.isMultilingualModel,
                     supportedLanguages: legacy.supportedLanguages

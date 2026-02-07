@@ -1,5 +1,5 @@
 import Foundation
-import os
+import OSLog
 
 // MARK: - API Key Verification Extension
 extension AIService {

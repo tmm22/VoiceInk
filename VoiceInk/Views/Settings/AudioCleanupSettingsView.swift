@@ -94,6 +94,7 @@ struct AudioCleanupSettingsView: View {
                     isHandlingTranscriptToggle = false
                 }
             }
+            }
 
             // Audio cleanup - only show if transcript cleanup is disabled
             if !isTranscriptionCleanupEnabled {

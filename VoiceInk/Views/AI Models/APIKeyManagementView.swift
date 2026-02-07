@@ -115,238 +115,224 @@ struct APIKeyManagementView: View {
                 Divider()
 
                 if aiService.selectedProvider == .ollama {
-                    // Ollama Configuration inline
-                    if isEditingURL {
-                        HStack {
-                            TextField("Base URL", text: $ollamaBaseURL)
-                                .textFieldStyle(.roundedBorder)
-                            
-                            Button("Save") {
-                                aiService.updateOllamaBaseURL(ollamaBaseURL)
-                                checkOllamaConnection()
-                                isEditingURL = false
-                            }
-                        }
-                    } else {
-                        HStack {
-                            Text("Server: \(ollamaBaseURL)")
-                            Spacer()
-                            Button("Edit") { isEditingURL = true }
-                            Button(action: {
-                                ollamaBaseURL = AppSettings.Ollama.defaultBaseURL
-                                aiService.updateOllamaBaseURL(ollamaBaseURL)
-                                checkOllamaConnection()
-                            }) {
-                                Image(systemName: "arrow.counterclockwise")
-                            }
-                            .help("Reset to default")
-                        }
-                    }
-                    
-                    // Model selection and refresh
-                    HStack {
-                        Label("Model", systemImage: "cpu")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        
-                        Spacer()
-                        
-                        if ollamaModels.isEmpty {
-                            HStack(spacing: 8) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.orange)
-                                Text("No models available")
-                                    .foregroundColor(.secondary)
-                                    .italic()
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Ollama Configuration inline
+                        if isEditingURL {
+                            HStack {
+                                TextField("Base URL", text: $ollamaBaseURL)
+                                    .textFieldStyle(.roundedBorder)
+
+                                Button("Save") {
+                                    aiService.updateOllamaBaseURL(ollamaBaseURL)
+                                    checkOllamaConnection()
+                                    isEditingURL = false
+                                }
                             }
                         } else {
-                            Picker("", selection: $selectedOllamaModel) {
-                                ForEach(ollamaModels) { model in
-                                    Text(model.name).tag(model.name)
+                            HStack {
+                                Text("Server: \(ollamaBaseURL)")
+                                Spacer()
+                                Button("Edit") { isEditingURL = true }
+                                Button(action: {
+                                    ollamaBaseURL = AppSettings.Ollama.defaultBaseURL
+                                    aiService.updateOllamaBaseURL(ollamaBaseURL)
+                                    checkOllamaConnection()
+                                }) {
+                                    Image(systemName: "arrow.counterclockwise")
                                 }
-                            }
-                            .onChange(of: selectedOllamaModel) { oldValue, newValue in
-                                aiService.updateSelectedOllamaModel(newValue)
-                            }
-                            .labelsHidden()
-                            .frame(maxWidth: 150)
-                        }
-                        
-                        Button(action: { checkOllamaConnection() }) {
-                            Label(isCheckingOllama ? "Refreshing..." : "Refresh", systemImage: isCheckingOllama ? "arrow.triangle.2.circlepath" : "arrow.clockwise")
-                                .font(.caption)
-                        }
-                        .disabled(isCheckingOllama)
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    }
-                    
-                    // Help text for troubleshooting
-                    if ollamaModels.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Troubleshooting")
-                                .font(.subheadline)
-                                .bold()
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                bulletPoint("Ensure Ollama is installed and running")
-                                bulletPoint("Check if the server URL is correct")
-                                bulletPoint("Verify you have at least one model pulled")
-                            }
-                            
-                            Button("Learn More") {
-                                if let url = URL(string: "https://ollama.ai/download") {
-                                    NSWorkspace.shared.open(url)
-                                }
-                            }
-                            .font(.caption)
-                        }
-                        .padding(12)
-                        .background(Color.secondary.opacity(0.05))
-                        .cornerRadius(8)
-                    }
-                }
-                .padding()
-                .background(Color.secondary.opacity(0.03))
-                .cornerRadius(12)
-
-                    if !ollamaModels.isEmpty {
-                        Divider()
-
-                        Picker("Model", selection: $selectedOllamaModel) {
-                            ForEach(ollamaModels) { model in
-                                Text(model.name).tag(model.name)
+                                .help("Reset to default")
                             }
                         }
-                        .onChange(of: selectedOllamaModel) { oldValue, newValue in
-                            aiService.updateSelectedOllamaModel(newValue)
-                        }
-                    }
 
-                } else if aiService.selectedProvider == .custom {
-                    // Custom Configuration inline
-                    TextField("API Endpoint URL", text: $aiService.customBaseURL)
-                        .textFieldStyle(.roundedBorder)
-
-                    Divider()
-
-                    TextField("Model Name", text: $aiService.customModel)
-                        .textFieldStyle(.roundedBorder)
-
-                    Divider()
-
-                    if aiService.isAPIKeyValid {
+                        // Model selection and refresh
                         HStack {
-                            Text("API Key Set")
+                            Label("Model", systemImage: "cpu")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
                             Spacer()
-                            Button("Remove Key", role: .destructive) {
-                                aiService.clearAPIKey()
+
+                            if ollamaModels.isEmpty {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .foregroundColor(.orange)
+                                    Text("No models available")
+                                        .foregroundColor(.secondary)
+                                        .italic()
+                                }
+                            } else {
+                                Picker("", selection: $selectedOllamaModel) {
+                                    ForEach(ollamaModels) { model in
+                                        Text(model.name).tag(model.name)
+                                    }
+                                }
+                                .onChange(of: selectedOllamaModel) { oldValue, newValue in
+                                    aiService.updateSelectedOllamaModel(newValue)
+                                }
+                                .labelsHidden()
+                                .frame(maxWidth: 150)
                             }
+
+                            Button(action: { checkOllamaConnection() }) {
+                                Label(isCheckingOllama ? "Refreshing..." : "Refresh", systemImage: isCheckingOllama ? "arrow.triangle.2.circlepath" : "arrow.clockwise")
+                                    .font(.caption)
+                            }
+                            .disabled(isCheckingOllama)
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                         }
-                    } else {
-                        SecureField("API Key", text: $apiKey)
+
+                        // Help text for troubleshooting
+                        if ollamaModels.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Troubleshooting")
+                                    .font(.subheadline)
+                                    .bold()
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    bulletPoint("Ensure Ollama is installed and running")
+                                    bulletPoint("Check if the server URL is correct")
+                                    bulletPoint("Verify you have at least one model pulled")
+                                }
+
+                                Button("Learn More") {
+                                    if let url = URL(string: "https://ollama.ai/download") {
+                                        NSWorkspace.shared.open(url)
+                                    }
+                                }
+                                .font(.caption)
+                            }
+                            .padding(12)
+                            .background(Color.secondary.opacity(0.05))
+                            .cornerRadius(8)
+                        }
+                    }
+                    .padding()
+                    .background(Color.secondary.opacity(0.03))
+                    .cornerRadius(12)
+                } else if aiService.selectedProvider == .custom {
+                    VStack(alignment: .leading, spacing: 12) {
+                        TextField("API Endpoint URL", text: $aiService.customBaseURL)
                             .textFieldStyle(.roundedBorder)
 
-                        Button("Verify and Save") {
-                            isVerifying = true
-                            aiService.saveAPIKey(apiKey) { success, errorMessage in
-                                isVerifying = false
-                                if !success {
-                                    alertMessage = errorMessage ?? "Verification failed"
-                                    showAlert = true
-                                }
-                                apiKey = ""
-                            }
-                        }
-                        .disabled(aiService.customBaseURL.isEmpty || aiService.customModel.isEmpty || apiKey.isEmpty)
-                    }
-                    
-                    // Configuration Fields
-                    VStack(alignment: .leading, spacing: 8) {
-                        if !aiService.isAPIKeyValid {
-                            TextField("API Endpoint URL (e.g., https://api.example.com/v1/chat/completions)", text: $aiService.customBaseURL)
-                                .textFieldStyle(.roundedBorder)
-                            
-                            TextField("Model Name (e.g., gpt-4o-mini, claude-3-5-sonnet-20240620)", text: $aiService.customModel)
-                                .textFieldStyle(.roundedBorder)
-                        } else {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("API Endpoint URL")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                Text(aiService.customBaseURL)
-                                    .font(.system(.body, design: .monospaced))
-                                
-                                Text("Model")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                Text(aiService.customModel)
-                                    .font(.system(.body, design: .monospaced))
-                            }
-                        }
-                        
+                        Divider()
+
+                        TextField("Model Name", text: $aiService.customModel)
+                            .textFieldStyle(.roundedBorder)
+
+                        Divider()
+
                         if aiService.isAPIKeyValid {
-                            Text("API Key")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            
                             HStack {
-                                Text(String(repeating: "•", count: 40))
-                                    .font(.system(.body, design: .monospaced))
-                                
+                                Text("API Key Set")
                                 Spacer()
-                                
-                                Button(action: {
+                                Button("Remove Key", role: .destructive) {
                                     aiService.clearAPIKey()
-                                }) {
-                                    Label("Remove Key", systemImage: "trash")
-                                        .foregroundColor(.red)
                                 }
-                                .buttonStyle(.borderless)
                             }
                         } else {
-                            Text("Enter your API Key")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            
                             SecureField("API Key", text: $apiKey)
                                 .textFieldStyle(.roundedBorder)
-                                .font(.system(.body, design: .monospaced))
-                            
-                            HStack {
-                                Button(action: {
-                                    isVerifying = true
-                                    aiService.saveAPIKey(apiKey) { success, errorMessage in
-                                        isVerifying = false
-                                        if !success {
-                                            alertMessage = errorMessage ?? "Verification failed"
-                                            showAlert = true
-                                        }
-                                        apiKey = ""
+
+                            Button("Verify and Save") {
+                                isVerifying = true
+                                aiService.saveAPIKey(apiKey) { success, errorMessage in
+                                    isVerifying = false
+                                    if !success {
+                                        alertMessage = errorMessage ?? "Verification failed"
+                                        showAlert = true
                                     }
-                                }) {
-                                    HStack {
-                                        if isVerifying {
-                                            ProgressView()
-                                                .scaleEffect(0.5)
-                                                .frame(width: 16, height: 16)
-                                        } else {
-                                            Image(systemName: "checkmark.circle.fill")
-                                        }
-                                        Text("Verify and Save")
-                                    }
+                                    apiKey = ""
                                 }
-                                .disabled(aiService.customBaseURL.isEmpty || aiService.customModel.isEmpty || apiKey.isEmpty)
-                                
-                                Spacer()
+                            }
+                            .disabled(aiService.customBaseURL.isEmpty || aiService.customModel.isEmpty || apiKey.isEmpty)
+                        }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            if !aiService.isAPIKeyValid {
+                                TextField("API Endpoint URL (e.g., https://api.example.com/v1/chat/completions)", text: $aiService.customBaseURL)
+                                    .textFieldStyle(.roundedBorder)
+
+                                TextField("Model Name (e.g., gpt-4o-mini, claude-3-5-sonnet-20240620)", text: $aiService.customModel)
+                                    .textFieldStyle(.roundedBorder)
+                            } else {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("API Endpoint URL")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                    Text(aiService.customBaseURL)
+                                        .font(.system(.body, design: .monospaced))
+
+                                    Text("Model")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                    Text(aiService.customModel)
+                                        .font(.system(.body, design: .monospaced))
+                                }
+                            }
+
+                            if aiService.isAPIKeyValid {
+                                Text("API Key")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+
+                                HStack {
+                                    Text(String(repeating: "•", count: 40))
+                                        .font(.system(.body, design: .monospaced))
+
+                                    Spacer()
+
+                                    Button(action: {
+                                        aiService.clearAPIKey()
+                                    }) {
+                                        Label("Remove Key", systemImage: "trash")
+                                            .foregroundColor(.red)
+                                    }
+                                    .buttonStyle(.borderless)
+                                }
+                            } else {
+                                Text("Enter your API Key")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+
+                                SecureField("API Key", text: $apiKey)
+                                    .textFieldStyle(.roundedBorder)
+                                    .font(.system(.body, design: .monospaced))
+
+                                HStack {
+                                    Button(action: {
+                                        isVerifying = true
+                                        aiService.saveAPIKey(apiKey) { success, errorMessage in
+                                            isVerifying = false
+                                            if !success {
+                                                alertMessage = errorMessage ?? "Verification failed"
+                                                showAlert = true
+                                            }
+                                            apiKey = ""
+                                        }
+                                    }) {
+                                        HStack {
+                                            if isVerifying {
+                                                ProgressView()
+                                                    .scaleEffect(0.5)
+                                                    .frame(width: 16, height: 16)
+                                            } else {
+                                                Image(systemName: "checkmark.circle.fill")
+                                            }
+                                            Text("Verify and Save")
+                                        }
+                                    }
+                                    .disabled(aiService.customBaseURL.isEmpty || aiService.customModel.isEmpty || apiKey.isEmpty)
+
+                                    Spacer()
+                                }
                             }
                         }
                     }
-                }
-                .padding()
-                .background(Color.secondary.opacity(0.03))
-                .cornerRadius(12)
-            } else {
+                    .padding()
+                    .background(Color.secondary.opacity(0.03))
+                    .cornerRadius(12)
+                } else {
                 // API Key Display for other providers if valid
                 if aiService.isAPIKeyValid {
                     VStack(alignment: .leading, spacing: 8) {
@@ -485,6 +471,7 @@ struct APIKeyManagementView: View {
                 }
             }
             
+        }
         }
         .alert("Error", isPresented: $showAlert) {
             Button("OK", role: .cancel) { }

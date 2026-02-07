@@ -12,7 +12,7 @@ class TranscriptionServiceRegistry {
         modelsDirectory: modelsDirectory,
         whisperState: whisperState
     )
-    private(set) lazy var cloudTranscriptionService = CloudTranscriptionService(modelContext: whisperState.modelContext)
+    private(set) lazy var cloudTranscriptionService = CloudTranscriptionService()
     private(set) lazy var nativeAppleTranscriptionService = NativeAppleTranscriptionService()
     private(set) lazy var parakeetTranscriptionService = ParakeetTranscriptionService()
 

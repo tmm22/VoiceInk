@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct DictionarySettingsView: View {
+    @Environment(\.modelContext) private var modelContext
     @State private var selectedSection: DictionarySection = .quickRules
     let whisperPrompt: WhisperPrompt
     

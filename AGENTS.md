@@ -847,6 +847,26 @@ func getAPIKey() -> String {
 }
 ```
 
+**CustomCloudModel API key rule (critical):**
+
+- Keep exactly **one** `apiKey` computed property on `CustomCloudModel`.
+- Resolve keys through `APIKeyManager` for custom model IDs.
+- Do not introduce competing keychain key formats or duplicate computed properties.
+
+```swift
+// ✅ Good: Single source of truth with optional fallback for legacy key naming
+var apiKey: String {
+    if let key = APIKeyManager.shared.getCustomModelAPIKey(forModelId: id), !key.isEmpty {
+        return key
+    }
+    return KeychainManager.shared.getAPIKey(for: "custom_model_\(id.uuidString)") ?? ""
+}
+
+// ⛔ Bad: Multiple apiKey properties / duplicated logic in same type
+var apiKey: String { ... }
+var apiKey: String { ... }  // Invalid redeclaration + inconsistent behavior
+```
+
 ### 2. Network Security
 
 **HTTPS only, ephemeral sessions:**
@@ -1129,6 +1149,32 @@ See [`ModelCapabilityRegistry`](VoiceInk/Whisper/ModelCapabilityRegistry.swift:2
 3. Use the registry from call sites instead of adding new `switch` cases.
    - Example: [`ModelCapabilityRegistry.isModelAvailable(_:whisperState:)`](VoiceInk/Whisper/ModelCapabilityRegistry.swift:58)
 
+### 6. Notification Name Pattern
+
+Use typed notifications from `VoiceInk/Notifications/AppNotifications.swift` for every post/observe path.
+
+```swift
+// ✅ Good: Typed notification names
+NotificationCenter.default.post(name: .audioDeviceChanged, object: nil)
+NotificationCenter.default.addObserver(forName: .toggleMiniRecorder, object: nil, queue: .main) { _ in
+    // Handle event
+}
+
+// ⛔ Bad: String-literal names scattered across files
+NotificationCenter.default.post(name: NSNotification.Name("AudioDeviceChanged"), object: nil)
+```
+
+**Why:** String literals drift during refactors and silently break observers. Keep all names centralized.
+
+### 7. Dictionary Data Source Pattern
+
+`VocabularyWord` (SwiftData) is the source of truth for vocabulary UI and editing.
+
+- Use `@Query var vocabularyWords: [VocabularyWord]` in SwiftUI vocabulary screens.
+- Keep `AppSettings.Dictionary.customVocabularyItemsData` as a serialized mirror for services that read settings data.
+- When serializing vocabulary to settings, use a stable codable payload type (`VocabularyWordData`).
+- Do not reintroduce legacy `DictionaryItem` as a primary model.
+
 ---
 
 ## AI Context System
@@ -1205,6 +1251,7 @@ Before committing changes:
 **Code Quality:**
 - [ ] Code compiles without warnings
 - [ ] Tests pass (run `./run_tests.sh`)
+- [ ] No duplicate untracked source files (e.g., `* 2.swift`, `* 3.swift`) that cause redeclarations
 - [ ] No force-unwraps (`!`) in production code
 - [ ] No `.data(using: .utf8)!` force unwraps (use `Data(string.utf8)`)
 - [ ] No `try!` in SwiftUI previews
@@ -1261,6 +1308,20 @@ The built app will be located at:
 ```
 
 **See `BUILDING.md` for detailed build instructions.**
+
+### Workspace Hygiene (Before Building)
+
+If a working tree contains duplicated untracked source files (for example `SomeFile 2.swift`), Xcode may emit ambiguous type/redeclaration errors.
+
+**Quick check:**
+
+```bash
+git status --short | grep -E "^\?\?.* [0-9]+\.swift$"
+```
+
+**Rule:**
+- Quarantine or remove duplicate **untracked** files before build/test.
+- Never delete or rewrite tracked files as part of cleanup.
 
 ---
 
@@ -1483,6 +1544,18 @@ deinit {
     monitorTask?.cancel()
 }
 ```
+
+#### 5. Build/Test Fails with `sandbox-exec: sandbox_apply`
+
+**Symptoms:** `xcodebuild build` / `xcodebuild test` fails during SwiftPM package resolution with sandbox errors.  
+**Causes:**
+- Restricted execution environment blocking SwiftPM sandboxing.
+- Package manifest resolution attempting to write to restricted cache locations.
+
+**Solution:**
+1. Run full build/tests in normal local Xcode environment (preferred).
+2. Use parser validation (`swiftc -frontend -parse`) only as a temporary syntax-level fallback.
+3. Treat parser-only success as insufficient for release; always perform at least one full `xcodebuild` pass before merge.
 
 ### Debug Logging
 
@@ -1776,6 +1849,12 @@ Task { @MainActor [weak self] in
 
 ## Version History
 
+- **v1.11** (2026-02-07) - Recent Lessons (Build + Data Consistency)
+  - Added workspace hygiene guidance for duplicate untracked source files (e.g., `* 2.swift`) that cause redeclaration build failures
+  - Added dictionary source-of-truth pattern: `VocabularyWord` (SwiftData) + `VocabularyWordData` mirror for settings-backed services
+  - Added notification centralization rule to use typed names from `AppNotifications.swift` (no string-literal notification names)
+  - Added `CustomCloudModel` API key ownership rule to avoid duplicate `apiKey` properties and keychain drift
+  - Added troubleshooting guidance for `sandbox-exec: sandbox_apply` SwiftPM/xcodebuild failures with parser-only fallback caveat
 - **v1.10** (2026-01-10) - MetricKit Production Performance Monitoring
   - Added MetricsManager service for MetricKit integration
   - Extended AppLogger with metrics category
@@ -1805,11 +1884,17 @@ This guide is a living document. If you find errors, outdated information, or ha
 
 ---
 
-**Last Updated:** January 10, 2026
+**Last Updated:** February 7, 2026
 **Maintained By:** VoiceInk Community
 **License:** GPL v3 (same as project)
 
 **Recent Updates:**
+- **v1.11** (2026-02-07) - Recent Lessons (Build + Data Consistency)
+  - Added workspace hygiene guidance for duplicate untracked Swift files before building
+  - Added dictionary source-of-truth guidance (`VocabularyWord` + `VocabularyWordData` mirror)
+  - Added typed notification-name requirement via `AppNotifications.swift`
+  - Added `CustomCloudModel` API key ownership/single-property rule
+  - Added troubleshooting path for `sandbox-exec: sandbox_apply` package-resolution failures
 - **v1.10** (2026-01-10) - MetricKit Production Performance Monitoring
   - Added [`MetricsManager`](VoiceInk/Services/MetricsManager.swift) for production performance monitoring via MetricKit
   - Extended [`AppLogger`](VoiceInk/Utilities/AppLogger.swift) with `.metrics` category for performance logging

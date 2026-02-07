@@ -168,9 +168,6 @@ class WhisperState: NSObject, ObservableObject, RecordingSessionDelegate {
             PowerModeSessionManager.shared.configure(whisperState: self, enhancementService: enhancementService)
         }
 
-        // Initialize the transcription service registry
-        self.serviceRegistry = TranscriptionServiceRegistry(whisperState: self, modelsDirectory: self.modelsDirectory)
-        
         uiManager?.setupNotifications()
         createModelsDirectoryIfNeeded()
         createFastConformerDirectoryIfNeeded()

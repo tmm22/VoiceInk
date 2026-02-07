@@ -170,6 +170,23 @@ final class TTSServiceTests: XCTestCase {
         XCTAssertEqual(Voice.ProviderType.google.rawValue, "Google")
         XCTAssertEqual(Voice.ProviderType.tightAss.rawValue, "Tight Ass Mode")
     }
+
+    @MainActor
+    func testLocalTTSIncludesPocketVoiceOptions() {
+        let localService = LocalTTSService()
+        let voiceIDs = Set(localService.availableVoices.map(\.id))
+
+        XCTAssertTrue(voiceIDs.contains("pocket-tts:alba"))
+        XCTAssertTrue(voiceIDs.contains("pocket-tts:azelma"))
+        XCTAssertTrue(voiceIDs.contains("pocket-tts:cosette"))
+        XCTAssertTrue(voiceIDs.contains("pocket-tts:javert"))
+    }
+
+    @MainActor
+    func testLocalTTSDefaultVoiceRemainsSystemVoice() {
+        let localService = LocalTTSService()
+        XCTAssertFalse(localService.defaultVoice.id.hasPrefix("pocket-tts:"))
+    }
     
     // MARK: - AudioSettings Tests
     

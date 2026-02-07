@@ -18,7 +18,7 @@ extension TTSSettingsViewModel {
         case .openAI:
             return "OpenAI offers MP3, WAV, AAC, and FLAC options."
         case .tightAss:
-            return "Tight Ass Mode saves audio using the system voices in WAV format."
+            return "Tight Ass Mode saves WAV audio using on-device system voices and Pocket TTS voices."
         }
     }
 
