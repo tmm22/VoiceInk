@@ -2,6 +2,17 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-02-08
+
+### Stability
+- Added a runtime CloudKit guard in `VoiceInk/VoiceInk.swift` for the dictionary store so CloudKit sync is enabled only when entitlement and iCloud account state are available.
+- Added `VOICEINK_DISABLE_DICTIONARY_CLOUDKIT=1` environment override to force local-only dictionary persistence for troubleshooting.
+- Prevented launch-time aborts observed on `com.apple.coredata.cloudkit.queue` when CloudKit prerequisites are not met.
+
+### Debug Validation
+- Performed a fresh clean Debug build and launch verification from local derived data artifacts.
+- Confirmed Pocket TTS voices are available in Tight Ass Mode after resetting local visibility defaults.
+
 ## 2026-02-07
 
 ### Dependencies

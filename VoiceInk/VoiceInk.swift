@@ -5,6 +5,7 @@ import AppKit
 import OSLog
 import AppIntents
 import FluidAudio
+import Security
 
 @main
 struct VoiceInkApp: App {
@@ -133,6 +134,48 @@ struct VoiceInkApp: App {
     
     // MARK: - Container Creation Helpers
     
+    private static let dictionaryCloudKitContainerIdentifier = "iCloud.com.prakashjoshipax.VoiceInk"
+    
+    private static func shouldUseDictionaryCloudKit(logger: Logger) -> Bool {
+        if ProcessInfo.processInfo.environment["VOICEINK_DISABLE_DICTIONARY_CLOUDKIT"] == "1" {
+            logger.notice("Dictionary CloudKit sync disabled by VOICEINK_DISABLE_DICTIONARY_CLOUDKIT")
+            return false
+        }
+        
+        guard hasICloudContainerEntitlement(dictionaryCloudKitContainerIdentifier) else {
+            logger.notice("Dictionary CloudKit sync disabled: missing iCloud container entitlement")
+            return false
+        }
+        
+        guard FileManager.default.ubiquityIdentityToken != nil else {
+            logger.notice("Dictionary CloudKit sync disabled: iCloud account unavailable")
+            return false
+        }
+        
+        return true
+    }
+    
+    private static func hasICloudContainerEntitlement(_ containerIdentifier: String) -> Bool {
+        guard let task = SecTaskCreateFromSelf(nil),
+              let raw = SecTaskCopyValueForEntitlement(
+                task,
+                "com.apple.developer.icloud-container-identifiers" as CFString,
+                nil
+              ) else {
+            return false
+        }
+        
+        if let identifiers = raw as? [String] {
+            return identifiers.contains(containerIdentifier)
+        }
+        
+        if let identifiers = raw as? [Any] {
+            return identifiers.compactMap { $0 as? String }.contains(containerIdentifier)
+        }
+        
+        return false
+    }
+    
     private static func createPersistentContainer(schema: Schema, logger: Logger) -> ModelContainer? {
         do {
             // Use bundle identifier for app-specific storage directory
@@ -156,13 +199,17 @@ struct VoiceInkApp: App {
                 cloudKitDatabase: .none
             )
 
-            // Dictionary configuration (CloudKit-synchronized)
+            // Dictionary configuration (CloudKit is enabled only when runtime supports it)
             let dictionarySchema = Schema([VocabularyWord.self, WordReplacement.self])
+            let dictionaryCloudKitDatabase: ModelConfiguration.CloudKitDatabase =
+                shouldUseDictionaryCloudKit(logger: logger)
+                ? .private(dictionaryCloudKitContainerIdentifier)
+                : .none
             let dictionaryConfig = ModelConfiguration(
                 "dictionary",
                 schema: dictionarySchema,
                 url: dictionaryStoreURL,
-                cloudKitDatabase: .private("iCloud.com.prakashjoshipax.VoiceInk")
+                cloudKitDatabase: dictionaryCloudKitDatabase
             )
 
             // Initialize container
