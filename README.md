@@ -39,7 +39,7 @@ Highlights of this fork:
 
 ## Requirements
 
-- macOS 14.0 or later
+- macOS 14.4 or later
 
 ## Documentation
 

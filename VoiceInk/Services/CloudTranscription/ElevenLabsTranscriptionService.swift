@@ -1,156 +1,81 @@
 import Foundation
+import OSLog
 
-class ElevenLabsTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProvider {
-    let supportedProvider: ModelProvider = .elevenLabs
-    
+class ElevenLabsTranscriptionService {
+    private let apiURL = URL(string: "https://api.elevenlabs.io/v1/speech-to-text")!
+    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "ElevenLabsTranscriptionService")
+
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
-        let config = try await prepareRequest(for: model, audioURL: audioURL)
-        
-        let (data, response) = try await session.upload(for: config.request, from: config.body)
-        let responseData = try validateResponse(response, data: data, providerName: "ElevenLabs")
-        
+        guard let apiKey = APIKeyManager.shared.getAPIKey(forProvider: "ElevenLabs"), !apiKey.isEmpty else {
+            throw CloudTranscriptionError.missingAPIKey
+        }
+
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var request = URLRequest(url: apiURL)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(apiKey, forHTTPHeaderField: "xi-api-key")
+
+        let body = try createRequestBody(audioURL: audioURL, modelName: model.name, boundary: boundary)
+
+        let (data, response) = try await URLSession.shared.upload(for: request, from: body)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
+        }
+
+        if !(200...299).contains(httpResponse.statusCode) {
+            let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
+            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
+        }
+
         do {
-            let transcriptionResponse = try JSONDecoder().decode(TranscriptionResponse.self, from: responseData)
+            let transcriptionResponse = try JSONDecoder().decode(ElevenLabsTranscriptionResponse.self, from: data)
             return transcriptionResponse.text
         } catch {
             throw CloudTranscriptionError.noTranscriptionReturned
         }
     }
-    
-    private func prepareRequest(for model: any TranscriptionModel, audioURL: URL) async throws -> APIConfig {
-        let apiKey = try fetchAPIKey()
-        let version = ElevenLabsModelVersion(modelName: model.name)
-        var formData = MultipartFormDataBuilder()
-        var request = URLRequest(url: version.endpoint)
-        request.httpMethod = "POST"
-        request.setValue(formData.contentType, forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue(apiKey, forHTTPHeaderField: "xi-api-key")
-        
-        try await createRequestBody(
-            audioURL: audioURL,
-            modelName: model.name,
-            version: version,
-            formData: &formData
-        )
-        let body = formData.finalize()
-        
-        return APIConfig(request: request, body: body)
-    }
-    
-    private func createRequestBody(
-        audioURL: URL,
-        modelName: String,
-        version: ElevenLabsModelVersion,
-        formData: inout MultipartFormDataBuilder
-    ) async throws {
-        let audioData = try await loadAudioData(from: audioURL)
-        
-        formData.addFile(
-            name: "file",
-            filename: audioURL.lastPathComponent,
-            data: audioData,
-            contentType: version.preferredContentType
-        )
-        formData.addField(name: "model_id", value: modelName)
-        formData.addField(name: "tag_audio_events", value: version.shouldTagAudioEvents ? "true" : "false")
-        formData.addField(name: "temperature", value: String(version.defaultTemperature))
-        
-        if let languageCode = resolvedLanguageCode() {
-            formData.addField(name: "language_code", value: languageCode)
+
+    private func createRequestBody(audioURL: URL, modelName: String, boundary: String) throws -> Data {
+        var body = Data()
+
+        body.append(formField: "file", fileName: audioURL.lastPathComponent, fileData: try Data(contentsOf: audioURL), mimeType: "audio/wav", boundary: boundary)
+        body.append(formField: "model_id", value: modelName, boundary: boundary)
+        body.append(formField: "temperature", value: "0.0", boundary: boundary)
+        body.append(formField: "tag_audio_events", value: "false", boundary: boundary)
+
+        let selectedLanguage = UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "auto"
+        if selectedLanguage != "auto", !selectedLanguage.isEmpty {
+            body.append(formField: "language_code", value: selectedLanguage, boundary: boundary)
         }
-        
-        for (key, value) in version.additionalParameters {
-            formData.addField(name: key, value: value)
-        }
+
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+
+        return body
     }
 
-    private func resolvedLanguageCode() -> String? {
-        let selectedLanguage = AppSettings.TranscriptionSettings.selectedLanguage ?? "auto"
-        return selectedLanguage == "auto" || selectedLanguage.isEmpty ? nil : selectedLanguage
-    }
-
-    private func fetchAPIKey() throws -> String {
-        let keychain = KeychainManager()
-        guard let apiKey = keychain.getAPIKey(for: "ElevenLabs"), !apiKey.isEmpty else {
-            throw CloudTranscriptionError.missingAPIKey
-        }
-        return apiKey
+    private struct ElevenLabsTranscriptionResponse: Decodable {
+        let text: String
     }
 }
 
-private struct APIConfig {
-    let request: URLRequest
-    let body: Data
-}
+private extension Data {
+    mutating func append(formField: String, value: String, boundary: String) {
+        let crlf = "\r\n"
+        append("--\(boundary)\(crlf)".data(using: .utf8)!)
+        append("Content-Disposition: form-data; name=\"\(formField)\"\(crlf)\(crlf)".data(using: .utf8)!)
+        append(value.data(using: .utf8)!)
+        append(crlf.data(using: .utf8)!)
+    }
 
-private struct TranscriptionResponse: Decodable {
-    let text: String
-    let language: String?
-    let duration: Double?
-}
-
-private enum ElevenLabsModelVersion {
-    case scribeV1
-    case scribeV2Realtime
-    case unknown
-    
-    init(modelName: String) {
-        let lowercased = modelName.lowercased()
-        if lowercased.contains("v2") {
-            self = .scribeV2Realtime
-        } else if lowercased.contains("scribe") {
-            self = .scribeV1
-        } else {
-            self = .unknown
-        }
-    }
-    
-    var endpoint: URL {
-        switch self {
-        case .scribeV2Realtime:
-            return URL(string: "https://api.elevenlabs.io/v2/speech-to-text") ?? fallbackEndpoint
-        default:
-            return fallbackEndpoint
-        }
-    }
-    
-    private var fallbackEndpoint: URL {
-        URL(string: "https://api.elevenlabs.io/v1/speech-to-text")!
-    }
-    
-    var preferredContentType: String {
-        // VoiceInk records in WAV format, so use audio/wav for all versions
-        return "audio/wav"
-    }
-    
-    var shouldTagAudioEvents: Bool {
-        switch self {
-        case .scribeV2Realtime:
-            return true
-        default:
-            return false
-        }
-    }
-    
-    var defaultTemperature: Double {
-        switch self {
-        case .scribeV2Realtime:
-            return 0.1
-        default:
-            return 0.0
-        }
-    }
-    
-    var additionalParameters: [String: String] {
-        var params: [String: String] = [:]
-        switch self {
-        case .scribeV2Realtime:
-            params["timestamps_granularity"] = "word"
-            params["diarize"] = "false"
-        default:
-            break
-        }
-        return params
+    mutating func append(formField: String, fileName: String, fileData: Data, mimeType: String, boundary: String) {
+        let crlf = "\r\n"
+        append("--\(boundary)\(crlf)".data(using: .utf8)!)
+        append("Content-Disposition: form-data; name=\"\(formField)\"; filename=\"\(fileName)\"\(crlf)".data(using: .utf8)!)
+        append("Content-Type: \(mimeType)\(crlf)\(crlf)".data(using: .utf8)!)
+        append(fileData)
+        append(crlf.data(using: .utf8)!)
     }
 }

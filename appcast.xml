@@ -3,21 +3,27 @@
     <channel>
         <title>VoiceLink Community Releases</title>
         <item>
-            <title>1.69</title>
-            <pubDate>Sun, 12 Jan 2026 12:00:00 +0545</pubDate>
-            <sparkle:version>169</sparkle:version>
-            <sparkle:shortVersionString>1.69</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <title>1.70</title>
             <description><![CDATA[
-
-                <h3>What's New in Version 1.69</h3>
+                <h3>What's New in V 1.70</h3>
                 <ul>
-                    <li>Fix recording Issue</li>
-                    <li>Added export logs option in settings</li>
+                    <li>⚡ Added streaming transcription support (Nova 3, Scribe V2, Soniox V4, and Mistral Real-time)</li>
+                    <li>🔄 Added dictionary sync support across devices</li>
+                    <li>📝 Added live transcript display (only available for notch recorder)</li>
+                    <li>🎵 Added support for AMR, OGG, OGA, Opus, and 3GP audio file formats</li>
+                    <li>✨ Added new Mistral transcription model</li>
+                    <li>✂️ Added configurable filler word removal option</li>
+                    <li>💬 Added prompt picker in transcript history</li>
+                    <li>🧹 Fixed audio cleanup bug</li>
+                    <li>📋 Fixed clipboard issue</li>
+                    <li>🐛 Bug fixes and minor improvements</li>
                 </ul>
-
             ]]></description>
-            <enclosure url="https://github.com/Beingpax/VoiceInk/releases/download/v1.69/VoiceInk.dmg" length="10786047" type="application/octet-stream" sparkle:edSignature="tPVfTDY+CKBMxW5EW+KsbhsH5YiVDyY9VFplI71EiDu56GZu0fWxd/p/V2WRdPHX+8FKfVpmSJwhzVgCHL7FBg=="/>
+            <pubDate>Mon, 09 Feb 2026 20:17:47 +0545</pubDate>
+            <sparkle:version>170</sparkle:version>
+            <sparkle:shortVersionString>1.70</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.4</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/Beingpax/VoiceInk/releases/download/v1.70/VoiceInk.dmg" length="12572927" type="application/octet-stream" sparkle:edSignature="SlHznVI1jbwOBpAcyipnn19W/jY+fLKlItvRRQI585G6NvQLJgdXosMdISVolU9deE2beUNYzD6rT/VQnRyVDw=="/>
         </item>
     </channel>
 </rss>

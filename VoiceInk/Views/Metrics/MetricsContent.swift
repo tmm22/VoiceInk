@@ -1,23 +1,35 @@
 import SwiftUI
+import SwiftData
+import os
 
 struct MetricsContent: View {
-    let transcriptions: [Transcription]
-    @ObservedObject var licenseViewModel: LicenseViewModel
-    
-    private var licenseState: LicenseViewModel.LicenseState { licenseViewModel.licenseState }
-    @State private var showKeyboardShortcuts = false
+    private let logger = Logger(subsystem: "com.prakashjoshipax.VoiceInk", category: "MetricsContent")
+    let modelContext: ModelContext
+    let licenseState: LicenseViewModel.LicenseState
+
+    @State private var totalCount: Int = 0
+    @State private var totalWords: Int = 0
+    @State private var totalDuration: TimeInterval = 0
+    @State private var isLoadingMetrics: Bool = true
+    @State private var metricsTask: Task<Void, Never>?
 
     var body: some View {
         Group {
-            if transcriptions.isEmpty {
+            if totalCount == 0 && !isLoadingMetrics {
                 emptyStateView
+            } else if isLoadingMetrics {
+                ProgressView("Loading metrics...")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 GeometryReader { geometry in
                     ScrollView {
                         VStack(spacing: 24) {
                             heroSection
                             metricsSection
-                            HelpAndResourcesSection()
+                            HStack(alignment: .top, spacing: 18) {
+                                HelpAndResourcesSection()
+                                DashboardPromotionsSection(licenseState: licenseState)
+                            }
 
                             Spacer(minLength: 20)
 
@@ -34,8 +46,90 @@ struct MetricsContent: View {
                 }
             }
         }
+        .task {
+            await loadMetricsEfficiently()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .transcriptionCreated)) { _ in
+            metricsTask?.cancel()
+            metricsTask = Task {
+                await loadMetricsEfficiently()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .transcriptionCompleted)) { _ in
+            metricsTask?.cancel()
+            metricsTask = Task {
+                await loadMetricsEfficiently()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .transcriptionDeleted)) { _ in
+            metricsTask?.cancel()
+            metricsTask = Task {
+                await loadMetricsEfficiently()
+            }
+        }
+        .onDisappear {
+            metricsTask?.cancel()
+        }
     }
     
+    private func loadMetricsEfficiently() async {
+        await MainActor.run {
+            self.isLoadingMetrics = true
+        }
+
+        let modelContainer = modelContext.container
+
+        let backgroundContext = ModelContext(modelContainer)
+
+        do {
+            guard !Task.isCancelled else {
+                await MainActor.run {
+                    self.isLoadingMetrics = false
+                }
+                return
+            }
+
+            let count = try backgroundContext.fetchCount(FetchDescriptor<Transcription>())
+
+            guard !Task.isCancelled else {
+                await MainActor.run {
+                    self.isLoadingMetrics = false
+                }
+                return
+            }
+
+            var descriptor = FetchDescriptor<Transcription>()
+            descriptor.propertiesToFetch = [\.text, \.duration]
+
+            var words = 0
+            var duration: TimeInterval = 0
+
+            try backgroundContext.enumerate(descriptor) { transcription in
+                words += transcription.text.split(whereSeparator: \.isWhitespace).count
+                duration += transcription.duration
+            }
+
+            guard !Task.isCancelled else {
+                await MainActor.run {
+                    self.isLoadingMetrics = false
+                }
+                return
+            }
+
+            await MainActor.run {
+                self.totalCount = count
+                self.totalWords = words
+                self.totalDuration = duration
+                self.isLoadingMetrics = false
+            }
+        } catch {
+            logger.error("Error loading metrics: \(error.localizedDescription)")
+            await MainActor.run {
+                self.isLoadingMetrics = false
+            }
+        }
+    }
+
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Image(systemName: "waveform")
@@ -43,7 +137,7 @@ struct MetricsContent: View {
                 .foregroundColor(.secondary)
             Text("No Transcriptions Yet")
                 .font(.title3.weight(.semibold))
-            Text("Start your first recording to unlock insight into your workflow.")
+            Text("Start your first recording to unlock value insights.")
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -53,24 +147,24 @@ struct MetricsContent: View {
     // MARK: - Sections
     
     private var heroSection: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             HStack {
                 Spacer(minLength: 0)
                 
                 (Text("You have saved ")
-                    .fontWeight(.regular)
-                    .foregroundColor(.primary)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white.opacity(0.85))
                  +
                  Text(formattedTimeSaved)
-                    .fontWeight(.semibold)
-                    .font(.system(size: 28, design: .default))
-                    .foregroundColor(.primary)
+                    .fontWeight(.black)
+                    .font(.system(size: 36, design: .rounded))
+                    .foregroundStyle(.white)
                  +
-                 Text(" with \(AppBrand.communityName)")
-                    .fontWeight(.regular)
-                    .foregroundColor(.primary)
+                 Text(" with VoiceInk")
+                    .fontWeight(.bold)
+                    .foregroundColor(.white.opacity(0.85))
                 )
-                .font(.system(size: 20))
+                .font(.system(size: 30))
                 .multilineTextAlignment(.center)
                 
                 Spacer(minLength: 0)
@@ -79,15 +173,23 @@ struct MetricsContent: View {
             .minimumScaleFactor(0.5)
             
             Text(heroSubtitle)
-                .font(.system(size: 11, weight: .regular))
-                .foregroundColor(.secondary)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(.white.opacity(0.85))
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
             
         }
-        .padding(24)
+        .padding(28)
         .frame(maxWidth: .infinity)
-        .background(CardBackground(isSelected: false))
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(heroGradient)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.08), radius: 30, x: 0, y: 16)
     }
     
     private var metricsSection: some View {
@@ -95,16 +197,16 @@ struct MetricsContent: View {
             MetricCard(
                 icon: "mic.fill",
                 title: "Sessions Recorded",
-                value: "\(transcriptions.count)",
-                detail: "\(AppBrand.communityName) sessions completed",
+                value: "\(totalCount)",
+                detail: "VoiceInk sessions completed",
                 color: .purple
             )
-            
+
             MetricCard(
                 icon: "text.alignleft",
                 title: "Words Dictated",
-                value: Formatters.formattedNumber(totalWordsTranscribed),
-                detail: "words generated across your sessions",
+                value: Formatters.formattedNumber(totalWords),
+                detail: "words generated",
                 color: Color(nsColor: .controlAccentColor)
             )
             
@@ -114,7 +216,7 @@ struct MetricsContent: View {
                 value: averageWordsPerMinute > 0
                     ? String(format: "%.1f", averageWordsPerMinute)
                     : "–",
-                detail: "\(AppBrand.primaryName) vs. typing by hand",
+                detail: "VoiceInk vs. typing by hand",
                 color: .yellow
             )
             
@@ -122,7 +224,7 @@ struct MetricsContent: View {
                 icon: "keyboard.fill",
                 title: "Keystrokes Saved",
                 value: Formatters.formattedNumber(totalKeystrokesSaved),
-                detail: "estimated fewer keystrokes typed",
+                detail: "fewer keystrokes",
                 color: .orange
             )
         }
@@ -133,23 +235,19 @@ struct MetricsContent: View {
     }
     
     private var formattedTimeSaved: String {
-        Formatters.formattedDuration(timeSaved, style: .full, fallback: "Time savings on the way")
+        let formatted = Formatters.formattedDuration(timeSaved, style: .full, fallback: "Time savings coming soon")
+        return formatted
     }
     
     private var heroSubtitle: String {
-        guard !transcriptions.isEmpty else {
-            return "Your \(AppBrand.communityName) journey starts with your first recording."
+        guard totalCount > 0 else {
+            return "Your VoiceInk journey starts with your first recording."
         }
-        
-        let wordsText = Formatters.formattedNumber(totalWordsTranscribed)
-        let sessionCount = transcriptions.count
-        let sessionText = sessionCount == 1 ? "session" : "sessions"
-        
-        if let firstDate = firstTranscriptionDateText {
-            return "Dictated \(wordsText) words across \(sessionCount) \(sessionText) since \(firstDate)."
-        }
-        
-        return "Dictated \(wordsText) words across \(sessionCount) \(sessionText)."
+
+        let wordsText = Formatters.formattedNumber(totalWords)
+        let sessionText = totalCount == 1 ? "session" : "sessions"
+
+        return "Dictated \(wordsText) words across \(totalCount) \(sessionText)."
     }
     
     private var heroGradient: LinearGradient {
@@ -165,38 +263,24 @@ struct MetricsContent: View {
     }
     
     // MARK: - Computed Metrics
-    
-    private var totalWordsTranscribed: Int {
-        transcriptions.reduce(0) { $0 + $1.text.split(separator: " ").count }
-    }
-    
-    private var totalRecordedTime: TimeInterval {
-        transcriptions.reduce(0) { $0 + $1.duration }
-    }
-    
+
     private var estimatedTypingTime: TimeInterval {
         let averageTypingSpeed: Double = 35 // words per minute
-        let totalWords = Double(totalWordsTranscribed)
-        let estimatedTypingTimeInMinutes = totalWords / averageTypingSpeed
+        let estimatedTypingTimeInMinutes = Double(totalWords) / averageTypingSpeed
         return estimatedTypingTimeInMinutes * 60
     }
-    
+
     private var timeSaved: TimeInterval {
-        max(estimatedTypingTime - totalRecordedTime, 0)
+        max(estimatedTypingTime - totalDuration, 0)
     }
-    
+
     private var averageWordsPerMinute: Double {
-        guard totalRecordedTime > 0 else { return 0 }
-        return Double(totalWordsTranscribed) / (totalRecordedTime / 60.0)
+        guard totalDuration > 0 else { return 0 }
+        return Double(totalWords) / (totalDuration / 60.0)
     }
-    
+
     private var totalKeystrokesSaved: Int {
-        Int(Double(totalWordsTranscribed) * 5.0)
-    }
-    
-    private var firstTranscriptionDateText: String? {
-        guard let firstDate = transcriptions.map(\.timestamp).min() else { return nil }
-        return dateFormatter.string(from: firstDate)
+        Int(Double(totalWords) * 5.0)
     }
     
     private var dateFormatter: DateFormatter {
@@ -221,7 +305,7 @@ private enum Formatters {
     }()
     
     static func formattedNumber(_ value: Int) -> String {
-        numberFormatter.string(from: NSNumber(value: value)) ?? "\(value)"
+        return numberFormatter.string(from: NSNumber(value: value)) ?? "\(value)"
     }
     
     static func formattedDuration(_ interval: TimeInterval, style: DateComponentsFormatter.UnitsStyle, fallback: String = "–") -> String {

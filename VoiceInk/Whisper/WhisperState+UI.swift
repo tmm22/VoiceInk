@@ -4,11 +4,11 @@ import os
 
 // MARK: - UI Management Extension
 extension WhisperState {
-    
+
     // MARK: - Recorder Panel Management
 
     func showRecorderPanel() {
-        // Show the appropriate recorder panel based on recorderType
+        logger.notice("📱 Showing \(self.recorderType) recorder")
         if recorderType == "notch" {
             if notchWindowManager == nil {
                 notchWindowManager = NotchWindowManager(whisperState: self, recorder: recorder)
@@ -23,66 +23,113 @@ extension WhisperState {
     }
 
     func hideRecorderPanel() {
-        // Hide the appropriate recorder panel based on recorderType
         if recorderType == "notch" {
             notchWindowManager?.hide()
         } else {
             miniWindowManager?.hide()
         }
     }
-    
+
     // MARK: - Mini Recorder Management
 
-    func toggleMiniRecorder() async {
-        // Toggle the mini recorder visibility and recording state
+    func toggleMiniRecorder(powerModeId: UUID? = nil) async {
+        logger.notice("toggleMiniRecorder called – visible=\(self.isMiniRecorderVisible), state=\(String(describing: self.recordingState))")
         if isMiniRecorderVisible {
-            // Stop recording and hide the recorder
-            await toggleRecord()
+            if recordingState == .recording {
+                logger.notice("toggleMiniRecorder: stopping recording (was recording)")
+                await toggleRecord(powerModeId: powerModeId)
+            } else {
+                logger.notice("toggleMiniRecorder: cancelling (was not recording)")
+                await cancelRecording()
+            }
         } else {
-            // Show the recorder and start recording
-            isMiniRecorderVisible = true
-            showRecorderPanel()
             SoundManager.shared.playStartSound()
-            await toggleRecord()
+
+            await MainActor.run {
+                isMiniRecorderVisible = true // This will call showRecorderPanel() via didSet
+            }
+
+            await toggleRecord(powerModeId: powerModeId)
         }
     }
-    
+
     func dismissMiniRecorder() async {
-        // Dismiss the mini recorder without stopping recording (recording already stopped)
-        isMiniRecorderVisible = false
-        hideRecorderPanel()
-        
-        // Clean up window managers
-        if recorderType == "notch" {
-            notchWindowManager = nil
-        } else {
-            miniWindowManager = nil
+        logger.notice("dismissMiniRecorder called – state=\(String(describing: self.recordingState))")
+        if recordingState == .busy {
+            logger.notice("dismissMiniRecorder: early return, state is busy")
+            return
         }
-        
-        recordingState = .idle
+
+        let wasRecording = recordingState == .recording
+
+        await MainActor.run {
+            self.recordingState = .busy
+        }
+
+        // Cancel and release any active streaming session to prevent resource leaks.
+        currentSession?.cancel()
+        currentSession = nil
+
+        if wasRecording {
+            await recorder.stopRecording()
+        }
+
+        hideRecorderPanel()
+
+        // Clear captured context when the recorder is dismissed
+        if let enhancementService = enhancementService {
+            await MainActor.run {
+                enhancementService.clearCapturedContexts()
+            }
+        }
+
+        await MainActor.run {
+            isMiniRecorderVisible = false
+        }
+
+        await cleanupModelResources()
+
+        if UserDefaults.standard.bool(forKey: PowerModeDefaults.autoRestoreKey) {
+            await PowerModeSessionManager.shared.endSession()
+            await MainActor.run {
+                PowerModeManager.shared.setActiveConfiguration(nil)
+            }
+        }
+
+        await MainActor.run {
+            recordingState = .idle
+        }
+        logger.notice("dismissMiniRecorder completed")
     }
 
     func resetOnLaunch() async {
-        // Reset state on app launch
-        isMiniRecorderVisible = false
-        recordingState = .idle
-        miniWindowManager?.hide()
-        notchWindowManager?.hide()
-        miniWindowManager = nil
-        notchWindowManager = nil
+        logger.notice("🔄 Resetting recording state on launch")
+        await recorder.stopRecording()
+        hideRecorderPanel()
+        await MainActor.run {
+            isMiniRecorderVisible = false
+            shouldCancelRecording = false
+            miniRecorderError = nil
+            recordingState = .idle
+        }
+        await cleanupModelResources()
     }
 
     func cancelRecording() async {
-        // Cancel the current recording
+        logger.notice("cancelRecording called")
+        SoundManager.shared.playEscSound()
         shouldCancelRecording = true
-        await recordingSessionManager.cancelRecording()
         await dismissMiniRecorder()
     }
-    
+
     // MARK: - Notification Handling
 
-    // Note: setupNotifications() is now handled by UIManager (Phase 4 refactoring)
-    // Keeping these methods for backward compatibility
+    func setupNotifications() {
+        NotificationCenter.default.addObserver(self, selector: #selector(handleToggleMiniRecorder), name: .toggleMiniRecorder, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleDismissMiniRecorder), name: .dismissMiniRecorder, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleLicenseStatusChanged), name: .licenseStatusChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handlePromptChange), name: .promptDidChange, object: nil)
+    }
 
     @objc public func handleToggleMiniRecorder() {
         logger.notice("handleToggleMiniRecorder: .toggleMiniRecorder notification received")
@@ -111,10 +158,10 @@ extension WhisperState {
 
     private func updateContextPrompt() async {
         // Always reload the prompt from UserDefaults to ensure we have the latest
-        let currentPrompt = AppSettings.TranscriptionSettings.prompt ?? whisperPrompt.transcriptionPrompt
+        let currentPrompt = UserDefaults.standard.string(forKey: "TranscriptionPrompt") ?? whisperPrompt.transcriptionPrompt
 
         if let context = whisperContext {
             await context.setPrompt(currentPrompt)
         }
     }
-} 
+}

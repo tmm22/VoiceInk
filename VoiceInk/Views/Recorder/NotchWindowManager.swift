@@ -1,6 +1,5 @@
 import SwiftUI
 import AppKit
-import os
 
 @MainActor
 class NotchWindowManager: ObservableObject {
@@ -9,12 +8,11 @@ class NotchWindowManager: ObservableObject {
      var notchPanel: NotchRecorderPanel?
     private let whisperState: WhisperState
     private let recorder: Recorder
-    private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "NotchWindowManager")
-    
+
     init(whisperState: WhisperState, recorder: Recorder) {
         self.whisperState = whisperState
         self.recorder = recorder
-        
+
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleHideNotification),
@@ -33,14 +31,12 @@ class NotchWindowManager: ObservableObject {
     
     func show() {
         if isVisible { return }
-        
-        // Get the active screen from the key window or fallback to main screen
+
         let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
-        
-        if initializeWindow(screen: activeScreen) {
-            self.isVisible = true
-            notchPanel?.show()
-        }
+
+        initializeWindow(screen: activeScreen)
+        self.isVisible = true
+        notchPanel?.show()
     }
     
     func hide() {
@@ -54,20 +50,15 @@ class NotchWindowManager: ObservableObject {
         }
     }
     
-    private func initializeWindow(screen: NSScreen) -> Bool {
+    private func initializeWindow(screen: NSScreen) {
         deinitializeWindow()
-        
-        guard let enhancementService = whisperState.enhancementService else {
-            logger.error("Enhancement service is missing. Cannot initialize notch recorder.")
-            return false
-        }
         
         let metrics = NotchRecorderPanel.calculateWindowMetrics()
         let panel = NotchRecorderPanel(contentRect: metrics.frame)
         
         let notchRecorderView = NotchRecorderView(whisperState: whisperState, recorder: recorder)
             .environmentObject(self)
-            .environmentObject(enhancementService)
+            .environmentObject(whisperState.enhancementService!)
         
         let hostingController = NotchRecorderHostingController(rootView: notchRecorderView)
         panel.contentView = hostingController.view
@@ -76,7 +67,6 @@ class NotchWindowManager: ObservableObject {
         self.windowController = NSWindowController(window: panel)
         
         panel.orderFrontRegardless()
-        return true
     }
     
     private func deinitializeWindow() {

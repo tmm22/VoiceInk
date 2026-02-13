@@ -5,7 +5,7 @@ class CursorPaster {
 
     static func pasteAtCursor(_ text: String) {
         let pasteboard = NSPasteboard.general
-        let shouldRestoreClipboard = AppSettings.Clipboard.restoreClipboardAfterPaste
+        let shouldRestoreClipboard = UserDefaults.standard.bool(forKey: "restoreClipboardAfterPaste")
 
         var savedContents: [(NSPasteboard.PasteboardType, Data)] = []
 
@@ -21,11 +21,10 @@ class CursorPaster {
             }
         }
 
-        _ = ClipboardManager.setClipboard(text, transient: shouldRestoreClipboard)
+        ClipboardManager.setClipboard(text, transient: shouldRestoreClipboard)
 
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 50_000_000)
-            if AppSettings.Clipboard.useAppleScriptPaste {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            if UserDefaults.standard.bool(forKey: "UseAppleScriptPaste") {
                 _ = pasteUsingAppleScript()
             } else {
                 pasteUsingCommandV()
@@ -33,11 +32,10 @@ class CursorPaster {
         }
 
         if shouldRestoreClipboard {
-            let restoreDelay = AppSettings.Clipboard.clipboardRestoreDelay
-            let delay = restoreDelay > 0 ? restoreDelay : 1.5
+            let restoreDelay = UserDefaults.standard.double(forKey: "clipboardRestoreDelay")
+            let delay = max(restoreDelay, 0.25)
 
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 if !savedContents.isEmpty {
                     pasteboard.clearContents()
                     for (type, data) in savedContents {

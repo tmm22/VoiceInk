@@ -13,8 +13,6 @@ struct AudioVisualizer: View {
 
     private let phases: [Double]
 
-    @State private var heights: [CGFloat]
-
     init(audioMeter: AudioMeter, color: Color, isActive: Bool) {
         self.audioMeter = audioMeter
         self.color = color
@@ -22,48 +20,38 @@ struct AudioVisualizer: View {
 
         // Create smooth wave phases
         self.phases = (0..<barCount).map { Double($0) * 0.4 }
-        _heights = State(initialValue: Array(repeating: minHeight, count: barCount))
     }
 
     var body: some View {
-        HStack(spacing: barSpacing) {
-            ForEach(0..<barCount, id: \.self) { index in
-                RoundedRectangle(cornerRadius: barWidth / 2)
-                    .fill(color.opacity(0.85))
-                    .frame(width: barWidth, height: heights[index])
+        // TimelineView with 60Hz updates (native approach recommended by Apple WWDC 2021+)
+        TimelineView(.animation(minimumInterval: 0.016)) { context in
+            HStack(spacing: barSpacing) {
+                ForEach(0..<barCount, id: \.self) { index in
+                    RoundedRectangle(cornerRadius: barWidth / 2)
+                        .fill(color.opacity(0.85))
+                        .frame(width: barWidth, height: calculateHeight(for: index, at: context.date))
+                }
             }
-        }
-        .onChange(of: audioMeter) { _, newValue in
-            updateWave(level: isActive ? newValue.averagePower : 0)
-        }
-        .onChange(of: isActive) { _, active in
-            if !active { resetWave() }
         }
     }
 
-    private func updateWave(level: Double) {
-        let time = Date().timeIntervalSince1970
+    private func calculateHeight(for index: Int, at date: Date) -> CGFloat {
+        guard isActive else { return minHeight }
+
+        let time = date.timeIntervalSince1970
+        let level = audioMeter.averagePower
         let amplitude = max(0, min(1, level))
 
         // Boost lower levels for better visibility
         let boosted = pow(amplitude, 0.7)
 
-        withAnimation(.easeOut(duration: 0.08)) {
-            for i in 0..<barCount {
-                let wave = sin(time * 8 + phases[i]) * 0.5 + 0.5
-                let centerDistance = abs(Double(i) - Double(barCount) / 2) / Double(barCount / 2)
-                let centerBoost = 1.0 - (centerDistance * 0.4)
+        // Wave calculation
+        let wave = sin(time * 8 + phases[index]) * 0.5 + 0.5
+        let centerDistance = abs(Double(index) - Double(barCount) / 2) / Double(barCount / 2)
+        let centerBoost = 1.0 - (centerDistance * 0.4)
 
-                let height = minHeight + CGFloat(boosted * wave * centerBoost) * (maxHeight - minHeight)
-                heights[i] = max(minHeight, height)
-            }
-        }
-    }
-
-    private func resetWave() {
-        withAnimation(.easeOut(duration: 0.2)) {
-            heights = Array(repeating: minHeight, count: barCount)
-        }
+        let height = minHeight + CGFloat(boosted * wave * centerBoost) * (maxHeight - minHeight)
+        return max(minHeight, height)
     }
 }
 

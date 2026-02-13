@@ -115,12 +115,17 @@ struct CloudModelCardView: View {
                 .font(.system(size: 11))
                 .foregroundColor(Color(.secondaryLabelColor))
                 .lineLimit(1)
-            
-            Label("Cloud Model", systemImage: "icloud")
-                .font(.system(size: 11))
-                .foregroundColor(Color(.secondaryLabelColor))
-                .lineLimit(1)
-            
+
+            // Speed
+            HStack(spacing: 3) {
+                Text("Speed")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(Color(.secondaryLabelColor))
+                progressDotsWithNumber(value: model.speed * 10)
+            }
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+
             // Accuracy
             HStack(spacing: 3) {
                 Text("Accuracy")

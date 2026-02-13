@@ -98,22 +98,21 @@ class NotchRecorderPanel: KeyablePanel {
         // Calculate exact notch width
         let baseNotchWidth: CGFloat = safeAreaInsets.left > 0 ? safeAreaInsets.left * 2 : 200
         
-        // Calculate total width including controls and padding
-        let controlsWidth: CGFloat = 64 // Space for buttons on each side (increased width)
-        let paddingWidth: CGFloat = 32 // 16pt on each side
+        let controlsWidth: CGFloat = 64
+        let paddingWidth: CGFloat = 32
         let totalWidth = baseNotchWidth + controlsWidth * 2 + paddingWidth
-        
-        // Position exactly at the center
+
+        let maxContentHeight: CGFloat = 200
         let xPosition = screen.frame.midX - (totalWidth / 2)
-        let yPosition = screen.frame.maxY - notchHeight
-        
+        let yPosition = screen.frame.maxY - maxContentHeight
+
         let frame = NSRect(
             x: xPosition,
             y: yPosition,
             width: totalWidth,
-            height: notchHeight
+            height: maxContentHeight
         )
-        
+
         return (frame, baseNotchWidth, notchHeight)
     }
     

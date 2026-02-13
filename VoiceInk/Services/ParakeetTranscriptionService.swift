@@ -4,22 +4,13 @@ import AVFoundation
 import FluidAudio
 import os.log
 
-enum ParakeetTranscriptionError: LocalizedError {
-    case modelValidationFailed(String)
-
-    var errorDescription: String? {
-        switch self {
-        case .modelValidationFailed(let message):
-            return message
-        }
-    }
-}
-
 class ParakeetTranscriptionService: TranscriptionService {
     private var asrManager: AsrManager?
     private var vadManager: VadManager?
     private var activeVersion: AsrModelVersion?
-    private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity.parakeet", category: "ParakeetTranscriptionService")
+    private var cachedModels: AsrModels?
+    private var loadingTask: (version: AsrModelVersion, task: Task<AsrModels, Error>)?
+    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink.parakeet", category: "ParakeetTranscriptionService")
 
     private func version(for model: any TranscriptionModel) -> AsrModelVersion {
         model.name.lowercased().contains("v2") ? .v2 : .v3
@@ -30,24 +21,54 @@ class ParakeetTranscriptionService: TranscriptionService {
             return
         }
 
-        cleanup()
+        // Clean up existing manager but preserve cachedModels for reuse
+        asrManager?.cleanup()
+        asrManager = nil
+        vadManager = nil
+        activeVersion = nil
 
-        // Validate models before loading
-        let isValid = try await AsrModels.isModelValid(version: version)
-
-        if !isValid {
-            logger.error("Model validation failed for \(version == .v2 ? "v2" : "v3"). Models are corrupted.")
-            throw ParakeetTranscriptionError.modelValidationFailed("Parakeet models are corrupted. Please delete and re-download the model.")
-        }
+        let models = try await getOrLoadModels(for: version)
 
         let manager = AsrManager(config: .default)
-        let models = try await AsrModels.loadFromCache(
-            configuration: nil,
-            version: version
-        )
         try await manager.initialize(models: models)
         self.asrManager = manager
         self.activeVersion = version
+    }
+
+    // Returns cached models or loads from disk; deduplicates concurrent loads
+    func getOrLoadModels(for version: AsrModelVersion) async throws -> AsrModels {
+        if let cached = cachedModels, cached.version == version {
+            return cached
+        }
+
+        // Deduplicate concurrent loads for the same version
+        if let (existingVersion, existingTask) = loadingTask, existingVersion == version {
+            return try await existingTask.value
+        }
+
+        let task = Task {
+            try await AsrModels.loadFromCache(
+                configuration: nil,
+                version: version
+            )
+        }
+        loadingTask = (version, task)
+
+        do {
+            let models = try await task.value
+            self.cachedModels = models
+            // Only clear if we're still the current loading task
+            if loadingTask?.version == version {
+                self.loadingTask = nil
+            }
+            return models
+        } catch {
+            // Only clear if we're still the current loading task
+            if loadingTask?.version == version {
+                self.loadingTask = nil
+            }
+            throw error
+        }
     }
 
     func loadModel(for model: ParakeetModel) async throws {
@@ -65,7 +86,7 @@ class ParakeetTranscriptionService: TranscriptionService {
         let audioSamples = try readAudioSamples(from: audioURL)
 
         let durationSeconds = Double(audioSamples.count) / 16000.0
-        let isVADEnabled = AppSettings.TranscriptionSettings.isVADEnabled
+        let isVADEnabled = UserDefaults.standard.bool(forKey: "IsVADEnabled")
 
         var speechAudio = audioSamples
         if durationSeconds >= 20.0, isVADEnabled {
@@ -97,16 +118,30 @@ class ParakeetTranscriptionService: TranscriptionService {
 
     private func readAudioSamples(from url: URL) throws -> [Float] {
         do {
-            return try AudioSampleReader.readPCM16LE(from: url)
+            let data = try Data(contentsOf: url)
+            guard data.count > 44 else {
+                throw ASRError.invalidAudioData
+            }
+
+            let floats = stride(from: 44, to: data.count, by: 2).map {
+                return data[$0..<$0 + 2].withUnsafeBytes {
+                    let short = Int16(littleEndian: $0.load(as: Int16.self))
+                    return max(-1.0, min(Float(short) / 32767.0, 1.0))
+                }
+            }
+
+            return floats
         } catch {
             throw ASRError.invalidAudioData
         }
     }
 
+    // Releases ASR/VAD resources but preserves cached models for reuse
     func cleanup() {
         asrManager?.cleanup()
         asrManager = nil
         vadManager = nil
         activeVersion = nil
     }
+
 }

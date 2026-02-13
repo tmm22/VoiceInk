@@ -4,18 +4,15 @@ import Foundation
 enum ModelProvider: String, Codable, Hashable, CaseIterable {
     case local = "Local"
     case parakeet = "Parakeet"
-    case fastConformer = "FastConformer"
-    case senseVoice = "SenseVoice"
     case groq = "Groq"
     case elevenLabs = "ElevenLabs"
     case deepgram = "Deepgram"
     case mistral = "Mistral"
     case gemini = "Gemini"
     case soniox = "Soniox"
-    case assemblyAI = "AssemblyAI"
-    case zai = "Z.AI"
     case custom = "Custom"
     case nativeApple = "Native Apple"
+    // Future providers can be added here
 }
 
 // A unified protocol for any transcription model
@@ -29,24 +26,17 @@ protocol TranscriptionModel: Identifiable, Hashable {
     // Language capabilities
     var isMultilingualModel: Bool { get }
     var supportedLanguages: [String: String] { get }
-    
-    // Performance metrics (for sorting/ranking)
-    var speed: Double { get }
-    var accuracy: Double { get }
+
 }
 
 extension TranscriptionModel {
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
-    
+
     var language: String {
         isMultilingualModel ? "Multilingual" : "English-only"
     }
-    
-    // Default values for models that don't specify speed/accuracy
-    var speed: Double { 0.5 }
-    var accuracy: Double { 0.5 }
 }
 
 // A new struct for Apple's native models
@@ -110,94 +100,54 @@ struct CustomCloudModel: TranscriptionModel, Codable {
     let description: String
     let provider: ModelProvider = .custom
     let apiEndpoint: String
-    // API key is persisted in Keychain; this is only for edit/create flows.
-    var transientApiKey: String?
-    
-    var apiKey: String {
-        get {
-            if let transientApiKey, !transientApiKey.isEmpty {
-                return transientApiKey
-            }
-            if let key = APIKeyManager.shared.getCustomModelAPIKey(forModelId: id), !key.isEmpty {
-                return key
-            }
-            return KeychainManager.shared.getAPIKey(for: "custom_model_\(id.uuidString)") ?? ""
-        }
-        set {
-            transientApiKey = newValue
-        }
-    }
-    
     let modelName: String
     let isMultilingualModel: Bool
     let supportedLanguages: [String: String]
-    
-    enum CodingKeys: String, CodingKey {
-        case id, name, displayName, description, provider, apiEndpoint, modelName, isMultilingualModel, supportedLanguages
+
+    /// API key retrieved from Keychain by model ID.
+    var apiKey: String {
+        APIKeyManager.shared.getCustomModelAPIKey(forModelId: id) ?? ""
     }
 
-    // MARK: - Endpoint Validation
-    static func secureEndpointURL(from string: String) -> URL? {
-        guard let url = URL(string: string) else { return nil }
-        guard let scheme = url.scheme?.lowercased(), scheme == "https" else { return nil }
-        guard let host = url.host, !host.isEmpty else { return nil }
-        return url
-    }
-
-    static func isValidSecureEndpoint(_ string: String) -> Bool {
-        secureEndpointURL(from: string) != nil
-    }
-
-    var secureAPIEndpointURL: URL? {
-        Self.secureEndpointURL(from: apiEndpoint)
-    }
-
-    init(
-        id: UUID = UUID(),
-        name: String,
-        displayName: String,
-        description: String,
-        apiEndpoint: String,
-        modelName: String,
-        isMultilingual: Bool = true,
-        supportedLanguages: [String: String]? = nil,
-        apiKey: String? = nil
-    ) {
+    init(id: UUID = UUID(), name: String, displayName: String, description: String, apiEndpoint: String, modelName: String, isMultilingual: Bool = true, supportedLanguages: [String: String]? = nil) {
         self.id = id
         self.name = name
         self.displayName = displayName
         self.description = description
         self.apiEndpoint = apiEndpoint
-        self.transientApiKey = apiKey
         self.modelName = modelName
         self.isMultilingualModel = isMultilingual
         self.supportedLanguages = supportedLanguages ?? PredefinedModels.getLanguageDictionary(isMultilingual: isMultilingual)
     }
-    
-    // Custom decoding to handle both new (no apiKey) and legacy (with apiKey) formats
+
+    /// Custom Codable to migrate legacy apiKey from JSON to Keychain.
+    private enum CodingKeys: String, CodingKey {
+        case id, name, displayName, description, apiEndpoint, modelName, isMultilingualModel, supportedLanguages
+        case apiKey
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         displayName = try container.decode(String.self, forKey: .displayName)
         description = try container.decode(String.self, forKey: .description)
-        // Backward compatibility: CustomCloudModel is always .custom even if provider was encoded.
-        _ = try? container.decode(ModelProvider.self, forKey: .provider)
-        
         apiEndpoint = try container.decode(String.self, forKey: .apiEndpoint)
         modelName = try container.decode(String.self, forKey: .modelName)
         isMultilingualModel = try container.decode(Bool.self, forKey: .isMultilingualModel)
         supportedLanguages = try container.decode([String: String].self, forKey: .supportedLanguages)
-        transientApiKey = nil
+
+        if let legacyApiKey = try container.decodeIfPresent(String.self, forKey: .apiKey), !legacyApiKey.isEmpty {
+            APIKeyManager.shared.saveCustomModelAPIKey(legacyApiKey, forModelId: id)
+        }
     }
-    
+
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
         try container.encode(displayName, forKey: .displayName)
         try container.encode(description, forKey: .description)
-        try container.encode(provider, forKey: .provider)
         try container.encode(apiEndpoint, forKey: .apiEndpoint)
         try container.encode(modelName, forKey: .modelName)
         try container.encode(isMultilingualModel, forKey: .isMultilingualModel)
@@ -216,59 +166,17 @@ struct LocalModel: TranscriptionModel {
     let accuracy: Double
     let ramUsage: Double
     let provider: ModelProvider = .local
-    let fileExtension: String
-    let downloadURLOverride: String?
-    let filenameOverride: String?
-    let badges: [String]
-    let highlight: String?
 
     var downloadURL: String {
-        downloadURLOverride ?? "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/\(filename)"
+        "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/\(filename)"
     }
 
     var filename: String {
-        if let filenameOverride {
-            return filenameOverride
-        }
-        return "\(name).\(fileExtension)"
+        "\(name).bin"
     }
 
     var isMultilingualModel: Bool {
         supportedLanguages.count > 1
-    }
-
-    var supportsCoreMLEncoder: Bool {
-        fileExtension == "bin" && !name.contains("q5") && !name.contains("q8")
-    }
-
-    init(
-        name: String,
-        displayName: String,
-        size: String,
-        supportedLanguages: [String: String],
-        description: String,
-        speed: Double,
-        accuracy: Double,
-        ramUsage: Double,
-        fileExtension: String = "bin",
-        downloadURLOverride: String? = nil,
-        filenameOverride: String? = nil,
-        badges: [String] = [],
-        highlight: String? = nil
-    ) {
-        self.name = name
-        self.displayName = displayName
-        self.size = size
-        self.supportedLanguages = supportedLanguages
-        self.description = description
-        self.speed = speed
-        self.accuracy = accuracy
-        self.ramUsage = ramUsage
-        self.fileExtension = fileExtension
-        self.downloadURLOverride = downloadURLOverride
-        self.filenameOverride = filenameOverride
-        self.badges = badges
-        self.highlight = highlight
     }
 } 
 
@@ -289,42 +197,4 @@ struct ImportedLocalModel: TranscriptionModel {
         self.isMultilingualModel = true
         self.supportedLanguages = PredefinedModels.getLanguageDictionary(isMultilingual: true, provider: .local)
     }
-}
-
-struct FastConformerModel: TranscriptionModel {
-    let id = UUID()
-    let name: String
-    let displayName: String
-    let description: String
-    let provider: ModelProvider = .fastConformer
-    let size: String
-    let speed: Double
-    let accuracy: Double
-    let ramUsage: Double
-    let requiresMetal: Bool
-    let isMultilingualModel: Bool
-    let supportedLanguages: [String: String]
-    let modelURL: String
-    let tokenizerURL: String
-    let checksum: String?
-    let badges: [String]
-    let highlight: String?
-}
-
-struct SenseVoiceModel: TranscriptionModel {
-    let id = UUID()
-    let name: String
-    let displayName: String
-    let description: String
-    let provider: ModelProvider = .senseVoice
-    let size: String
-    let speed: Double
-    let accuracy: Double
-    let ramUsage: Double
-    let isMultilingualModel: Bool
-    let supportedLanguages: [String: String]
-    let modelURL: String
-    let tokenizerURL: String
-    let badges: [String]
-    let highlight: String?
 }
