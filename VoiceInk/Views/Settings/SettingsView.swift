@@ -50,6 +50,7 @@ struct SettingsView: View {
             // General
             SearchableSetting(tab: .general, section: "App Behavior", keywords: ["dock", "icon", "menu bar", "launch", "login", "startup", "update", "automatic", "announcements", "onboarding", "reset"]),
             SearchableSetting(tab: .general, section: "Community & License", keywords: ["license", "community", "edition", "open source", "privacy"]),
+            SearchableSetting(tab: .general, section: "Diagnostics", keywords: ["diagnostics", "troubleshooting", "logs", "support"]),
             
             // Audio
             SearchableSetting(tab: .audio, section: "Audio Input", keywords: ["microphone", "mic", "input", "device", "audio input"]),

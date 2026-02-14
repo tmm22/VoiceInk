@@ -84,6 +84,16 @@ extension SettingsView {
                     }
                 }
             }
+
+            if sectionMatches("Diagnostics", in: .general) {
+                VoiceInkSection(
+                    icon: "stethoscope",
+                    title: "Diagnostics",
+                    subtitle: "Troubleshooting and support utilities"
+                ) {
+                    DiagnosticsSettingsView()
+                }
+            }
             
             #if DEBUG
             if #available(macOS 12.0, *), sectionMatches("Performance Metrics", in: .general) {

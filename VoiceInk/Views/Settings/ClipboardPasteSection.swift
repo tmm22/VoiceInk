@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct ClipboardPasteSection: View {
-    @AppStorage("restoreClipboardAfterPaste") private var restoreClipboardAfterPaste = false
-    @AppStorage("clipboardRestoreDelay") private var clipboardRestoreDelay = 1.5
+    @AppStorage("restoreClipboardAfterPaste") private var restoreClipboardAfterPaste = true
+    @AppStorage("clipboardRestoreDelay") private var clipboardRestoreDelay = 2.0
     @AppStorage("UseAppleScriptPaste") private var useAppleScriptPaste = false
 
     var body: some View {
@@ -29,6 +29,7 @@ struct ClipboardPasteSection: View {
                             .foregroundColor(.secondary)
 
                         Picker("", selection: $clipboardRestoreDelay) {
+                            Text("0.25s").tag(0.25)
                             Text("0.5s").tag(0.5)
                             Text("1.0s").tag(1.0)
                             Text("1.5s").tag(1.5)

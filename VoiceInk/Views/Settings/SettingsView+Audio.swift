@@ -37,6 +37,28 @@ extension SettingsView {
                         }
                         .toggleStyle(.switch)
                         .help("Automatically mute system audio when recording starts and restore when recording stops")
+
+                        if mediaController.isSystemMuteEnabled {
+                            HStack(spacing: 8) {
+                                Text("Resume Delay")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(.secondary)
+
+                                Picker("", selection: $mediaController.audioResumptionDelay) {
+                                    Text("0s").tag(0.0)
+                                    Text("1s").tag(1.0)
+                                    Text("2s").tag(2.0)
+                                    Text("3s").tag(3.0)
+                                    Text("4s").tag(4.0)
+                                    Text("5s").tag(5.0)
+                                }
+                                .pickerStyle(.menu)
+                                .frame(width: 90)
+
+                                Spacer()
+                            }
+                            .padding(.leading, 16)
+                        }
                     }
                 }
             }
