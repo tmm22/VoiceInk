@@ -81,3 +81,8 @@ private extension Array where Element == PowerModeConfig {
 enum PowerModeSectionDefaults {
     static let autoRestoreKey = AppSettings.Keys.powerModeAutoRestoreEnabled
 }
+
+// Backward-compatibility alias for call sites that still reference the old name.
+enum PowerModeDefaults {
+    static let autoRestoreKey = PowerModeSectionDefaults.autoRestoreKey
+}

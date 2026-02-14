@@ -1,4 +1,3 @@
-#if false
 import SwiftUI
 import KeyboardShortcuts
 
@@ -53,7 +52,7 @@ extension SettingsView {
                     }
                 }
             }
-
+            
             if sectionMatches("Other App Shortcuts", in: .shortcuts) {
                 VoiceInkSection(
                 icon: "keyboard.badge.ellipsis",
@@ -66,15 +65,15 @@ extension SettingsView {
                         Text("Paste Last Transcript(Original)")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.secondary)
-
+                        
                         KeyboardShortcuts.Recorder(for: .pasteLastTranscription)
                             .controlSize(.small)
-
+                        
                         InfoTip(
                             title: "Paste Last Transcript(Original)",
                             message: "Shortcut for pasting the most recent transcription."
                         )
-
+                        
                         Spacer()
                     }
 
@@ -83,15 +82,15 @@ extension SettingsView {
                         Text("Paste Last Transcript(Enhanced)")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.secondary)
-
+                        
                         KeyboardShortcuts.Recorder(for: .pasteLastEnhancement)
                             .controlSize(.small)
-
+                        
                         InfoTip(
                             title: "Paste Last Transcript(Enhanced)",
                             message: "Pastes the enhanced transcript if available, otherwise falls back to the original."
                         )
-
+                        
                         Spacer()
                     }
 
@@ -113,7 +112,7 @@ extension SettingsView {
                     }
 
                     Divider()
-
+                    
                     // Custom Cancel Shortcut
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 8) {
@@ -126,22 +125,22 @@ extension SettingsView {
                                     KeyboardShortcuts.setShortcut(nil, for: .cancelRecorder)
                                 }
                             }
-
+                            
                             InfoTip(
                                 title: "Dismiss Recording",
                                 message: "Shortcut for cancelling the current recording session. Default: double-tap Escape."
                             )
                         }
-
+                        
                         if isCustomCancelEnabled {
                             HStack(spacing: 12) {
                                 Text("Cancel Shortcut")
                                     .font(.system(size: 13, weight: .medium))
                                     .foregroundColor(.secondary)
-
+                                
                                 KeyboardShortcuts.Recorder(for: .cancelRecorder)
                                     .controlSize(.small)
-
+                                
                                 Spacer()
                             }
                             .padding(.leading, 16)
@@ -156,7 +155,7 @@ extension SettingsView {
                         HStack(spacing: 8) {
                             Toggle("Enable Middle-Click Toggle", isOn: $hotkeyManager.isMiddleClickToggleEnabled.animation())
                                 .toggleStyle(.switch)
-
+                            
                             InfoTip(
                                 title: "Middle-Click Toggle",
                                 message: "Use middle mouse button to toggle \(Localization.appName) recording."
@@ -168,7 +167,7 @@ extension SettingsView {
                                 Text("Activation Delay")
                                     .font(.system(size: 13, weight: .medium))
                                     .foregroundColor(.secondary)
-
+                                
                                 TextField("", value: $hotkeyManager.middleClickActivationDelay, formatter: {
                                     let formatter = NumberFormatter()
                                     formatter.numberStyle = .none
@@ -180,10 +179,10 @@ extension SettingsView {
                                 .background(Color(NSColor.textBackgroundColor))
                                 .cornerRadius(5)
                                 .frame(width: 70)
-
+                                
                                 Text("ms")
                                     .foregroundColor(.secondary)
-
+                                
                                 Spacer()
                             }
                             .padding(.leading, 16)
@@ -195,7 +194,7 @@ extension SettingsView {
             }
         }
     }
-
+    
     @ViewBuilder
     func hotkeyView(
         title: String,
@@ -208,7 +207,7 @@ extension SettingsView {
             Text(title)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.secondary)
-
+            
             Menu {
                 ForEach(HotkeyManager.HotkeyOption.allCases, id: \.self) { option in
                     Button(action: {
@@ -241,14 +240,14 @@ extension SettingsView {
                 )
             }
             .menuStyle(.borderlessButton)
-
+            
             if binding.wrappedValue == .custom {
                 KeyboardShortcuts.Recorder(for: shortcutName)
                     .controlSize(.small)
             }
-
+            
             Spacer()
-
+            
             if isRemovable {
                 Button(action: {
                     onRemove?()
@@ -261,4 +260,3 @@ extension SettingsView {
         }
     }
 }
-#endif

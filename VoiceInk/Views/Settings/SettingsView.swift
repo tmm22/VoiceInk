@@ -4,252 +4,151 @@ import KeyboardShortcuts
 import LaunchAtLogin
 import AVFoundation
 
-struct SettingsView: View {
-    @EnvironmentObject private var updaterViewModel: UpdaterViewModel
-    @EnvironmentObject private var menuBarManager: MenuBarManager
-    @EnvironmentObject private var hotkeyManager: HotkeyManager
-    @EnvironmentObject private var whisperState: WhisperState
-    @EnvironmentObject private var enhancementService: AIEnhancementService
-    @StateObject private var deviceManager = AudioDeviceManager.shared
-    @ObservedObject private var soundManager = SoundManager.shared
-    @ObservedObject private var mediaController = MediaController.shared
-    @ObservedObject private var playbackController = PlaybackController.shared
-    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = true
-    @AppStorage("autoUpdateCheck") private var autoUpdateCheck = true
-    @AppStorage("enableAnnouncements") private var enableAnnouncements = true
-    @AppStorage("restoreClipboardAfterPaste") private var restoreClipboardAfterPaste = true
-    @AppStorage("clipboardRestoreDelay") private var clipboardRestoreDelay = 2.0
-    @State private var showResetOnboardingAlert = false
-    @State private var currentShortcut = KeyboardShortcuts.getShortcut(for: .toggleMiniRecorder)
-    @State private var isCustomCancelEnabled = false
+// MARK: - Settings View
 
-    // Expansion states - all collapsed by default
-    @State private var isCustomCancelExpanded = false
-    @State private var isMiddleClickExpanded = false
-    @State private var isSoundFeedbackExpanded = false
-    @State private var isMuteSystemExpanded = false
-    @State private var isRestoreClipboardExpanded = false
+/// Main settings view for the application.
+/// Component views are organized in extension files:
+/// - SettingsView+Types.swift - SearchableSetting, SettingsTab enum, Text extension
+/// - SettingsView+General.swift - General settings tab
+/// - SettingsView+Audio.swift - Audio settings tab
+/// - SettingsView+Transcription.swift - Transcription settings tab
+/// - SettingsView+Shortcuts.swift - Shortcuts settings tab
+/// - SettingsView+Data.swift - Data settings tab
+/// - SettingsView+Navigation.swift - SettingsNavigationRail, SettingsRailItem
+
+struct SettingsView: View {
+    // Environment objects - internal access for extension files
+    @EnvironmentObject var updaterViewModel: UpdaterViewModel
+    @EnvironmentObject var menuBarManager: MenuBarManager
+    @EnvironmentObject var hotkeyManager: HotkeyManager
+    @EnvironmentObject var whisperState: WhisperState
+    @EnvironmentObject var enhancementService: AIEnhancementService
+    @StateObject var deviceManager = AudioDeviceManager.shared
+    @ObservedObject var soundManager = SoundManager.shared
+    @ObservedObject var mediaController = MediaController.shared
+    @ObservedObject var playbackController = PlaybackController.shared
+    @AppStorage("hasCompletedOnboarding") var hasCompletedOnboarding = true
+    @AppStorage("autoUpdateCheck") var autoUpdateCheck = true
+    @AppStorage("enableAnnouncements") var enableAnnouncements = true
+    @State var showResetOnboardingAlert = false
+    @State var currentShortcut = KeyboardShortcuts.getShortcut(for: .toggleMiniRecorder)
+    @State var isCustomCancelEnabled = false
+    @State var isCustomSoundsExpanded = false
+    @State var selectedTab: SettingsTab = .general
+    @State var showTrashView = false
+    @State var trashItemCount: Int = 0
+    @State var showLicenseSheet = false
+    @State var showDictionarySheet = false
+    @State var searchText: String = ""
+    
+    // Store the passed tab to detect changes from parent
+    private let requestedTab: SettingsTab
+    
+    // Searchable settings definitions
+    var searchableSettings: [SearchableSetting] {
+        var settings = [
+            // General
+            SearchableSetting(tab: .general, section: "App Behavior", keywords: ["dock", "icon", "menu bar", "launch", "login", "startup", "update", "automatic", "announcements", "onboarding", "reset"]),
+            SearchableSetting(tab: .general, section: "Community & License", keywords: ["license", "community", "edition", "open source", "privacy"]),
+            
+            // Audio
+            SearchableSetting(tab: .audio, section: "Audio Input", keywords: ["microphone", "mic", "input", "device", "audio input"]),
+            SearchableSetting(tab: .audio, section: "Audio Feedback", keywords: ["sound", "feedback", "volume", "recording sound", "beep", "notification"]),
+            SearchableSetting(tab: .audio, section: "Recording Behavior", keywords: ["mute", "system audio", "recording", "behavior"]),
+            
+            // Transcription
+            SearchableSetting(tab: .transcription, section: "Dictionary", keywords: ["dictionary", "words", "phrases", "quick rules", "replacement", "spelling", "custom words"]),
+            SearchableSetting(tab: .transcription, section: "Clipboard & Paste", keywords: ["clipboard", "paste", "copy", "transcript", "applescript"]),
+            SearchableSetting(tab: .transcription, section: "Recorder Style", keywords: ["recorder", "style", "notch", "mini", "interface"]),
+            SearchableSetting(tab: .transcription, section: "Power Mode", keywords: ["power mode", "context", "app", "browser", "url", "automatic"]),
+            SearchableSetting(tab: .transcription, section: "Experimental", keywords: ["experimental", "beta", "features"]),
+            
+            // Shortcuts
+            SearchableSetting(tab: .shortcuts, section: "VoiceInk Shortcuts", keywords: ["hotkey", "shortcut", "keyboard", "trigger", "option", "command", "push to talk", "hands-free"]),
+            SearchableSetting(tab: .shortcuts, section: "Other App Shortcuts", keywords: ["paste last", "transcript", "enhanced", "retry", "cancel", "middle click", "mouse"]),
+            
+            // AI
+            SearchableSetting(tab: .enhancement, section: "AI Enhancement", keywords: ["ai", "enhancement", "llm", "openai", "anthropic", "google", "ollama", "local", "model", "token", "prompt", "persona"]),
+            SearchableSetting(tab: .enhancement, section: "Cloud Sync", keywords: ["icloud", "sync", "cloud", "backup", "restore", "devices"]),
+            
+            // Data
+            SearchableSetting(tab: .data, section: "Trash", keywords: ["trash", "deleted", "recover", "restore", "transcriptions"]),
+            SearchableSetting(tab: .data, section: "Data & Privacy", keywords: ["privacy", "data", "cleanup", "storage", "history", "delete"]),
+            SearchableSetting(tab: .data, section: "Data Management", keywords: ["import", "export", "backup", "settings", "prompts", "preferences"]),
+            
+            // Permissions
+            SearchableSetting(tab: .permissions, section: "Permissions", keywords: ["permissions", "accessibility", "microphone", "access", "privacy", "security"]),
+        ]
+        
+        #if DEBUG
+        settings.append(SearchableSetting(tab: .general, section: "Performance Metrics", keywords: ["performance", "metrics", "metrickit", "cpu", "memory", "hang", "debug", "monitoring"]))
+        #endif
+        
+        return settings
+    }
+    
+    func matchesSearch(_ setting: SearchableSetting) -> Bool {
+        guard !searchText.isEmpty else { return true }
+        let query = searchText.lowercased()
+        return setting.section.lowercased().contains(query) ||
+               setting.keywords.contains { $0.lowercased().contains(query) }
+    }
+    
+    func tabHasMatches(_ tab: SettingsTab) -> Bool {
+        guard !searchText.isEmpty else { return true }
+        return searchableSettings.filter { $0.tab == tab }.contains { matchesSearch($0) }
+    }
+    
+    func sectionMatches(_ sectionTitle: String, in tab: SettingsTab) -> Bool {
+        guard !searchText.isEmpty else { return true }
+        return searchableSettings.first { $0.tab == tab && $0.section == sectionTitle }.map { matchesSearch($0) } ?? false
+    }
+
+    init(selectedTab: SettingsTab = .general) {
+        self.requestedTab = selectedTab
+        _selectedTab = State(initialValue: selectedTab)
+    }
 
     var body: some View {
-        Form {
-            // MARK: - Shortcuts
-            Section {
-                LabeledContent("Hotkey 1") {
-                    HStack(spacing: 8) {
-                        hotkeyPicker(binding: $hotkeyManager.selectedHotkey1)
-                        if hotkeyManager.selectedHotkey1 == .custom {
-                            KeyboardShortcuts.Recorder(for: .toggleMiniRecorder)
-                                .controlSize(.small)
-                        }
-                    }
+        HStack(spacing: 0) {
+            // Navigation Rail
+            SettingsNavigationRail(
+                tabs: SettingsTab.allCases,
+                selectedTab: $selectedTab,
+                searchText: $searchText,
+                tabHasMatches: tabHasMatches,
+                onSelect: { tab in
+                    selectedTab = tab
                 }
-
-                if hotkeyManager.selectedHotkey2 != .none {
-                    LabeledContent("Hotkey 2") {
-                        HStack(spacing: 8) {
-                            hotkeyPicker(binding: $hotkeyManager.selectedHotkey2)
-                            if hotkeyManager.selectedHotkey2 == .custom {
-                                KeyboardShortcuts.Recorder(for: .toggleMiniRecorder2)
-                                    .controlSize(.small)
-                            }
-                            Button {
-                                withAnimation { hotkeyManager.selectedHotkey2 = .none }
-                            } label: {
-                                Image(systemName: "minus.circle.fill")
-                                    .foregroundColor(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
+            )
+            .frame(width: 220)
+            .background(VoiceInkTheme.Palette.surface)
+            .overlay(
+                Rectangle()
+                    .frame(width: 1)
+                    .foregroundColor(VoiceInkTheme.Palette.outline),
+                alignment: .trailing
+            )
+            
+            // Main Content Area
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: VoiceInkSpacing.lg) {
+                    Text(selectedTab.rawValue)
+                        .font(.system(size: 24, weight: .bold))
+                        .padding(.bottom, VoiceInkSpacing.sm)
+                    
+                    settingsContent(for: selectedTab)
                 }
-
-                if hotkeyManager.selectedHotkey1 != .none && hotkeyManager.selectedHotkey2 == .none {
-                    Button("Add Second Hotkey") {
-                        withAnimation { hotkeyManager.selectedHotkey2 = .rightOption }
-                    }
-                }
-            } header: {
-                Text("Shortcuts")
-            } footer: {
-                Text("Quick tap for hands-free recording, hold for push-to-talk.")
+                .padding(VoiceInkSpacing.xl)
+                .frame(maxWidth: 800, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-
-            // MARK: - Additional Shortcuts
-            Section("Additional Shortcuts") {
-                LabeledContent("Paste Last Transcription (Original)") {
-                    KeyboardShortcuts.Recorder(for: .pasteLastTranscription)
-                        .controlSize(.small)
-                }
-
-                LabeledContent("Paste Last Transcription (Enhanced)") {
-                    KeyboardShortcuts.Recorder(for: .pasteLastEnhancement)
-                        .controlSize(.small)
-                }
-
-                LabeledContent("Retry Last Transcription") {
-                    KeyboardShortcuts.Recorder(for: .retryLastTranscription)
-                        .controlSize(.small)
-                }
-
-                // Custom Cancel - hierarchical
-                ExpandableSettingsRow(
-                    isExpanded: $isCustomCancelExpanded,
-                    isEnabled: $isCustomCancelEnabled,
-                    label: "Custom Cancel Shortcut"
-                ) {
-                    LabeledContent("Shortcut") {
-                        KeyboardShortcuts.Recorder(for: .cancelRecorder)
-                            .controlSize(.small)
-                    }
-                }
-                .onChange(of: isCustomCancelEnabled) { _, newValue in
-                    if !newValue {
-                        KeyboardShortcuts.setShortcut(nil, for: .cancelRecorder)
-                        isCustomCancelExpanded = false
-                    }
-                }
-
-                // Middle-Click
-                ExpandableSettingsRow(
-                    isExpanded: $isMiddleClickExpanded,
-                    isEnabled: $hotkeyManager.isMiddleClickToggleEnabled,
-                    label: "Middle-Click Recording"
-                ) {
-                    LabeledContent("Activation Delay") {
-                        HStack {
-                            TextField("", value: $hotkeyManager.middleClickActivationDelay, formatter: {
-                                let formatter = NumberFormatter()
-                                formatter.minimum = 0
-                                return formatter
-                            }())
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 60)
-                            Text("ms")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-            }
-
-            // MARK: - Recording Feedback
-            Section("Recording Feedback") {
-                // Sound Feedback
-                ExpandableSettingsRow(
-                    isExpanded: $isSoundFeedbackExpanded,
-                    isEnabled: $soundManager.isEnabled,
-                    label: "Sound Feedback"
-                ) {
-                    CustomSoundSettingsView()
-                }
-
-                // Mute System Audio
-                ExpandableSettingsRow(
-                    isExpanded: $isMuteSystemExpanded,
-                    isEnabled: $mediaController.isSystemMuteEnabled,
-                    label: "Mute Audio While Recording"
-                ) {
-                    Picker("Resume Delay", selection: $mediaController.audioResumptionDelay) {
-                        Text("0s").tag(0.0)
-                        Text("1s").tag(1.0)
-                        Text("2s").tag(2.0)
-                        Text("3s").tag(3.0)
-                        Text("4s").tag(4.0)
-                        Text("5s").tag(5.0)
-                    }
-                }
-
-                // Restore Clipboard
-                ExpandableSettingsRow(
-                    isExpanded: $isRestoreClipboardExpanded,
-                    isEnabled: $restoreClipboardAfterPaste,
-                    label: "Restore Clipboard After Paste"
-                ) {
-                    Picker("Restore Delay", selection: $clipboardRestoreDelay) {
-                        Text("250ms").tag(0.25)
-                        Text("500ms").tag(0.5)
-                        Text("1s").tag(1.0)
-                        Text("2s").tag(2.0)
-                        Text("3s").tag(3.0)
-                        Text("4s").tag(4.0)
-                        Text("5s").tag(5.0)
-                    }
-                }
-            }
-
-            // MARK: - Power Mode
-            PowerModeSection()
-
-            // MARK: - Interface
-            Section("Interface") {
-                Picker("Recorder Style", selection: $whisperState.recorderType) {
-                    Text("Notch").tag("notch")
-                    Text("Mini").tag("mini")
-                }
-                .pickerStyle(.segmented)
-
-                Toggle(isOn: Binding(
-                    get: { UserDefaults.standard.bool(forKey: "UseAppleScriptPaste") },
-                    set: { UserDefaults.standard.set($0, forKey: "UseAppleScriptPaste") }
-                )) {
-                    HStack(spacing: 4) {
-                        Text("AppleScript Paste")
-                        InfoTip("Paste via System Events instead of direct keystrokes. Try this if paste isn't working in some apps.")
-                    }
-                }
-            }
-
-            // MARK: - Experimental
-            ExperimentalSection()
-
-            // MARK: - General
-            Section("General") {
-                Toggle("Hide Dock Icon", isOn: $menuBarManager.isMenuBarOnly)
-
-                LaunchAtLogin.Toggle("Launch at Login")
-
-                Toggle("Auto-check Updates", isOn: $autoUpdateCheck)
-                    .onChange(of: autoUpdateCheck) { _, newValue in
-                        updaterViewModel.toggleAutoUpdates(newValue)
-                    }
-
-                Toggle("Show Announcements", isOn: $enableAnnouncements)
-                    .onChange(of: enableAnnouncements) { _, newValue in
-                        if newValue {
-                            AnnouncementsService.shared.start()
-                        } else {
-                            AnnouncementsService.shared.stop()
-                        }
-                    }
-
-                HStack {
-                    Button("Check for Updates") {
-                        updaterViewModel.checkForUpdates()
-                    }
-                    .disabled(!updaterViewModel.canCheckForUpdates)
-
-                    Button("Reset Onboarding") {
-                        showResetOnboardingAlert = true
-                    }
-                }
-            }
-
-            // MARK: - Privacy
-            Section {
-                AudioCleanupSettingsView()
-            } header: {
-                Text("Privacy")
-            } footer: {
-                Text("Control how VoiceInk handles your transcription data and audio recordings.")
-            }
-
-            // MARK: - Diagnostics
-            Section("Diagnostics") {
-                DiagnosticsSettingsView()
-            }
+            .background(VoiceInkTheme.Palette.canvas)
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .background(Color(NSColor.controlBackgroundColor))
+        .navigationTitle("Settings")
+        .onChange(of: requestedTab) { _, newTab in
+            selectedTab = newTab
+        }
         .onAppear {
             isCustomCancelEnabled = KeyboardShortcuts.getShortcut(for: .cancelRecorder) != nil
         }
@@ -261,190 +160,39 @@ struct SettingsView: View {
                 }
             }
         } message: {
-            Text("You'll see the introduction screens again the next time you launch the app.")
+            Text("Are you sure you want to reset the onboarding? You'll see the introduction screens again the next time you launch the app.")
+        }
+        .sheet(isPresented: $showTrashView) {
+            TrashView(modelContext: whisperState.modelContext)
+                .onDisappear {
+                    updateTrashCount()
+                }
+        }
+        .sheet(isPresented: $showLicenseSheet) {
+            LicenseManagementView()
+                .frame(minWidth: 600, minHeight: 500)
+        }
+        .sheet(isPresented: $showDictionarySheet) {
+            DictionarySettingsView(whisperPrompt: whisperState.whisperPrompt)
+                .frame(minWidth: 700, minHeight: 500)
+                .padding()
         }
     }
-
+    
+    func updateTrashCount() {
+        trashItemCount = TrashCleanupService.shared.getTrashCount(modelContext: whisperState.modelContext)
+    }
+    
     @ViewBuilder
-    private func hotkeyPicker(binding: Binding<HotkeyManager.HotkeyOption>) -> some View {
-        Picker("", selection: binding) {
-            ForEach(HotkeyManager.HotkeyOption.allCases, id: \.self) { option in
-                Text(option.displayName).tag(option)
-            }
-        }
-        .labelsHidden()
-        .frame(width: 140)
-    }
-}
-
-// MARK: - Expandable Settings Row (entire row clickable)
-
-struct ExpandableSettingsRow<Content: View>: View {
-    @Binding var isExpanded: Bool
-    @Binding var isEnabled: Bool
-    let label: String
-    var infoMessage: String? = nil
-    var infoURL: String? = nil
-    @ViewBuilder let content: () -> Content
-
-    @State private var isHandlingToggleChange = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Main row - entire area is tappable
-            HStack {
-                Toggle(isOn: $isEnabled) {
-                    HStack(spacing: 4) {
-                        Text(label)
-                        if let message = infoMessage {
-                            if let url = infoURL {
-                                InfoTip(message, learnMoreURL: url)
-                            } else {
-                                InfoTip(message)
-                            }
-                        }
-                    }
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.secondary)
-                    .rotationEffect(.degrees(isEnabled && isExpanded ? 90 : 0))
-                    .opacity(isEnabled ? 1 : 0.4)
-            }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                guard !isHandlingToggleChange else { return }
-                if isEnabled {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isExpanded.toggle()
-                    }
-                }
-            }
-
-            // Expanded content with proper spacing
-            if isEnabled && isExpanded {
-                VStack(alignment: .leading, spacing: 8) {
-                    content()
-                }
-                .padding(.top, 12)
-                .padding(.leading, 4)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-        .animation(.easeInOut(duration: 0.2), value: isExpanded)
-        .onChange(of: isEnabled) { _, newValue in
-            isHandlingToggleChange = true
-            if newValue {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isExpanded = true
-                }
-            } else {
-                isExpanded = false
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                isHandlingToggleChange = false
-            }
+    private func settingsContent(for tab: SettingsTab) -> some View {
+        switch tab {
+        case .general: generalSettings
+        case .audio: audioSettings
+        case .transcription: transcriptionSettings
+        case .shortcuts: shortcutsSettings
+        case .enhancement: EnhancementSettingsView()
+        case .data: dataSettings
+        case .permissions: PermissionsView().voiceInkSectionPadding()
         }
     }
-}
-
-// MARK: - Power Mode Section
-
-struct PowerModeSection: View {
-    @ObservedObject private var powerModeManager = PowerModeManager.shared
-    @AppStorage("powerModeUIFlag") private var powerModeUIFlag = false
-    @AppStorage(PowerModeDefaults.autoRestoreKey) private var powerModeAutoRestoreEnabled = false
-    @State private var showDisableAlert = false
-    @State private var isExpanded = false
-
-    var body: some View {
-        Section {
-            ExpandableSettingsRow(
-                isExpanded: $isExpanded,
-                isEnabled: toggleBinding,
-                label: "Power Mode",
-                infoMessage: "Apply custom settings based on active app or website.",
-                infoURL: "https://tryvoiceink.com/docs/power-mode"
-            ) {
-                Toggle(isOn: $powerModeAutoRestoreEnabled) {
-                    HStack(spacing: 4) {
-                        Text("Auto-Restore Preferences")
-                        InfoTip("After each recording session, revert preferences to what was configured before Power Mode was activated.")
-                    }
-                }
-            }
-        } header: {
-            Text("Power Mode")
-        }
-        .alert("Power Mode Still Active", isPresented: $showDisableAlert) {
-            Button("Got it", role: .cancel) { }
-        } message: {
-            Text("Disable or remove your Power Modes first.")
-        }
-    }
-
-    private var toggleBinding: Binding<Bool> {
-        Binding(
-            get: { powerModeUIFlag },
-            set: { newValue in
-                if newValue {
-                    powerModeUIFlag = true
-                } else if powerModeManager.configurations.allSatisfy({ !$0.isEnabled }) {
-                    powerModeUIFlag = false
-                } else {
-                    showDisableAlert = true
-                }
-            }
-        )
-    }
-}
-
-// MARK: - Experimental Section
-
-struct ExperimentalSection: View {
-    @ObservedObject private var playbackController = PlaybackController.shared
-    @ObservedObject private var mediaController = MediaController.shared
-    @State private var isPauseMediaExpanded = false
-
-    var body: some View {
-        Section {
-            ExpandableSettingsRow(
-                isExpanded: $isPauseMediaExpanded,
-                isEnabled: $playbackController.isPauseMediaEnabled,
-                label: "Pause Media While Recording",
-                infoMessage: "Pauses playing media when recording starts and resumes when done."
-            ) {
-                Picker("Resume Delay", selection: $mediaController.audioResumptionDelay) {
-                    Text("0s").tag(0.0)
-                    Text("1s").tag(1.0)
-                    Text("2s").tag(2.0)
-                    Text("3s").tag(3.0)
-                    Text("4s").tag(4.0)
-                    Text("5s").tag(5.0)
-                }
-            }
-        } header: {
-            Text("Experimental")
-        }
-    }
-}
-
-// MARK: - Text Extension
-
-extension Text {
-    func settingsDescriptionLegacy() -> some View {
-        self
-            .font(.system(size: 12))
-            .foregroundColor(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-}
-
-// MARK: - Power Mode Defaults
-
-enum PowerModeDefaults {
-    static let autoRestoreKey = "powerModeAutoRestoreEnabled"
 }

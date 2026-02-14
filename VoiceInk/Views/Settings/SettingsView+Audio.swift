@@ -1,4 +1,3 @@
-#if false
 import SwiftUI
 
 // MARK: - Audio Settings
@@ -15,7 +14,7 @@ extension SettingsView {
                     AudioInputSettingsView()
                 }
             }
-
+            
             if sectionMatches("Audio Feedback", in: .audio) {
                 VoiceInkSection(
                     icon: "speaker.wave.2.bubble.left.fill",
@@ -25,7 +24,7 @@ extension SettingsView {
                     AudioFeedbackSettingsView()
                 }
             }
-
+            
             if sectionMatches("Recording Behavior", in: .audio) {
                 VoiceInkSection(
                     icon: "waveform.badge.mic",
@@ -44,4 +43,3 @@ extension SettingsView {
         }
     }
 }
-#endif
