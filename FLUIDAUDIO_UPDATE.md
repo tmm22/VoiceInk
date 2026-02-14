@@ -242,7 +242,6 @@ and dependency 'github.com/tisfeng/axswift' both point to the same package ident
 - **v0.8.0 Release:** https://github.com/FluidInference/FluidAudio/releases/tag/v0.8.0
 - **Full Changelog (v0.7.8...v0.8.0):** https://github.com/FluidInference/FluidAudio/compare/v0.7.8...v0.8.0
 - **Documentation:** https://github.com/FluidInference/FluidAudio/tree/main/Documentation
-- **Discord:** https://discord.gg/WNsvaCtmDe
 
 ### VoiceInk Integration Files
 - **ParakeetTranscriptionService:** `VoiceInk/Services/ParakeetTranscriptionService.swift`

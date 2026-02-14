@@ -31,7 +31,7 @@ struct GeneralSettings: Codable {
     let clipboardRestoreDelay: Double?
 }
 
-struct VoiceLinkCommunityExportedSettings: Codable {
+struct VoiceInkExportedSettings: Codable {
     let version: String
     let customPrompts: [CustomPrompt]
     let powerModeConfigs: [PowerModeConfig]
@@ -101,7 +101,7 @@ class ImportExportService {
             clipboardRestoreDelay: AppSettings.Clipboard.clipboardRestoreDelay
         )
 
-        let exportedSettings = VoiceLinkCommunityExportedSettings(
+        let exportedSettings = VoiceInkExportedSettings(
             version: currentSettingsVersion,
             customPrompts: exportablePrompts,
             powerModeConfigs: powerConfigs,
@@ -120,7 +120,7 @@ class ImportExportService {
 
             let savePanel = NSSavePanel()
             savePanel.allowedContentTypes = [UTType.json]
-            savePanel.nameFieldStringValue = "VoiceLinkCommunity_Settings_Backup.json"
+            savePanel.nameFieldStringValue = "VoiceInk_Settings_Backup.json"
             savePanel.title = "Export \(AppBrand.communityName) Settings"
             savePanel.message = "Choose a location to save your settings."
 
@@ -165,7 +165,7 @@ class ImportExportService {
                         let jsonData = try await FileDataLoader.loadData(from: url)
                         let importedSettings = try await Task.detached(priority: .utility) {
                             let decoder = JSONDecoder()
-                            return try decoder.decode(VoiceLinkCommunityExportedSettings.self, from: jsonData)
+                            return try decoder.decode(VoiceInkExportedSettings.self, from: jsonData)
                         }.value
                     
                     if importedSettings.version != self.currentSettingsVersion {

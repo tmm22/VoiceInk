@@ -44,7 +44,7 @@ class LicenseViewModel: ObservableObject {
                 title: "Join the Discussion",
                 systemImage: "bubble.left.and.bubble.right.fill",
                 description: "Chat with other contributors, share workflows, and get help.",
-                url: makeURL("https://discord.gg/xryDy57nYD")
+                url: makeURL("https://github.com/tmm22/VoiceInk/discussions")
             )
         ]
     }

@@ -8,7 +8,7 @@ struct Localization {
     static var appName: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
             ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
-            ?? "VoiceLink Community"
+            ?? "VoiceInk"
     }
     
     /// Returns true if user's region prefers "Bin" over "Trash"

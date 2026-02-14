@@ -148,27 +148,17 @@ struct MetricsContent: View {
     
     private var heroSection: some View {
         VStack(spacing: 10) {
-            HStack {
-                Spacer(minLength: 0)
-                
-                (Text("You have saved ")
-                    .fontWeight(.bold)
-                    .foregroundColor(.white.opacity(0.85))
-                 +
-                 Text(formattedTimeSaved)
-                    .fontWeight(.black)
-                    .font(.system(size: 36, design: .rounded))
-                    .foregroundStyle(.white)
-                 +
-                 Text(" with VoiceInk")
-                    .fontWeight(.bold)
-                    .foregroundColor(.white.opacity(0.85))
-                )
-                .font(.system(size: 30))
+            Text("Total Recording Time")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.white.opacity(0.9))
                 .multilineTextAlignment(.center)
-                
-                Spacer(minLength: 0)
-            }
+                .frame(maxWidth: .infinity)
+            
+            Text(formattedRecordingDuration)
+                .font(.system(size: 36, weight: .black, design: .rounded))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
             .lineLimit(1)
             .minimumScaleFactor(0.5)
             
@@ -234,9 +224,8 @@ struct MetricsContent: View {
         CopySystemInfoButton()
     }
     
-    private var formattedTimeSaved: String {
-        let formatted = Formatters.formattedDuration(timeSaved, style: .full, fallback: "Time savings coming soon")
-        return formatted
+    private var formattedRecordingDuration: String {
+        Formatters.formattedDuration(totalDuration, style: .full, fallback: "Start recording to track time")
     }
     
     private var heroSubtitle: String {
@@ -263,16 +252,6 @@ struct MetricsContent: View {
     }
     
     // MARK: - Computed Metrics
-
-    private var estimatedTypingTime: TimeInterval {
-        let averageTypingSpeed: Double = 35 // words per minute
-        let estimatedTypingTimeInMinutes = Double(totalWords) / averageTypingSpeed
-        return estimatedTypingTimeInMinutes * 60
-    }
-
-    private var timeSaved: TimeInterval {
-        max(estimatedTypingTime - totalDuration, 0)
-    }
 
     private var averageWordsPerMinute: Double {
         guard totalDuration > 0 else { return 0 }

@@ -28,10 +28,10 @@ struct DashboardPromotionsSection: View {
             DashboardPromotionCard(
                 badge: "CONNECT",
                 title: "Join The Conversation",
-                message: "Share workflows, ask questions, and connect with other contributors in the community Discord.",
+                message: "Share workflows, ask questions, and connect with other contributors in GitHub Discussions.",
                 accentSymbol: "bubble.left.and.bubble.right.fill",
                 glowColor: Color(red: 0.32, green: 0.45, blue: 0.91),
-                actionTitle: "Join Discord",
+                actionTitle: "Open Discussions",
                 actionIcon: "arrow.up.right",
                 action: openCommunity
             )
@@ -47,7 +47,7 @@ struct DashboardPromotionsSection: View {
     }
     
     private func openCommunity() {
-        if let url = URL(string: "https://discord.gg/xryDy57nYD") {
+        if let url = URL(string: "https://github.com/tmm22/VoiceInk/discussions") {
             NSWorkspace.shared.open(url)
         }
     }

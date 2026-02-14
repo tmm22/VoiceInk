@@ -135,7 +135,7 @@ enum AIPrompts {
     - **Search Fields**: If `UI Element Role` is search/find, output query-optimized keywords. Remove filler words.
     - **Subject Lines**: If placeholder/description indicates "Subject" or "Title", output a concise, summary-style header.
     - **Code Editors**: If `UI Element Role` is code/editor or `valueSnippet` contains code, assume the user is dictating code or comments. Preserve snake_case/camelCase.
-    - **Chat/Message**: If field is "Message" (Slack/Discord), keep the tone conversational but polished.
+    - **Chat/Message**: If field is "Message" (Slack/Teams), keep the tone conversational but polished.
     - **Surrounding Text**: Use `Text Before/After Cursor` to ensure your output syntactically fits the existing sentence structure.
 
     [PRIORITY 3: APPLICATION CONTEXT] (<APPLICATION_CONTEXT>)
@@ -202,4 +202,3 @@ enum AIPrompts {
     </SYSTEM_INSTRUCTIONS>
     """
 }
-

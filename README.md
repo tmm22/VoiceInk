@@ -91,7 +91,7 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 If you run into trouble:
 1. Search existing GitHub issues and discussions.
 2. Open a new issue with logs, screenshots, or steps to reproduce.
-3. Join the Discord (linked inside the app) for quick questions or pairing sessions.
+3. Start a GitHub Discussion for quick questions or pairing sessions.
 
 ## Acknowledgments
 
