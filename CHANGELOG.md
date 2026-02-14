@@ -2,6 +2,28 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-02-14
+
+### Upstream Sync
+- Merged latest `upstream/main` into `custom-main-v2` via merge commit `5c75ed2` (upstream tip at merge: `36427eb`).
+- Brought upstream streaming transcription architecture and providers into the fork, including:
+  - `VoiceInk/Services/StreamingTranscription/StreamingTranscriptionService.swift`
+  - `VoiceInk/Services/StreamingTranscription/DeepgramStreamingProvider.swift`
+  - `VoiceInk/Services/StreamingTranscription/ElevenLabsStreamingProvider.swift`
+  - `VoiceInk/Services/StreamingTranscription/MistralStreamingProvider.swift`
+  - `VoiceInk/Services/StreamingTranscription/ParakeetStreamingProvider.swift`
+  - `VoiceInk/Services/StreamingTranscription/SonioxStreamingProvider.swift`
+- Incorporated upstream recorder/metrics/settings updates and local-build support additions (`LocalBuild.xcconfig`, `VoiceInk/VoiceInk.local.entitlements`, `Makefile` `local` target).
+
+### TTS Stability (Pocket Voices)
+- Normalized Pocket TTS voice IDs in `VoiceInk/TTS/Services/LocalTTSService.swift` so legacy user-facing IDs map correctly to engine voice IDs.
+- Added fallback behavior to a recommended Pocket voice when a selected voice is unavailable at runtime.
+- Expanded embedding-cache cleanup so hide/remove paths clear both legacy and normalized Pocket voice cache entries.
+
+### Verification
+- Completed merge-conflict resolution with a clean index and no conflict markers.
+- Ran whitespace/conflict hygiene checks on merge content (`git diff --check`).
+
 ## 2026-02-08
 
 ### Stability

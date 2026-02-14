@@ -1280,6 +1280,10 @@ Before committing changes:
 - [ ] All `print()` statements wrapped in `#if DEBUG`
 - [ ] No hardcoded user-facing strings (use `Localization`)
 
+**Documentation & Process:**
+- [ ] Update `CHANGELOG.md` for user-visible behavior changes, upstream syncs, and build workflow updates
+- [ ] Update `AGENTS.md` when introducing or changing coding standards, workflow rules, or required tooling conventions
+
 **Assets:**
 - [ ] Audio files verified with `file` command (WAV/MP3 format matches extension)
 
