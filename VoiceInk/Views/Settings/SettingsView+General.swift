@@ -1,3 +1,4 @@
+#if false
 import SwiftUI
 import LaunchAtLogin
 
@@ -15,7 +16,7 @@ extension SettingsView {
                 VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
                     Toggle("Hide Dock Icon (Menu Bar Only)", isOn: $menuBarManager.isMenuBarOnly)
                         .toggleStyle(.switch)
-                    
+
                     LaunchAtLogin.Toggle()
                         .toggleStyle(.switch)
 
@@ -24,7 +25,7 @@ extension SettingsView {
                         .onChange(of: autoUpdateCheck) { _, newValue in
                             updaterViewModel.toggleAutoUpdates(newValue)
                         }
-                    
+
                     Toggle("Show app announcements", isOn: $enableAnnouncements)
                         .toggleStyle(.switch)
                         .onChange(of: enableAnnouncements) { _, newValue in
@@ -34,14 +35,14 @@ extension SettingsView {
                                 AnnouncementsService.shared.stop()
                             }
                         }
-                    
+
                     Button("Check for Updates Now") {
                         updaterViewModel.checkForUpdates()
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.large)
                     .disabled(!updaterViewModel.canCheckForUpdates)
-                    
+
                     Divider()
 
                     Button("Reset Onboarding") {
@@ -52,7 +53,7 @@ extension SettingsView {
                 }
                 }
             }
-            
+
             if sectionMatches("Community & License", in: .general) {
                 VoiceInkSection(
                     icon: "hands.sparkles.fill",
@@ -64,7 +65,7 @@ extension SettingsView {
                             Image(systemName: "seal.fill")
                                 .font(.system(size: 20))
                                 .foregroundColor(.accentColor)
-                            
+
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("\(AppBrand.communityName) Edition")
                                     .font(.headline)
@@ -72,10 +73,10 @@ extension SettingsView {
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                             }
-                            
+
                             Spacer()
                         }
-                        
+
                         Button("View License & Community Info") {
                             showLicenseSheet = true
                         }
@@ -84,7 +85,7 @@ extension SettingsView {
                     }
                 }
             }
-            
+
             #if DEBUG
             if #available(macOS 12.0, *), sectionMatches("Performance Metrics", in: .general) {
                 VoiceInkSection(
@@ -99,3 +100,4 @@ extension SettingsView {
         }
     }
 }
+#endif

@@ -283,7 +283,7 @@ struct ModelManagementView: View {
             ]
             return whisperState.allAvailableModels.filter {
                 recommendedNames.contains($0.name)
-            }.sorted { model1, model2 in
+            }.sorted(by: { (model1: any TranscriptionModel, model2: any TranscriptionModel) in
                 // Sort by: 1) Best balanced (fast + accurate) first, 2) Then by accuracy
                 let score1 = modelRecommendationScore(model1)
                 let score2 = modelRecommendationScore(model2)
@@ -291,32 +291,32 @@ struct ModelManagementView: View {
                     return score1 > score2
                 }
                 // Tie-breaker: higher accuracy wins
-                return model1.accuracy > model2.accuracy
-            }
+                return modelAccuracy(model1) > modelAccuracy(model2)
+            })
         case .local:
             return whisperState.allAvailableModels.filter { model in
                 model.provider == .local || model.provider == .nativeApple || model.provider == .parakeet || model.provider == .fastConformer || model.provider == .senseVoice
-            }.sorted { model1, model2 in
+            }.sorted(by: { (model1: any TranscriptionModel, model2: any TranscriptionModel) in
                 // Sort by: 1) Best balanced (fast + accurate) first, 2) Then by accuracy
                 let score1 = modelRecommendationScore(model1)
                 let score2 = modelRecommendationScore(model2)
                 if abs(score1 - score2) > 0.01 {
                     return score1 > score2
                 }
-                return model1.accuracy > model2.accuracy
-            }
+                return modelAccuracy(model1) > modelAccuracy(model2)
+            })
         case .cloud:
             let cloudProviders: [ModelProvider] = [.groq, .elevenLabs, .deepgram, .mistral, .gemini, .soniox, .assemblyAI, .zai]
             return whisperState.allAvailableModels.filter { cloudProviders.contains($0.provider) }
-                .sorted { model1, model2 in
+                .sorted(by: { (model1: any TranscriptionModel, model2: any TranscriptionModel) in
                     // Sort by: 1) Best balanced (fast + accurate) first, 2) Then by accuracy
                     let score1 = modelRecommendationScore(model1)
                     let score2 = modelRecommendationScore(model2)
                     if abs(score1 - score2) > 0.01 {
                         return score1 > score2
                     }
-                    return model1.accuracy > model2.accuracy
-                }
+                    return modelAccuracy(model1) > modelAccuracy(model2)
+                })
         case .custom:
             return whisperState.allAvailableModels.filter { $0.provider == .custom }
         }
@@ -364,8 +364,8 @@ extension ModelManagementView {
     /// Calculates a recommendation score prioritizing models that are both fast AND accurate.
     /// Models with high scores in both categories rank highest.
     private func modelRecommendationScore(_ model: any TranscriptionModel) -> Double {
-        let accuracy = model.accuracy
-        let speed = model.speed
+        let accuracy = modelAccuracy(model)
+        let speed = modelSpeed(model)
         
         // Use geometric mean to reward models that excel at BOTH speed and accuracy
         // This penalizes models that are very fast but inaccurate (or vice versa)
@@ -377,5 +377,39 @@ extension ModelManagementView {
         let bonus: Double = (isHighAccuracy && isHighSpeed) ? 0.1 : 0
         
         return balancedScore + bonus
+    }
+
+    private func modelAccuracy(_ model: any TranscriptionModel) -> Double {
+        switch model {
+        case let localModel as LocalModel:
+            return localModel.accuracy
+        case let parakeetModel as ParakeetModel:
+            return parakeetModel.accuracy
+        case let fastConformerModel as FastConformerModel:
+            return fastConformerModel.accuracy
+        case let senseVoiceModel as SenseVoiceModel:
+            return senseVoiceModel.accuracy
+        case let cloudModel as CloudModel:
+            return cloudModel.accuracy
+        default:
+            return 0.5
+        }
+    }
+
+    private func modelSpeed(_ model: any TranscriptionModel) -> Double {
+        switch model {
+        case let localModel as LocalModel:
+            return localModel.speed
+        case let parakeetModel as ParakeetModel:
+            return parakeetModel.speed
+        case let fastConformerModel as FastConformerModel:
+            return fastConformerModel.speed
+        case let senseVoiceModel as SenseVoiceModel:
+            return senseVoiceModel.speed
+        case let cloudModel as CloudModel:
+            return cloudModel.speed
+        default:
+            return 0.5
+        }
     }
 }

@@ -435,7 +435,7 @@ struct ExperimentalSection: View {
 // MARK: - Text Extension
 
 extension Text {
-    func settingsDescription() -> some View {
+    func settingsDescriptionLegacy() -> some View {
         self
             .font(.system(size: 12))
             .foregroundColor(.secondary)

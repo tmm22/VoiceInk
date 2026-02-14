@@ -31,7 +31,7 @@ class HistoryWindowController: NSObject, NSWindowDelegate {
     }
 
     private func createHistoryWindow(modelContainer: ModelContainer, whisperState: WhisperState) -> NSWindow {
-        let historyView = TranscriptionHistoryView(modelContext: modelContainer.mainContext)
+        let historyView = TranscriptionHistoryView()
             .modelContainer(modelContainer)
             .environmentObject(whisperState)
             .environmentObject(whisperState.enhancementService!)

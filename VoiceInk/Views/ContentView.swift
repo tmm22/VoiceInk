@@ -225,7 +225,7 @@ struct ContentView: View {
                 FeatureUnavailablePlaceholder()
             }
         case .history:
-            TranscriptionHistoryView(modelContext: modelContext)
+            TranscriptionHistoryView()
         case .audioInput:
             AudioInputSettingsView()
         case .dictionary:
@@ -233,11 +233,11 @@ struct ContentView: View {
         case .powerMode:
             PowerModeView()
         case .settings:
-            SettingsView(selectedTab: .general)
+            SettingsView()
                 .environmentObject(whisperState)
         case .community, .permissions:
              // These are now handled within Settings or removed from top-level
-             SettingsView(selectedTab: settingsTab(for: selectedView))
+             SettingsView()
                  .environmentObject(whisperState)
         }
     }

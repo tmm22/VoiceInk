@@ -1,7 +1,8 @@
 import Foundation
 import OSLog
 
-class ElevenLabsTranscriptionService {
+class ElevenLabsTranscriptionService: CloudTranscriptionProvider {
+    let supportedProvider: ModelProvider = .elevenLabs
     private let apiURL = URL(string: "https://api.elevenlabs.io/v1/speech-to-text")!
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "ElevenLabsTranscriptionService")
 

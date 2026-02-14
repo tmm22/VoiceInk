@@ -1,3 +1,4 @@
+#if false
 import SwiftUI
 
 // MARK: - Data Settings
@@ -14,7 +15,7 @@ extension SettingsView {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Deleted transcriptions are kept for 30 days before being permanently removed.")
                             .settingsDescription()
-                        
+
                         HStack {
                             if trashItemCount > 0 {
                                 Text(String(format: Localization.Trash.itemCount, trashItemCount))
@@ -25,9 +26,9 @@ extension SettingsView {
                                     .font(.system(size: 13))
                                     .foregroundColor(.secondary)
                             }
-                            
+
                             Spacer()
-                            
+
                             Button {
                                 showTrashView = true
                             } label: {
@@ -41,7 +42,7 @@ extension SettingsView {
                     updateTrashCount()
                 }
             }
-            
+
             if sectionMatches("Data & Privacy", in: .data) {
                 VoiceInkSection(
                     icon: "lock.shield",
@@ -51,7 +52,7 @@ extension SettingsView {
                     AudioCleanupSettingsView()
                 }
             }
-            
+
             if sectionMatches("Data Management", in: .data) {
                 VoiceInkSection(
                     icon: "arrow.up.arrow.down.circle",
@@ -65,11 +66,11 @@ extension SettingsView {
                         HStack(spacing: 12) {
                             Button {
                                 ImportExportService.shared.importSettings(
-                                    enhancementService: enhancementService, 
-                                    whisperPrompt: whisperState.whisperPrompt, 
-                                    hotkeyManager: hotkeyManager, 
-                                    menuBarManager: menuBarManager, 
-                                    mediaController: MediaController.shared, 
+                                    enhancementService: enhancementService,
+                                    whisperPrompt: whisperState.whisperPrompt,
+                                    hotkeyManager: hotkeyManager,
+                                    menuBarManager: menuBarManager,
+                                    mediaController: MediaController.shared,
                                     playbackController: PlaybackController.shared,
                                     soundManager: SoundManager.shared,
                                     whisperState: whisperState
@@ -82,11 +83,11 @@ extension SettingsView {
 
                             Button {
                                 ImportExportService.shared.exportSettings(
-                                    enhancementService: enhancementService, 
-                                    whisperPrompt: whisperState.whisperPrompt, 
-                                    hotkeyManager: hotkeyManager, 
-                                    menuBarManager: menuBarManager, 
-                                    mediaController: MediaController.shared, 
+                                    enhancementService: enhancementService,
+                                    whisperPrompt: whisperState.whisperPrompt,
+                                    hotkeyManager: hotkeyManager,
+                                    menuBarManager: menuBarManager,
+                                    mediaController: MediaController.shared,
                                     playbackController: PlaybackController.shared,
                                     soundManager: SoundManager.shared,
                                     whisperState: whisperState
@@ -103,3 +104,4 @@ extension SettingsView {
         }
     }
 }
+#endif

@@ -25,7 +25,7 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
     }
 
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
-        guard let senseVoiceModel = model as? SenseVoiceModel else {
+        guard model.provider == .senseVoice else {
             throw WhisperStateError.modelLoadFailed
         }
 
@@ -42,8 +42,8 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
         
         logger.notice("SenseVoice: Feature shape after LFR: \(features.count) frames x \(features.first?.count ?? 0) dims")
 
-        let session = try ensureSession(for: senseVoiceModel)
-        let tokenizer = try tokenizer(for: senseVoiceModel)
+        let session = try ensureSession(for: model.name)
+        let tokenizer = try tokenizer(for: model.name)
         
         let inputNames = try session.inputNames()
         let outputNames = try session.outputNames()
@@ -106,27 +106,27 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
         cacheLock.unlock()
     }
 
-    private func tokenizer(for model: SenseVoiceModel) throws -> SenseVoiceTokenizer {
+    private func tokenizer(for modelName: String) throws -> SenseVoiceTokenizer {
         cacheLock.lock()
-        if let cached = tokenizerCache[model.name] {
+        if let cached = tokenizerCache[modelName] {
             cacheLock.unlock()
             return cached
         }
         cacheLock.unlock()
 
         let tokenizerURL = modelsDirectory
-            .appendingPathComponent(model.name)
+            .appendingPathComponent(modelName)
             .appendingPathComponent("tokens.txt")
         let tokenizer = try SenseVoiceTokenizer(tokensFileURL: tokenizerURL)
         cacheLock.lock()
-        tokenizerCache[model.name] = tokenizer
+        tokenizerCache[modelName] = tokenizer
         cacheLock.unlock()
         return tokenizer
     }
 
-    private func ensureSession(for model: SenseVoiceModel) throws -> ORTSession {
+    private func ensureSession(for modelName: String) throws -> ORTSession {
         cacheLock.lock()
-        if let session = sessions[model.name] {
+        if let session = sessions[modelName] {
             cacheLock.unlock()
             return session
         }
@@ -137,7 +137,7 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
         }
 
         let modelPath = modelsDirectory
-            .appendingPathComponent(model.name)
+            .appendingPathComponent(modelName)
             .appendingPathComponent("model.int8.onnx")
 
         logger.notice("SenseVoice model path: \(modelPath.path, privacy: .public)")
@@ -161,7 +161,7 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
             throw WhisperStateError.modelLoadFailed
         }
         cacheLock.lock()
-        sessions[model.name] = session
+        sessions[modelName] = session
         cacheLock.unlock()
         return session
     }

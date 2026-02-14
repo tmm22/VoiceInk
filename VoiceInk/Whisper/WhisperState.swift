@@ -6,16 +6,6 @@ import AppKit
 import KeyboardShortcuts
 import os
 
-// MARK: - Recording State Machine
-enum RecordingState: Equatable {
-    case idle
-    case starting
-    case recording
-    case transcribing
-    case enhancing
-    case busy
-}
-
 @MainActor
 class WhisperState: NSObject, ObservableObject {
     @Published var recordingState: RecordingState = .idle
@@ -66,11 +56,15 @@ class WhisperState: NSObject, ObservableObject {
 
     var whisperContext: WhisperContext?
     let recorder = Recorder()
+    lazy var recordingSessionManager = RecordingSessionManager(
+        recorder: recorder,
+        recordingsDirectory: recordingsDirectory
+    )
     var recordedFile: URL? = nil
     let whisperPrompt = WhisperPrompt()
 
     // Prompt detection service for trigger word handling
-    private let promptDetectionService = PromptDetectionService()
+    let promptDetectionService = PromptDetectionService()
 
     let modelContext: ModelContext
 
@@ -96,6 +90,8 @@ class WhisperState: NSObject, ObservableObject {
     }
 
     let modelsDirectory: URL
+    let fastConformerModelsDirectory: URL
+    let senseVoiceModelsDirectory: URL
     let recordingsDirectory: URL
     let enhancementService: AIEnhancementService?
     var licenseViewModel: LicenseViewModel
@@ -106,6 +102,16 @@ class WhisperState: NSObject, ObservableObject {
     // For model progress tracking
     @Published var downloadProgress: [String: Double] = [:]
     @Published var parakeetDownloadStates: [String: Bool] = [:]
+    @Published var fastConformerDownloadProgress: [String: Double] = [:]
+    @Published var senseVoiceDownloadProgress: [String: Double] = [:]
+
+    // Transcription services
+    var localTranscriptionService: LocalTranscriptionService? { serviceRegistry?.localTranscriptionService }
+    var cloudTranscriptionService: CloudTranscriptionService { serviceRegistry.cloudTranscriptionService }
+    var nativeAppleTranscriptionService: NativeAppleTranscriptionService { serviceRegistry.nativeAppleTranscriptionService }
+    var parakeetTranscriptionService: ParakeetTranscriptionService { serviceRegistry.parakeetTranscriptionService }
+    lazy var fastConformerTranscriptionService = FastConformerTranscriptionService(modelsDirectory: fastConformerModelsDirectory)
+    lazy var senseVoiceTranscriptionService = SenseVoiceTranscriptionService(modelsDirectory: senseVoiceModelsDirectory)
 
     init(modelContext: ModelContext, enhancementService: AIEnhancementService? = nil) {
         self.modelContext = modelContext
@@ -113,6 +119,8 @@ class WhisperState: NSObject, ObservableObject {
             .appendingPathComponent("com.prakashjoshipax.VoiceInk")
 
         self.modelsDirectory = appSupportDirectory.appendingPathComponent("WhisperModels")
+        self.fastConformerModelsDirectory = appSupportDirectory.appendingPathComponent("FastConformerModels")
+        self.senseVoiceModelsDirectory = appSupportDirectory.appendingPathComponent("SenseVoiceModels")
         self.recordingsDirectory = appSupportDirectory.appendingPathComponent("Recordings")
 
         self.enhancementService = enhancementService
@@ -130,6 +138,8 @@ class WhisperState: NSObject, ObservableObject {
 
         setupNotifications()
         createModelsDirectoryIfNeeded()
+        createFastConformerDirectoryIfNeeded()
+        createSenseVoiceDirectoryIfNeeded()
         createRecordingsDirectoryIfNeeded()
         loadAvailableModels()
         loadCurrentTranscriptionModel()
@@ -165,7 +175,7 @@ class WhisperState: NSObject, ObservableObject {
                     try? modelContext.save()
                     NotificationCenter.default.post(name: .transcriptionCreated, object: transcription)
 
-                    await transcribeAudio(on: transcription)
+                    await transcribeAudioLegacy(on: transcription)
                 } else {
                     currentSession?.cancel()
                     currentSession = nil
@@ -294,7 +304,7 @@ class WhisperState: NSObject, ObservableObject {
         response(true)
     }
 
-    private func transcribeAudio(on transcription: Transcription) async {
+    private func transcribeAudioLegacy(on transcription: Transcription) async {
         guard let urlString = transcription.audioFileURL, let url = URL(string: urlString) else {
             logger.error("❌ Invalid audio file URL in transcription object.")
             await MainActor.run {
@@ -374,7 +384,7 @@ class WhisperState: NSObject, ObservableObject {
                 logger.notice("📝 Formatted transcript: \(text, privacy: .public)")
             }
 
-            text = WordReplacementService.shared.applyReplacements(to: text, using: modelContext)
+            text = WordReplacementService.shared.applyReplacements(to: text)
             logger.notice("📝 WordReplacement: \(text, privacy: .public)")
 
             let audioAsset = AVURLAsset(url: url)
@@ -438,14 +448,7 @@ class WhisperState: NSObject, ObservableObject {
 
         if await checkCancellationAndCleanup() { return }
 
-        if var textToPaste = finalPastedText, transcription.transcriptionStatus == TranscriptionStatus.completed.rawValue {
-            if case .trialExpired = licenseViewModel.licenseState {
-                textToPaste = """
-                    Your trial has expired. Upgrade to VoiceInk Pro at tryvoiceink.com/buy
-                    \n\(textToPaste)
-                    """
-            }
-
+        if let textToPaste = finalPastedText, transcription.transcriptionStatus == TranscriptionStatus.completed.rawValue {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 CursorPaster.pasteAtCursor(textToPaste + " ")
 
@@ -470,7 +473,7 @@ class WhisperState: NSObject, ObservableObject {
         shouldCancelRecording = false
     }
 
-    func getEnhancementService() -> AIEnhancementService? {
+    func getEnhancementServiceLegacy() -> AIEnhancementService? {
         return enhancementService
     }
 

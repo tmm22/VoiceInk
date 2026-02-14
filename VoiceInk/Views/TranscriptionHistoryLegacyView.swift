@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-struct TranscriptionHistoryView: View {
+struct TranscriptionHistoryLegacyView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var searchText = ""
     @State private var expandedTranscription: Transcription?

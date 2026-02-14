@@ -1,7 +1,8 @@
 import Foundation
 import os
 
-class DeepgramTranscriptionService {
+class DeepgramTranscriptionService: CloudTranscriptionProvider {
+    let supportedProvider: ModelProvider = .deepgram
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "DeepgramService")
 
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {

@@ -3,7 +3,7 @@ import SwiftUI
 struct PowerModeSettingsSection: View {
     @ObservedObject private var powerModeManager = PowerModeManager.shared
     @AppStorage(AppSettings.Keys.powerModeUIFlag) private var powerModeUIFlag = false
-    @AppStorage(PowerModeDefaults.autoRestoreKey) private var powerModeAutoRestoreEnabled = false
+    @AppStorage(PowerModeSectionDefaults.autoRestoreKey) private var powerModeAutoRestoreEnabled = false
     @State private var showDisableAlert = false
     
     var body: some View {
@@ -78,6 +78,6 @@ private extension Array where Element == PowerModeConfig {
     }
 }
 
-enum PowerModeDefaults {
+enum PowerModeSectionDefaults {
     static let autoRestoreKey = AppSettings.Keys.powerModeAutoRestoreEnabled
 }

@@ -1,11 +1,12 @@
 import Foundation
 import SwiftData
 
-class SonioxTranscriptionService {
+class SonioxTranscriptionService: CloudTranscriptionProvider {
+    let supportedProvider: ModelProvider = .soniox
     private let apiBase = "https://api.soniox.com/v1"
-    private let modelContext: ModelContext
+    private let modelContext: ModelContext?
 
-    init(modelContext: ModelContext) {
+    init(modelContext: ModelContext? = nil) {
         self.modelContext = modelContext
     }
     
@@ -181,6 +182,10 @@ class SonioxTranscriptionService {
     }
     
     private func getCustomDictionaryTerms() -> [String] {
+        guard let modelContext else {
+            return []
+        }
+
         // Fetch vocabulary words from SwiftData
         let descriptor = FetchDescriptor<VocabularyWord>(sortBy: [SortDescriptor(\.word)])
         guard let vocabularyWords = try? modelContext.fetch(descriptor) else {

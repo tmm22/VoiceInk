@@ -4,12 +4,16 @@ import Foundation
 enum ModelProvider: String, Codable, Hashable, CaseIterable {
     case local = "Local"
     case parakeet = "Parakeet"
+    case fastConformer = "FastConformer"
+    case senseVoice = "SenseVoice"
     case groq = "Groq"
     case elevenLabs = "ElevenLabs"
     case deepgram = "Deepgram"
     case mistral = "Mistral"
     case gemini = "Gemini"
     case soniox = "Soniox"
+    case assemblyAI = "AssemblyAI"
+    case zai = "ZAI"
     case custom = "Custom"
     case nativeApple = "Native Apple"
     // Future providers can be added here
@@ -103,6 +107,7 @@ struct CustomCloudModel: TranscriptionModel, Codable {
     let modelName: String
     let isMultilingualModel: Bool
     let supportedLanguages: [String: String]
+    var transientApiKey: String?
 
     /// API key retrieved from Keychain by model ID.
     var apiKey: String {
@@ -118,6 +123,7 @@ struct CustomCloudModel: TranscriptionModel, Codable {
         self.modelName = modelName
         self.isMultilingualModel = isMultilingual
         self.supportedLanguages = supportedLanguages ?? PredefinedModels.getLanguageDictionary(isMultilingual: isMultilingual)
+        self.transientApiKey = nil
     }
 
     /// Custom Codable to migrate legacy apiKey from JSON to Keychain.
@@ -140,6 +146,7 @@ struct CustomCloudModel: TranscriptionModel, Codable {
         if let legacyApiKey = try container.decodeIfPresent(String.self, forKey: .apiKey), !legacyApiKey.isEmpty {
             APIKeyManager.shared.saveCustomModelAPIKey(legacyApiKey, forModelId: id)
         }
+        transientApiKey = nil
     }
 
     func encode(to encoder: Encoder) throws {
@@ -153,7 +160,18 @@ struct CustomCloudModel: TranscriptionModel, Codable {
         try container.encode(isMultilingualModel, forKey: .isMultilingualModel)
         try container.encode(supportedLanguages, forKey: .supportedLanguages)
     }
-} 
+
+    static func isValidSecureEndpoint(_ endpoint: String) -> Bool {
+        guard let url = URL(string: endpoint),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "https",
+              let host = url.host,
+              !host.isEmpty else {
+            return false
+        }
+        return true
+    }
+}
 
 struct LocalModel: TranscriptionModel {
     let id = UUID()
@@ -165,20 +183,102 @@ struct LocalModel: TranscriptionModel {
     let speed: Double
     let accuracy: Double
     let ramUsage: Double
+    let fileExtension: String
+    let downloadURLOverride: String?
+    let filenameOverride: String?
+    let badges: [String]
+    let highlight: String?
+    let supportsCoreMLEncoder: Bool
     let provider: ModelProvider = .local
 
+    init(
+        name: String,
+        displayName: String,
+        size: String,
+        supportedLanguages: [String: String],
+        description: String,
+        speed: Double,
+        accuracy: Double,
+        ramUsage: Double,
+        fileExtension: String = "bin",
+        downloadURLOverride: String? = nil,
+        filenameOverride: String? = nil,
+        badges: [String] = [],
+        highlight: String? = nil,
+        supportsCoreMLEncoder: Bool = false
+    ) {
+        self.name = name
+        self.displayName = displayName
+        self.size = size
+        self.supportedLanguages = supportedLanguages
+        self.description = description
+        self.speed = speed
+        self.accuracy = accuracy
+        self.ramUsage = ramUsage
+        self.fileExtension = fileExtension
+        self.downloadURLOverride = downloadURLOverride
+        self.filenameOverride = filenameOverride
+        self.badges = badges
+        self.highlight = highlight
+        self.supportsCoreMLEncoder = supportsCoreMLEncoder
+    }
+
     var downloadURL: String {
-        "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/\(filename)"
+        if let override = downloadURLOverride, !override.isEmpty {
+            return override
+        }
+        return "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/\(filename)"
     }
 
     var filename: String {
-        "\(name).bin"
+        if let override = filenameOverride, !override.isEmpty {
+            return override
+        }
+        return "\(name).\(fileExtension)"
     }
 
     var isMultilingualModel: Bool {
         supportedLanguages.count > 1
     }
 } 
+
+struct FastConformerModel: TranscriptionModel {
+    let id = UUID()
+    let name: String
+    let displayName: String
+    let description: String
+    let provider: ModelProvider = .fastConformer
+    let size: String
+    let speed: Double
+    let accuracy: Double
+    let ramUsage: Double
+    let requiresMetal: Bool
+    let isMultilingualModel: Bool
+    let supportedLanguages: [String: String]
+    let modelURL: String
+    let tokenizerURL: String
+    let checksum: String?
+    let badges: [String]
+    let highlight: String?
+}
+
+struct SenseVoiceModel: TranscriptionModel {
+    let id = UUID()
+    let name: String
+    let displayName: String
+    let description: String
+    let provider: ModelProvider = .senseVoice
+    let size: String
+    let speed: Double
+    let accuracy: Double
+    let ramUsage: Double
+    let isMultilingualModel: Bool
+    let supportedLanguages: [String: String]
+    let modelURL: String
+    let tokenizerURL: String
+    let badges: [String]
+    let highlight: String?
+}
 
 // User-imported local models 
 struct ImportedLocalModel: TranscriptionModel {

@@ -1,3 +1,4 @@
+#if false
 import SwiftUI
 
 // MARK: - Transcription Settings
@@ -14,7 +15,7 @@ extension SettingsView {
                     VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
                         Text("Manage quick rules, word replacements, and correct spellings to improve transcription accuracy.")
                             .settingsDescription()
-                        
+
                         Button("Open Dictionary Settings") {
                             showDictionarySheet = true
                         }
@@ -23,11 +24,11 @@ extension SettingsView {
                     }
                 }
             }
-            
+
             if sectionMatches("Clipboard & Paste", in: .transcription) {
                 ClipboardPasteSection()
             }
-            
+
             if sectionMatches("Recorder Style", in: .transcription) {
                 VoiceInkSection(
                     icon: "rectangle.on.rectangle",
@@ -41,11 +42,11 @@ extension SettingsView {
                     .pickerStyle(.radioGroup)
                 }
             }
-            
+
             if sectionMatches("Power Mode", in: .transcription) {
                 PowerModeSettingsSection()
             }
-            
+
             if sectionMatches("Experimental", in: .transcription) {
                 ExperimentalFeaturesSection()
             }
@@ -67,3 +68,4 @@ private struct ExperimentalFeaturesSection: View {
         }
     }
 }
+#endif
