@@ -49,16 +49,16 @@ final class LocalTTSService: NSObject, TTSProvider {
     static func removeCachedPocketVoiceEmbedding(for id: String) throws {
         guard let pocketVoiceID = pocketVoiceIdentifier(from: id) else { return }
 
-        let cacheURL = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".cache")
-            .appendingPathComponent("fluidaudio")
-            .appendingPathComponent("Models")
-            .appendingPathComponent("kokoro")
-            .appendingPathComponent("voices")
-            .appendingPathComponent("\(pocketVoiceID).json")
+        var voiceIDsToRemove = Set([pocketVoiceID])
+        if let engineVoiceID = pocketVoiceEngineIdentifier(from: id) {
+            voiceIDsToRemove.insert(engineVoiceID)
+        }
 
-        if FileManager.default.fileExists(atPath: cacheURL.path) {
-            try FileManager.default.removeItem(at: cacheURL)
+        for voiceID in voiceIDsToRemove {
+            let cacheURL = cachedPocketVoiceEmbeddingURL(for: voiceID)
+            if FileManager.default.fileExists(atPath: cacheURL.path) {
+                try FileManager.default.removeItem(at: cacheURL)
+            }
         }
     }
 
@@ -69,7 +69,7 @@ final class LocalTTSService: NSObject, TTSProvider {
             throw TTSError.unsupportedFormat
         }
 
-        if let pocketVoiceID = LocalTTSService.pocketVoiceIdentifier(from: voice.id) {
+        if let pocketVoiceID = LocalTTSService.pocketVoiceEngineIdentifier(from: voice.id) {
             return try await synthesizePocketSpeech(
                 text: text,
                 pocketVoiceID: pocketVoiceID,
@@ -179,6 +179,12 @@ private extension LocalTTSService {
 // MARK: - Voice Helpers
 private extension LocalTTSService {
     static let pocketVoicePrefix = "pocket-tts:"
+    static let legacyPocketToKokoroVoiceMap: [String: String] = [
+        "alba": "af_heart",
+        "azelma": "af_bella",
+        "cosette": "af_nova",
+        "javert": "am_michael"
+    ]
 
     static let pocketVoices: [Voice] = [
         Voice(
@@ -219,6 +225,21 @@ private extension LocalTTSService {
         guard id.hasPrefix(pocketVoicePrefix) else { return nil }
         let value = String(id.dropFirst(pocketVoicePrefix.count))
         return value.isEmpty ? nil : value
+    }
+
+    static func pocketVoiceEngineIdentifier(from id: String) -> String? {
+        guard let voiceID = pocketVoiceIdentifier(from: id) else { return nil }
+        return legacyPocketToKokoroVoiceMap[voiceID] ?? voiceID
+    }
+
+    static func cachedPocketVoiceEmbeddingURL(for voiceID: String) -> URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".cache")
+            .appendingPathComponent("fluidaudio")
+            .appendingPathComponent("Models")
+            .appendingPathComponent("kokoro")
+            .appendingPathComponent("voices")
+            .appendingPathComponent("\(voiceID).json")
     }
 
     @MainActor
@@ -284,6 +305,7 @@ private extension LocalTTSService {
 private actor PocketVoiceEngine {
     private var manager: TtSManager?
     private var initializedVoices = Set<String>()
+    private let fallbackVoiceID = TtsConstants.recommendedVoice
 
     func synthesize(text: String, voiceID: String, speed: Float) async throws -> Data {
         let resolvedManager: TtSManager
@@ -295,17 +317,43 @@ private actor PocketVoiceEngine {
             resolvedManager = created
         }
 
+        let requestedVoiceID = voiceID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedVoiceID = requestedVoiceID.isEmpty ? fallbackVoiceID : requestedVoiceID
+
         if !resolvedManager.isAvailable {
-            try await resolvedManager.initialize(preloadVoices: Set([voiceID]))
-            initializedVoices = Set([voiceID])
-        } else if !initializedVoices.contains(voiceID) {
-            try await resolvedManager.setDefaultVoice(voiceID)
-            initializedVoices.insert(voiceID)
+            do {
+                try await resolvedManager.initialize(preloadVoices: Set([normalizedVoiceID]))
+                initializedVoices = Set([normalizedVoiceID])
+            } catch {
+                guard normalizedVoiceID != fallbackVoiceID else {
+                    throw error
+                }
+                AppLogger.audio.warning(
+                    "Pocket TTS voice \(normalizedVoiceID) unavailable (\(error.localizedDescription)); falling back to \(self.fallbackVoiceID)"
+                )
+                try await resolvedManager.initialize(preloadVoices: Set([fallbackVoiceID]))
+                initializedVoices = Set([fallbackVoiceID])
+            }
+        } else if !initializedVoices.contains(normalizedVoiceID) {
+            do {
+                try await resolvedManager.setDefaultVoice(normalizedVoiceID)
+                initializedVoices.insert(normalizedVoiceID)
+            } catch {
+                guard normalizedVoiceID != fallbackVoiceID else {
+                    throw error
+                }
+                AppLogger.audio.warning(
+                    "Pocket TTS voice \(normalizedVoiceID) unavailable (\(error.localizedDescription)); falling back to \(self.fallbackVoiceID)"
+                )
+                try await resolvedManager.setDefaultVoice(fallbackVoiceID)
+                initializedVoices.insert(fallbackVoiceID)
+            }
         }
 
+        let synthesisVoice = initializedVoices.contains(normalizedVoiceID) ? normalizedVoiceID : fallbackVoiceID
         return try await resolvedManager.synthesize(
             text: text,
-            voice: voiceID,
+            voice: synthesisVoice,
             voiceSpeed: speed
         )
     }
