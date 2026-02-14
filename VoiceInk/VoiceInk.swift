@@ -404,31 +404,48 @@ struct VoiceInkApp: App {
 class UpdaterViewModel: ObservableObject {
     @AppStorage("autoUpdateCheck") private var autoUpdateCheck = true
     
-    private let updaterController: SPUStandardUpdaterController
+    private let updaterController: SPUStandardUpdaterController?
     
     @Published var canCheckForUpdates = false
     
     init() {
-        updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+        guard AppBrand.supportsInAppUpdates else {
+            updaterController = nil
+            canCheckForUpdates = true
+            return
+        }
+
+        let controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+        updaterController = controller
         
         // Enable automatic update checking
-        updaterController.updater.automaticallyChecksForUpdates = autoUpdateCheck
-        updaterController.updater.updateCheckInterval = 24 * 60 * 60
+        controller.updater.automaticallyChecksForUpdates = autoUpdateCheck
+        controller.updater.updateCheckInterval = 24 * 60 * 60
         
-        updaterController.updater.publisher(for: \.canCheckForUpdates)
+        controller.updater.publisher(for: \.canCheckForUpdates)
             .assign(to: &$canCheckForUpdates)
     }
     
     func toggleAutoUpdates(_ value: Bool) {
+        guard let updaterController else { return }
         updaterController.updater.automaticallyChecksForUpdates = value
     }
     
     func checkForUpdates() {
+        guard let updaterController else {
+            if let url = AppBrand.releasesURL {
+                NSWorkspace.shared.open(url)
+            }
+            return
+        }
+
         // This is for manual checks - will show UI
         updaterController.checkForUpdates(nil)
     }
     
     func silentlyCheckForUpdates() {
+        guard let updaterController else { return }
+
         // This checks for updates in the background without showing UI unless an update is found
         updaterController.updater.checkForUpdatesInBackground()
     }

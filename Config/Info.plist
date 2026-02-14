@@ -11,7 +11,7 @@
 	<key>LSUIElement</key>
 	<false/>
 	<key>SUEnableAutomaticChecks</key>
-	<true/>
+	<false/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>VoiceInk Community needs access to your microphone to record audio for transcription.</string>
 	<key>NSAppleEventsUsageDescription</key>
