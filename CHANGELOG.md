@@ -20,6 +20,13 @@ All notable changes to the VoiceLink Community application are documented here.
 - Added fallback behavior to a recommended Pocket voice when a selected voice is unavailable at runtime.
 - Expanded embedding-cache cleanup so hide/remove paths clear both legacy and normalized Pocket voice cache entries.
 
+### Community Edition Follow-up Fixes
+- Removed remaining Voice Link branding references and promotional savings copy from the Community Edition UI.
+- Removed Discord references from dashboard/community call-to-actions and replaced them with the maintained discussion route.
+- Fixed a Community Edition relaunch regression that incorrectly showed a trial-expired state after reopening a recent debug build.
+- Confirmed Community Edition behavior remains license-free (no license key requirement) after follow-up dashboard/settings changes.
+- Restored the category-based Settings layout (General, Audio, AI, etc.) while keeping upstream functionality introduced in the sync.
+
 ### Verification
 - Completed merge-conflict resolution with a clean index and no conflict markers.
 - Ran whitespace/conflict hygiene checks on merge content (`git diff --check`).
