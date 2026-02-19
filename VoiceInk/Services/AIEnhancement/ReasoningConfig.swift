@@ -28,6 +28,7 @@ enum ReasoningEffort: String, CaseIterable, Codable {
 
 struct ReasoningConfig {
     static let geminiReasoningModels: Set<String> = [
+        "gemini-3.1-pro-preview",
         "gemini-3-pro-preview",
         "gemini-2.5-flash",
         "gemini-2.5-flash-lite"
@@ -69,4 +70,3 @@ struct ReasoningConfig {
         return effort.rawValue
     }
 }
-

@@ -2,6 +2,14 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-02-19
+
+### Gemini 3.1 Preview
+- Added support for `gemini-3.1-pro-preview` in AI Enhancement model selection (`VoiceInk/Services/AIEnhancement/AIProvider.swift`).
+- Updated Gemini AI Enhancement default model to `gemini-3.1-pro-preview`.
+- Added `gemini-3.1-pro-preview` to Gemini reasoning-capable models (`VoiceInk/Services/AIEnhancement/ReasoningConfig.swift`).
+- Added `gemini-3.1-pro-preview` to cloud transcription Gemini model catalog (`VoiceInk/Models/PredefinedModels+CloudModels.swift`).
+
 ## 2026-02-14
 
 ### Upstream Sync

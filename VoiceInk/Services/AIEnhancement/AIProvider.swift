@@ -101,7 +101,7 @@ enum AIProvider: String, CaseIterable {
         case .groq:
             return "openai/gpt-oss-120b"
         case .gemini:
-            return "gemini-3-flash-preview"
+            return "gemini-3.1-pro-preview"
         case .anthropic:
             return "claude-sonnet-4-5"
         case .openAI:
@@ -150,6 +150,7 @@ enum AIProvider: String, CaseIterable {
             ]
         case .gemini:
             return [
+                "gemini-3.1-pro-preview",
                 "gemini-3-pro-preview",
                 "gemini-3-flash-preview"
             ]

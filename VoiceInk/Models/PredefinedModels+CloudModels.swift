@@ -115,6 +115,16 @@ extension PredefinedModels {
             supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .gemini)
         ),
         CloudModel(
+            name: "gemini-3.1-pro-preview",
+            displayName: "Gemini 3.1 Pro Preview",
+            description: "Google's Gemini 3.1 Pro preview model with upgraded reasoning and transcription quality.",
+            provider: .gemini,
+            speed: 0.62,
+            accuracy: 0.985,
+            isMultilingual: true,
+            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .gemini)
+        ),
+        CloudModel(
             name: "gemini-3-flash-preview",
             displayName: "Gemini 3 Flash",
             description: "Google's fastest Gemini 3 model with frontier intelligence built for speed.",
