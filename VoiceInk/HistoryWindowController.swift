@@ -14,7 +14,7 @@ class HistoryWindowController: NSObject, NSWindowDelegate {
         super.init()
     }
 
-    func showHistoryWindow(modelContainer: ModelContainer, whisperState: WhisperState) {
+    func showHistoryWindow(modelContainer: ModelContainer, engine: VoiceInkEngine) {
         if let existingWindow = historyWindow {
             if existingWindow.isMiniaturized {
                 existingWindow.deminiaturize(nil)
@@ -24,18 +24,17 @@ class HistoryWindowController: NSObject, NSWindowDelegate {
             return
         }
 
-        let window = createHistoryWindow(modelContainer: modelContainer, whisperState: whisperState)
+        let window = createHistoryWindow(modelContainer: modelContainer, engine: engine)
         historyWindow = window
         window.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
-    private func createHistoryWindow(modelContainer: ModelContainer, whisperState: WhisperState) -> NSWindow {
+    private func createHistoryWindow(modelContainer: ModelContainer, engine: VoiceInkEngine) -> NSWindow {
         let historyView = TranscriptionHistoryView()
             .modelContainer(modelContainer)
-            .environmentObject(whisperState)
-            .environmentObject(whisperState.enhancementService!)
-            .frame(minWidth: 1000, minHeight: 700)
+            .environmentObject(engine)
+            .environmentObject(engine.enhancementService!)
 
         let hostingController = NSHostingController(rootView: historyView)
 

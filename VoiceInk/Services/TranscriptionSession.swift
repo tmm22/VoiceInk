@@ -33,7 +33,7 @@ final class FileTranscriptionSession: TranscriptionSession {
 
     func transcribe(audioURL: URL) async throws -> String {
         guard let model = model else {
-            throw WhisperStateError.transcriptionFailed
+            throw VoiceInkEngineError.transcriptionFailed
         }
         return try await service.transcribe(audioURL: audioURL, model: model)
     }
@@ -50,13 +50,16 @@ final class FileTranscriptionSession: TranscriptionSession {
 final class StreamingTranscriptionSession: TranscriptionSession {
     private let streamingService: StreamingTranscriptionService
     private let fallbackService: TranscriptionService
+    // Batch-compatible override for streaming-only models rejected by the provider's REST API.
+    private let fallbackModel: (any TranscriptionModel)?
     private var model: (any TranscriptionModel)?
     private var streamingFailed = false
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "StreamingTranscriptionSession")
 
-    init(streamingService: StreamingTranscriptionService, fallbackService: TranscriptionService) {
+    init(streamingService: StreamingTranscriptionService, fallbackService: TranscriptionService, fallbackModel: (any TranscriptionModel)? = nil) {
         self.streamingService = streamingService
         self.fallbackService = fallbackService
+        self.fallbackModel = fallbackModel
     }
 
     func prepare(model: any TranscriptionModel) async throws -> ((Data) -> Void)? {
@@ -73,12 +76,12 @@ final class StreamingTranscriptionSession: TranscriptionSession {
             do {
                 try await self.streamingService.startStreaming(model: model)
                 await MainActor.run {
-                    self.logger.notice("Streaming connected for \(model.displayName)")
+                    self.logger.notice("Streaming connected for \(model.displayName, privacy: .public)")
                 }
             } catch {
                 let desc = error.localizedDescription
                 await MainActor.run {
-                    self.logger.error("Failed to start streaming, will fall back to batch: \(desc)")
+                    self.logger.error("❌ Failed to start streaming, will fall back to batch: \(desc, privacy: .public)")
                     self.streamingFailed = true
                 }
             }
@@ -89,7 +92,7 @@ final class StreamingTranscriptionSession: TranscriptionSession {
 
     func transcribe(audioURL: URL) async throws -> String {
         guard let model = model else {
-            throw WhisperStateError.transcriptionFailed
+            throw VoiceInkEngineError.transcriptionFailed
         }
 
         if !streamingFailed {
@@ -98,16 +101,17 @@ final class StreamingTranscriptionSession: TranscriptionSession {
                 logger.notice("Streaming transcript received")
                 return text
             } catch {
-                logger.error("Streaming failed, falling back to batch: \(error.localizedDescription)")
+                logger.error("❌ Streaming failed, falling back to batch: \(error.localizedDescription, privacy: .public)")
                 streamingService.cancel()
             }
         } else {
             streamingService.cancel()
         }
 
-        // Fallback to file-based transcription
-        logger.notice("Using batch fallback for \(model.displayName)")
-        return try await fallbackService.transcribe(audioURL: audioURL, model: model)
+        // Use fallbackModel if set — streaming-only models are rejected by the batch REST API.
+        let modelForFallback = fallbackModel ?? model
+        logger.notice("Using batch fallback for \(model.displayName, privacy: .public) with model \(modelForFallback.displayName, privacy: .public)")
+        return try await fallbackService.transcribe(audioURL: audioURL, model: modelForFallback)
     }
 
     func cancel() {

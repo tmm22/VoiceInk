@@ -48,12 +48,10 @@ class StreamingTranscriptionService {
     private let chunkSource = AudioChunkSource()
     private var state: StreamingState = .idle
     private var committedSegments: [String] = []
-    private let parakeetService: ParakeetTranscriptionService
     private let modelContext: ModelContext
     private var onPartialTranscript: ((String) -> Void)?
 
-    init(parakeetService: ParakeetTranscriptionService, modelContext: ModelContext, onPartialTranscript: ((String) -> Void)? = nil) {
-        self.parakeetService = parakeetService
+    init(modelContext: ModelContext, onPartialTranscript: ((String) -> Void)? = nil) {
         self.modelContext = modelContext
         self.onPartialTranscript = onPartialTranscript
     }
@@ -95,7 +93,7 @@ class StreamingTranscriptionService {
         startSendLoop()
         startEventConsumer()
 
-        logger.notice("Streaming started for model: \(model.displayName)")
+        logger.notice("Streaming started for model: \(model.displayName, privacy: .public)")
     }
 
     /// Buffers an audio chunk for sending. Safe to call from the audio callback thread.
@@ -124,7 +122,7 @@ class StreamingTranscriptionService {
         } catch {
             commitSignal?.finish()
             commitSignal = nil
-            logger.error("Failed to send commit: \(error.localizedDescription)")
+            logger.error("Failed to send commit: \(error.localizedDescription, privacy: .public)")
             state = .failed
             await cleanupStreaming()
             throw error
@@ -172,8 +170,6 @@ class StreamingTranscriptionService {
             return ElevenLabsStreamingProvider()
         case .deepgram:
             return DeepgramStreamingProvider(modelContext: modelContext)
-        case .parakeet:
-            return ParakeetStreamingProvider(parakeetService: parakeetService)
         case .mistral:
             return MistralStreamingProvider()
         case .soniox:
@@ -195,7 +191,7 @@ class StreamingTranscriptionService {
                 } catch {
                     let desc = error.localizedDescription
                     await MainActor.run {
-                        self?.logger.error("Failed to send audio chunk: \(desc)")
+                        self?.logger.error("Failed to send audio chunk: \(desc, privacy: .public)")
                     }
                 }
             }
@@ -240,8 +236,7 @@ class StreamingTranscriptionService {
                     break
                 case .error(let error):
                     await MainActor.run {
-                        self.logger.error("Streaming event error: \(error.localizedDescription)")
-                    }
+                        self.logger.error("Streaming event error: \(error.localizedDescription, privacy: .public)")
                 }
             }
         }

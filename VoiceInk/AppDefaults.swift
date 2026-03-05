@@ -11,6 +11,7 @@ enum AppDefaults {
             // Clipboard
             "restoreClipboardAfterPaste": true,
             "clipboardRestoreDelay": 2.0,
+            "useAppleScriptPaste": false,
 
             // Audio & Media
             "isSystemMuteEnabled": true,
@@ -35,8 +36,6 @@ enum AppDefaults {
             // UI & Behavior
             "IsMenuBarOnly": false,
             "powerModeAutoRestoreEnabled": false,
-            "UseAppleScriptPaste": false,
-
             // Hotkey
             "isMiddleClickToggleEnabled": false,
             "middleClickActivationDelay": 200,

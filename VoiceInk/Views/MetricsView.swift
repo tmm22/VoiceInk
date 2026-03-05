@@ -5,7 +5,6 @@ import KeyboardShortcuts
 
 struct MetricsView: View {
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var whisperState: WhisperState
     @EnvironmentObject private var hotkeyManager: HotkeyManager
     @StateObject private var licenseViewModel = LicenseViewModel()
     

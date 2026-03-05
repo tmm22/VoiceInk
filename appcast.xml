@@ -3,27 +3,19 @@
     <channel>
         <title>VoiceInk Releases</title>
         <item>
-            <title>1.70</title>
+            <title>1.71</title>
             <description><![CDATA[
-                <h3>What's New in V 1.70</h3>
+                <h3>What's New in V 1.71</h3>
                 <ul>
-                    <li>⚡ Added streaming transcription support (Nova 3, Scribe V2, Soniox V4, and Mistral Real-time)</li>
-                    <li>🔄 Added dictionary sync support across devices</li>
-                    <li>📝 Added live transcript display (only available for notch recorder)</li>
-                    <li>🎵 Added support for AMR, OGG, OGA, Opus, and 3GP audio file formats</li>
-                    <li>✨ Added new Mistral transcription model</li>
-                    <li>✂️ Added configurable filler word removal option</li>
-                    <li>💬 Added prompt picker in transcript history</li>
-                    <li>🧹 Fixed audio cleanup bug</li>
-                    <li>📋 Fixed clipboard issue</li>
-                    <li>🐛 Bug fixes and minor improvements</li>
+                    <li>🦜 Fix Parakeet model issue</li>
+                    <li>🔄 Fix Dictionary sync issue</li>
+                    <li>🐛 Minor bug fixes and improvements</li>
                 </ul>
             ]]></description>
-            <pubDate>Mon, 09 Feb 2026 20:17:47 +0545</pubDate>
-            <sparkle:version>170</sparkle:version>
-            <sparkle:shortVersionString>1.70</sparkle:shortVersionString>
+            <pubDate>Wed, 25 Feb 2026 18:12:40 +0545</pubDate>
+            <sparkle:version>171</sparkle:version>
+            <sparkle:shortVersionString>1.71</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.4</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/Beingpax/VoiceInk/releases/download/v1.70/VoiceInk.dmg" length="12572927" type="application/octet-stream" sparkle:edSignature="SlHznVI1jbwOBpAcyipnn19W/jY+fLKlItvRRQI585G6NvQLJgdXosMdISVolU9deE2beUNYzD6rT/VQnRyVDw=="/>
-        </item>
+            <enclosure url="https://github.com/Beingpax/VoiceInk/releases/download/v1.71/VoiceInk.dmg" length="12654280" type="application/octet-stream" sparkle:edSignature="KpwVj6LM5w8TsphMG4ouQrYJJ3ii279W2H8gAOPuxXZsKAxpHzVS2mhlpUwjOifcjOikMYi26coy0DZTUd6gAw=="/>
     </channel>
 </rss>

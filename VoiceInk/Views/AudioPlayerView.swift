@@ -290,12 +290,12 @@ struct AudioPlayerView: View {
     @State private var showRetranscribeError = false
     @State private var errorMessage = ""
     @State private var showPromptPopover = false
-    @EnvironmentObject private var whisperState: WhisperState
+    @EnvironmentObject private var engine: VoiceInkEngine
     @EnvironmentObject private var enhancementService: AIEnhancementService
     @Environment(\.modelContext) private var modelContext
-    
+
     private var transcriptionService: AudioTranscriptionService {
-        AudioTranscriptionService(modelContext: modelContext, whisperState: whisperState)
+        AudioTranscriptionService(modelContext: modelContext, engine: engine)
     }
     
     var body: some View {
@@ -474,8 +474,7 @@ struct AudioPlayerView: View {
     }
     
     private func retranscribeAudio() {
-        guard let currentTranscriptionModel = whisperState.currentTranscriptionModel else {
-            errorMessage = "No transcription model selected"
+        guard let currentTranscriptionModel = engine.transcriptionModelManager.currentTranscriptionModel else {
             showRetranscribeError = true
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 3_000_000_000)

@@ -52,10 +52,9 @@ struct TranscriptionOutputFilter {
 
         // Log results
         if filteredText != text {
-            logger.notice("📝 Output filter result: \(filteredText)")
+            logger.notice("📝 Output filter result: \(filteredText, privacy: .public)")
         } else {
-            logger.notice("📝 Output filter result (unchanged): \(filteredText)")
-        }
+            logger.notice("📝 Output filter result (unchanged): \(filteredText, privacy: .public)")
 
         return filteredText
     }

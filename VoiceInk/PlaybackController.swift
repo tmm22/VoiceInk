@@ -125,14 +125,37 @@ class PlaybackController: ObservableObject {
                 return
             }
 
-            mediaController.play()
+            Self.sendMediaPlayPauseKey()
         }
 
         resumeTask = task
         await task.value
     }
-    
-    private func isAppStillRunning(bundleId: String) -> Bool {
+
+    /// Simulate the hardware media Play/Pause key (NX_KEYTYPE_PLAY = 16).
+    /// Some apps (e.g. Plexamp) ignore the MediaRemote `play` command but
+    /// respond to the same HID key event the physical F8 key produces.
+    private static func sendMediaPlayPauseKey() {
+        func post(down: Bool) {
+            let flags: UInt = down ? 0xa00 : 0xb00
+            let data1 = Int((16 << 16) | ((down ? 0xa : 0xb) << 8))
+            let event = NSEvent.otherEvent(
+                with: .systemDefined,
+                location: .zero,
+                modifierFlags: NSEvent.ModifierFlags(rawValue: flags),
+                timestamp: 0,
+                windowNumber: 0,
+                context: nil,
+                subtype: 8,
+                data1: data1,
+                data2: -1
+            )
+            event?.cgEvent?.post(tap: .cghidEventTap)
+        }
+        post(down: true)
+        post(down: false)
+    }
+
         let runningApps = NSWorkspace.shared.runningApplications
         return runningApps.contains { $0.bundleIdentifier == bundleId }
     }

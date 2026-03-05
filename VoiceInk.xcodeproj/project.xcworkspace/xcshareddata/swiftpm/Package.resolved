@@ -1,5 +1,5 @@
 {
-  "originHash" : "bd650986f274b703adb191211e1088ea47f0891be5e592b867c2d3ecb93142f6",
+  "originHash" : "28852cee5e4183e1b418bd9dad35774163897010ecbcbd5413d67f0f6913b7c4",
   "pins" : [
     {
       "identity" : "axswift",
@@ -46,17 +46,15 @@
       }
     },
     {
-      "identity" : "mediaremote-adapter",
+      "identity" : "llmkit",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/ejbills/mediaremote-adapter",
+      "location" : "https://github.com/Beingpax/LLMkit.git",
       "state" : {
-        "branch" : "master",
-        "revision" : "78aae86c03adab11a7b352211cc82381737cf854"
+        "branch" : "main",
+        "revision" : "5b67cd28862692c05210aeaf130cbe4775c5b381"
       }
     },
     {
-      "identity" : "onnxruntime-swift-package-manager",
-      "kind" : "remoteSourceControl",
       "location" : "https://github.com/microsoft/onnxruntime-swift-package-manager",
       "state" : {
         "revision" : "12ce7374c86944e1f68f3a866d10105d8357f074",

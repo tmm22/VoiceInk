@@ -89,7 +89,8 @@ struct MetricsContent: View {
                 return
             }
 
-            let count = try backgroundContext.fetchCount(FetchDescriptor<Transcription>())
+            let completedFilter = #Predicate<Transcription> { $0.transcriptionStatus == "completed" }
+            let count = try backgroundContext.fetchCount(FetchDescriptor<Transcription>(predicate: completedFilter))
 
             guard !Task.isCancelled else {
                 await MainActor.run {
@@ -98,7 +99,7 @@ struct MetricsContent: View {
                 return
             }
 
-            var descriptor = FetchDescriptor<Transcription>()
+            var descriptor = FetchDescriptor<Transcription>(predicate: completedFilter)
             descriptor.propertiesToFetch = [\.text, \.duration]
 
             var words = 0
@@ -123,8 +124,7 @@ struct MetricsContent: View {
                 self.isLoadingMetrics = false
             }
         } catch {
-            logger.error("Error loading metrics: \(error.localizedDescription)")
-            await MainActor.run {
+            logger.error("Error loading metrics: \(error.localizedDescription, privacy: .public)")
                 self.isLoadingMetrics = false
             }
         }
