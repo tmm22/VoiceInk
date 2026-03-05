@@ -1,7 +1,7 @@
 import SwiftUI
 
-struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
-    @ObservedObject var stateProvider: S
+struct NotchRecorderView: View {
+    @ObservedObject var whisperState: WhisperState
     @ObservedObject var recorder: Recorder
     @EnvironmentObject var windowManager: NotchWindowManager
     @State private var isHovering = false
@@ -70,7 +70,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
 
     private var statusDisplay: some View {
         RecorderStatusDisplay(
-            currentState: stateProvider.recordingState,
+            currentState: whisperState.recordingState,
             audioMeter: recorder.audioMeter,
             menuBarHeight: menuBarHeight
         )
@@ -82,13 +82,13 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         // TimelineView polls transcript at 10Hz and controls visibility
         // Same pattern as AudioVisualizer - no forced re-renders
         TimelineView(.animation(minimumInterval: 0.1)) { context in
-            let hasText = stateProvider.recordingState == .recording && !stateProvider.partialTranscript.isEmpty
+            let hasText = whisperState.recordingState == .recording && !whisperState.partialTranscript.isEmpty
 
             VStack(spacing: 0) {
                 Divider()
                     .background(Color.white.opacity(0.15))
 
-                Text(stateProvider.partialTranscript)
+                Text(whisperState.partialTranscript)
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.white.opacity(0.8))
                     .lineLimit(1)

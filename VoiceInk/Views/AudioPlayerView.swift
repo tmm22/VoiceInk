@@ -76,14 +76,14 @@ class AudioPlayerManager: ObservableObject {
     @Published var duration: TimeInterval = 0
     @Published var waveformSamples: [Float] = []
     @Published var isLoadingWaveform = false
-    
+
     func loadAudio(from url: URL) {
         do {
             audioPlayer = try AVAudioPlayer(contentsOf: url)
             audioPlayer?.prepareToPlay()
             duration = audioPlayer?.duration ?? 0
             isLoadingWaveform = true
-            
+
             Task.detached { [weak self] in
                 let samples = await WaveformGenerator.generateWaveformSamples(from: url)
                 Task { @MainActor [weak self] in
@@ -96,24 +96,24 @@ class AudioPlayerManager: ObservableObject {
             #endif
         }
     }
-    
+
     func play() {
         audioPlayer?.play()
         isPlaying = true
         startTimer()
     }
-    
+
     func pause() {
         audioPlayer?.pause()
         isPlaying = false
         stopTimer()
     }
-    
+
     func seek(to time: TimeInterval) {
         audioPlayer?.currentTime = time
         currentTime = time
     }
-    
+
     private func startTimer() {
         stopTimer()
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
@@ -132,7 +132,7 @@ class AudioPlayerManager: ObservableObject {
         timer?.invalidate()
         timer = nil
     }
-    
+
     private func updateWaveformSamples(_ samples: [Float]) {
         waveformSamples = samples
         isLoadingWaveform = false
@@ -148,7 +148,7 @@ class AudioPlayerManager: ObservableObject {
         waveformSamples = []
         isLoadingWaveform = false
     }
-    
+
     deinit {
         timer?.invalidate()
     }
@@ -162,7 +162,7 @@ struct WaveformView: View {
     var onSeek: (Double) -> Void
     @State private var isHovering = false
     @State private var hoverLocation: CGFloat = 0
-    
+
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
@@ -238,7 +238,7 @@ struct WaveformView: View {
         }
         .frame(height: 32)
     }
-    
+
     private func formatTime(_ time: TimeInterval) -> String {
         let minutes = Int(time) / 60
         let seconds = Int(time) % 60
@@ -253,13 +253,13 @@ struct WaveformBar: View {
     let geometryWidth: CGFloat
     let isHovering: Bool
     let hoverProgress: CGFloat
-    
+
     private var isNearHover: Bool {
         let barPosition = geometryWidth / CGFloat(totalBars)
         let hoverPosition = hoverProgress * geometryWidth
         return abs(barPosition - hoverPosition) < 20
     }
-    
+
     var body: some View {
         Capsule()
             .fill(
@@ -290,14 +290,14 @@ struct AudioPlayerView: View {
     @State private var showRetranscribeError = false
     @State private var errorMessage = ""
     @State private var showPromptPopover = false
-    @EnvironmentObject private var engine: VoiceInkEngine
+    @EnvironmentObject private var whisperState: WhisperState
     @EnvironmentObject private var enhancementService: AIEnhancementService
     @Environment(\.modelContext) private var modelContext
 
     private var transcriptionService: AudioTranscriptionService {
-        AudioTranscriptionService(modelContext: modelContext, engine: engine)
+        AudioTranscriptionService(modelContext: modelContext, whisperState: whisperState)
     }
-    
+
     var body: some View {
         VStack(spacing: 8) {
             WaveformView(
@@ -437,7 +437,7 @@ struct AudioPlayerView: View {
                     )
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
-                
+
                 if showRetranscribeError {
                     HStack(spacing: 8) {
                         Image(systemName: "exclamationmark.circle.fill")
@@ -454,7 +454,7 @@ struct AudioPlayerView: View {
                     )
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
-                
+
                 Spacer()
             }
             .padding(.top, 16)
@@ -462,19 +462,20 @@ struct AudioPlayerView: View {
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showRetranscribeError)
         )
     }
-    
+
     private func formatTime(_ time: TimeInterval) -> String {
         let minutes = Int(time) / 60
         let seconds = Int(time) % 60
         return String(format: "%d:%02d", minutes, seconds)
     }
-    
+
     private func showInFinder() {
         NSWorkspace.shared.selectFile(url.path, inFileViewerRootedAtPath: url.deletingLastPathComponent().path)
     }
-    
+
     private func retranscribeAudio() {
-        guard let currentTranscriptionModel = engine.transcriptionModelManager.currentTranscriptionModel else {
+        guard let currentTranscriptionModel = whisperState.currentTranscriptionModel else {
+            errorMessage = "No transcription model selected"
             showRetranscribeError = true
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 3_000_000_000)
@@ -482,9 +483,9 @@ struct AudioPlayerView: View {
             }
             return
         }
-        
+
         isRetranscribing = true
-        
+
         Task {
             do {
                 let _ = try await transcriptionService.retranscribeAudio(from: url, using: currentTranscriptionModel)
@@ -509,4 +510,4 @@ struct AudioPlayerView: View {
             }
         }
     }
-} 
+}

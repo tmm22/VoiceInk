@@ -1,5 +1,5 @@
 {
-  "originHash" : "28852cee5e4183e1b418bd9dad35774163897010ecbcbd5413d67f0f6913b7c4",
+  "originHash" : "f103d7ffc1f8eaf093a649b33d0123d6fc166d725476976d03e07cc97c3c994d",
   "pins" : [
     {
       "identity" : "axswift",
@@ -55,6 +55,17 @@
       }
     },
     {
+      "identity" : "mediaremote-adapter",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ejbills/mediaremote-adapter",
+      "state" : {
+        "branch" : "master",
+        "revision" : "de7ec3298aaacc4795fd328673c7b1d6a60e0a1b"
+      }
+    },
+    {
+      "identity" : "onnxruntime-swift-package-manager",
+      "kind" : "remoteSourceControl",
       "location" : "https://github.com/microsoft/onnxruntime-swift-package-manager",
       "state" : {
         "revision" : "12ce7374c86944e1f68f3a866d10105d8357f074",

@@ -16,6 +16,8 @@ class Recorder: NSObject, ObservableObject {
     private var audioLevelCheckTask: Task<Void, Never>?
     private var audioMeterUpdateTimer: DispatchSourceTimer?
     private let audioMeterQueue = DispatchQueue(label: "com.prakashjoshipax.voiceink.audiometer", qos: .userInteractive)
+    private var audioRestorationTask: Task<Void, Never>?
+    private var hasDetectedAudioInCurrentSession = false
     /// Dedicated serial queue for hardware setup.
     private let audioSetupQueue = DispatchQueue(label: "com.prakashjoshipax.voiceink.audioSetup", qos: .userInitiated)
     private let smoothedValuesLock = NSLock()

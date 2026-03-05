@@ -48,10 +48,12 @@ class StreamingTranscriptionService {
     private let chunkSource = AudioChunkSource()
     private var state: StreamingState = .idle
     private var committedSegments: [String] = []
+    private let parakeetService: ParakeetTranscriptionService
     private let modelContext: ModelContext
     private var onPartialTranscript: ((String) -> Void)?
 
-    init(modelContext: ModelContext, onPartialTranscript: ((String) -> Void)? = nil) {
+    init(parakeetService: ParakeetTranscriptionService, modelContext: ModelContext, onPartialTranscript: ((String) -> Void)? = nil) {
+        self.parakeetService = parakeetService
         self.modelContext = modelContext
         self.onPartialTranscript = onPartialTranscript
     }
@@ -170,6 +172,8 @@ class StreamingTranscriptionService {
             return ElevenLabsStreamingProvider()
         case .deepgram:
             return DeepgramStreamingProvider(modelContext: modelContext)
+        case .parakeet:
+            return ParakeetStreamingProvider(parakeetService: parakeetService)
         case .mistral:
             return MistralStreamingProvider()
         case .soniox:
@@ -237,6 +241,7 @@ class StreamingTranscriptionService {
                 case .error(let error):
                     await MainActor.run {
                         self.logger.error("Streaming event error: \(error.localizedDescription, privacy: .public)")
+                    }
                 }
             }
         }

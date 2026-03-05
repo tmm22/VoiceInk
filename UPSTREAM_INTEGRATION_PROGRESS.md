@@ -27,24 +27,26 @@
   - Local/cloud transcription service wiring
   - Whisper warmup/lib integration choices
 - Accepted upstream additions where they were additive or low-risk, including:
-  - `VoiceInk/Whisper/VoiceInkEngine.swift` and related manager/provider files
   - Streaming/session support files
   - `VoiceInk/CursorPaster.swift`
   - `VoiceInk/Services/LogExporter.swift`
-  - recorder notch/state-provider support
+  - screen capture, cleanup, and cursor-paste support updates
 
 ### Post-Merge Repair
 
 - Repaired `VoiceInk.xcodeproj/project.pbxproj` after manual conflict resolution left the project structure invalid.
 - Kept community package preferences such as local `SelectedTextKit` and `FluidAudioTTS`.
 - Added upstream-required `LLMkit` and `CloudKit.framework` project references without replacing community-specific project settings.
+- Removed partially merged upstream engine/manager files after they proved incompatible with the fork's active `WhisperState` flow.
+- Restored local implementations for history/audio/notch/settings components that had been redirected toward the unfinished upstream engine stack.
+- Synced `Package.resolved` to the build-verified dependency graph, including the `mediaremote-adapter` package pin.
 
 ### Validation
 
-- Verified the working tree is clean after the merge-preparation commit.
+- Verified the merge-preparation commit was clean before follow-up build repair work.
 - Removed all merge markers from the resulting tree.
-- Verified `Package.resolved` remains valid JSON.
-- Xcode build validation is being re-run locally now that the command-line tools license issue has been cleared.
+- Verified `Package.resolved` remains valid JSON and matches the successful local build resolution.
+- Completed a successful Debug build of scheme `VoiceInk` in an isolated `/tmp` worktree after reconciling source-level merge regressions.
 
 ---
 

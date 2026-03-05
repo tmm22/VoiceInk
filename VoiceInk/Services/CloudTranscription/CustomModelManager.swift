@@ -114,6 +114,7 @@ class CustomModelManager: ObservableObject {
             AppSettings.setValue(data, forKey: customModelsKey)
         } catch {
             logger.error("Failed to encode custom models: \(error.localizedDescription, privacy: .public)")
+        }
     }
     
     // MARK: - Validation

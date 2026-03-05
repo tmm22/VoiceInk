@@ -7,7 +7,7 @@ enum VoiceInkEngineError: Error, Identifiable {
     case unzipFailed
     case unknownError
 
-    var id: String { UUID().uuidString }
+    var id: String { String(describing: self) }
 }
 
 extension VoiceInkEngineError: LocalizedError {
@@ -41,6 +41,3 @@ extension VoiceInkEngineError: LocalizedError {
         }
     }
 }
-
-// Backward compatibility
-typealias WhisperStateError = VoiceInkEngineError

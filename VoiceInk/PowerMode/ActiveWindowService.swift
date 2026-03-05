@@ -8,6 +8,7 @@ class ActiveWindowService: ObservableObject {
     @Published var currentApplication: NSRunningApplication?
     private var enhancementService: AIEnhancementService?
     private let browserURLService = BrowserURLService.shared
+    private var whisperState: WhisperState?
 
     private let logger = Logger(
         subsystem: "com.tmm22.voicelinkcommunity",
@@ -19,7 +20,11 @@ class ActiveWindowService: ObservableObject {
     func configure(with enhancementService: AIEnhancementService) {
         self.enhancementService = enhancementService
     }
-    
+
+    func configureWhisperState(_ whisperState: WhisperState) {
+        self.whisperState = whisperState
+    }
+
     func applyConfiguration(powerModeId: UUID? = nil) async {
         if let powerModeId = powerModeId,
            let config = PowerModeManager.shared.getConfiguration(with: powerModeId) {
@@ -46,6 +51,7 @@ class ActiveWindowService: ObservableObject {
                 }
             } catch {
                 logger.error("❌ Failed to get URL from \(browserType.displayName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
         }
 
         if configToApply == nil {
@@ -67,21 +73,21 @@ class ActiveWindowService: ObservableObject {
     func applyConfigurationForCurrentApp() async {
         await applyConfiguration()
     }
-    
+
     func captureApplicationContext() async -> ApplicationContext? {
         guard let frontmostApp = NSWorkspace.shared.frontmostApplication,
               let bundleIdentifier = frontmostApp.bundleIdentifier else {
             return nil
         }
-        
+
         let isBrowser = BrowserType.allCases.contains { $0.bundleIdentifier == bundleIdentifier }
         var currentURL: String? = nil
-        
+
         if isBrowser, let browserType = BrowserType.allCases.first(where: { $0.bundleIdentifier == bundleIdentifier }) {
             // Best effort to capture URL, don't fail context if it fails
             currentURL = try? await browserURLService.getCurrentURL(from: browserType)
         }
-        
+
         return ApplicationContext(
             name: frontmostApp.localizedName ?? "Unknown",
             bundleIdentifier: bundleIdentifier,
@@ -90,4 +96,4 @@ class ActiveWindowService: ObservableObject {
             pageTitle: nil
         )
     }
-} 
+}

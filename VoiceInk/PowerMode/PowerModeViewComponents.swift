@@ -94,7 +94,7 @@ struct ConfigurationRow: View {
     let powerModeManager: PowerModeManager
     let onEditConfig: (PowerModeConfig) -> Void
     @EnvironmentObject var enhancementService: AIEnhancementService
-    @EnvironmentObject var transcriptionModelManager: TranscriptionModelManager
+    @EnvironmentObject var whisperState: WhisperState
     @State private var isHovering = false
     
     private let maxAppIconsToShow = 5
@@ -107,7 +107,7 @@ struct ConfigurationRow: View {
     
     private var selectedModel: String? {
         if let modelName = config.selectedTranscriptionModelName,
-           let model = transcriptionModelManager.allAvailableModels.first(where: { $0.name == modelName }) {
+           let model = whisperState.allAvailableModels.first(where: { $0.name == modelName }) {
             return model.displayName
         }
         return Localization.PowerMode.defaultLabel
@@ -119,7 +119,7 @@ struct ConfigurationRow: View {
             if langCode == "en" { return Localization.PowerMode.englishLabel }
             
             if let modelName = config.selectedTranscriptionModelName,
-               let model = transcriptionModelManager.allAvailableModels.first(where: { $0.name == modelName }),
+               let model = whisperState.allAvailableModels.first(where: { $0.name == modelName }),
                let langName = model.supportedLanguages[langCode] {
                 return langName
             }

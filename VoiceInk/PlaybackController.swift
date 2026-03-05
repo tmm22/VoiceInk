@@ -14,11 +14,10 @@ class PlaybackController: ObservableObject {
     private var originalMediaAppBundleId: String?
     private var resumeTask: Task<Void, Never>?
 
-    
     @Published var isPauseMediaEnabled: Bool = AppSettings.Audio.isPauseMediaEnabled {
         didSet {
             AppSettings.Audio.isPauseMediaEnabled = isPauseMediaEnabled
-            
+
             if isPauseMediaEnabled {
                 startMediaTracking()
             } else {
@@ -26,41 +25,42 @@ class PlaybackController: ObservableObject {
             }
         }
     }
-    
+
     private init() {
         mediaController = MediaRemoteAdapter.MediaController()
-        
+
         if !AppSettings.contains(key: AppSettings.Keys.isPauseMediaEnabled) {
             AppSettings.Audio.isPauseMediaEnabled = false
         }
-        
+
         setupMediaControllerCallbacks()
 
         if isPauseMediaEnabled {
             startMediaTracking()
         }
     }
-    
+
     private func setupMediaControllerCallbacks() {
         mediaController.onTrackInfoReceived = { [weak self] trackInfo in
             guard let trackInfo = trackInfo else { return }
             self?.isMediaPlaying = trackInfo.payload.isPlaying ?? false
             self?.lastKnownTrackInfo = trackInfo
         }
-        
+
         mediaController.onListenerTerminated = { }
     }
-    
+
     deinit {
+        resumeTask?.cancel()
         mediaController.stopListening()
         mediaController.onTrackInfoReceived = nil
         mediaController.onListenerTerminated = nil
     }
-    
+
     private func startMediaTracking() {
         mediaController.startListening()
     }
-    
+
     private func stopMediaTracking() {
         mediaController.stopListening()
         isMediaPlaying = false
@@ -68,7 +68,7 @@ class PlaybackController: ObservableObject {
         wasPlayingWhenRecordingStarted = false
         originalMediaAppBundleId = nil
     }
-    
+
     func pauseMedia() async {
         resumeTask?.cancel()
         resumeTask = nil
@@ -152,10 +152,12 @@ class PlaybackController: ObservableObject {
             )
             event?.cgEvent?.post(tap: .cghidEventTap)
         }
+
         post(down: true)
         post(down: false)
     }
 
+    private func isAppStillRunning(bundleId: String) -> Bool {
         let runningApps = NSWorkspace.shared.runningApplications
         return runningApps.contains { $0.bundleIdentifier == bundleId }
     }
@@ -166,4 +168,4 @@ extension UserDefaults {
         get { AppSettings.Audio.isPauseMediaEnabled }
         set { AppSettings.Audio.isPauseMediaEnabled = newValue }
     }
-} 
+}

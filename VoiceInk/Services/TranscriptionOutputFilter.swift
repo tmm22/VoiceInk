@@ -55,6 +55,7 @@ struct TranscriptionOutputFilter {
             logger.notice("📝 Output filter result: \(filteredText, privacy: .public)")
         } else {
             logger.notice("📝 Output filter result (unchanged): \(filteredText, privacy: .public)")
+        }
 
         return filteredText
     }

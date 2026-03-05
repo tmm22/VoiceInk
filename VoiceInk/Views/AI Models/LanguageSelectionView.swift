@@ -7,7 +7,7 @@ enum LanguageDisplayMode {
 }
 
 struct LanguageSelectionView: View {
-    @ObservedObject var transcriptionModelManager: TranscriptionModelManager
+    @ObservedObject var whisperState: WhisperState
     @AppStorage("SelectedLanguage") private var selectedLanguage: String = "en"
     // Add display mode parameter with full as the default
     var displayMode: LanguageDisplayMode = .full
@@ -27,14 +27,14 @@ struct LanguageSelectionView: View {
 
     // Function to check if current model is multilingual
     private func isMultilingualModel() -> Bool {
-        guard let currentModel = transcriptionModelManager.currentTranscriptionModel else {
+        guard let currentModel = whisperState.currentTranscriptionModel else {
             return false
         }
         return currentModel.isMultilingualModel
     }
 
     private func languageSelectionDisabled() -> Bool {
-        guard let provider = transcriptionModelManager.currentTranscriptionModel?.provider else {
+        guard let provider = whisperState.currentTranscriptionModel?.provider else {
             return false
         }
         return provider == .parakeet || provider == .gemini
@@ -42,7 +42,7 @@ struct LanguageSelectionView: View {
 
     // Function to get current model's supported languages
     private func getCurrentModelLanguages() -> [String: String] {
-        guard let currentModel = transcriptionModelManager.currentTranscriptionModel else {
+        guard let currentModel = whisperState.currentTranscriptionModel else {
             return ["en": "English"] // Default to English if no model found
         }
         return currentModel.supportedLanguages
@@ -68,13 +68,13 @@ struct LanguageSelectionView: View {
             languageSelectionSection
         }
     }
-    
+
     private var languageSelectionSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Transcription Language")
                 .font(.headline)
 
-            if let currentModel = transcriptionModelManager.currentTranscriptionModel
+            if let currentModel = whisperState.currentTranscriptionModel
             {
                 if languageSelectionDisabled() {
                     VStack(alignment: .leading, spacing: 8) {

@@ -151,5 +151,6 @@ class BrowserURLService {
         let runningApps = workspace.runningApplications
         let isRunning = runningApps.contains { $0.bundleIdentifier == browser.bundleIdentifier }
         logger.debug("\(browser.displayName, privacy: .public) running status: \(isRunning, privacy: .public)")
+        return isRunning
     }
 } 

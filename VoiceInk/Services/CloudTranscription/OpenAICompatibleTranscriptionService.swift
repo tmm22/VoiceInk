@@ -80,6 +80,7 @@ class OpenAICompatibleTranscriptionService: CloudTranscriptionBase, CloudTranscr
             return transcriptionResponse.text
         } catch {
             logger.error("Failed to decode OpenAI-compatible API response: \(error.localizedDescription, privacy: .public)")
+            throw CloudTranscriptionError.noTranscriptionReturned
         }
     }
     

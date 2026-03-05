@@ -71,8 +71,8 @@ Recent stability, security, and performance improvements are documented in
 
 ### Recent Changes (2026-03-06)
 - Upstream sync: incorporated latest `Beingpax/VoiceInk` changes while preserving community-specific settings flow, hotkey behavior, and transcription defaults.
-- Architecture: pulled in new VoiceInk engine/manager scaffolding and related streaming/session support files.
-- Build tooling: repaired the Xcode project merge state and retained community package choices alongside required upstream dependencies.
+- Architecture: kept the established `WhisperState`-driven app flow and deliberately dropped the partially merged upstream engine/manager stack where it would have changed core fork behavior.
+- Build tooling: repaired the Xcode project merge state, synced the SwiftPM lockfile (including `mediaremote-adapter`), and verified a successful Debug build locally.
 
 ### Recent Changes (2025-12-20)
 - Performance: streamed audio preprocessing and transcription uploads.
