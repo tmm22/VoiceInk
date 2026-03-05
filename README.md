@@ -69,9 +69,10 @@ Recent stability, security, and performance improvements are documented in
 - ✅ Streamed audio preprocessing and transcription uploads to reduce memory.
 - ✅ Disk-cached recent TTS history audio with size limits and cleanup.
 
-### Recent Changes (2025-12-29)
-- Refactoring: Centralized settings management in `AppSettings`.
-- Cleanup: Relocated `AuthorizationHeader` and consolidated utilities.
+### Recent Changes (2026-03-06)
+- Upstream sync: incorporated latest `Beingpax/VoiceInk` changes while preserving community-specific settings flow, hotkey behavior, and transcription defaults.
+- Architecture: pulled in new VoiceInk engine/manager scaffolding and related streaming/session support files.
+- Build tooling: repaired the Xcode project merge state and retained community package choices alongside required upstream dependencies.
 
 ### Recent Changes (2025-12-20)
 - Performance: streamed audio preprocessing and transcription uploads.

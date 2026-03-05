@@ -2,6 +2,24 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-03-06
+
+### Upstream Sync
+- Merged latest `upstream/main` into branch history via merge commit `586f2f6` (upstream tip at merge: `b775ebe`).
+- Adopted upstream additions that were low-risk or additive for the community fork, including:
+  - VoiceInk engine decomposition scaffolding (`VoiceInk/Whisper/VoiceInkEngine.swift` and related managers/providers)
+  - Streaming/cloud transcription support files and session plumbing
+  - Cursor pasting/log export/screen capture updates
+  - Recorder notch/state-provider additions
+- Preserved community-fork behavior and conventions in conflict-heavy areas, including settings/navigation, menu bar flow, hotkey behavior, Power Mode integration, AI model management views, and local/cloud transcription wiring.
+
+### Build Recovery
+- Repaired the Xcode project after merge resolution so `VoiceInk.xcodeproj/project.pbxproj` remains parseable while keeping community-specific package choices and adding upstream-required `LLMkit` and `CloudKit` references.
+
+### Documentation
+- Updated `UPSTREAM_INTEGRATION_PROGRESS.md` with the March 6, 2026 sync session and conflict-resolution strategy.
+- Refreshed README recent-changes notes to reflect the current upstream sync status.
+
 ## 2026-02-19
 
 ### Gemini 3.1 Preview

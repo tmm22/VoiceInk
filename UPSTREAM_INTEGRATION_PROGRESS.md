@@ -1,8 +1,50 @@
 # Upstream Integration Progress
 
 **Date Started:** December 8, 2025  
-**Date Updated:** February 7, 2026  
+**Date Updated:** March 6, 2026  
 **Objective:** Incorporate upstream fixes from `Beingpax/VoiceInk` into VoiceLink Community fork
+
+---
+
+## Session 4: March 6, 2026
+
+**Objective:** Sync `custom-main-v2` to latest `upstream/main` while preserving community-fork conventions and behavior.
+
+### Sync Result
+
+- Upstream tip merged into branch history: `b775ebe` (`upstream/main` at merge time)
+- Fork merge commit prepared: `586f2f6` (`Merge upstream/main with local-first conflict resolution`)
+- Divergence after merge preparation: `0 behind / 310 ahead` versus `upstream/main`
+
+### Conflict Strategy Applied
+
+- Used local-first conflict resolution where upstream refactors overlapped with community-specific behavior.
+- Preserved fork implementations for:
+  - Settings structure and category navigation
+  - Hotkey wiring and menu bar integration
+  - Power Mode activation flow
+  - AI model management views
+  - Local/cloud transcription service wiring
+  - Whisper warmup/lib integration choices
+- Accepted upstream additions where they were additive or low-risk, including:
+  - `VoiceInk/Whisper/VoiceInkEngine.swift` and related manager/provider files
+  - Streaming/session support files
+  - `VoiceInk/CursorPaster.swift`
+  - `VoiceInk/Services/LogExporter.swift`
+  - recorder notch/state-provider support
+
+### Post-Merge Repair
+
+- Repaired `VoiceInk.xcodeproj/project.pbxproj` after manual conflict resolution left the project structure invalid.
+- Kept community package preferences such as local `SelectedTextKit` and `FluidAudioTTS`.
+- Added upstream-required `LLMkit` and `CloudKit.framework` project references without replacing community-specific project settings.
+
+### Validation
+
+- Verified the working tree is clean after the merge-preparation commit.
+- Removed all merge markers from the resulting tree.
+- Verified `Package.resolved` remains valid JSON.
+- Xcode build validation is being re-run locally now that the command-line tools license issue has been cleared.
 
 ---
 
