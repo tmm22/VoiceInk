@@ -24,7 +24,7 @@ enum EnhancementError: Error {
     case serverError
     
     /// Rate limit exceeded (429 status code)
-    case rateLimitExceeded
+    case rateLimitExceeded(message: String?, retryAfter: TimeInterval?)
     
     /// Custom error with a specific message
     case customError(String)
@@ -44,7 +44,14 @@ extension EnhancementError: LocalizedError {
             return "Network connection failed. Check your internet."
         case .serverError:
             return "The AI provider's server encountered an error. Please try again later."
-        case .rateLimitExceeded:
+        case .rateLimitExceeded(let message, let retryAfter):
+            if let message, !message.isEmpty {
+                return message
+            }
+            if let retryAfter, retryAfter > 0 {
+                let seconds = Int(ceil(retryAfter))
+                return "Rate limit exceeded. Please try again in about \(seconds) seconds."
+            }
             return "Rate limit exceeded. Please try again later."
         case .customError(let message):
             return message

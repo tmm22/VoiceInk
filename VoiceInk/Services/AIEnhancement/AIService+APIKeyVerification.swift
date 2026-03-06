@@ -36,7 +36,9 @@ extension AIService {
     
     func verifyOpenAICompatibleAPIKey(_ key: String, completion: @escaping (Bool, String?) -> Void) {
         let selectedProvider = self.selectedProvider
-        let baseURL = selectedProvider.baseURL
+        let verificationModel = verificationModelName(for: selectedProvider, currentModel: currentModel)
+        let usesResponsesAPI = AIProvider.usesResponsesAPI(for: selectedProvider, model: verificationModel)
+        let baseURL = usesResponsesAPI ? AIProvider.openAIResponsesURL : selectedProvider.baseURL
         let allowLocalhost = selectedProvider == .ollama
         let providerName = selectedProvider.rawValue
         let url: URL
@@ -52,13 +54,34 @@ extension AIService {
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.addValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        
-        let testBody: [String: Any] = [
-            "model": currentModel,
-            "messages": [
-                ["role": "user", "content": "test"]
+
+        var testBody: [String: Any]
+        if usesResponsesAPI {
+            testBody = [
+                "model": verificationModel,
+                "input": "test",
+                "store": false,
+                "max_output_tokens": 256
             ]
-        ]
+
+            if let reasoningParam = ReasoningConfig.getReasoningParameter(for: verificationModel) {
+                testBody["reasoning"] = ["effort": reasoningParam]
+            }
+        } else {
+            testBody = [
+                "model": verificationModel,
+                "messages": [
+                    ["role": "user", "content": "test"]
+                ]
+            ]
+
+            if selectedProvider == .openAI {
+                testBody["store"] = false
+                testBody["max_completion_tokens"] = 256
+            } else {
+                testBody["max_tokens"] = 256
+            }
+        }
         
         // Log if JSON serialization fails (non-critical for verification)
         do {
@@ -100,6 +123,18 @@ extension AIService {
                 completion(false, "Invalid response from server")
             }
         }.resume()
+    }
+
+    private func verificationModelName(for provider: AIProvider, currentModel: String) -> String {
+        guard provider == .openAI else {
+            return currentModel
+        }
+
+        if currentModel.lowercased().hasSuffix("-pro") {
+            return String(currentModel.dropLast(4))
+        }
+
+        return currentModel
     }
     
     // MARK: - Anthropic Verification

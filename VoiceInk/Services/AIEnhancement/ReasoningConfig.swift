@@ -35,10 +35,11 @@ struct ReasoningConfig {
     ]
 
     static let openAIReasoningModels: Set<String> = [
-        "gpt-5.2",
-        "gpt-5.2-pro",
+        "gpt-5.4",
+        "gpt-5.4-pro",
         "gpt-5-mini",
-        "gpt-5-nano"
+        "gpt-5-nano",
+        "gpt-5.1"
     ]
 
     static let cerebrasReasoningModels: Set<String> = [
@@ -64,9 +65,22 @@ struct ReasoningConfig {
         guard supportsReasoning(modelName) else {
             return nil
         }
-        
-        // Use user preference if provided, otherwise default to "low"
+
+        return normalizedEffort(for: modelName, userPreference: userPreference).rawValue
+    }
+
+    private static func normalizedEffort(for modelName: String, userPreference: ReasoningEffort?) -> ReasoningEffort {
         let effort = userPreference ?? .low
-        return effort.rawValue
+        let modelLower = modelName.lowercased()
+
+        if modelLower == "gpt-5-pro" {
+            return .high
+        }
+
+        if modelLower.hasPrefix("gpt-5.") && modelLower.hasSuffix("-pro") {
+            return effort == .high ? .high : .medium
+        }
+
+        return effort
     }
 }

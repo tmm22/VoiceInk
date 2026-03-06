@@ -21,8 +21,15 @@ All notable changes to the VoiceLink Community application are documented here.
 - Updated `UPSTREAM_INTEGRATION_PROGRESS.md` with the March 6, 2026 sync session and conflict-resolution strategy.
 - Refreshed README recent-changes notes to reflect the current upstream sync status.
 
+### AI Enhancement
+- Updated the OpenAI enhancement default/model list to `gpt-5.4` and `gpt-5.4-pro`, and routed GPT-5 enhancement requests through the OpenAI Responses API.
+- Normalized GPT-5 reasoning effort handling and added output token caps so enhancement requests stay within model-supported parameters more consistently.
+- Improved OpenAI rate-limit handling by surfacing provider `429` messages, respecting `Retry-After`, and retrying once from `gpt-5.4-pro` to `gpt-5.4` when the pro tier is throttled.
+- Updated OpenAI API key verification to use the correct GPT-5 endpoint/model path with a reduced token budget, and switched OpenAI audio transcription to `gpt-4o-transcribe`.
+
 ### Verification
 - Completed a successful `xcodebuild` Debug build for scheme `VoiceInk` in an isolated worktree after merge reconciliation.
+- Completed a follow-up successful `xcodebuild` Debug build after the GPT-5.4 and rate-limit handling changes, then reran `reset_permissions.sh` for clean manual testing.
 
 ## 2026-02-19
 

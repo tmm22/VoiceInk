@@ -48,11 +48,24 @@ extension AIEnhancementService {
 
         try await waitForRateLimit()
 
-        switch aiService.selectedProvider {
-        case .anthropic:
-            return try await makeAnthropicRequest(formattedText: formattedText, systemMessage: systemMessage)
-        default:
-            return try await makeOpenAICompatibleRequest(formattedText: formattedText, systemMessage: systemMessage)
+        do {
+            switch aiService.selectedProvider {
+            case .anthropic:
+                return try await makeAnthropicRequest(formattedText: formattedText, systemMessage: systemMessage)
+            case .openAI where AIProvider.usesResponsesAPI(for: aiService.selectedProvider, model: aiService.currentModel):
+                return try await makeOpenAIResponsesRequest(formattedText: formattedText, systemMessage: systemMessage)
+            default:
+                return try await makeOpenAICompatibleRequest(formattedText: formattedText, systemMessage: systemMessage)
+            }
+        } catch let error as EnhancementError {
+            if let fallbackModel = fallbackModelIfNeeded(for: error) {
+                logger.warning("OpenAI model \(self.aiService.currentModel, privacy: .public) hit rate limits; retrying once with fallback model \(fallbackModel, privacy: .public)")
+                if AIProvider.usesResponsesAPI(for: aiService.selectedProvider, model: fallbackModel) {
+                    return try await makeOpenAIResponsesRequest(formattedText: formattedText, systemMessage: systemMessage, modelOverride: fallbackModel)
+                }
+                return try await makeOpenAICompatibleRequest(formattedText: formattedText, systemMessage: systemMessage, modelOverride: fallbackModel)
+            }
+            throw error
         }
     }
     
@@ -83,9 +96,10 @@ extension AIEnhancementService {
                 case .networkError, .serverError, .rateLimitExceeded:
                     retries += 1
                     if retries < maxRetries {
-                        logger.warning("Request failed, retrying in \(currentDelay)s... (Attempt \(retries)/\(maxRetries))")
-                        try await Task.sleep(nanoseconds: UInt64(currentDelay * 1_000_000_000))
-                        currentDelay *= 2
+                        let waitTime = retryDelay(for: error, currentDelay: currentDelay)
+                        logger.warning("Request failed, retrying in \(waitTime)s... (Attempt \(retries)/\(maxRetries))")
+                        try await Task.sleep(nanoseconds: UInt64(waitTime * 1_000_000_000))
+                        currentDelay = max(currentDelay * 2, waitTime * 2)
                     } else {
                         throw error
                     }
@@ -160,7 +174,11 @@ extension AIEnhancementService {
     }
     
     /// Makes a request to OpenAI-compatible APIs (OpenAI, Groq, etc.)
-    private func makeOpenAICompatibleRequest(formattedText: String, systemMessage: String) async throws -> String {
+    private func makeOpenAICompatibleRequest(
+        formattedText: String,
+        systemMessage: String,
+        modelOverride: String? = nil
+    ) async throws -> String {
         guard let url = URL(string: aiService.selectedProvider.baseURL) else {
             throw NSError(domain: "AIEnhancementService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid API URL"])
         }
@@ -176,14 +194,23 @@ extension AIEnhancementService {
             ["role": "user", "content": formattedText]
         ]
 
+        let selectedModel = modelOverride ?? aiService.currentModel
+        let outputTokenLimit = recommendedOutputTokenLimit(for: formattedText, model: selectedModel)
         var requestBody: [String: Any] = [
-            "model": aiService.currentModel,
+            "model": selectedModel,
             "messages": messages,
-            "temperature": aiService.currentModel.lowercased().hasPrefix("gpt-5") ? 1.0 : 0.3,
+            "temperature": selectedModel.lowercased().hasPrefix("gpt-5") ? 1.0 : 0.3,
             "stream": false
         ]
 
-        if let reasoningParam = ReasoningConfig.getReasoningParameter(for: aiService.currentModel, userPreference: reasoningEffort) {
+        if aiService.selectedProvider == .openAI {
+            requestBody["store"] = false
+            requestBody["max_completion_tokens"] = outputTokenLimit
+        } else {
+            requestBody["max_tokens"] = outputTokenLimit
+        }
+
+        if let reasoningParam = ReasoningConfig.getReasoningParameter(for: selectedModel, userPreference: reasoningEffort) {
             requestBody["reasoning_effort"] = reasoningParam
         }
 
@@ -194,6 +221,47 @@ extension AIEnhancementService {
         }
 
         return try await executeRequest(request, parseResponse: parseOpenAIResponse)
+    }
+
+    private func makeOpenAIResponsesRequest(
+        formattedText: String,
+        systemMessage: String,
+        modelOverride: String? = nil
+    ) async throws -> String {
+        guard let url = URL(string: AIProvider.openAIResponsesURL) else {
+            throw NSError(domain: "AIEnhancementService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid OpenAI Responses API URL"])
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("Bearer \(aiService.apiKey)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = requestTimeout
+
+        let input: [[String: Any]] = [
+            ["role": "system", "content": systemMessage],
+            ["role": "user", "content": formattedText]
+        ]
+
+        let selectedModel = modelOverride ?? aiService.currentModel
+        var requestBody: [String: Any] = [
+            "model": selectedModel,
+            "input": input,
+            "store": false,
+            "max_output_tokens": recommendedOutputTokenLimit(for: formattedText, model: selectedModel)
+        ]
+
+        if let reasoningParam = ReasoningConfig.getReasoningParameter(for: selectedModel, userPreference: reasoningEffort) {
+            requestBody["reasoning"] = ["effort": reasoningParam]
+        }
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        } catch {
+            throw EnhancementError.customError("Failed to prepare request: \(error.localizedDescription)")
+        }
+
+        return try await executeRequest(request, parseResponse: parseOpenAIResponsesResponse)
     }
     
     // MARK: - Request Execution & Response Parsing
@@ -210,7 +278,10 @@ extension AIEnhancementService {
             if httpResponse.statusCode == 200 {
                 return try parseResponse(data)
             } else if httpResponse.statusCode == 429 {
-                throw EnhancementError.rateLimitExceeded
+                throw EnhancementError.rateLimitExceeded(
+                    message: rateLimitMessage(from: data, response: httpResponse),
+                    retryAfter: retryAfterInterval(from: httpResponse)
+                )
             } else if (500...599).contains(httpResponse.statusCode) {
                 throw EnhancementError.serverError
             } else {
@@ -250,5 +321,122 @@ extension AIEnhancementService {
         }
 
         return AIEnhancementOutputFilter.filter(enhancedText.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private func parseOpenAIResponsesResponse(_ data: Data) throws -> String {
+        guard let jsonResponse = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw EnhancementError.enhancementFailed
+        }
+
+        if let outputText = jsonResponse["output_text"] as? String,
+           !outputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return AIEnhancementOutputFilter.filter(outputText.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+
+        if let output = jsonResponse["output"] as? [[String: Any]] {
+            let enhancedText = output
+                .compactMap { item -> String? in
+                    guard item["type"] as? String == "message",
+                          let content = item["content"] as? [[String: Any]] else {
+                        return nil
+                    }
+
+                    let text = content
+                        .compactMap { $0["text"] as? String }
+                        .joined(separator: "\n")
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+
+                    return text.isEmpty ? nil : text
+                }
+                .joined(separator: "\n")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if !enhancedText.isEmpty {
+                return AIEnhancementOutputFilter.filter(enhancedText)
+            }
+        }
+
+        throw EnhancementError.enhancementFailed
+    }
+
+    private func retryDelay(for error: EnhancementError, currentDelay: TimeInterval) -> TimeInterval {
+        switch error {
+        case .rateLimitExceeded(_, let retryAfter):
+            return max(currentDelay, retryAfter ?? 0)
+        default:
+            return currentDelay
+        }
+    }
+
+    private func fallbackModelIfNeeded(for error: EnhancementError) -> String? {
+        guard aiService.selectedProvider == .openAI else {
+            return nil
+        }
+
+        let currentModel = aiService.currentModel
+        guard currentModel.lowercased().hasSuffix("-pro") else {
+            return nil
+        }
+
+        switch error {
+        case .rateLimitExceeded:
+            return String(currentModel.dropLast(4))
+        default:
+            return nil
+        }
+    }
+
+    private func recommendedOutputTokenLimit(for text: String, model: String) -> Int {
+        let estimatedInputTokens = max(256, text.count / 4)
+        let baseLimit = min(max(estimatedInputTokens, 768), 4096)
+
+        if model.lowercased().hasSuffix("-pro") {
+            return min(baseLimit, 2048)
+        }
+
+        return baseLimit
+    }
+
+    private func retryAfterInterval(from response: HTTPURLResponse) -> TimeInterval? {
+        guard let rawValue = response.value(forHTTPHeaderField: "Retry-After") else {
+            return nil
+        }
+
+        if let seconds = TimeInterval(rawValue), seconds > 0 {
+            return seconds
+        }
+
+        return nil
+    }
+
+    private func rateLimitMessage(from data: Data, response: HTTPURLResponse) -> String? {
+        let providerMessage = providerErrorMessage(from: data)
+
+        if let retryAfter = retryAfterInterval(from: response), retryAfter > 0 {
+            let seconds = Int(ceil(retryAfter))
+            if let providerMessage, !providerMessage.isEmpty {
+                return "\(providerMessage) Retry in about \(seconds) seconds."
+            }
+            return "Rate limit exceeded. Please try again in about \(seconds) seconds."
+        }
+
+        return providerMessage
+    }
+
+    private func providerErrorMessage(from data: Data) -> String? {
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let error = json["error"] as? [String: Any],
+               let message = error["message"] as? String,
+               !message.isEmpty {
+                return message
+            }
+
+            if let message = json["message"] as? String, !message.isEmpty {
+                return message
+            }
+        }
+
+        let raw = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return raw?.isEmpty == false ? raw : nil
     }
 }

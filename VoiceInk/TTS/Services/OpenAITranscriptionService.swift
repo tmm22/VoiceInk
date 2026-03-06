@@ -13,6 +13,8 @@ protocol AudioTranscribing {
 
 @MainActor
 final class OpenAITranscriptionService: AudioTranscribing {
+    private static let transcriptionModel = "gpt-4o-transcribe"
+
     private let session: URLSession
     private let managedProvisioningClient: ManagedProvisioningClient
     private let keychain: KeychainManager
@@ -155,8 +157,7 @@ private extension OpenAITranscriptionService {
             }
 
             // Fields
-            // NOTE: Keep this constant local to avoid actor-isolation issues in Swift 6.
-            writeField(name: "model", value: "whisper-1")
+            writeField(name: "model", value: Self.transcriptionModel)
             writeField(name: "response_format", value: "verbose_json")
             writeField(name: "temperature", value: "0")
             writeField(name: "timestamp_granularities[]", value: "segment")

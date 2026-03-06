@@ -31,6 +31,8 @@ enum AIProvider: String, CaseIterable {
     case zai = "ZAI"
     case ollama = "Ollama"
     case custom = "Custom"
+
+    static let openAIResponsesURL = "https://api.openai.com/v1/responses"
     
     var baseURL: String {
         switch self {
@@ -93,6 +95,10 @@ enum AIProvider: String, CaseIterable {
         
         return url
     }
+
+    static func usesResponsesAPI(for provider: AIProvider, model: String) -> Bool {
+        provider == .openAI && model.lowercased().hasPrefix("gpt-5")
+    }
     
     var defaultModel: String {
         switch self {
@@ -105,7 +111,7 @@ enum AIProvider: String, CaseIterable {
         case .anthropic:
             return "claude-sonnet-4-5"
         case .openAI:
-            return "gpt-5.2"
+            return "gpt-5.4"
         case .mistral:
             return "mistral-large-latest"
         case .elevenLabs:
@@ -162,8 +168,8 @@ enum AIProvider: String, CaseIterable {
             ]
         case .openAI:
             return [
-                "gpt-5.2",
-                "gpt-5.2-pro",
+                "gpt-5.4",
+                "gpt-5.4-pro",
                 "gpt-5.1",
                 "gpt-5-mini",
                 "gpt-5-nano",
