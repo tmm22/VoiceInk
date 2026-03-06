@@ -1,285 +1,5 @@
 import SwiftUI
-import AVFoundation
-
-extension TimeInterval {
-    func formatTiming() -> String {
-        if self < 1 {
-            return String(format: "%.0fms", self * 1000)
-        }
-        if self < 60 {
-            return String(format: "%.1fs", self)
-        }
-        let minutes = Int(self) / 60
-        let seconds = self.truncatingRemainder(dividingBy: 60)
-        return String(format: "%dm %.0fs", minutes, seconds)
-    }
-}
-
-class WaveformGenerator {
-    private static let cache = NSCache<NSString, NSArray>()
-
-    static func generateWaveformSamples(from url: URL, sampleCount: Int = 200) async -> [Float] {
-        let cacheKey = url.absoluteString as NSString
-
-        if let cachedSamples = cache.object(forKey: cacheKey) as? [Float] {
-            return cachedSamples
-        }
-        guard let audioFile = try? AVAudioFile(forReading: url) else { return [] }
-        let format = audioFile.processingFormat
-        let frameCount = UInt32(audioFile.length)
-        let stride = max(1, Int(frameCount) / sampleCount)
-        let bufferSize = min(UInt32(4096), frameCount)
-
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: bufferSize) else { return [] }
-
-        do {
-            var maxValues = [Float](repeating: 0.0, count: sampleCount)
-            var sampleIndex = 0
-            var framePosition: AVAudioFramePosition = 0
-
-            while sampleIndex < sampleCount && framePosition < AVAudioFramePosition(frameCount) {
-                audioFile.framePosition = framePosition
-                try audioFile.read(into: buffer)
-
-                if let channelData = buffer.floatChannelData?[0], buffer.frameLength > 0 {
-                    maxValues[sampleIndex] = abs(channelData[0])
-                    sampleIndex += 1
-                }
-
-                framePosition += AVAudioFramePosition(stride)
-            }
-
-            let normalizedSamples: [Float]
-            if let maxSample = maxValues.max(), maxSample > 0 {
-                normalizedSamples = maxValues.map { $0 / maxSample }
-            } else {
-                normalizedSamples = maxValues
-            }
-
-            cache.setObject(normalizedSamples as NSArray, forKey: cacheKey)
-            return normalizedSamples
-        } catch {
-            #if DEBUG
-            print("Error reading audio file: \(error)")
-            #endif
-            return []
-        }
-    }
-}
-
-@MainActor
-class AudioPlayerManager: ObservableObject {
-    private var audioPlayer: AVAudioPlayer?
-    private var timer: Timer?
-    @Published var isPlaying = false
-    @Published var currentTime: TimeInterval = 0
-    @Published var duration: TimeInterval = 0
-    @Published var waveformSamples: [Float] = []
-    @Published var isLoadingWaveform = false
-
-    func loadAudio(from url: URL) {
-        do {
-            audioPlayer = try AVAudioPlayer(contentsOf: url)
-            audioPlayer?.prepareToPlay()
-            duration = audioPlayer?.duration ?? 0
-            isLoadingWaveform = true
-
-            Task.detached { [weak self] in
-                let samples = await WaveformGenerator.generateWaveformSamples(from: url)
-                Task { @MainActor [weak self] in
-                    self?.updateWaveformSamples(samples)
-                }
-            }
-        } catch {
-            #if DEBUG
-            print("Error loading audio: \(error.localizedDescription)")
-            #endif
-        }
-    }
-
-    func play() {
-        audioPlayer?.play()
-        isPlaying = true
-        startTimer()
-    }
-
-    func pause() {
-        audioPlayer?.pause()
-        isPlaying = false
-        stopTimer()
-    }
-
-    func seek(to time: TimeInterval) {
-        audioPlayer?.currentTime = time
-        currentTime = time
-    }
-
-    private func startTimer() {
-        stopTimer()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                guard let self = self else { return }
-                self.currentTime = self.audioPlayer?.currentTime ?? 0
-                if self.currentTime >= self.duration {
-                    self.pause()
-                    self.seek(to: 0)
-                }
-            }
-        }
-    }
-
-    private func stopTimer() {
-        timer?.invalidate()
-        timer = nil
-    }
-
-    private func updateWaveformSamples(_ samples: [Float]) {
-        waveformSamples = samples
-        isLoadingWaveform = false
-    }
-
-    func cleanup() {
-        stopTimer()
-        audioPlayer?.stop()
-        audioPlayer = nil
-        isPlaying = false
-        currentTime = 0
-        duration = 0
-        waveformSamples = []
-        isLoadingWaveform = false
-    }
-
-    deinit {
-        timer?.invalidate()
-    }
-}
-
-struct WaveformView: View {
-    let samples: [Float]
-    let currentTime: TimeInterval
-    let duration: TimeInterval
-    let isLoading: Bool
-    var onSeek: (Double) -> Void
-    @State private var isHovering = false
-    @State private var hoverLocation: CGFloat = 0
-
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                if isLoading {
-                    HStack {
-                        ProgressView()
-                            .controlSize(.small)
-                        Text("Loading...")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    HStack(spacing: 0.5) {
-                        ForEach(0..<samples.count, id: \.self) { index in
-                            WaveformBar(
-                                sample: samples[index],
-                                isPlayed: CGFloat(index) / CGFloat(samples.count) <= CGFloat(currentTime / duration),
-                                totalBars: samples.count,
-                                geometryWidth: geometry.size.width,
-                                isHovering: isHovering,
-                                hoverProgress: hoverLocation / geometry.size.width
-                            )
-                        }
-                    }
-                    .opacity(0.6)
-                    .frame(maxHeight: .infinity)
-                    .padding(.horizontal, 2)
-
-                    if isHovering {
-                        Text(formatTime(duration * Double(hoverLocation / geometry.size.width)))
-                            .font(.system(size: 10, weight: .medium))
-                            .monospacedDigit()
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(Capsule().fill(Color.accentColor))
-                            .offset(x: max(0, min(hoverLocation - 25, geometry.size.width - 50)))
-                            .offset(y: -26)
-
-                        Rectangle()
-                            .fill(Color.accentColor)
-                            .frame(width: 2)
-                            .frame(maxHeight: .infinity)
-                            .offset(x: hoverLocation)
-                    }
-                }
-            }
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        if !isLoading {
-                            hoverLocation = value.location.x
-                            onSeek(Double(value.location.x / geometry.size.width) * duration)
-                        }
-                    }
-            )
-            .onHover { hovering in
-                if !isLoading {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isHovering = hovering
-                    }
-                }
-            }
-            .onContinuousHover { phase in
-                if !isLoading {
-                    if case .active(let location) = phase {
-                        hoverLocation = location.x
-                    }
-                }
-            }
-        }
-        .frame(height: 32)
-    }
-
-    private func formatTime(_ time: TimeInterval) -> String {
-        let minutes = Int(time) / 60
-        let seconds = Int(time) % 60
-        return String(format: "%d:%02d", minutes, seconds)
-    }
-}
-
-struct WaveformBar: View {
-    let sample: Float
-    let isPlayed: Bool
-    let totalBars: Int
-    let geometryWidth: CGFloat
-    let isHovering: Bool
-    let hoverProgress: CGFloat
-
-    private var isNearHover: Bool {
-        let barPosition = geometryWidth / CGFloat(totalBars)
-        let hoverPosition = hoverProgress * geometryWidth
-        return abs(barPosition - hoverPosition) < 20
-    }
-
-    var body: some View {
-        Capsule()
-            .fill(
-                LinearGradient(
-                    colors: [
-                        isPlayed ? Color.primary : Color.primary.opacity(0.3),
-                        isPlayed ? Color.primary.opacity(0.8) : Color.primary.opacity(0.2)
-                    ],
-                    startPoint: .bottom,
-                    endPoint: .top
-                )
-            )
-            .frame(
-                width: max((geometryWidth / CGFloat(totalBars)) - 0.5, 1),
-                height: max(CGFloat(sample) * 24, 2)
-            )
-            .scaleEffect(y: isHovering && isNearHover ? 1.15 : 1.0)
-            .animation(.interpolatingSpring(stiffness: 300, damping: 15), value: isHovering && isNearHover)
-    }
-}
+import AppKit
 
 struct AudioPlayerView: View {
     let url: URL
@@ -317,90 +37,7 @@ struct AudioPlayerView: View {
 
                 Spacer()
 
-                HStack(spacing: 8) {
-                    Button(action: showInFinder) {
-                        Circle()
-                            .fill(Color.primary.opacity(0.06))
-                            .frame(width: 32, height: 32)
-                            .overlay(
-                                Image(systemName: "folder")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(.primary)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .help("Show in Finder")
-
-                    Button(action: {
-                        if playerManager.isPlaying {
-                            playerManager.pause()
-                        } else {
-                            playerManager.play()
-                        }
-                    }) {
-                        Circle()
-                            .fill(Color.primary.opacity(0.06))
-                            .frame(width: 32, height: 32)
-                            .overlay(
-                                Image(systemName: playerManager.isPlaying ? "pause.fill" : "play.fill")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(.primary)
-                                    .contentTransition(.symbolEffect(.replace.downUp))
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .scaleEffect(isHovering ? 1.05 : 1.0)
-                    .onHover { hovering in
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            isHovering = hovering
-                        }
-                    }
-
-                    Button(action: {
-                        showPromptPopover.toggle()
-                    }) {
-                        Circle()
-                            .fill(Color.primary.opacity(0.06))
-                            .frame(width: 32, height: 32)
-                            .overlay(
-                                Image(systemName: enhancementService.activePrompt?.icon ?? "sparkles")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(.primary)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .opacity(enhancementService.isEnhancementEnabled ? 1.0 : 0.4)
-                    .help("Select enhancement prompt")
-                    .popover(isPresented: $showPromptPopover, arrowEdge: .bottom) {
-                        EnhancementPromptPopover()
-                            .environmentObject(enhancementService)
-                    }
-
-                    Button(action: retranscribeAudio) {
-                        Circle()
-                            .fill(Color.primary.opacity(0.06))
-                            .frame(width: 32, height: 32)
-                            .overlay(
-                                Group {
-                                    if isRetranscribing {
-                                        ProgressView()
-                                            .controlSize(.small)
-                                    } else if showRetranscribeSuccess {
-                                        Image(systemName: "checkmark")
-                                            .font(.system(size: 14, weight: .semibold))
-                                            .foregroundStyle(Color.green)
-                                    } else {
-                                        Image(systemName: "arrow.clockwise")
-                                            .font(.system(size: 14, weight: .semibold))
-                                            .foregroundStyle(.primary)
-                                    }
-                                }
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isRetranscribing)
-                    .help("Retranscribe this audio")
-                }
+                transportControls
 
                 Spacer()
 
@@ -419,48 +56,137 @@ struct AudioPlayerView: View {
         .onDisappear {
             playerManager.cleanup()
         }
-        .overlay(
-            VStack {
-                if showRetranscribeSuccess {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                        Text("Retranscription successful")
-                            .font(.system(size: 14, weight: .medium))
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.green.opacity(0.1))
-                            .stroke(Color.green.opacity(0.2), lineWidth: 1)
-                    )
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                }
+        .overlay(statusOverlay)
+    }
 
-                if showRetranscribeError {
-                    HStack(spacing: 8) {
-                        Image(systemName: "exclamationmark.circle.fill")
-                            .foregroundColor(.red)
-                        Text(errorMessage.isEmpty ? "Retranscription failed" : errorMessage)
-                            .font(.system(size: 14, weight: .medium))
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.red.opacity(0.1))
-                            .stroke(Color.red.opacity(0.2), lineWidth: 1)
-                    )
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                }
+    private var transportControls: some View {
+        HStack(spacing: 8) {
+            circularControl(systemImage: "folder", action: showInFinder)
+                .help("Show in Finder")
 
-                Spacer()
+            Button(action: togglePlayback) {
+                Circle()
+                    .fill(Color.primary.opacity(0.06))
+                    .frame(width: 32, height: 32)
+                    .overlay(
+                        Image(systemName: playerManager.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .contentTransition(.symbolEffect(.replace.downUp))
+                    )
             }
-            .padding(.top, 16)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showRetranscribeSuccess)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showRetranscribeError)
+            .buttonStyle(.plain)
+            .scaleEffect(isHovering ? 1.05 : 1.0)
+            .onHover { hovering in
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    isHovering = hovering
+                }
+            }
+
+            Button(action: { showPromptPopover.toggle() }) {
+                Circle()
+                    .fill(Color.primary.opacity(0.06))
+                    .frame(width: 32, height: 32)
+                    .overlay(
+                        Image(systemName: enhancementService.activePrompt?.icon ?? "sparkles")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.primary)
+                    )
+            }
+            .buttonStyle(.plain)
+            .opacity(enhancementService.isEnhancementEnabled ? 1.0 : 0.4)
+            .help("Select enhancement prompt")
+            .popover(isPresented: $showPromptPopover, arrowEdge: .bottom) {
+                EnhancementPromptPopover()
+                    .environmentObject(enhancementService)
+            }
+
+            Button(action: retranscribeAudio) {
+                Circle()
+                    .fill(Color.primary.opacity(0.06))
+                    .frame(width: 32, height: 32)
+                    .overlay(retranscriptionIndicator)
+            }
+            .buttonStyle(.plain)
+            .disabled(isRetranscribing)
+            .help("Retranscribe this audio")
+        }
+    }
+
+    private var retranscriptionIndicator: some View {
+        Group {
+            if isRetranscribing {
+                ProgressView()
+                    .controlSize(.small)
+            } else if showRetranscribeSuccess {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.green)
+            } else {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+            }
+        }
+    }
+
+    private var statusOverlay: some View {
+        VStack {
+            if showRetranscribeSuccess {
+                statusBanner(
+                    systemImage: "checkmark.circle.fill",
+                    message: "Retranscription successful",
+                    tint: .green
+                )
+            }
+
+            if showRetranscribeError {
+                statusBanner(
+                    systemImage: "exclamationmark.circle.fill",
+                    message: errorMessage.isEmpty ? "Retranscription failed" : errorMessage,
+                    tint: .red
+                )
+            }
+
+            Spacer()
+        }
+        .padding(.top, 16)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showRetranscribeSuccess)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showRetranscribeError)
+    }
+
+    private func circularControl(systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Circle()
+                .fill(Color.primary.opacity(0.06))
+                .frame(width: 32, height: 32)
+                .overlay(
+                    Image(systemName: systemImage)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func statusBanner(systemImage: String, message: String, tint: Color) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .foregroundColor(tint)
+            Text(message)
+                .font(.system(size: 14, weight: .medium))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(tint.opacity(0.1))
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(tint.opacity(0.2), lineWidth: 1)
+        )
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 
     private func formatTime(_ time: TimeInterval) -> String {
@@ -473,14 +199,19 @@ struct AudioPlayerView: View {
         NSWorkspace.shared.selectFile(url.path, inFileViewerRootedAtPath: url.deletingLastPathComponent().path)
     }
 
+    private func togglePlayback() {
+        if playerManager.isPlaying {
+            playerManager.pause()
+        } else {
+            playerManager.play()
+        }
+    }
+
     private func retranscribeAudio() {
         guard let currentTranscriptionModel = whisperState.currentTranscriptionModel else {
             errorMessage = "No transcription model selected"
             showRetranscribeError = true
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 3_000_000_000)
-                withAnimation { showRetranscribeError = false }
-            }
+            scheduleErrorReset()
             return
         }
 
@@ -488,25 +219,37 @@ struct AudioPlayerView: View {
 
         Task {
             do {
-                let _ = try await transcriptionService.retranscribeAudio(from: url, using: currentTranscriptionModel)
+                _ = try await transcriptionService.retranscribeAudio(from: url, using: currentTranscriptionModel)
                 await MainActor.run {
                     isRetranscribing = false
                     showRetranscribeSuccess = true
-                    Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: 3_000_000_000)
-                        withAnimation { showRetranscribeSuccess = false }
-                    }
                 }
+                scheduleSuccessReset()
             } catch {
                 await MainActor.run {
                     isRetranscribing = false
                     errorMessage = error.localizedDescription
                     showRetranscribeError = true
-                    Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: 3_000_000_000)
-                        withAnimation { showRetranscribeError = false }
-                    }
                 }
+                scheduleErrorReset()
+            }
+        }
+    }
+
+    private func scheduleSuccessReset() {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            withAnimation {
+                showRetranscribeSuccess = false
+            }
+        }
+    }
+
+    private func scheduleErrorReset() {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            withAnimation {
+                showRetranscribeError = false
             }
         }
     }

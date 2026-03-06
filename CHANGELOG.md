@@ -21,6 +21,20 @@ All notable changes to the VoiceLink Community application are documented here.
 - Updated `UPSTREAM_INTEGRATION_PROGRESS.md` with the March 6, 2026 sync session and conflict-resolution strategy.
 - Refreshed README recent-changes notes to reflect the current upstream sync status.
 
+### Structural Refactors
+- Split the remaining oversized Swift files into focused companion files so the key application areas now stay under the 500-line review target.
+- Refactored the remaining large UI surfaces into smaller sections/components, including:
+  - `VoiceInk/Views/PromptEditorView.swift`
+  - `VoiceInk/Views/Dictionary/WordReplacementView.swift`
+  - `VoiceInk/Views/AI Models/APIKeyManagementView.swift`
+  - `VoiceInk/Views/AudioPlayerView.swift`
+  - `VoiceInk/TTS/Views/TTSInspectorView.swift`
+- Refactored the remaining large service/core files into feature-focused companions, including:
+  - `VoiceInk/CoreAudioRecorder.swift`
+  - `VoiceInk/Services/AudioDeviceManager.swift`
+  - `VoiceInk/TTS/Services/ElevenLabsTTSService.swift`
+- Added a follow-up audit/fix pass after the split to preserve moved call sites and restore small regressions in audio-device access and branded dictionary examples.
+
 ### AI Enhancement
 - Updated the OpenAI enhancement default/model list to `gpt-5.4` and `gpt-5.4-pro`, and routed GPT-5 enhancement requests through the OpenAI Responses API.
 - Normalized GPT-5 reasoning effort handling and added output token caps so enhancement requests stay within model-supported parameters more consistently.
@@ -31,6 +45,7 @@ All notable changes to the VoiceLink Community application are documented here.
 ### Verification
 - Completed a successful `xcodebuild` Debug build for scheme `VoiceInk` in an isolated worktree after merge reconciliation.
 - Completed a follow-up successful `xcodebuild` Debug build after the GPT-5.4 and rate-limit handling changes, then reran `reset_permissions.sh` for clean manual testing.
+- Completed a post-refactor audit showing `0` Swift files over 500 lines in `VoiceInk/`, with `git diff --check`, parser-level validation across all touched files, and narrow `swiftc -typecheck` verification for the recorder and audio-device splits.
 
 ## 2026-02-19
 
