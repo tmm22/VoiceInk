@@ -16,6 +16,18 @@ extension PredefinedModels {
             isMultilingual: true,
             supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .groq)
         ),
+
+        // OpenAI Models
+        CloudModel(
+            name: "gpt-4o-transcribe",
+            displayName: "GPT-4o Transcribe (OpenAI)",
+            description: "OpenAI's current transcription model for multilingual speech-to-text.",
+            provider: .openAI,
+            speed: 0.78,
+            accuracy: 0.98,
+            isMultilingual: true,
+            supportedLanguages: getLanguageDictionary(isMultilingual: true, provider: .openAI)
+        ),
         
         // ElevenLabs Models
         CloudModel(

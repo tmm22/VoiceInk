@@ -26,6 +26,7 @@ All notable changes to the VoiceLink Community application are documented here.
 - Normalized GPT-5 reasoning effort handling and added output token caps so enhancement requests stay within model-supported parameters more consistently.
 - Improved OpenAI rate-limit handling by surfacing provider `429` messages, respecting `Retry-After`, and retrying once from `gpt-5.4-pro` to `gpt-5.4` when the pro tier is throttled.
 - Updated OpenAI API key verification to use the correct GPT-5 endpoint/model path with a reduced token budget, and switched OpenAI audio transcription to `gpt-4o-transcribe`.
+- Added `GPT-4o Transcribe (OpenAI)` to the cloud transcription model catalog and wired it into the selectable Model Management list.
 
 ### Verification
 - Completed a successful `xcodebuild` Debug build for scheme `VoiceInk` in an isolated worktree after merge reconciliation.

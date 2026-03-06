@@ -306,7 +306,7 @@ struct ModelManagementView: View {
                 return modelAccuracy(model1) > modelAccuracy(model2)
             })
         case .cloud:
-            let cloudProviders: [ModelProvider] = [.groq, .elevenLabs, .deepgram, .mistral, .gemini, .soniox, .assemblyAI, .zai]
+            let cloudProviders: [ModelProvider] = [.groq, .openAI, .elevenLabs, .deepgram, .mistral, .gemini, .soniox, .assemblyAI, .zai]
             return whisperState.allAvailableModels.filter { cloudProviders.contains($0.provider) }
                 .sorted(by: { (model1: any TranscriptionModel, model2: any TranscriptionModel) in
                     // Sort by: 1) Best balanced (fast + accurate) first, 2) Then by accuracy

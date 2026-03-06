@@ -7,6 +7,7 @@ enum ModelProvider: String, Codable, Hashable, CaseIterable {
     case fastConformer = "FastConformer"
     case senseVoice = "SenseVoice"
     case groq = "Groq"
+    case openAI = "OpenAI"
     case elevenLabs = "ElevenLabs"
     case deepgram = "Deepgram"
     case mistral = "Mistral"

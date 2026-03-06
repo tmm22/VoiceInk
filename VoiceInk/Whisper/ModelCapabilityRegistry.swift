@@ -87,6 +87,7 @@ class ModelCapabilityRegistry {
 
         // Cloud providers
         register(GroqModelCapabilities())
+        register(OpenAIModelCapabilities())
         register(ElevenLabsModelCapabilities())
         register(DeepgramModelCapabilities())
         register(MistralModelCapabilities())
@@ -214,6 +215,22 @@ class GroqModelCapabilities: ProviderCapabilities {
 
     func getAIServiceProvider() -> AIProvider? {
         return .groq
+    }
+}
+
+class OpenAIModelCapabilities: ProviderCapabilities {
+    let supportedProvider: ModelProvider = .openAI
+
+    func checkAvailability(model: any TranscriptionModel, whisperState: WhisperState?) -> Bool {
+        return KeychainManager.shared.hasAPIKey(for: getAPIKeyName())
+    }
+
+    func getAPIKeyName() -> String {
+        return "OpenAI"
+    }
+
+    func getAIServiceProvider() -> AIProvider? {
+        return .openAI
     }
 }
 

@@ -39,6 +39,7 @@ class CloudTranscriptionService: TranscriptionService {
 
     init(providers: [any CloudTranscriptionProvider] = [
         GroqTranscriptionService(),
+        OpenAICloudTranscriptionService(),
         ElevenLabsTranscriptionService(),
         DeepgramTranscriptionService(),
         MistralTranscriptionService(),
