@@ -157,9 +157,9 @@ extension WhisperState {
 
             let transcriptionStart = Date()
             var text = try await transcriptionService.transcribe(audioURL: url, model: model)
-            logger.notice("📝 Raw transcript: \(text, privacy: .public)")
+            logger.debug("Transcript received. Character count: \(text.count, privacy: .public)")
             text = TranscriptionOutputFilter.filter(text)
-            logger.notice("📝 Output filter result: \(text, privacy: .public)")
+            logger.debug("Transcript output filter applied. Character count: \(text.count, privacy: .public)")
             let transcriptionDuration = Date().timeIntervalSince(transcriptionStart)
 
             let powerModeManager = PowerModeManager.shared
@@ -173,11 +173,11 @@ extension WhisperState {
 
             if AppSettings.TranscriptionSettings.isTextFormattingEnabled {
                 text = WhisperTextFormatter.format(text)
-                logger.notice("📝 Formatted transcript: \(text, privacy: .public)")
+                logger.debug("Transcript formatting applied. Character count: \(text.count, privacy: .public)")
             }
 
             text = WordReplacementService.shared.applyReplacements(to: text)
-            logger.notice("📝 WordReplacement: \(text, privacy: .public)")
+            logger.debug("Word replacements applied. Character count: \(text.count, privacy: .public)")
 
             let audioAsset = AVURLAsset(url: url)
             let actualDuration: TimeInterval
@@ -219,7 +219,7 @@ extension WhisperState {
                         recordingDuration: transcription.duration,
                         language: selectedLanguage
                     )
-                    logger.notice("📝 AI enhancement: \(enhancedText, privacy: .public)")
+                    logger.debug("AI enhancement completed. Character count: \(enhancedText.count, privacy: .public)")
                     transcription.enhancedText = enhancedText
                     transcription.aiEnhancementModelName = enhancementService.getAIService()?.currentModel
                     transcription.promptName = promptName

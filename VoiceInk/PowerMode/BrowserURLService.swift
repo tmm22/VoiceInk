@@ -130,11 +130,11 @@ class BrowserURLService {
                 
                 // Check if output contains error messages
                 if output.lowercased().contains("error") {
-                    logger.error("❌ AppleScript error for \(browser.displayName, privacy: .public): \(output, privacy: .public)")
+                    logger.error("❌ AppleScript returned an error for \(browser.displayName, privacy: .public)")
                     throw BrowserURLError.executionFailed
                 }
                 
-                logger.debug("✅ Successfully retrieved URL from \(browser.displayName, privacy: .public): \(output, privacy: .public)")
+                logger.debug("✅ Successfully retrieved active tab URL from \(browser.displayName, privacy: .public)")
                 return output
             } else {
                 logger.error("❌ Failed to decode output from AppleScript for \(browser.displayName, privacy: .public)")

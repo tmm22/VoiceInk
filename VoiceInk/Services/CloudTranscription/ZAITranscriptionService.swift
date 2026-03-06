@@ -20,14 +20,13 @@ class ZAITranscriptionService: CloudTranscriptionBase, CloudTranscriptionProvide
         
         var request = URLRequest(url: config.url)
         request.httpMethod = "POST"
-        var formData = MultipartFormDataBuilder()
-        request.setValue(formData.contentType, forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
         
-        try await createRequestBody(audioURL: audioURL, modelName: config.modelName, formData: &formData)
-        let body = formData.finalize()
-        
-        let (data, response) = try await session.upload(for: request, from: body)
+        let (data, response) = try await uploadMultipartForm(
+            request,
+            audioURL: audioURL,
+            fields: requestFields(modelName: config.modelName)
+        )
         let responseData = try validateResponse(response, data: data, logger: logger, providerName: "Z.AI")
         
         do {
@@ -52,46 +51,11 @@ class ZAITranscriptionService: CloudTranscriptionBase, CloudTranscriptionProvide
         return APIConfig(url: apiURL, apiKey: apiKey, modelName: model.name)
     }
     
-    /// Creates the multipart form-data request body.
-    /// Z.AI uses OpenAI-compatible API format.
-    private func createRequestBody(
-        audioURL: URL,
-        modelName: String,
-        formData: inout MultipartFormDataBuilder
-    ) async throws {
-        let audioData = try await loadAudioData(from: audioURL)
-        
-        // Determine content type based on file extension
-        let contentType: String
-        switch audioURL.pathExtension.lowercased() {
-        case "mp3":
-            contentType = "audio/mpeg"
-        case "wav":
-            contentType = "audio/wav"
-        case "m4a":
-            contentType = "audio/mp4"
-        case "webm":
-            contentType = "audio/webm"
-        default:
-            contentType = "audio/wav"
-        }
-        
-        // File field
-        formData.addFile(
-            name: "file",
-            filename: audioURL.lastPathComponent,
-            data: audioData,
-            contentType: contentType
-        )
-        
-        // Model field
-        formData.addField(name: "model", value: modelName)
-        
-        // Stream field (false for synchronous transcription)
-        formData.addField(name: "stream", value: "false")
-        
-        // Optional: Include hotwords if available from user dictionary
-        // This could be enhanced to pull from the user's custom vocabulary
+    private func requestFields(modelName: String) -> [MultipartFormField] {
+        [
+            MultipartFormField(name: "model", value: modelName),
+            MultipartFormField(name: "stream", value: "false")
+        ]
     }
     
     // MARK: - Supporting Types

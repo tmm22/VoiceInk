@@ -336,6 +336,33 @@ VoiceInk/
 // TTSProviderType.swift - Enum definitions
 ```
 
+### Single Source of Truth
+
+> **Context:** The 2026-03-07 code review found `TranscriptionHistoryView`, `HistoryTranscriptionView`, and `TranscriptionHistoryLegacyView` drifting after fixes landed in only one copy.
+
+**Rule: One feature/screen should have exactly one real implementation.**
+
+When a view or service is superseded:
+- ✅ Delete the duplicate, OR
+- ✅ Replace old entry points with a thin wrapper/typealias that forwards to the canonical implementation
+- ⛔ Never keep multiple near-identical copies of a screen or service and edit them independently
+
+```swift
+// ✅ Good: Legacy name forwards to the real implementation
+@available(*, deprecated, message: "Use TranscriptionHistoryView")
+typealias HistoryTranscriptionView = TranscriptionHistoryView
+
+// ✅ Good: Compatibility wrapper delegates to the canonical view
+struct TranscriptionHistoryLegacyView: View {
+    var body: some View { TranscriptionHistoryView() }
+}
+
+// ⛔ Bad: Forked copy that will drift
+struct HistoryTranscriptionView: View {
+    // 400 lines copied from TranscriptionHistoryView
+}
+```
+
 ---
 
 ## Coding Standards
@@ -408,6 +435,32 @@ print("Error: \(error)")
 
 // ⛔ Bad: Unguarded print ships to production
 print("Debug: Processing file \(filename)")  // Ships to production!
+```
+
+#### Sensitive Data Logging
+
+> **Context:** The 2026-03-07 code review found AI system prompts, transcript text, enhanced text, and active browser URLs logged with `privacy: .public`.
+
+**Rule: Never log user content or derived context payloads.**
+
+Sensitive payloads include:
+- API keys, bearer tokens, authorization headers
+- Transcript text, enhanced text, prompts, conversation history
+- Clipboard contents, focused-element text, selected file contents
+- Browser URLs, page titles, screen-capture OCR, calendar events
+
+```swift
+// ✅ Good: Log metadata only
+logger.debug("Transcript received. Character count: \(text.count, privacy: .public)")
+logger.debug("Browser URL fetch succeeded for \(browser.displayName, privacy: .public)")
+
+// ✅ Good: If correlation is needed, log a hash or identifier instead of content
+logger.debug("Prompt template id: \(prompt.id.uuidString, privacy: .public)")
+
+// ⛔ Bad: Logging sensitive payloads
+logger.notice("Transcript: \(text, privacy: .public)")
+logger.notice("System prompt: \(systemMessage, privacy: .public)")
+logger.debug("Current URL: \(output, privacy: .public)")
 ```
 
 ### Localization
@@ -822,6 +875,8 @@ VoiceInk aims for production-grade quality. Every contribution must meet these c
 **ALWAYS use macOS Keychain for API keys. Never use UserDefaults fallbacks.**
 
 > **Note:** Legacy API key migration from UserDefaults has been completed. All cloud transcription services now use Keychain-only access. Never add UserDefaults fallbacks for credentials.
+>
+> **LOCAL_BUILD is NOT an exception:** Unsigned/local builds must still use Keychain. If local entitlements cannot support syncable/shared items, disable sync (`syncable: false`) or fail closed. Never redirect secrets to `UserDefaults`, temp files, or plist storage.
 
 ```swift
 // ✅ Good: Keychain storage with no fallback
@@ -845,6 +900,9 @@ func getAPIKey() -> String {
     if let legacy = UserDefaults.standard.string(forKey: "APIKey") { return legacy }  // INSECURE!
     throw error
 }
+
+// ✅ Good: Local build still uses Keychain, just without syncable items
+keychain.save(apiKey, forKey: keyIdentifier, syncable: false)
 ```
 
 **CustomCloudModel API key rule (critical):**
@@ -879,6 +937,33 @@ let session = SecureURLSession.makeEphemeral()
 configuration.urlCache = nil                 // No disk cache
 configuration.httpCookieStorage = nil        // No cookies
 configuration.httpShouldSetCookies = false   // Block tracking
+```
+
+### 2a. Large Audio Uploads
+
+> **Context:** The 2026-03-07 code review found cloud transcription providers reading entire recordings into memory and using `URLSession.shared` even though the codebase already had secure ephemeral sessions.
+
+**Rule: Stream uploads for recordings whenever the API allows it.**
+
+- ✅ Use `SecureURLSession.makeEphemeral()`
+- ✅ Prefer `session.upload(for:request, fromFile:)` for raw file uploads
+- ✅ For multipart uploads, stream to a temporary body file, then upload that file
+- ⛔ Never use `URLSession.shared` for credentialed uploads
+- ⛔ Never use `Data(contentsOf:)` for large audio uploads when `fromFile:` or a streamed body is possible
+
+```swift
+// ✅ Good: Raw upload from file
+let (data, response) = try await session.upload(for: request, fromFile: audioURL)
+
+// ✅ Good: Multipart upload via streamed temporary body file
+let (bodyURL, contentType) = try makeMultipartBodyFile(audioURL: audioURL, fields: fields)
+defer { try? FileManager.default.removeItem(at: bodyURL) }
+request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+let (data, response) = try await session.upload(for: request, fromFile: bodyURL)
+
+// ⛔ Bad: Full recording loaded into RAM
+let audioData = try Data(contentsOf: audioURL)
+let (data, response) = try await URLSession.shared.upload(for: request, from: audioData)
 ```
 
 ### 3. URL Validation for Custom Providers
@@ -1014,6 +1099,7 @@ defer {
 Before committing code with credentials or network calls:
 
 - [ ] API keys stored in Keychain (not UserDefaults)
+- [ ] Local/unsigned builds do not downgrade secrets to plaintext storage
 - [ ] HTTPS-only URLs (no `http://`)
 - [ ] Custom/user-provided URLs validated for HTTPS scheme
 - [ ] No sensitive data in logs
@@ -1021,6 +1107,7 @@ Before committing code with credentials or network calls:
 - [ ] Temporary files cleaned up
 - [ ] Error messages don't leak secrets
 - [ ] Ephemeral URLSessions for API calls
+- [ ] Recording uploads use `upload(fromFile:)` or streamed multipart bodies when possible
 
 **See `TTS_SECURITY_AUDIT.md` for comprehensive security analysis.**
 

@@ -131,6 +131,20 @@ struct TranscriptionCard: View {
         }
     }
 
+    private struct CircularCheckboxStyle: ToggleStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            Button(action: {
+                configuration.isOn.toggle()
+            }) {
+                Image(systemName: configuration.isOn ? "checkmark.circle.fill" : "circle")
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundColor(configuration.isOn ? Color(NSColor.controlAccentColor) : .secondary)
+                    .font(.system(size: 18))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
     var body: some View {
         HStack(spacing: VoiceInkSpacing.md) {
             Toggle("", isOn: Binding(

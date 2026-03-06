@@ -19,32 +19,14 @@ class MistralTranscriptionService: CloudTranscriptionBase, CloudTranscriptionPro
         }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-
-        var formData = MultipartFormDataBuilder()
-        request.setValue(formData.contentType, forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-
-        formData.addField(name: "model", value: model.name)
-
-        // Add file data - matching Python SDK structure (no language field as it's commented out in all Python examples)
-        let audioData: Data
-        do {
-            audioData = try await AudioFileLoader.loadData(from: audioURL)
-        } catch {
-            throw CloudTranscriptionError.audioFileNotFound
-        }
-
-        formData.addFile(
-            name: "file",
-            filename: audioURL.lastPathComponent,
-            data: audioData,
-            contentType: "audio/wav"
-        )
-
-        request.httpBody = formData.finalize()
         
         do {
-            let (data, response) = try await session.data(for: request)
+            let (data, response) = try await uploadMultipartForm(
+                request,
+                audioURL: audioURL,
+                fields: [MultipartFormField(name: "model", value: model.name)]
+            )
             let responseData = try validateResponse(response, data: data, logger: logger, providerName: "Mistral")
 
             do {

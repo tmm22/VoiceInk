@@ -1,7 +1,7 @@
 import Foundation
 import os
 
-class DeepgramTranscriptionService: CloudTranscriptionProvider {
+class DeepgramTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProvider {
     let supportedProvider: ModelProvider = .deepgram
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "DeepgramService")
 
@@ -11,13 +11,18 @@ class DeepgramTranscriptionService: CloudTranscriptionProvider {
         var request = URLRequest(url: config.url)
         request.httpMethod = "POST"
         request.setValue("Token \(config.apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("audio/wav", forHTTPHeaderField: "Content-Type")
+        request.setValue(audioMimeType(for: audioURL), forHTTPHeaderField: "Content-Type")
 
-        guard let audioData = try? Data(contentsOf: audioURL) else {
-            throw CloudTranscriptionError.audioFileNotFound
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.upload(for: request, fromFile: audioURL)
+        } catch {
+            if (error as NSError).domain == NSCocoaErrorDomain {
+                throw CloudTranscriptionError.audioFileNotFound
+            }
+            throw error
         }
-
-        let (data, response) = try await URLSession.shared.upload(for: request, from: audioData)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
         }

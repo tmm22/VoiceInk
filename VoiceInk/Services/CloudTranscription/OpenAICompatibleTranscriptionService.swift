@@ -61,18 +61,13 @@ class OpenAICompatibleTranscriptionService: CloudTranscriptionBase, CloudTranscr
         
         var request = URLRequest(url: config.url)
         request.httpMethod = "POST"
-        var formData = MultipartFormDataBuilder()
-        request.setValue(formData.contentType, forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
         
-        try await createOpenAICompatibleRequestBody(
+        let (data, response) = try await uploadMultipartForm(
+            request,
             audioURL: audioURL,
-            modelName: config.modelName,
-            formData: &formData
+            fields: requestFields(modelName: config.modelName)
         )
-        let body = formData.finalize()
-        
-        let (data, response) = try await session.upload(for: request, from: body)
         let responseData = try validateResponse(response, data: data, logger: logger, providerName: "OpenAI-compatible")
         
         do {
@@ -84,35 +79,23 @@ class OpenAICompatibleTranscriptionService: CloudTranscriptionBase, CloudTranscr
         }
     }
     
-    private func createOpenAICompatibleRequestBody(
-        audioURL: URL,
-        modelName: String,
-        formData: inout MultipartFormDataBuilder
-    ) async throws {
-        let audioData = try await loadAudioData(from: audioURL)
-        
+    private func requestFields(modelName: String) -> [MultipartFormField] {
         let selectedLanguage = AppSettings.TranscriptionSettings.selectedLanguage ?? "auto"
         let prompt = AppSettings.TranscriptionSettings.prompt ?? ""
-        
-        formData.addFile(
-            name: "file",
-            filename: audioURL.lastPathComponent,
-            data: audioData,
-            contentType: "audio/wav"
-        )
-        formData.addField(name: "model", value: modelName)
+
+        var fields = [MultipartFormField(name: "model", value: modelName)]
         
         if selectedLanguage != "auto", !selectedLanguage.isEmpty {
-            formData.addField(name: "language", value: selectedLanguage)
+            fields.append(MultipartFormField(name: "language", value: selectedLanguage))
         }
         
-        // Include prompt for OpenAI-compatible APIs
         if !prompt.isEmpty {
-            formData.addField(name: "prompt", value: prompt)
+            fields.append(MultipartFormField(name: "prompt", value: prompt))
         }
         
-        formData.addField(name: "response_format", value: "json")
-        formData.addField(name: "temperature", value: "0")
+        fields.append(MultipartFormField(name: "response_format", value: "json"))
+        fields.append(MultipartFormField(name: "temperature", value: "0"))
+        return fields
     }
     
     private struct APIConfig {

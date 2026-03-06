@@ -114,7 +114,7 @@ class TranscriptionProcessor: ObservableObject, TranscriptionProcessorProtocol {
         logger.info("🔄 Processing transcription for model: \(model.displayName)")
 
         // Preprocess audio
-        let (audioData, duration) = try await audioPreprocessor.preprocessAudio(from: audioURL)
+        _ = try await audioPreprocessor.preprocessAudio(from: audioURL)
 
         // Select appropriate transcription service
         let service = try selectTranscriptionService(for: model)
@@ -124,7 +124,7 @@ class TranscriptionProcessor: ObservableObject, TranscriptionProcessorProtocol {
         let rawText = try await service.transcribe(audioURL: audioURL, model: model)
         let transcriptionDuration = Date().timeIntervalSince(transcriptionStart)
 
-        logger.info("📝 Raw transcription: \(rawText, privacy: .public)")
+        logger.debug("Raw transcription received. Character count: \(rawText.count, privacy: .public)")
 
         // Process result
         let (processedText, actualDuration) = try await resultProcessor.processResult(

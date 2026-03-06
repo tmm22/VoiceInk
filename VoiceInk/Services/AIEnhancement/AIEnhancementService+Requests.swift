@@ -39,7 +39,9 @@ extension AIEnhancementService {
         self.lastSystemMessageSent = truncateForStorage(systemMessage, limit: maxStoredMessageCharacters)
         self.lastUserMessageSent = truncateForStorage(formattedText, limit: maxStoredMessageCharacters)
 
-        logger.notice("AI Enhancement - System Message: \(systemMessage, privacy: .public)")
+        logger.debug(
+            "AI enhancement request prepared for provider \(self.aiService.selectedProvider.rawValue, privacy: .public) using model \(self.aiService.currentModel, privacy: .public). System chars: \(systemMessage.count, privacy: .public), transcript chars: \(text.count, privacy: .public)"
+        )
         
         // Handle Ollama provider separately
         if aiService.selectedProvider == .ollama {

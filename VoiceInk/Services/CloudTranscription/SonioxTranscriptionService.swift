@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-class SonioxTranscriptionService: CloudTranscriptionProvider {
+class SonioxTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProvider {
     let supportedProvider: ModelProvider = .soniox
     private let apiBase = "https://api.soniox.com/v1"
     private let modelContext: ModelContext?
@@ -38,10 +38,7 @@ class SonioxTranscriptionService: CloudTranscriptionProvider {
         var request = URLRequest(url: apiURL)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        let boundary = "Boundary-\(UUID().uuidString)"
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        let body = try createMultipartBody(fileURL: audioURL, boundary: boundary)
-        let (data, response) = try await URLSession.shared.upload(for: request, from: body)
+        let (data, response) = try await uploadMultipartForm(request, audioURL: audioURL, fields: [])
         guard let httpResponse = response as? HTTPURLResponse else {
             throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
         }
@@ -88,7 +85,7 @@ class SonioxTranscriptionService: CloudTranscriptionProvider {
             payload["enable_language_identification"] = true
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
         }
@@ -114,7 +111,7 @@ class SonioxTranscriptionService: CloudTranscriptionProvider {
             var request = URLRequest(url: baseURL)
             request.httpMethod = "GET"
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await session.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
             }
@@ -149,7 +146,7 @@ class SonioxTranscriptionService: CloudTranscriptionProvider {
         var request = URLRequest(url: apiURL)
         request.httpMethod = "GET"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
         }
@@ -164,21 +161,6 @@ class SonioxTranscriptionService: CloudTranscriptionProvider {
             return asString
         }
         throw CloudTranscriptionError.noTranscriptionReturned
-    }
-    
-    private func createMultipartBody(fileURL: URL, boundary: String) throws -> Data {
-        var body = Data()
-        let crlf = "\r\n"
-        guard let audioData = try? Data(contentsOf: fileURL) else {
-            throw CloudTranscriptionError.audioFileNotFound
-        }
-        body.append("--\(boundary)\(crlf)".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileURL.lastPathComponent)\"\(crlf)".data(using: .utf8)!)
-        body.append("Content-Type: audio/wav\(crlf)\(crlf)".data(using: .utf8)!)
-        body.append(audioData)
-        body.append(crlf.data(using: .utf8)!)
-        body.append("--\(boundary)--\(crlf)".data(using: .utf8)!)
-        return body
     }
     
     private func getCustomDictionaryTerms() -> [String] {

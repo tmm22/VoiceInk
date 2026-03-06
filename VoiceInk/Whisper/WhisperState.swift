@@ -365,9 +365,9 @@ class WhisperState: NSObject, ObservableObject {
             } else {
                 text = try await serviceRegistry.transcribe(audioURL: url, model: model)
             }
-            logger.notice("📝 Transcript: \(text, privacy: .public)")
+            logger.debug("Transcript received. Character count: \(text.count, privacy: .public)")
             text = TranscriptionOutputFilter.filter(text)
-            logger.notice("📝 Output filter result: \(text, privacy: .public)")
+            logger.debug("Transcript output filter applied. Character count: \(text.count, privacy: .public)")
             let transcriptionDuration = Date().timeIntervalSince(transcriptionStart)
 
             let powerModeManager = PowerModeManager.shared
@@ -381,11 +381,11 @@ class WhisperState: NSObject, ObservableObject {
 
             if UserDefaults.standard.bool(forKey: "IsTextFormattingEnabled") {
                 text = WhisperTextFormatter.format(text)
-                logger.notice("📝 Formatted transcript: \(text, privacy: .public)")
+                logger.debug("Transcript formatting applied. Character count: \(text.count, privacy: .public)")
             }
 
             text = WordReplacementService.shared.applyReplacements(to: text)
-            logger.notice("📝 WordReplacement: \(text, privacy: .public)")
+            logger.debug("Word replacements applied. Character count: \(text.count, privacy: .public)")
 
             let audioAsset = AVURLAsset(url: url)
             let actualDuration = (try? CMTimeGetSeconds(await audioAsset.load(.duration))) ?? 0.0
@@ -414,7 +414,7 @@ class WhisperState: NSObject, ObservableObject {
 
                 do {
                     let (enhancedText, enhancementDuration, promptName) = try await enhancementService.enhance(textForAI)
-                    logger.notice("📝 AI enhancement: \(enhancedText, privacy: .public)")
+                    logger.debug("AI enhancement completed. Character count: \(enhancedText.count, privacy: .public)")
                     transcription.enhancedText = enhancedText
                     transcription.aiEnhancementModelName = enhancementService.getAIService()?.currentModel
                     transcription.promptName = promptName

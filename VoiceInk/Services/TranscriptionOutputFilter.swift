@@ -50,11 +50,10 @@ struct TranscriptionOutputFilter {
         filteredText = filteredText.replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
         filteredText = filteredText.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Log results
         if filteredText != text {
-            logger.notice("📝 Output filter result: \(filteredText, privacy: .public)")
+            logger.debug("Output filter modified transcript. Original chars: \(text.count, privacy: .public), filtered chars: \(filteredText.count, privacy: .public)")
         } else {
-            logger.notice("📝 Output filter result (unchanged): \(filteredText, privacy: .public)")
+            logger.debug("Output filter made no changes. Character count: \(filteredText.count, privacy: .public)")
         }
 
         return filteredText
