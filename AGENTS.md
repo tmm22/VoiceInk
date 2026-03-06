@@ -1283,6 +1283,7 @@ Before committing changes:
 **Documentation & Process:**
 - [ ] Update `CHANGELOG.md` for user-visible behavior changes, upstream syncs, and build workflow updates
 - [ ] Update `AGENTS.md` when introducing or changing coding standards, workflow rules, or required tooling conventions
+- [ ] After any successful local Debug build verification, run `bash ./reset_permissions.sh` to reset TCC permissions and onboarding for the next manual test pass
 
 **Assets:**
 - [ ] Audio files verified with `file` command (WAV/MP3 format matches extension)
@@ -1305,6 +1306,16 @@ xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug bui
     -destination 'platform=macOS,arch=arm64,name=My Mac' \
     CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 ```
+
+### Post-Debug-Build Step
+
+After every successful local `Debug` build completed by an AI agent, immediately run:
+
+```bash
+bash ./reset_permissions.sh
+```
+
+This resets TCC permissions and the onboarding flag for bundle ID `com.tmm22.VoiceLinkCommunity`, so the next launch replays the full permission flow. Use this after successful Debug build verification only; do not apply it to Release/archive/distribution workflows.
 
 The built app will be located at:
 ```
