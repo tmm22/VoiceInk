@@ -2,6 +2,31 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-03-07
+
+### Security & Privacy
+- Removed production payload logging of AI system prompts, transcript text, enhanced text, filtered transcript text, and active browser URLs. Reviewed paths now log metadata only (provider/model identifiers, browser names, and character counts).
+- Eliminated the `LOCAL_BUILD` plaintext secret fallback in `KeychainService`; local builds now remain Keychain-only and disable syncable items instead of redirecting secrets to `UserDefaults`.
+
+### Performance & Networking
+- Added a shared streamed multipart upload path in `VoiceInk/Services/CloudTranscription/CloudTranscriptionBase.swift` that writes request bodies to a temporary file and uploads them through `SecureURLSession.makeEphemeral()`.
+- Moved Deepgram to direct `upload(for:fromFile:)` uploads for recorded audio instead of loading files fully into memory.
+- Migrated ElevenLabs and Soniox multipart uploads to the streamed body-file path, and applied the same hardening/refactor to OpenAI, OpenAI-compatible, Groq, ZAI, and Mistral cloud transcription providers.
+- Removed the redundant `MultipartFormDataBuilder.swift` after consolidating multipart upload handling in the shared base class.
+
+### Reduction & Maintenance
+- Collapsed duplicate history screens into compatibility shims so `TranscriptionHistoryView` is once again the single real implementation, while legacy entry points forward to it.
+- Restored the missing `CircularCheckboxStyle` used by `TranscriptionCard`, which allowed the full app target to compile cleanly during verification.
+
+### Documentation
+- Expanded `AGENTS.md` with explicit guardrails for single-source-of-truth UI implementations, sensitive-data logging, Keychain-only local builds, and streamed large-audio uploads.
+- Added `CODE_REVIEW_2026-03-07.md` to capture the review findings, resolutions, and validation results for this pass.
+
+### Verification
+- Completed a successful `xcodebuild` Debug build for scheme `VoiceInk` on macOS after the remediation pass.
+- Completed `git diff --check` successfully after the fixes.
+- Ran follow-up code sweeps to confirm the reviewed cloud transcription paths no longer use `URLSession.shared`, `Data(contentsOf:)` for upload bodies, or the previous explicit sensitive log strings.
+
 ## 2026-03-06
 
 ### Upstream Sync
