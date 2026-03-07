@@ -205,6 +205,7 @@ extension TTSSpeechGenerationViewModel {
             try await playback.audioPlayer.loadAudio(from: data)
             playback.applyPlaybackSettings()
             coordinator.audioData = data
+            coordinator.currentAudioFileURL = nil
             coordinator.currentAudioFormat = format
             duration = playback.audioPlayer.duration
         } else {
@@ -287,6 +288,7 @@ extension TTSSpeechGenerationViewModel {
             try await playback.audioPlayer.loadAudio(from: mergeResult.data)
 
             coordinator.audioData = mergeResult.data
+            coordinator.currentAudioFileURL = nil
             coordinator.currentAudioFormat = mergeResult.format
             playback.seek(to: 0)
 

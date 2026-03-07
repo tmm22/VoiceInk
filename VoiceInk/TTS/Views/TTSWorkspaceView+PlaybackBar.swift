@@ -58,7 +58,7 @@ struct PlaybackBarView: View {
                 Image(systemName: "gobackward.10")
             }
             .buttonStyle(.plain)
-            .disabled(viewModel.audioData == nil)
+            .disabled(!viewModel.hasGeneratedAudio)
             .keyboardShortcut(.leftArrow, modifiers: .command)
             .help("Skip backward 10 seconds (⌘←)")
 
@@ -70,7 +70,7 @@ struct PlaybackBarView: View {
                     .foregroundColor(.accentColor)
             }
             .buttonStyle(.plain)
-            .disabled(viewModel.audioData == nil)
+            .disabled(!viewModel.hasGeneratedAudio)
             .keyboardShortcut(.space, modifiers: [])
             .help("Play or pause (Space)")
 
@@ -80,7 +80,7 @@ struct PlaybackBarView: View {
                 Image(systemName: "goforward.10")
             }
             .buttonStyle(.plain)
-            .disabled(viewModel.audioData == nil)
+            .disabled(!viewModel.hasGeneratedAudio)
             .keyboardShortcut(.rightArrow, modifiers: .command)
             .help("Skip forward 10 seconds (⌘→)")
 
@@ -88,7 +88,7 @@ struct PlaybackBarView: View {
                 Image(systemName: "stop.circle")
             }
             .buttonStyle(.plain)
-            .disabled(viewModel.audioData == nil || !playback.isPlaying)
+            .disabled(!viewModel.hasGeneratedAudio || !playback.isPlaying)
             .keyboardShortcut(".", modifiers: .command)
             .help("Stop playback (⌘.)")
         }

@@ -6,6 +6,7 @@ protocol TTSImportExportCoordinating: AnyObject {
     var inputText: String { get set }
     var errorMessage: String? { get set }
     var audioData: Data? { get set }
+    var currentAudioFileURL: URL? { get set }
     var currentAudioFormat: AudioSettings.AudioFormat { get set }
     var currentTranscript: TranscriptBundle? { get set }
 

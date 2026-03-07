@@ -13,6 +13,10 @@ All notable changes to the VoiceLink Community application are documented here.
 - Moved Deepgram to direct `upload(for:fromFile:)` uploads for recorded audio instead of loading files fully into memory.
 - Migrated ElevenLabs and Soniox multipart uploads to the streamed body-file path, and applied the same hardening/refactor to OpenAI, OpenAI-compatible, Groq, ZAI, and Mistral cloud transcription providers.
 - Removed the redundant `MultipartFormDataBuilder.swift` after consolidating multipart upload handling in the shared base class.
+- Reworked Gemini cloud transcription to use the Gemini Files API instead of embedding full recordings as inline Base64 JSON payloads. Audio is now uploaded via resumable file upload, referenced by `file_uri` during `generateContent`, and deleted remotely after completion as best-effort cleanup.
+- Reduced TTS workspace memory retention by teaching the active workspace state to track file-backed audio separately from in-memory `Data`, allowing history playback and same-format export to reuse disk-backed audio without reloading the full file into RAM.
+- Added explicit audio-player unloading in the TTS workspace so clearing or replacing generated audio releases the underlying `AVAudioPlayer` instance and its buffers instead of only resetting playback state.
+- Reduced Parakeet transcription peak memory and conversion overhead by switching local audio reads to `.mappedIfSafe` and replacing the previous per-sample slicing path with a reserved-capacity PCM conversion loop.
 
 ### Reduction & Maintenance
 - Collapsed duplicate history screens into compatibility shims so `TranscriptionHistoryView` is once again the single real implementation, while legacy entry points forward to it.
@@ -26,6 +30,7 @@ All notable changes to the VoiceLink Community application are documented here.
 - Completed a successful `xcodebuild` Debug build for scheme `VoiceInk` on macOS after the remediation pass.
 - Completed `git diff --check` successfully after the fixes.
 - Ran follow-up code sweeps to confirm the reviewed cloud transcription paths no longer use `URLSession.shared`, `Data(contentsOf:)` for upload bodies, or the previous explicit sensitive log strings.
+- Completed parser-level validation with `xcrun swiftc -parse` for the Gemini transcription refactor and the TTS/Parakeet resource-usage changes made in this follow-up pass.
 
 ## 2026-03-06
 

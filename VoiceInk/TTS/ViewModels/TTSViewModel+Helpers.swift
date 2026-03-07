@@ -53,6 +53,10 @@ extension TTSViewModel {
 
 // MARK: - Format and Provider Helpers
 extension TTSViewModel {
+    var hasGeneratedAudio: Bool {
+        audioData != nil || currentAudioFileURL != nil
+    }
+
     func getProvider(for type: TTSProviderType) -> any TTSProvider {
         settings.getProvider(for: type)
     }
@@ -83,8 +87,9 @@ extension TTSViewModel {
 
     func clearGeneratedAudio() {
         audioData = nil
+        currentAudioFileURL = nil
         currentAudioFormat = settings.selectedFormat
         currentTranscript = nil
-        playback.stop()
+        playback.audioPlayer.unloadAudio()
     }
 }

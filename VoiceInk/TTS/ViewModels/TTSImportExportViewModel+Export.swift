@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 extension TTSImportExportViewModel {
     func exportAudio() {
         guard let coordinator else { return }
-        guard coordinator.audioData != nil else { return }
+        guard coordinator.audioData != nil || coordinator.currentAudioFileURL != nil else { return }
 
         guard let panelChoice = configuredSavePanel(
             defaultFormat: coordinator.currentAudioFormat,
@@ -102,7 +102,6 @@ extension TTSImportExportViewModel {
 
     func performExport(to url: URL, format: AudioSettings.AudioFormat) async {
         do {
-            let data = try await dataForExport(using: format)
             var destinationURL = url
             let expectedExtension = format.fileExtension
 
@@ -110,6 +109,11 @@ extension TTSImportExportViewModel {
                 destinationURL = url.deletingPathExtension().appendingPathExtension(expectedExtension)
             }
 
+            if try exportCurrentAudioIfAvailable(to: destinationURL, format: format) {
+                return
+            }
+
+            let data = try await dataForExport(using: format)
             try data.write(to: destinationURL, options: .atomic)
         } catch let error as TTSError {
             coordinator?.errorMessage = error.localizedDescription
@@ -151,6 +155,7 @@ extension TTSImportExportViewModel {
         }
 
         let previousAudioData = coordinator.audioData
+        let previousAudioFileURL = coordinator.currentAudioFileURL
         let previousFormat = coordinator.currentAudioFormat
 
         generation.isGenerating = true
@@ -175,6 +180,7 @@ extension TTSImportExportViewModel {
             try await playback.audioPlayer.loadAudio(from: newData)
 
             coordinator.audioData = newData
+            coordinator.currentAudioFileURL = nil
             coordinator.currentAudioFormat = format
 
             if settings.selectedFormat != format {
@@ -184,6 +190,7 @@ extension TTSImportExportViewModel {
             return newData
         } catch let error as TTSError {
             coordinator.audioData = previousAudioData
+            coordinator.currentAudioFileURL = previousAudioFileURL
             coordinator.currentAudioFormat = previousFormat
 
             if let previousAudioData {
@@ -193,6 +200,13 @@ extension TTSImportExportViewModel {
                     AppLogger.audio.error("Failed to restore previous audio after regeneration error: \(error.localizedDescription)")
                     playback.stop()
                 }
+            } else if let previousAudioFileURL {
+                do {
+                    try await playback.audioPlayer.loadAudio(from: previousAudioFileURL)
+                } catch {
+                    AppLogger.audio.error("Failed to restore previous file-backed audio after regeneration error: \(error.localizedDescription)")
+                    playback.stop()
+                }
             } else {
                 playback.stop()
             }
@@ -200,6 +214,7 @@ extension TTSImportExportViewModel {
             throw error
         } catch {
             coordinator.audioData = previousAudioData
+            coordinator.currentAudioFileURL = previousAudioFileURL
             coordinator.currentAudioFormat = previousFormat
 
             if let previousAudioData {
@@ -209,11 +224,37 @@ extension TTSImportExportViewModel {
                     AppLogger.audio.error("Failed to restore previous audio after regeneration failure: \(error.localizedDescription)")
                     playback.stop()
                 }
+            } else if let previousAudioFileURL {
+                do {
+                    try await playback.audioPlayer.loadAudio(from: previousAudioFileURL)
+                } catch {
+                    AppLogger.audio.error("Failed to restore previous file-backed audio after regeneration failure: \(error.localizedDescription)")
+                    playback.stop()
+                }
             } else {
                 playback.stop()
             }
 
             throw TTSError.apiError("Failed to regenerate audio: \(error.localizedDescription)")
         }
+    }
+
+    private func exportCurrentAudioIfAvailable(to destinationURL: URL,
+                                               format: AudioSettings.AudioFormat) throws -> Bool {
+        guard let coordinator else {
+            throw TTSError.apiError("Export coordinator unavailable.")
+        }
+
+        guard format == coordinator.currentAudioFormat,
+              let sourceURL = coordinator.currentAudioFileURL,
+              FileManager.default.fileExists(atPath: sourceURL.path) else {
+            return false
+        }
+
+        if FileManager.default.fileExists(atPath: destinationURL.path) {
+            try FileManager.default.removeItem(at: destinationURL)
+        }
+        try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+        return true
     }
 }

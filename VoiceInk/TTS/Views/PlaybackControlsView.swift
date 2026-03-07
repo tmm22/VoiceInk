@@ -21,7 +21,7 @@ struct PlaybackControlsView: View {
                             .font(.system(size: settings.isMinimalistMode ? 16 : 20))
                     }
                     .buttonStyle(.plain)
-                    .disabled(viewModel.audioData == nil)
+                    .disabled(!viewModel.hasGeneratedAudio)
                     .keyboardShortcut(.leftArrow, modifiers: .command)
                     .help("Skip backward 10 seconds (⌘←)")
                     
@@ -36,7 +36,7 @@ struct PlaybackControlsView: View {
                             .animation(.easeInOut(duration: 0.2), value: playback.isPlaying)
                     }
                     .buttonStyle(.plain)
-                    .disabled(viewModel.audioData == nil)
+                    .disabled(!viewModel.hasGeneratedAudio)
                     .keyboardShortcut(.space, modifiers: [])
                     .help("Play/Pause (Space)")
                     
@@ -48,7 +48,7 @@ struct PlaybackControlsView: View {
                             .font(.system(size: settings.isMinimalistMode ? 16 : 20))
                     }
                     .buttonStyle(.plain)
-                    .disabled(viewModel.audioData == nil)
+                    .disabled(!viewModel.hasGeneratedAudio)
                     .keyboardShortcut(.rightArrow, modifiers: .command)
                     .help("Skip forward 10 seconds (⌘→)")
                     
@@ -58,7 +58,7 @@ struct PlaybackControlsView: View {
                             .font(.system(size: settings.isMinimalistMode ? 16 : 20))
                     }
                     .buttonStyle(.plain)
-                    .disabled(viewModel.audioData == nil || !playback.isPlaying)
+                    .disabled(!viewModel.hasGeneratedAudio || !playback.isPlaying)
                     .keyboardShortcut(".", modifiers: .command)
                     .help("Stop playback (⌘.)")
                 }
@@ -119,7 +119,7 @@ struct PlaybackControlsView: View {
                         }
                     }
                     .frame(height: 14)
-                    .disabled(viewModel.audioData == nil)
+                    .disabled(!viewModel.hasGeneratedAudio)
                     
                     Text(formatTime(playback.duration))
                         .font(.system(size: 12, design: .monospaced))
@@ -229,7 +229,7 @@ struct PlaybackControlsView: View {
                                 Spacer()
                                 
                                 // Audio format indicator (if available)
-                                if viewModel.audioData != nil {
+                                if viewModel.hasGeneratedAudio {
                                     HStack(spacing: 4) {
                                         Image(systemName: "waveform")
                                             .font(.system(size: 12))

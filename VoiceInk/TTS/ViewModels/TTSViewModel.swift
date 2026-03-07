@@ -51,6 +51,7 @@ class TTSViewModel: ObservableObject {
     // MARK: - Internal Properties
     var cancellables = Set<AnyCancellable>()
     var audioData: Data?
+    var currentAudioFileURL: URL?
     var currentAudioFormat: AudioSettings.AudioFormat = .mp3
     var currentTranscript: TranscriptBundle?
 
@@ -181,7 +182,7 @@ class TTSViewModel: ObservableObject {
         }
         settings.onSelectedFormatChanged = { [weak self] newFormat, _ in
             guard let self else { return }
-            if self.audioData != nil && newFormat != self.currentAudioFormat {
+            if self.hasGeneratedAudio && newFormat != self.currentAudioFormat {
                 self.clearGeneratedAudio()
             }
         }

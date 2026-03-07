@@ -9,6 +9,7 @@ protocol TTSHistoryCoordinating: AnyObject {
     var selectedFormat: AudioSettings.AudioFormat { get set }
     var availableVoices: [Voice] { get }
     var audioData: Data? { get set }
+    var currentAudioFileURL: URL? { get set }
     var currentAudioFormat: AudioSettings.AudioFormat { get set }
     var currentTranscript: TranscriptBundle? { get set }
     var errorMessage: String? { get set }
@@ -175,6 +176,7 @@ final class TTSHistoryViewModel: ObservableObject {
         let previousVoice = coordinator.selectedVoice
         let previousFormat = coordinator.selectedFormat
         let previousAudioData = coordinator.audioData
+        let previousAudioFileURL = coordinator.currentAudioFileURL
 
         coordinator.selectedProvider = item.provider
         coordinator.updateAvailableVoices()
@@ -190,10 +192,12 @@ final class TTSHistoryViewModel: ObservableObject {
         do {
             if let audioFileURL = item.audioFileURL, FileManager.default.fileExists(atPath: audioFileURL.path) {
                 try await playback.audioPlayer.loadAudio(from: audioFileURL)
-                coordinator.audioData = try await AudioFileLoader.loadData(from: audioFileURL)
+                coordinator.audioData = nil
+                coordinator.currentAudioFileURL = audioFileURL
             } else if let audioData = item.audioData {
                 try await playback.audioPlayer.loadAudio(from: audioData)
                 coordinator.audioData = audioData
+                coordinator.currentAudioFileURL = nil
             } else {
                 throw TTSError.apiError("Missing audio data.")
             }
@@ -211,6 +215,7 @@ final class TTSHistoryViewModel: ObservableObject {
             coordinator.selectedVoice = previousVoice
             coordinator.selectedFormat = previousFormat
             coordinator.audioData = previousAudioData
+            coordinator.currentAudioFileURL = previousAudioFileURL
             throw error
         }
     }

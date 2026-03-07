@@ -234,7 +234,7 @@ struct CommandStripView: View {
         }
         .buttonStyle(.bordered)
         .keyboardShortcut("e", modifiers: .command)
-        .disabled(viewModel.audioData == nil)
+        .disabled(!viewModel.hasGeneratedAudio)
         .help("Export the most recent audio file (⌘E)")
     }
 
@@ -328,7 +328,7 @@ struct CommandStripView: View {
                     Label("Export Audio", systemImage: "square.and.arrow.down")
                 }
                 .keyboardShortcut("e", modifiers: .command)
-                .disabled(viewModel.audioData == nil)
+                .disabled(!viewModel.hasGeneratedAudio)
                 
                 Menu {
                     Button("Export SRT") {

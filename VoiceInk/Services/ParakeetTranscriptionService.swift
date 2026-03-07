@@ -125,15 +125,23 @@ class ParakeetTranscriptionService: TranscriptionService {
 
     private func readAudioSamples(from url: URL) throws -> [Float] {
         do {
-            let data = try Data(contentsOf: url)
+            let data = try Data(contentsOf: url, options: .mappedIfSafe)
             guard data.count > 44 else {
                 throw ASRError.invalidAudioData
             }
 
-            let floats = stride(from: 44, to: data.count, by: 2).map {
-                return data[$0..<$0 + 2].withUnsafeBytes {
-                    let short = Int16(littleEndian: $0.load(as: Int16.self))
-                    return max(-1.0, min(Float(short) / 32767.0, 1.0))
+            let sampleBytes = data.dropFirst(44)
+            let sampleCount = sampleBytes.count / 2
+            var floats: [Float] = []
+            floats.reserveCapacity(sampleCount)
+
+            sampleBytes.withUnsafeBytes { rawBuffer in
+                guard let bytes = rawBuffer.bindMemory(to: UInt8.self).baseAddress else { return }
+
+                for offset in stride(from: 0, to: sampleCount * 2, by: 2) {
+                    let sample = UInt16(bytes[offset]) | (UInt16(bytes[offset + 1]) << 8)
+                    let short = Int16(bitPattern: sample)
+                    floats.append(max(-1.0, min(Float(short) / 32767.0, 1.0)))
                 }
             }
 

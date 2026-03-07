@@ -29,8 +29,8 @@ class AudioPlayerService: NSObject, ObservableObject {
         isBuffering = true
         
         do {
-            // Stop any existing playback
-            stop()
+            // Release any existing player before loading a new clip to avoid retaining old buffers.
+            unloadAudio()
             
             // Create new audio player
             audioPlayer = try AVAudioPlayer(data: data)
@@ -55,8 +55,8 @@ class AudioPlayerService: NSObject, ObservableObject {
         isBuffering = true
         
         do {
-            // Stop any existing playback
-            stop()
+            // Release any existing player before loading a new clip to avoid retaining old buffers.
+            unloadAudio()
             
             // Create new audio player
             audioPlayer = try AVAudioPlayer(contentsOf: url)
@@ -97,6 +97,14 @@ class AudioPlayerService: NSObject, ObservableObject {
         currentTime = 0
         isPlaying = false
         stopTimer()
+    }
+
+    func unloadAudio() {
+        stop()
+        audioPlayer = nil
+        duration = 0
+        error = nil
+        isBuffering = false
     }
     
     func seek(to time: TimeInterval) {
