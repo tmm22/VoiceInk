@@ -111,7 +111,7 @@ Container: .frame(minWidth: 300, idealWidth: 320, maxWidth: 340)
 - [ ] Test in light and dark mode
 
 ## Future Prevention Strategy
-See `LAYOUT_DIAGNOSTIC_PLAN.md` for:
+See `../../plans/LAYOUT_DIAGNOSTIC_PLAN.md` for:
 1. LayoutConstants system to centralize all sizing
 2. Automated layout validation
 3. Debug overlay mode for development

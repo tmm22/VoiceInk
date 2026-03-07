@@ -117,7 +117,7 @@ VoiceInk/Whisper/
 
 ### Verification
 
-See `WHISPERSTATE_REFACTORING_VERIFICATION_REPORT.md` for comprehensive verification results including:
+See [Whisper Refactoring Verification Report](reviews/WHISPERSTATE_REFACTORING_VERIFICATION_REPORT.md) for comprehensive verification results including:
 - 93.9% test pass rate (168/179 tests)
 - Full backward compatibility verification
 - SOLID principles adherence assessment

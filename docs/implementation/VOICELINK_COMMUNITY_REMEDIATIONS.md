@@ -220,8 +220,8 @@ VoiceLink Community codebase, following the updated audit.
 - Added and linked remediation documentation, changelog, and standards updates.
   - `README.md`
   - `START_HERE.md`
-  - `DESIGN_DOCUMENT.md`
-  - `CODE_AUDIT_REPORT.md`
+  - `../development/DESIGN_DOCUMENT.md`
+  - `../reviews/CODE_AUDIT_REPORT.md`
   - `SECURITY_FIXES_SUMMARY.md`
   - `CHANGELOG.md`
 

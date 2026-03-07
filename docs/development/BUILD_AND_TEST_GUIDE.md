@@ -34,7 +34,7 @@
 
 ## Running Automated Tests (CLI)
 
-- The repo includes [`run_tests.sh`](run_tests.sh:1), which runs the unit test bundle (`VoiceInkTests`) via `xcodebuild`.
+- The repo includes [`run_tests.sh`](../../run_tests.sh), which runs the unit test bundle (`VoiceInkTests`) via `xcodebuild`.
 
 ### UI test bundle signing limitation (when signing is disabled)
 
@@ -43,7 +43,7 @@ If you run tests with code signing disabled (for example using an empty identity
 **Safe workarounds:**
 
 1. **Run unit tests only (recommended):** ensure UI tests are excluded.
-   - This is the intent of [`run_tests.sh`](run_tests.sh:16) (it uses `-only-testing:VoiceInkTests`).
+   - This is the intent of [`run_tests.sh`](../../run_tests.sh) (it uses `-only-testing:VoiceInkTests`).
 2. **Compile-only / build-only sanity check:** run a build without executing tests.
    - Example (Debug build without signing):
      ```bash

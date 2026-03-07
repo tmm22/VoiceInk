@@ -569,7 +569,7 @@ Text("Long text that will wrap properly")
 
 The application has significant responsive design issues that were masked by fullscreen testing. The recent inspector fixes improved one component but revealed a systematic problem.
 
-**Key Recommendation**: Implement the full responsive design system outlined in `UI_CONSISTENCY_AUDIT_PLAN.md` before shipping. Current state is not acceptable for a professional application.
+**Key Recommendation**: Implement the full responsive design system outlined in `../../plans/UI_CONSISTENCY_AUDIT_PLAN.md` before shipping. Current state is not acceptable for a professional application.
 
 **User Impact**: Users on laptops (the majority) likely experience a frustrating, cramped interface with cut-off text and crowded controls.
 

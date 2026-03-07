@@ -37,7 +37,7 @@ guard let url = URL(string: "\(baseURL)\(endpoint)") else {
 
 ---
 
-## Issue #2: TIER2_SECURITY_FIXES_SUMMARY.md:71 ✅ FIXED
+## Issue #2: ../implementation/TIER2_SECURITY_FIXES_SUMMARY.md:71 ✅ FIXED
 
 **Reviewer's Comment:**
 > "Update the Groq snippet to use the actual Keychain account string 'GROQ' so the documentation matches the implementation."
@@ -70,7 +70,7 @@ The inconsistency was only in documentation, not code. Fixed to prevent confusio
 
 ---
 
-## Issue #3: TIER2_SECURITY_FIXES_SUMMARY.md:236 ✅ FIXED
+## Issue #3: ../implementation/TIER2_SECURITY_FIXES_SUMMARY.md:236 ✅ FIXED
 
 **Reviewer's Comment:**
 > "Correct the Groq Keychain account name in the provider mapping table to 'GROQ' to reflect the real key used by the app."
@@ -225,7 +225,7 @@ The reviewer is absolutely correct. Looking at the PR in isolation:
 **The Fix:**
 Cherry-picked commit 61326cb to fix/critical-bugs-security branch, which adds:
 - ✅ `VoiceInk/Services/APIKeyMigrationService.swift` (2.8 KB)
-- ✅ `UPSTREAM_COMPARISON_REPORT.md` (documentation)
+- ✅ `../implementation/UPSTREAM_COMPARISON_REPORT.md` (documentation)
 
 **File Now Included:**
 ```swift
@@ -267,8 +267,8 @@ $ ls -la VoiceInk/Services/APIKeyMigrationService.swift
 | Issue | Type | Status | Commit | Files Changed |
 |-------|------|--------|--------|---------------|
 | #1 | Documentation | ✅ Fixed | 4e8fa41 | CODE_AUDIT_REPORT.md |
-| #2 | Documentation | ✅ Fixed | 4e8fa41 | TIER2_SECURITY_FIXES_SUMMARY.md |
-| #3 | Documentation | ✅ Fixed | 4e8fa41 | TIER2_SECURITY_FIXES_SUMMARY.md |
+| #2 | Documentation | ✅ Fixed | 4e8fa41 | ../implementation/TIER2_SECURITY_FIXES_SUMMARY.md |
+| #3 | Documentation | ✅ Fixed | 4e8fa41 | ../implementation/TIER2_SECURITY_FIXES_SUMMARY.md |
 | #4 | Code - Critical | ✅ Fixed | 4e8fa41, aea4a07 | AIService.swift + 6 transcription services |
 | #5 | Code - Critical | ✅ Fixed | 6e12356 | Added APIKeyMigrationService.swift |
 

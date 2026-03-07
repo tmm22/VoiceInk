@@ -17,3 +17,33 @@
 - [Z.AI Integration Guide](ZAI_INTEGRATION_GUIDE.md)
 - [AI Context Awareness Plan](AI_CONTEXT_AWARENESS_PLAN.md)
 - [AI Context Improvement Opportunities](AI_CONTEXT_IMPROVEMENT_OPPORTUNITIES.md)
+
+## Development Docs
+
+- [Building from Source](development/BUILDING.md)
+- [Build and Test Guide](development/BUILD_AND_TEST_GUIDE.md)
+- [Testing Framework Overview](development/TESTING.md)
+- [Quick Start Testing](development/QUICK_START_TESTING.md)
+- [Design Document](development/DESIGN_DOCUMENT.md)
+
+## Implementation Notes
+
+- [Community Remediations](implementation/VOICELINK_COMMUNITY_REMEDIATIONS.md)
+- [CloudSync Documentation](implementation/CLOUDSYNC_DOCUMENTATION.md)
+- [Quick Rules User Guide](implementation/QUICK_RULES_USER_GUIDE.md)
+- [Upstream Integration Progress](implementation/UPSTREAM_INTEGRATION_PROGRESS.md)
+- [Fork Differentiators](implementation/FORK_DIFFERENTIATORS.md)
+
+## Reviews and Audits
+
+- [Code Review 2026-03-07](reviews/CODE_REVIEW_2026-03-07.md)
+- [Code Review 2025-12-05](reviews/CODE_REVIEW_2025-12-05.md)
+- [TTS Security Audit](reviews/TTS_SECURITY_AUDIT.md)
+- [UI Audit Summary](reviews/UI_AUDIT_SUMMARY.md)
+- [Whisper Refactoring Verification](reviews/WHISPERSTATE_REFACTORING_VERIFICATION_REPORT.md)
+
+## Plans
+
+- [Cloud Transcription Registry Design](../plans/CLOUD_TRANSCRIPTION_REGISTRY_DESIGN.md)
+- [WhisperState Refactoring Plan](../plans/WHISPERSTATE_REFACTORING_PLAN.md)
+- [UI Consistency Audit Plan](../plans/UI_CONSISTENCY_AUDIT_PLAN.md)

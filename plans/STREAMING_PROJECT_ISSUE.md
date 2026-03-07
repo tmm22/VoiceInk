@@ -467,8 +467,8 @@ xcodebuild test \
 
 - **Testing Framework PR:** #374
 - **Bug Tracking Issue:** #375
-- **Testing Documentation:** TESTING.md (500+ lines)
-- **Quick Start Guide:** QUICK_START_TESTING.md
+- **Testing Documentation:** ../docs/development/TESTING.md (500+ lines)
+- **Quick Start Guide:** ../docs/development/QUICK_START_TESTING.md
 
 ---
 

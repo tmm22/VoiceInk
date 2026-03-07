@@ -17,7 +17,7 @@ Quick Rules apply predictable offline cleanup rules (filler words, duplicates, s
 - Toggle categories and individual rules.
 - Use the built-in test area to preview output.
 
-For the full walkthrough, see `QUICK_RULES_USER_GUIDE.md`.
+For the full walkthrough, see [Quick Rules User Guide](implementation/QUICK_RULES_USER_GUIDE.md).
 
 ## Word Replacements
 

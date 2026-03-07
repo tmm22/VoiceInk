@@ -321,8 +321,8 @@ All fixes maintain existing security posture:
 ## 📚 Related Documentation
 
 - `AGENTS.md` - AI agent guidelines (already updated)
-- `TTS_SECURITY_AUDIT.md` - Security audit report
-- `BUILDING.md` - Build instructions
+- `../reviews/TTS_SECURITY_AUDIT.md` - Security audit report
+- `../development/BUILDING.md` - Build instructions
 - `CONTRIBUTING.md` - Contribution guidelines
 
 ---

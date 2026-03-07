@@ -19,7 +19,7 @@ Comprehensive audit of 220+ Swift files identified **11 issues**: 4 critical cra
 ## 2025-12 Remediation Addendum (VoiceLink Community)
 
 The community edition has a consolidated remediation log in
-`VOICELINK_COMMUNITY_REMEDIATIONS.md`. Recent fixes include:
+`../implementation/VOICELINK_COMMUNITY_REMEDIATIONS.md`. Recent fixes include:
 
 - HTTPS enforcement for custom AI provider verification.
 - Async/non-blocking audio file handling for cloud transcription.

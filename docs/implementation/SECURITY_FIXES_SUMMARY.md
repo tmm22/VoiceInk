@@ -209,7 +209,7 @@ All validation operations are lightweight:
 ## Documentation Updates
 
 **New Documentation:**
-- ✅ `TTS_SECURITY_AUDIT.md` - 28KB comprehensive security audit report
+- ✅ `../reviews/TTS_SECURITY_AUDIT.md` - 28KB comprehensive security audit report
 - ✅ `SECURITY_FIXES_SUMMARY.md` - This file
 
 **Updated Code Documentation:**

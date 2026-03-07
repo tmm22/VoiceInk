@@ -24,7 +24,7 @@ All notable changes to the VoiceLink Community application are documented here.
 
 ### Documentation
 - Expanded `AGENTS.md` with explicit guardrails for single-source-of-truth UI implementations, sensitive-data logging, Keychain-only local builds, and streamed large-audio uploads.
-- Added `CODE_REVIEW_2026-03-07.md` to capture the review findings, resolutions, and validation results for this pass.
+- Added `docs/reviews/CODE_REVIEW_2026-03-07.md` to capture the review findings, resolutions, and validation results for this pass.
 
 ### Verification
 - Completed a successful `xcodebuild` Debug build for scheme `VoiceInk` on macOS after the remediation pass.
@@ -48,7 +48,7 @@ All notable changes to the VoiceLink Community application are documented here.
 - Synced `Package.resolved` with the successful build state, including the `mediaremote-adapter` pin required by the repaired project graph.
 
 ### Documentation
-- Updated `UPSTREAM_INTEGRATION_PROGRESS.md` with the March 6, 2026 sync session and conflict-resolution strategy.
+- Updated `docs/implementation/UPSTREAM_INTEGRATION_PROGRESS.md` with the March 6, 2026 sync session and conflict-resolution strategy.
 - Refreshed README recent-changes notes to reflect the current upstream sync status.
 
 ### Structural Refactors
@@ -226,7 +226,7 @@ All notable changes to the VoiceLink Community application are documented here.
 - **CloudSync**: Implemented iCloud Key-Value Store synchronization for AI enhancement profiles.
 - **Opt-in Privacy**: Introduced "Sync with iCloud" toggle in Settings -> Enhancement.
 - **UI UX**: Added dedicated "Enhancement" settings tab (renamed from internal "AI").
-- **Documentation**: Added `CLOUDSYNC_DOCUMENTATION.md` and updated `DESIGN_DOCUMENT.md`/`AGENTS.md`.
+- **Documentation**: Added `docs/implementation/CLOUDSYNC_DOCUMENTATION.md` and updated `docs/development/DESIGN_DOCUMENT.md`/`AGENTS.md`.
 
 ## 2025-12-27
 
@@ -292,8 +292,8 @@ Major architectural refactoring of the Whisper transcription system following SO
 
 ### Documentation
 
-- Created `WHISPERSTATE_REFACTORING_VERIFICATION_REPORT.md` with comprehensive verification results
-- Updated `PHASE_REVIEW_FINAL_REPORT_2025-12-26.md` with phase completion status
+- Created `docs/reviews/WHISPERSTATE_REFACTORING_VERIFICATION_REPORT.md` with comprehensive verification results
+- Updated `docs/reviews/PHASE_REVIEW_FINAL_REPORT_2025-12-26.md` with phase completion status
 
 ## 2025-12-23
 

@@ -35,7 +35,7 @@ Your concern about UI inconsistency at non-fullscreen sizes is **100% valid and 
 
 ## What We've Created
 
-### 1. `UI_CONSISTENCY_AUDIT_PLAN.md`
+### 1. `../../plans/UI_CONSISTENCY_AUDIT_PLAN.md`
 **Comprehensive 15-page plan covering:**
 - Testing matrix for all window sizes
 - Responsive breakpoint system (4 modes)
@@ -197,10 +197,10 @@ Allocate 3-4 focused days to implement the complete solution. This is foundation
 
 ## Files to Review
 
-1. **`UI_CONSISTENCY_AUDIT_PLAN.md`** - Complete strategy (15 pages)
+1. **`../../plans/UI_CONSISTENCY_AUDIT_PLAN.md`** - Complete strategy (15 pages)
 2. **`UI_CONSISTENCY_AUDIT_FINDINGS.md`** - Detailed findings (10 pages)
-3. **`LAYOUT_DIAGNOSTIC_PLAN.md`** - Prevention strategy (created earlier)
-4. **`LAYOUT_FIX_SUMMARY.md`** - Inspector fix details (created earlier)
+3. **`../../plans/LAYOUT_DIAGNOSTIC_PLAN.md`** - Prevention strategy (created earlier)
+4. **`../implementation/LAYOUT_FIX_SUMMARY.md`** - Inspector fix details (created earlier)
 
 All documentation is in your project root directory.
 

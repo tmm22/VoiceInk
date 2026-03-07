@@ -35,7 +35,7 @@ Highlights of this fork:
 
 - **Releases** – check the repository releases tab for notarized builds of the community edition.
 - **Homebrew (optional)** – once a tap is available you’ll be able to `brew install --cask voiceink-community`.
-- **From source** – follow [BUILDING.md](BUILDING.md) to compile the app with Xcode. Run `./scripts/download-models.sh` beforehand to drop the default Whisper binaries into the bundle if you haven’t downloaded them yet.
+- **From source** – follow [Building from Source](docs/development/BUILDING.md) to compile the app with Xcode. Run `./scripts/download-models.sh` beforehand to drop the default Whisper binaries into the bundle if you haven’t downloaded them yet.
 
 ## Requirements
 
@@ -43,8 +43,8 @@ Highlights of this fork:
 
 ## Documentation
 
-- [Building from Source](BUILDING.md) - Detailed instructions for building the project
-- [Documentation Index](docs/README.md) - Feature guides and workflows for day-to-day use
+- [Building from Source](docs/development/BUILDING.md) - Detailed build setup and signing notes
+- [Documentation Index](docs/README.md) - Feature guides, development docs, plans, and audits
 - [Power Mode Guide](docs/POWER_MODE_GUIDE.md) - Context-aware automation by app or URL
 - [Text-to-Speech Workspace Guide](docs/TTS_WORKSPACE_GUIDE.md) - Narration, batch generation, and export
 - [AI Enhancement Guide](docs/AI_ENHANCEMENT_GUIDE.md) - Providers, prompts, and context settings
@@ -54,13 +54,13 @@ Highlights of this fork:
 - [Data Management Guide](docs/DATA_MANAGEMENT_GUIDE.md) - History, export, and cleanup
 - [Contributing Guidelines](CONTRIBUTING.md) - How to contribute to VoiceLink Community
 - [Code of Conduct](CODE_OF_CONDUCT.md) - Our community standards
-- [Rectifications & Improvements](VOICELINK_COMMUNITY_REMEDIATIONS.md) - Security and performance fixes applied to the community edition
+- [Rectifications & Improvements](docs/implementation/VOICELINK_COMMUNITY_REMEDIATIONS.md) - Security and performance fixes applied to the community edition
 - [Changelog](CHANGELOG.md) - Release-by-release changes
 
 ## Rectifications & Improvements
 
 Recent stability, security, and performance improvements are documented in
-`VOICELINK_COMMUNITY_REMEDIATIONS.md`. Highlights include:
+[Rectifications & Improvements](docs/implementation/VOICELINK_COMMUNITY_REMEDIATIONS.md). Highlights include:
 
 - ✅ HTTPS validation for custom AI provider verification.
 - ✅ Non-blocking audio file handling for cloud transcription.

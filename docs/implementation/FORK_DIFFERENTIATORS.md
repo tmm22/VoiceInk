@@ -19,9 +19,9 @@ Comparison baseline: `upstream/main` at `6ab3705` vs `custom-main-v2` at `f138c9
 - **Data lifecycle controls**: Trash system plus transcript/audio retention cleanup.  
   **References**: `docs/DATA_MANAGEMENT_GUIDE.md`, `VoiceInk/Services/TrashCleanupService.swift`
 - **Settings + UI redesign**: Unified settings layout, search, and responsive layout polish.  
-  **References**: `VoiceInk/Views/Settings`, `UI_CONSISTENCY_AUDIT_PLAN.md`
+  **References**: `VoiceInk/Views/Settings`, `../../plans/UI_CONSISTENCY_AUDIT_PLAN.md`
 - **Expanded documentation set**: Feature guides and build/operational docs added for fork workflows.  
-  **References**: `docs/README.md`, `BUILDING.md`
+  **References**: `docs/README.md`, `../development/BUILDING.md`
 
 ## Current Fork Differences (Exhaustive Inventory)
 
@@ -36,7 +36,7 @@ Comparison baseline: `upstream/main` at `6ab3705` vs `custom-main-v2` at `f138c9
 - **TTS inspector and settings**: Dedicated inspector panels, style controls, export settings, and provider cost notes.  
   **References**: `VoiceInk/TTS/Views/TTSInspectorView.swift`, `VoiceInk/TTS/Views/TTSSettingsView.swift`
 - **TTS security and audits**: Provider security hardening and audits specific to TTS workflows.  
-  **References**: `TTS_SECURITY_AUDIT.md`
+  **References**: `../reviews/TTS_SECURITY_AUDIT.md`
 - **Dictionary + Quick Rules**: Quick Rules automation, word replacements, and custom vocabulary tools.  
   **References**: `QUICK_RULES_USER_GUIDE.md`, `docs/DICTIONARY_GUIDE.md`, `VoiceInk/Views/Dictionary`
 - **Audio feedback customization**: Multi-theme sounds and custom audio file imports.  
@@ -46,7 +46,7 @@ Comparison baseline: `upstream/main` at `6ab3705` vs `custom-main-v2` at `f138c9
 - **Recorder UX upgrades**: Duration indicator, visible cancel button, and richer status feedback.  
   **References**: `QOL_IMPROVEMENTS_CHANGELOG.md`, `VoiceInk/Views/Recorder`
 - **Settings redesign**: Unified settings layout, sidebar navigation, and searchable sections.  
-  **References**: `VoiceInk/Views/Settings`, `UI_CONSISTENCY_AUDIT_PLAN.md`
+  **References**: `VoiceInk/Views/Settings`, `../../plans/UI_CONSISTENCY_AUDIT_PLAN.md`
 - **Power Mode enhancements**: Power Mode settings panel, auto-restore option, and shortcuts.  
   **References**: `docs/POWER_MODE_GUIDE.md`, `VoiceInk/Views/Settings/PowerModeSettingsSection.swift`
 - **AI enhancement modernization**: Provider list expansion, reasoning effort tuning, and enriched prompt context.  
@@ -64,9 +64,9 @@ Comparison baseline: `upstream/main` at `6ab3705` vs `custom-main-v2` at `f138c9
 - **Testing framework expansion**: Fork-specific testing infrastructure and stress suites.  
   **References**: `TESTING_FRAMEWORK_COMPLETE.md`, `TESTING_ACHIEVEMENT_SUMMARY.md`
 - **Build and release documentation**: Build guides, quick start steps, and submission docs.  
-  **References**: `BUILDING.md`, `BUILD_AND_TEST_GUIDE.md`, `READY_TO_SUBMIT.md`
+  **References**: `../development/BUILDING.md`, `../development/BUILD_AND_TEST_GUIDE.md`, `READY_TO_SUBMIT.md`
 - **UI responsiveness and scaling**: Responsive layouts, breakpoint system, and TTS workspace sizing fixes.  
-  **References**: `DYNAMIC_SCALING_SUMMARY.md`, `UI_CONSISTENCY_AUDIT_PLAN.md`
+  **References**: `DYNAMIC_SCALING_SUMMARY.md`, `../../plans/UI_CONSISTENCY_AUDIT_PLAN.md`
 
 ## Platform Reach & Accessibility
 - **Current VoiceInk**: macOS-only app that depends on AppKit/SwiftUI infrastructure and officially targets macOS 14+.  

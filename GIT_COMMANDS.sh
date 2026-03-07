@@ -36,11 +36,11 @@ git add VoiceInk/VoiceInk.swift
 git add VoiceInk/Notifications/AppNotifications.swift
 git add VoiceInk/Views/KeyboardShortcutCheatSheet.swift
 git add VoiceInk/Utilities/AppLogger.swift
-git add QOL_IMPROVEMENTS_CHANGELOG.md
-git add IMPLEMENTATION_SUMMARY.md
+git add docs/implementation/QOL_IMPROVEMENTS_CHANGELOG.md
+git add docs/implementation/IMPLEMENTATION_SUMMARY.md
 git add UPSTREAM_ISSUE.md
 git add UPSTREAM_PR_DESCRIPTION.md
-git add QUALITY_OF_LIFE_IMPROVEMENTS.md
+git add docs/implementation/QUALITY_OF_LIFE_IMPROVEMENTS.md
 git add GIT_COMMANDS.sh
 
 echo ""
@@ -105,7 +105,7 @@ Files Modified:
 - VoiceInk/VoiceInk.swift
 - VoiceInk/Notifications/AppNotifications.swift
 
-See QOL_IMPROVEMENTS_CHANGELOG.md for detailed documentation.
+See docs/implementation/QOL_IMPROVEMENTS_CHANGELOG.md for detailed documentation.
 
 Co-authored-by: factory-droid[bot] <138933559+factory-droid[bot]@users.noreply.github.com>"
 

@@ -1109,7 +1109,7 @@ Before committing code with credentials or network calls:
 - [ ] Ephemeral URLSessions for API calls
 - [ ] Recording uploads use `upload(fromFile:)` or streamed multipart bodies when possible
 
-**See `TTS_SECURITY_AUDIT.md` for comprehensive security analysis.**
+**See `docs/reviews/TTS_SECURITY_AUDIT.md` for comprehensive security analysis.**
 
 ---
 
@@ -1409,7 +1409,7 @@ The built app will be located at:
 ~/Library/Developer/Xcode/DerivedData/VoiceInk-*/Build/Products/Debug/VoiceLink Community.app
 ```
 
-**See `BUILDING.md` for detailed build instructions.**
+**See `docs/development/BUILDING.md` for detailed build instructions.**
 
 ### Workspace Hygiene (Before Building)
 
@@ -1889,9 +1889,9 @@ None - purely additive feature
 
 ### Documentation
 
-- **Build Guide**: `BUILDING.md` - Compilation instructions
+- **Build Guide**: `docs/development/BUILDING.md` - Compilation instructions
 - **Contributing**: `CONTRIBUTING.md` - How to contribute
-- **Security Audit**: `TTS_SECURITY_AUDIT.md` - Security analysis
+- **Security Audit**: `docs/reviews/TTS_SECURITY_AUDIT.md` - Security analysis
 - **Code of Conduct**: `CODE_OF_CONDUCT.md` - Community standards
 
 ### External Resources
@@ -2046,7 +2046,7 @@ This guide is a living document. If you find errors, outdated information, or ha
   - Documented provider capability registry guidance via [`ModelCapabilityRegistry`](VoiceInk/Whisper/ModelCapabilityRegistry.swift:28) and [`ProviderCapabilities`](VoiceInk/Whisper/ModelCapabilityRegistry.swift:7)
   - Documented centralized TTS authorization header usage via [`AuthorizationService`](VoiceInk/TTS/Utilities/AuthorizationService.swift:5) and [`AuthorizationService.authorizationHeader(for:headerType:)`](VoiceInk/TTS/Utilities/AuthorizationService.swift:22)
   - Documented non-blocking local file I/O guidance via [`FileDataLoader.loadData(from:options:)`](VoiceInk/Services/FileDataLoader.swift:9)
-  - Added build/test note about UI test bundle signing limitations when signing is disabled (see [`BUILD_AND_TEST_GUIDE.md`](BUILD_AND_TEST_GUIDE.md:39))
+  - Added build/test note about UI test bundle signing limitations when signing is disabled (see [`docs/development/BUILD_AND_TEST_GUIDE.md`](docs/development/BUILD_AND_TEST_GUIDE.md:39))
 - **v1.7** (2025-12-27) - WhisperState SOLID Refactoring
   - Updated **Codebase Structure** section with new Whisper architecture
   - Documented new subdirectories: Protocols/, Providers/, Managers/, Processors/, Actors/, Coordinators/, Models/

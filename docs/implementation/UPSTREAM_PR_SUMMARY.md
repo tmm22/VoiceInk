@@ -54,7 +54,7 @@ All test files are staged and ready on branch `testing-framework-upstream`:
 - VoiceInkUITests/DictionaryUITests.swift (2 tests)
 
 **Documentation:**
-- TESTING.md (500+ lines)
+- ../development/TESTING.md (500+ lines)
 
 **Total:**
 - 24 test files
@@ -142,7 +142,7 @@ Benefits:
 - Professional testing standards
 
 Documentation:
-- TESTING.md: Complete testing guide (500+ lines)
+- ../development/TESTING.md: Complete testing guide (500+ lines)
 
 Co-authored-by: factory-droid[bot] <138933559+factory-droid[bot]@users.noreply.github.com>"
 ```
@@ -255,7 +255,7 @@ Use the content from **UPSTREAM_ISSUE.md** which documents:
 - [x] All files staged and ready
 - [x] PR description prepared (UPSTREAM_PR_DESCRIPTION.md)
 - [x] Issue description prepared (UPSTREAM_ISSUE.md)
-- [x] Documentation complete (TESTING.md)
+- [x] Documentation complete (../development/TESTING.md)
 - [x] Code follows Swift style guide
 - [x] No breaking changes
 - [ ] Manual commit required (due to Droid Shield)
@@ -315,7 +315,7 @@ VoiceInk is a **privacy-focused** app that processes sensitive user data. The te
 
 - **UPSTREAM_PR_DESCRIPTION.md** - Copy this as PR description
 - **UPSTREAM_ISSUE.md** - Copy this for bug tracking issue
-- **TESTING.md** - Included in PR, complete testing guide
+- **../development/TESTING.md** - Included in PR, complete testing guide
 - **This file** - Manual submission instructions
 
 ---

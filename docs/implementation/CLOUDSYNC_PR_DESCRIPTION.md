@@ -11,7 +11,7 @@ This PR introduces **CloudSync**, a feature allowing users to synchronize their 
     - Added a **"Sync with iCloud"** toggle for opt-in synchronization.
 - **Documentation**:
     - Created `CLOUDSYNC_DOCUMENTATION.md`.
-    - Updated `AGENTS.md` and `DESIGN_DOCUMENT.md`.
+    - Updated `AGENTS.md` and `../development/DESIGN_DOCUMENT.md`.
 
 ## User Facing Changes
 - **New Settings Tab**: "Enhancement" tab in the Settings window.

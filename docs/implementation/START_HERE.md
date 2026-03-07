@@ -25,7 +25,7 @@
 
 ### 🚀 Quick Start (Start Here!)
 
-**[READY_TO_SUBMIT.md](./READY_TO_SUBMIT.md)** ⭐ **START HERE**
+**`READY_TO_SUBMIT.md`** ⭐ **START HERE**
 - Complete step-by-step submission guide
 - Git workflow commands
 - GitHub issue & PR creation
@@ -44,7 +44,7 @@
 - Security and performance rectifications for the community edition
 - Async I/O guidance and main-thread cleanup summary
 
-**[CHANGELOG.md](./CHANGELOG.md)**
+**[CHANGELOG.md](../../CHANGELOG.md)**
 - Release-by-release record of community edition changes
 
 **[QOL_IMPROVEMENTS_CHANGELOG.md](./QOL_IMPROVEMENTS_CHANGELOG.md)**
@@ -74,7 +74,7 @@
 
 ### 🔧 Workflow Automation
 
-**[GIT_COMMANDS.sh](./GIT_COMMANDS.sh)**
+**[GIT_COMMANDS.sh](../../GIT_COMMANDS.sh)**
 - Executable script for git workflow
 - Interactive prompts
 - Automated staging and committing
@@ -82,12 +82,12 @@
 
 ### 📝 Upstream Submission Templates
 
-**[UPSTREAM_ISSUE.md](./UPSTREAM_ISSUE.md)**
+**`UPSTREAM_ISSUE.md`**
 - Ready-to-paste GitHub issue template
 - Explains the improvements
 - Asks for maintainer feedback
 
-**[UPSTREAM_PR_DESCRIPTION.md](./UPSTREAM_PR_DESCRIPTION.md)**
+**`UPSTREAM_PR_DESCRIPTION.md`**
 - Ready-to-paste PR description
 - Complete with screenshots section
 - Testing checklist
@@ -100,7 +100,7 @@
 ### Step 1: Run Git Workflow
 ```bash
 cd "/Users/deborahmangan/Desktop/Prototypes/dev/untitled folder 3"
-./GIT_COMMANDS.sh
+../../GIT_COMMANDS.sh
 ```
 
 ### Step 2: Create GitHub Issue
@@ -115,7 +115,7 @@ cd "/Users/deborahmangan/Desktop/Prototypes/dev/untitled folder 3"
 4. Upload screenshots
 5. Submit!
 
-**Detailed instructions:** See [READY_TO_SUBMIT.md](./READY_TO_SUBMIT.md)
+**Detailed instructions:** See `READY_TO_SUBMIT.md`
 
 ---
 
@@ -164,7 +164,7 @@ Project Root/
 
 Before submitting, verify:
 
-- [ ] Read [READY_TO_SUBMIT.md](./READY_TO_SUBMIT.md) completely
+- [ ] Read `READY_TO_SUBMIT.md` completely
 - [ ] Tested code builds in Xcode (optional but recommended)
 - [ ] Reviewed all changes with `git diff`
 - [ ] Ready to commit changes
@@ -223,13 +223,13 @@ Before submitting, verify:
 
 ### For Submitting to Upstream
 
-1. **Follow:** [READY_TO_SUBMIT.md](./READY_TO_SUBMIT.md)
+1. **Follow:** `READY_TO_SUBMIT.md`
    - Step-by-step submission guide
 
-2. **Use:** [GIT_COMMANDS.sh](./GIT_COMMANDS.sh)
+2. **Use:** [GIT_COMMANDS.sh](../../GIT_COMMANDS.sh)
    - Automated git workflow
 
-3. **Copy from:** [UPSTREAM_ISSUE.md](./UPSTREAM_ISSUE.md) & [UPSTREAM_PR_DESCRIPTION.md](./UPSTREAM_PR_DESCRIPTION.md)
+3. **Copy from:** `UPSTREAM_ISSUE.md` & `UPSTREAM_PR_DESCRIPTION.md`
    - Ready-to-paste templates
 
 ---
@@ -289,14 +289,14 @@ A: Make changes, push to same branch, PR updates automatically
 A: Yes! Open `VoiceInk.xcodeproj` in Xcode and build
 
 **Q: What if I make a mistake?**  
-A: Don't worry! Git is forgiving. See [READY_TO_SUBMIT.md](./READY_TO_SUBMIT.md) troubleshooting section
+A: Don't worry! Git is forgiving. See `READY_TO_SUBMIT.md` troubleshooting section
 
 **Q: Do I need permission to submit a PR?**  
 A: No! Open source welcomes contributions. Just follow the guidelines.
 
 ### Documentation Reference
 
-- **How to submit:** [READY_TO_SUBMIT.md](./READY_TO_SUBMIT.md)
+- **How to submit:** `READY_TO_SUBMIT.md`
 - **What was changed:** [IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)
 - **Why these changes:** [QUALITY_OF_LIFE_IMPROVEMENTS.md](./QUALITY_OF_LIFE_IMPROVEMENTS.md)
 - **Technical details:** [QOL_IMPROVEMENTS_CHANGELOG.md](./QOL_IMPROVEMENTS_CHANGELOG.md)
@@ -373,7 +373,7 @@ You have everything you need:
 - ✅ Ready-to-use templates
 - ✅ Step-by-step guides
 
-**Next step:** Open [READY_TO_SUBMIT.md](./READY_TO_SUBMIT.md) and follow the guide!
+**Next step:** Open `READY_TO_SUBMIT.md` and follow the guide!
 
 ---
 
@@ -386,10 +386,10 @@ You have everything you need:
 
 ## Quick Links
 
-- 📘 [Submission Guide](./READY_TO_SUBMIT.md) - **Start here for PR submission**
+- 📘 `READY_TO_SUBMIT.md` - **Start here for PR submission**
 - 📝 [Implementation Summary](./IMPLEMENTATION_SUMMARY.md) - Quick reference
 - 📖 [Detailed Changelog](./QOL_IMPROVEMENTS_CHANGELOG.md) - Technical details
 - 🎯 [Full Analysis](./QUALITY_OF_LIFE_IMPROVEMENTS.md) - All improvements
-- 🔧 [Git Workflow](./GIT_COMMANDS.sh) - Automated submission
-- 📋 [Issue Template](./UPSTREAM_ISSUE.md) - For GitHub issue
-- 📄 [PR Template](./UPSTREAM_PR_DESCRIPTION.md) - For pull request
+- 🔧 [Git Workflow](../../GIT_COMMANDS.sh) - Automated submission
+- 📋 `UPSTREAM_ISSUE.md` - For GitHub issue
+- 📄 `UPSTREAM_PR_DESCRIPTION.md` - For pull request
