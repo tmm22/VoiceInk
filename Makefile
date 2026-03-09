@@ -3,7 +3,7 @@ DEPS_DIR := $(HOME)/VoiceInk-Dependencies
 WHISPER_CPP_DIR := $(DEPS_DIR)/whisper.cpp
 FRAMEWORK_PATH := $(WHISPER_CPP_DIR)/build-apple/whisper.xcframework
 
-.PHONY: all clean whisper setup build local check healthcheck help dev run
+.PHONY: all clean whisper setup build local check healthcheck help dev run release-artifact
 
 # Default target
 all: check build
@@ -52,7 +52,7 @@ local: check setup
 		CODE_SIGNING_REQUIRED=NO \
 		CODE_SIGNING_ALLOWED=YES \
 		DEVELOPMENT_TEAM="" \
-		CODE_SIGN_ENTITLEMENTS=$(CURDIR)/VoiceInk/VoiceInk.local.entitlements \
+		"CODE_SIGN_ENTITLEMENTS=$(CURDIR)/VoiceInk/VoiceInk.local.entitlements" \
 		SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) LOCAL_BUILD' \
 		build
 	@APP_PATH=$$(find "$$HOME/Library/Developer/Xcode/DerivedData" -name "VoiceInk.app" -path "*/Debug/*" -type d | head -1) && \
@@ -96,6 +96,9 @@ clean:
 	@rm -rf $(DEPS_DIR)
 	@echo "Clean complete"
 
+release-artifact:
+	./scripts/build-release-artifact.sh
+
 # Help
 help:
 	@echo "Available targets:"
@@ -106,6 +109,7 @@ help:
 	@echo "  local              Build for local use (no Apple Developer certificate needed)"
 	@echo "  run                Launch the built VoiceInk app"
 	@echo "  dev                Build and run the app (for development)"
+	@echo "  release-artifact   Build a release DMG via a temp staging workspace"
 	@echo "  all                Run full build process (default)"
 	@echo "  clean              Remove build artifacts"
 	@echo "  help               Show this help message"

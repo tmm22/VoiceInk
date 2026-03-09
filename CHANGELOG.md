@@ -2,6 +2,16 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-03-10
+
+### Release Preparation
+- Bumped the community build metadata to version `1.61` (`v1.61-community` release target) for the next GitHub release on `tmm22/VoiceInk`.
+- Added GitHub-facing documentation for running unsigned releases, including Gatekeeper override steps and the explanation that Apple Developer Program membership currently costs 99 USD per year.
+- Added a reusable release-body template at `.github/RELEASE_TEMPLATE.md` and a maintainer guide at `docs/development/RELEASING.md` so future GitHub releases consistently include unsigned-build instructions.
+
+### Community Infrastructure
+- Redirected in-app announcement fetches to the `tmm22/VoiceInk` repository instead of upstream, so community builds no longer depend on `beingpax.github.io` for announcement content.
+
 ## 2026-03-07
 
 ### Security & Privacy

@@ -14,8 +14,8 @@ final class AnnouncementsService {
 
     // MARK: - Configuration
 
-    // Hosted via GitHub Pages for this repo
-    private let announcementsURL = URL(string: "https://beingpax.github.io/VoiceInk/announcements.json")
+    // Pull announcements from the community fork so release builds stay self-contained.
+    private let announcementsURL = URL(string: "https://raw.githubusercontent.com/tmm22/VoiceInk/custom-main-v2/announcements.json")
 
     // Fetch every 4 hours
     private let refreshInterval: TimeInterval = 4 * 60 * 60

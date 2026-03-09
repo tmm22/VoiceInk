@@ -33,9 +33,26 @@ Highlights of this fork:
 
 ### Download or Build
 
-- **Releases** – check the repository releases tab for notarized builds of the community edition.
+- **Releases** – download the latest community build from the repository releases tab. These builds are currently unsigned and not notarized, so macOS Gatekeeper will show a warning the first time you open them.
 - **Homebrew (optional)** – once a tap is available you’ll be able to `brew install --cask voiceink-community`.
 - **From source** – follow [Building from Source](docs/development/BUILDING.md) to compile the app with Xcode. Run `./scripts/download-models.sh` beforehand to drop the default Whisper binaries into the bundle if you haven’t downloaded them yet.
+
+### Running Unsigned Releases
+
+VoiceLink Community releases are currently distributed without Apple code signing and notarization. As of March 10, 2026, the Apple Developer Program costs [99 USD per year](https://developer.apple.com/programs/whats-included/). For this project, that ongoing cost is being avoided so the app can stay available as an open-source accessibility tool maintained independently by a disabled developer.
+
+If macOS blocks the app on first launch:
+
+1. Download the app from the GitHub Releases page.
+2. Move it to `/Applications` if you want to keep it installed there.
+3. Try to open it once, then dismiss the warning.
+4. Open `System Settings > Privacy & Security`.
+5. Scroll to the security section and click `Open Anyway`.
+6. Confirm the prompt to open the app.
+
+You can also Control-click the app in Finder, choose `Open`, then confirm `Open`.
+
+Only bypass Gatekeeper for builds you downloaded from this repository. If you prefer, you can also [build the app from source](docs/development/BUILDING.md).
 
 ## Requirements
 
@@ -44,6 +61,7 @@ Highlights of this fork:
 ## Documentation
 
 - [Building from Source](docs/development/BUILDING.md) - Detailed build setup and signing notes
+- [Running Unsigned Releases](docs/RUNNING_UNSIGNED_RELEASES.md) - Gatekeeper workaround steps for GitHub downloads
 - [Documentation Index](docs/README.md) - Feature guides, development docs, plans, and audits
 - [Power Mode Guide](docs/POWER_MODE_GUIDE.md) - Context-aware automation by app or URL
 - [Text-to-Speech Workspace Guide](docs/TTS_WORKSPACE_GUIDE.md) - Narration, batch generation, and export

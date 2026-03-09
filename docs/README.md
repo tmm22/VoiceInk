@@ -12,6 +12,7 @@
 
 ## Engineering and Release Notes
 
+- [Running Unsigned Releases](RUNNING_UNSIGNED_RELEASES.md)
 - [Local Transcription Updates](LOCAL_TRANSCRIPTION_UPDATES.md)
 - [Audio Feedback Customization](AUDIO_FEEDBACK_CUSTOMIZATION.md)
 - [Z.AI Integration Guide](ZAI_INTEGRATION_GUIDE.md)
@@ -21,6 +22,7 @@
 ## Development Docs
 
 - [Building from Source](development/BUILDING.md)
+- [Releasing on GitHub](development/RELEASING.md)
 - [Build and Test Guide](development/BUILD_AND_TEST_GUIDE.md)
 - [Testing Framework Overview](development/TESTING.md)
 - [Quick Start Testing](development/QUICK_START_TESTING.md)
