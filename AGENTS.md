@@ -1394,6 +1394,42 @@ xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug bui
     CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 ```
 
+### Build Location Rule
+
+Avoid running `xcodebuild` release packaging flows from iCloud-synced or Desktop-backed working copies.
+
+**Why:**
+- macOS file coordination can cause `xcodebuild` to stall before compilation begins, often inside `NSFileCoordinator`
+- This was reproduced from a Desktop-backed checkout during the `v1.61-community` release workflow
+
+**Rule:**
+- Prefer a normal local clone in a non-synced path such as `~/Developer/VoiceInk`
+- If the current checkout lives under Desktop/iCloud/Dropbox/OneDrive, stage the repo into a temporary local path before doing release builds
+- The repository automation already handles this for release artifacts; do not reintroduce direct in-place release packaging from synced folders
+
+### Release Automation
+
+Use the repository scripts instead of hand-building release artifacts or hand-assembling release notes.
+
+```bash
+# Build unsigned DMG artifact in a temporary non-synced staging workspace
+make release-artifact
+
+# Generate release notes from CHANGELOG.md + .github/RELEASE_TEMPLATE.md
+./scripts/generate-release-notes.sh
+
+# Build artifact, generate notes, push branch, tag, and publish GitHub release
+./scripts/publish-github-release.sh
+```
+
+**Release rules:**
+- `scripts/build-release-artifact.sh` is the source of truth for unsigned GitHub DMG packaging
+- `scripts/generate-release-notes.sh` is the source of truth for release note composition
+- `scripts/publish-github-release.sh` requires a clean git worktree and authenticated `gh`
+- Community releases publish to `tmm22/VoiceInk` by default, target branch `custom-main-v2`, and use tags in the form `vX.YY-community`
+- Keep user-visible release changes in the latest top entry of `CHANGELOG.md`; the automation pulls from that entry
+- Keep Gatekeeper and unsigned-build instructions in `.github/RELEASE_TEMPLATE.md`; the automation merges that text into the GitHub release body
+
 ### Post-Debug-Build Step
 
 After every successful local `Debug` build completed by an AI agent, immediately run:
@@ -1691,6 +1727,19 @@ deinit {
 2. Use parser validation (`swiftc -frontend -parse`) only as a temporary syntax-level fallback.
 3. Treat parser-only success as insufficient for release; always perform at least one full `xcodebuild` pass before merge.
 
+#### 6. `xcodebuild` Hangs Before Compilation Starts
+
+**Symptoms:** `xcodebuild` appears to hang indefinitely with no meaningful compiler progress, especially during local release packaging from a Desktop-backed checkout.  
+**Causes:**
+- macOS file coordination on synced folders (Desktop/iCloud Drive and similar providers)
+- Repository path participating in file-provider coordination before build output is created
+
+**Solution:**
+1. Move or clone the repository into a normal non-synced directory such as `~/Developer/VoiceInk`.
+2. For release builds, use `./scripts/build-release-artifact.sh` or `make release-artifact`; these stage the repo into a temporary local path automatically.
+3. If publishing, use `./scripts/publish-github-release.sh` from a clean checkout instead of manually building and uploading assets.
+4. Do not trust stale `DerivedData` app bundles as a substitute for a fresh release build.
+
 ### Debug Logging
 
 Enable debug output:
@@ -1904,7 +1953,8 @@ None - purely additive feature
 ### Project Links
 
 - **Website**: [tryvoiceink.com](https://tryvoiceink.com)
-- **GitHub**: [Beingpax/VoiceInk](https://github.com/Beingpax/VoiceInk)
+- **Community GitHub**: [tmm22/VoiceInk](https://github.com/tmm22/VoiceInk)
+- **Upstream GitHub**: [Beingpax/VoiceInk](https://github.com/Beingpax/VoiceInk)
 - **YouTube**: [@tryvoiceink](https://www.youtube.com/@tryvoiceink)
 
 ---
@@ -1983,6 +2033,12 @@ Task { @MainActor [weak self] in
 
 ## Version History
 
+- **v1.12** (2026-03-10) - Release Automation and Synced-Workspace Build Lessons
+  - Added build-location rule to avoid release packaging from Desktop/iCloud-backed working copies
+  - Documented the `xcodebuild` pre-compilation hang symptom and its `NSFileCoordinator`-style mitigation path
+  - Added release automation guidance for `build-release-artifact.sh`, `generate-release-notes.sh`, and `publish-github-release.sh`
+  - Documented community release defaults: repo `tmm22/VoiceInk`, branch `custom-main-v2`, and tag format `vX.YY-community`
+  - Clarified that GitHub release bodies are generated from `CHANGELOG.md` plus `.github/RELEASE_TEMPLATE.md`
 - **v1.11** (2026-02-07) - Recent Lessons (Build + Data Consistency)
   - Added workspace hygiene guidance for duplicate untracked source files (e.g., `* 2.swift`) that cause redeclaration build failures
   - Added dictionary source-of-truth pattern: `VocabularyWord` (SwiftData) + `VocabularyWordData` mirror for settings-backed services
@@ -2018,11 +2074,16 @@ This guide is a living document. If you find errors, outdated information, or ha
 
 ---
 
-**Last Updated:** February 7, 2026
+**Last Updated:** March 10, 2026
 **Maintained By:** VoiceInk Community
 **License:** GPL v3 (same as project)
 
 **Recent Updates:**
+- **v1.12** (2026-03-10) - Release Automation and Synced-Workspace Build Lessons
+  - Added release-build guidance to avoid Desktop/iCloud-backed workspaces for `xcodebuild`
+  - Added troubleshooting steps for pre-compilation `xcodebuild` hangs caused by file coordination
+  - Documented automated artifact/release-note publishing via `scripts/build-release-artifact.sh`, `scripts/generate-release-notes.sh`, and `scripts/publish-github-release.sh`
+  - Added community release defaults for repo, branch, and tag naming
 - **v1.11** (2026-02-07) - Recent Lessons (Build + Data Consistency)
   - Added workspace hygiene guidance for duplicate untracked Swift files before building
   - Added dictionary source-of-truth guidance (`VocabularyWord` + `VocabularyWordData` mirror)
