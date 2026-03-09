@@ -7,6 +7,7 @@
 ## Downloads
 
 - Download the app asset attached to this release.
+- Verify `VoiceInk.dmg.sha256` if you want to confirm the downloaded DMG matches the published checksum.
 - If you would rather build it yourself, see `docs/development/BUILDING.md` in the repository.
 
 ## Running This Release on macOS
@@ -33,3 +34,4 @@ Full guide: `docs/RUNNING_UNSIGNED_RELEASES.md`
 ## Full Changelog
 
 - Add release-specific notes here, or paste generated release notes below this heading.
+- If you are using the automation scripts, this section is filled from `CHANGELOG.md` automatically.

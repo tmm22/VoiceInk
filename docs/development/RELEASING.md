@@ -27,9 +27,14 @@ Available scripts:
   - Builds the app with the unsigned local-build configuration
   - Produces `release-artifacts/vX.YY-community/VoiceInk.dmg`
   - Produces `release-artifacts/vX.YY-community/VoiceInk.dmg.sha256`
+- `./scripts/generate-release-notes.sh`
+  - Reads the latest top entry from `CHANGELOG.md`
+  - Merges those project release notes with the GitHub/Gatekeeper instructions from `.github/RELEASE_TEMPLATE.md`
+  - Produces `release-artifacts/vX.YY-community/release-notes.md`
 - `./scripts/publish-github-release.sh`
   - Requires a clean git worktree and authenticated GitHub CLI
   - Builds the DMG through the staging workflow above
+  - Generates the final release body from both `CHANGELOG.md` and `.github/RELEASE_TEMPLATE.md`
   - Pushes `custom-main-v2`, tags `vX.YY-community`, and creates the GitHub release on `tmm22/VoiceInk`
 
 If you only want the binary artifact, run:

@@ -4,8 +4,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_SCRIPT="$ROOT_DIR/scripts/build-release-artifact.sh"
+NOTES_SCRIPT="$ROOT_DIR/scripts/generate-release-notes.sh"
 PROJECT_FILE="$ROOT_DIR/VoiceInk.xcodeproj/project.pbxproj"
-RELEASE_TEMPLATE="$ROOT_DIR/.github/RELEASE_TEMPLATE.md"
 
 if [[ ! -d "$ROOT_DIR/.git" ]]; then
   echo "publish-github-release.sh must run from a git checkout" >&2
@@ -36,7 +36,7 @@ release_body_path="$artifact_dir/release-notes.md"
 mkdir -p "$artifact_dir"
 
 "$BUILD_SCRIPT" "$artifact_dir"
-cp "$RELEASE_TEMPLATE" "$release_body_path"
+GITHUB_REPO="$repo" "$NOTES_SCRIPT" "$release_body_path" >/dev/null
 
 git -C "$ROOT_DIR" push origin "$target_branch"
 
