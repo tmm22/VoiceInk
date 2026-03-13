@@ -13,28 +13,29 @@ protocol AudioTranscribing {
 
 @MainActor
 final class OpenAITranscriptionService: AudioTranscribing {
-    private static let transcriptionModel = "gpt-4o-transcribe"
+    nonisolated private static let transcriptionModel = "gpt-4o-transcribe"
 
     private let session: URLSession
-    private let managedProvisioningClient: ManagedProvisioningClient
-    private let keychain: KeychainManager
-    private var activeManagedCredential: ManagedCredential?
+    private let authorizationService: AuthorizationService
 
     private let endpoint = URL(string: "https://api.openai.com/v1/audio/transcriptions")!
 
-    init(session: URLSession = SecureURLSession.makeEphemeral(),
-         keychain: KeychainManager = KeychainManager(),
-         managedProvisioningClient: ManagedProvisioningClient? = nil) {
+    init(
+        session: URLSession = SecureURLSession.makeEphemeral(),
+        keychain: KeychainManager = KeychainManager(),
+        managedProvisioningClient: ManagedProvisioningClient? = nil,
+        authorizationService: AuthorizationService? = nil
+    ) {
         self.session = session
-        self.keychain = keychain
-        self.managedProvisioningClient = managedProvisioningClient ?? .shared
+        let resolvedManagedProvisioningClient = managedProvisioningClient ?? .shared
+        self.authorizationService = authorizationService ?? AuthorizationService(
+            keychain: keychain,
+            managedProvisioningClient: resolvedManagedProvisioningClient
+        )
     }
 
     func hasCredentials() -> Bool {
-        if let apiKey = keychain.getAPIKey(for: "OpenAI"), !apiKey.isEmpty {
-            return true
-        }
-        return managedProvisioningClient.isEnabled && managedProvisioningClient.configuration != nil
+        authorizationService.hasCredentials(for: "OpenAI")
     }
 
     func transcribe(fileURL: URL, languageHint: String? = nil) async throws -> (text: String, language: String?, duration: TimeInterval, segments: [TranscriptionSegment]) {
@@ -43,7 +44,7 @@ final class OpenAITranscriptionService: AudioTranscribing {
 
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
-        let authorization = try await authorizationHeader()
+        let authorization = try await authorizationService.authorizationHeader(for: "OpenAI", headerType: .openAI)
         request.setValue(authorization.value, forHTTPHeaderField: authorization.header)
         request.timeoutInterval = 90
 
@@ -75,8 +76,7 @@ final class OpenAITranscriptionService: AudioTranscribing {
                 data: data,
                 onUnauthorized: {
                     if authorization.usedManagedCredential {
-                        self.managedProvisioningClient.invalidateCredential(for: .openAI)
-                        self.activeManagedCredential = nil
+                        self.authorizationService.invalidateManagedCredential(for: .openAI)
                     }
                 },
                 errorMessageDecoder: Self.decodeAPIError,
@@ -109,18 +109,6 @@ final class OpenAITranscriptionService: AudioTranscribing {
 }
 
 private extension OpenAITranscriptionService {
-    func authorizationHeader() async throws -> AuthorizationHeader {
-        if let key = keychain.getAPIKey(for: "OpenAI"), !key.isEmpty {
-            return AuthorizationHeader(header: "Authorization", value: "Bearer \(key)", usedManagedCredential: false)
-        }
-
-        guard let credential = try await managedProvisioningClient.credential(for: .openAI) else {
-            throw TTSError.invalidAPIKey
-        }
-        activeManagedCredential = credential
-        return AuthorizationHeader(header: "Authorization", value: "Bearer \(credential.token)", usedManagedCredential: true)
-    }
-
     static func mimeType(for url: URL) -> String {
         if let type = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType {
             return type

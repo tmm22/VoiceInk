@@ -7,8 +7,7 @@ class OpenAITTSService: TTSProvider {
     private var apiKey: String?
     private let baseURL = "https://api.openai.com/v1/audio/speech"
     private let session: URLSession
-    private let managedProvisioningClient: ManagedProvisioningClient
-    private var activeManagedCredential: ManagedCredential?
+    private let authorizationService: AuthorizationService
     
     // MARK: - Default Voice
     var defaultVoice: Voice {
@@ -58,12 +57,17 @@ class OpenAITTSService: TTSProvider {
     }
     
     // MARK: - Initialization
-    init(session: URLSession = SecureURLSession.makeEphemeral(),
-         managedProvisioningClient: ManagedProvisioningClient? = nil) {
+    init(
+        session: URLSession = SecureURLSession.makeEphemeral(),
+        managedProvisioningClient: ManagedProvisioningClient? = nil,
+        authorizationService: AuthorizationService? = nil
+    ) {
         self.session = session
-        self.managedProvisioningClient = managedProvisioningClient ?? .shared
-        // Load API key from keychain if available
-        self.apiKey = KeychainManager().getAPIKey(for: "OpenAI")
+        let resolvedManagedProvisioningClient = managedProvisioningClient ?? .shared
+        self.authorizationService = authorizationService ?? AuthorizationService(
+            managedProvisioningClient: resolvedManagedProvisioningClient
+        )
+        self.apiKey = self.authorizationService.storedAPIKey(for: "OpenAI")
     }
     
     // MARK: - API Key Management
@@ -72,10 +76,7 @@ class OpenAITTSService: TTSProvider {
     }
     
     func hasValidAPIKey() -> Bool {
-        if let key = apiKey, !key.isEmpty {
-            return true
-        }
-        return managedProvisioningClient.isEnabled && managedProvisioningClient.configuration != nil
+        authorizationService.hasCredentials(for: "OpenAI", preferredKey: apiKey)
     }
     
     // MARK: - Speech Synthesis
@@ -91,7 +92,11 @@ class OpenAITTSService: TTSProvider {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        let authorization = try await authorizationHeader()
+        let authorization = try await authorizationService.authorizationHeader(
+            for: "OpenAI",
+            headerType: .openAI,
+            preferredKey: apiKey
+        )
         request.setValue(authorization.value, forHTTPHeaderField: authorization.header)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 45
@@ -121,8 +126,7 @@ class OpenAITTSService: TTSProvider {
                 data: data,
                 onUnauthorized: {
                     if authorization.usedManagedCredential {
-                        self.managedProvisioningClient.invalidateCredential(for: .openAI)
-                        self.activeManagedCredential = nil
+                        self.authorizationService.invalidateManagedCredential(for: .openAI)
                     }
                 },
                 errorMessageDecoder: { data in
@@ -134,21 +138,6 @@ class OpenAITTSService: TTSProvider {
         } catch {
             throw TTSError.networkError(error.localizedDescription)
         }
-    }
-}
-
-private extension OpenAITTSService {
-    func authorizationHeader() async throws -> AuthorizationHeader {
-        if let key = apiKey, !key.isEmpty {
-            return AuthorizationHeader(header: "Authorization", value: "Bearer \(key)", usedManagedCredential: false)
-        }
-
-        guard let credential = try await managedProvisioningClient.credential(for: .openAI) else {
-            throw TTSError.invalidAPIKey
-        }
-
-        activeManagedCredential = credential
-        return AuthorizationHeader(header: "Authorization", value: "Bearer \(credential.token)", usedManagedCredential: true)
     }
 }
 

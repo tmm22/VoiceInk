@@ -273,9 +273,7 @@ struct CloudModelCardView: View {
 
         guard let aiProvider = ModelCapabilityRegistry.shared.getAIServiceProvider(for: model.provider) else {
             // This case should ideally not be hit for cloud models in this view
-            #if DEBUG
-            print("Warning: verifyAPIKey called for unsupported provider \(model.provider.rawValue)")
-            #endif
+            AppLogger.ai.error("API key verification called for unsupported provider \(model.provider.rawValue, privacy: .public)")
             isVerifying = false
             verificationStatus = .failure
             return

@@ -3,32 +3,33 @@ import Foundation
 @MainActor
 final class OpenAITranslationService: TextTranslationService {
     private let session: URLSession
-    private let keychain: KeychainManager
-    private let managedProvisioningClient: ManagedProvisioningClient
-    private var activeManagedCredential: ManagedCredential?
+    private let authorizationService: AuthorizationService
     private let endpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
     private let model = "gpt-4o-mini"
 
-    init(session: URLSession = SecureURLSession.makeEphemeral(),
-         keychain: KeychainManager = KeychainManager(),
-         managedProvisioningClient: ManagedProvisioningClient? = nil) {
+    init(
+        session: URLSession = SecureURLSession.makeEphemeral(),
+        keychain: KeychainManager = KeychainManager(),
+        managedProvisioningClient: ManagedProvisioningClient? = nil,
+        authorizationService: AuthorizationService? = nil
+    ) {
         self.session = session
-        self.keychain = keychain
-        self.managedProvisioningClient = managedProvisioningClient ?? .shared
+        let resolvedManagedProvisioningClient = managedProvisioningClient ?? .shared
+        self.authorizationService = authorizationService ?? AuthorizationService(
+            keychain: keychain,
+            managedProvisioningClient: resolvedManagedProvisioningClient
+        )
     }
 
     func hasCredentials() -> Bool {
-        if let key = keychain.getAPIKey(for: "OpenAI"), !key.isEmpty {
-            return true
-        }
-        return managedProvisioningClient.isEnabled && managedProvisioningClient.configuration != nil
+        authorizationService.hasCredentials(for: "OpenAI")
     }
 
     func translate(text: String, targetLanguageCode: String) async throws -> TranslationResult {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let authorization = try await authorizationHeader()
+        let authorization = try await authorizationService.authorizationHeader(for: "OpenAI", headerType: .openAI)
         request.setValue(authorization.value, forHTTPHeaderField: authorization.header)
         request.timeoutInterval = 45
 
@@ -58,8 +59,7 @@ final class OpenAITranslationService: TextTranslationService {
                 data: data,
                 onUnauthorized: {
                     if authorization.usedManagedCredential {
-                        self.managedProvisioningClient.invalidateCredential(for: .openAI)
-                        self.activeManagedCredential = nil
+                        self.authorizationService.invalidateManagedCredential(for: .openAI)
                     }
                 },
                 clientErrorFormat: "Translation request failed (%d)",
@@ -127,18 +127,4 @@ private struct ChatCompletionResponse: Codable {
 private struct TranslationPayload: Codable {
     let sourceLanguage: String
     let translatedText: String
-}
-
-private extension OpenAITranslationService {
-    func authorizationHeader() async throws -> AuthorizationHeader {
-        if let key = keychain.getAPIKey(for: "OpenAI"), !key.isEmpty {
-            return AuthorizationHeader(header: "Authorization", value: "Bearer \(key)", usedManagedCredential: false)
-        }
-
-        guard let credential = try await managedProvisioningClient.credential(for: .openAI) else {
-            throw TTSError.invalidAPIKey
-        }
-        activeManagedCredential = credential
-        return AuthorizationHeader(header: "Authorization", value: "Bearer \(credential.token)", usedManagedCredential: true)
-    }
 }

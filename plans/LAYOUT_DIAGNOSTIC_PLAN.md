@@ -1,5 +1,7 @@
 # Layout Diagnostic Plan: Preventing Content Cutoff Issues
 
+> See also: [`CODEBASE_ALIGNMENT_CLEANUP_PLAN_2026-03-14.md`](CODEBASE_ALIGNMENT_CLEANUP_PLAN_2026-03-14.md) for the broader codebase cleanup and file-maintenance tracker.
+
 ## Problem Analysis
 The inspector panel has content cutoff issues due to:
 1. Fixed frame width (300px) at the container level

@@ -3,33 +3,34 @@ import Foundation
 @MainActor
 final class OpenAISummarizationService: TextSummarizationService {
     private let session: URLSession
-    private let keychain: KeychainManager
-    private let managedProvisioningClient: ManagedProvisioningClient
-    private var activeManagedCredential: ManagedCredential?
+    private let authorizationService: AuthorizationService
     // Force unwrap safe: hardcoded valid URL
     private let endpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
     private let model = "gpt-4o-mini"
 
-    init(session: URLSession = SecureURLSession.makeEphemeral(),
-         keychain: KeychainManager = KeychainManager(),
-         managedProvisioningClient: ManagedProvisioningClient? = nil) {
+    init(
+        session: URLSession = SecureURLSession.makeEphemeral(),
+        keychain: KeychainManager = KeychainManager(),
+        managedProvisioningClient: ManagedProvisioningClient? = nil,
+        authorizationService: AuthorizationService? = nil
+    ) {
         self.session = session
-        self.keychain = keychain
-        self.managedProvisioningClient = managedProvisioningClient ?? .shared
+        let resolvedManagedProvisioningClient = managedProvisioningClient ?? .shared
+        self.authorizationService = authorizationService ?? AuthorizationService(
+            keychain: keychain,
+            managedProvisioningClient: resolvedManagedProvisioningClient
+        )
     }
 
     func hasCredentials() -> Bool {
-        if let key = keychain.getAPIKey(for: "OpenAI"), !key.isEmpty {
-            return true
-        }
-        return managedProvisioningClient.isEnabled && managedProvisioningClient.configuration != nil
+        authorizationService.hasCredentials(for: "OpenAI")
     }
 
     func summarize(text: String, sourceURL: URL?) async throws -> SummarizationResult {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let authorization = try await authorizationHeader()
+        let authorization = try await authorizationService.authorizationHeader(for: "OpenAI", headerType: .openAI)
         request.setValue(authorization.value, forHTTPHeaderField: authorization.header)
         request.timeoutInterval = 45
 
@@ -70,8 +71,7 @@ final class OpenAISummarizationService: TextSummarizationService {
                 data: data,
                 onUnauthorized: {
                     if authorization.usedManagedCredential {
-                        self.managedProvisioningClient.invalidateCredential(for: .openAI)
-                        self.activeManagedCredential = nil
+                        self.authorizationService.invalidateManagedCredential(for: .openAI)
                     }
                 },
                 clientErrorFormat: "Summarization request failed (%d)",
@@ -140,19 +140,5 @@ private struct SummarizationPayload: Codable {
     enum CodingKeys: String, CodingKey {
         case conciseArticle = "conciseArticle"
         case summary
-    }
-}
-
-private extension OpenAISummarizationService {
-    func authorizationHeader() async throws -> AuthorizationHeader {
-        if let key = keychain.getAPIKey(for: "OpenAI"), !key.isEmpty {
-            return AuthorizationHeader(header: "Authorization", value: "Bearer \(key)", usedManagedCredential: false)
-        }
-
-        guard let credential = try await managedProvisioningClient.credential(for: .openAI) else {
-            throw TTSError.invalidAPIKey
-        }
-        activeManagedCredential = credential
-        return AuthorizationHeader(header: "Authorization", value: "Bearer \(credential.token)", usedManagedCredential: true)
     }
 }

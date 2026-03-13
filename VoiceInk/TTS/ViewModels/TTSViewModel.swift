@@ -83,8 +83,12 @@ class TTSViewModel: ObservableObject {
     ) {
         let resolvedNotificationCenter = notificationCenterProvider()
         let resolvedUrlContentLoader = urlContentLoader ?? URLContentService()
-        self.translationService = translationService ?? OpenAITranslationService()
-        let resolvedSummarizationService = summarizationService ?? OpenAISummarizationService()
+        let resolvedManagedProvisioningClient = managedProvisioningClient ?? .shared
+        let keychainManager = KeychainManager()
+        let authorizationService = AuthorizationService(keychain: keychainManager, managedProvisioningClient: resolvedManagedProvisioningClient)
+
+        self.translationService = translationService ?? OpenAITranslationService(authorizationService: authorizationService)
+        let resolvedSummarizationService = summarizationService ?? OpenAISummarizationService(authorizationService: authorizationService)
         let resolvedAudioPlayer = audioPlayer ?? AudioPlayerService()
         let playbackViewModel = TTSPlaybackViewModel(audioPlayer: resolvedAudioPlayer)
         let historyViewModel = TTSHistoryViewModel(playback: playbackViewModel)
@@ -103,13 +107,9 @@ class TTSViewModel: ObservableObject {
         self.playback = playbackViewModel
         self.preview = previewViewModel
 
-        let resolvedManagedProvisioningClient = managedProvisioningClient ?? .shared
-        let keychainManager = KeychainManager()
-        let authorizationService = AuthorizationService(keychain: keychainManager, managedProvisioningClient: resolvedManagedProvisioningClient)
-
         let resolvedElevenLabs = elevenLabsService ?? ElevenLabsTTSService(authorizationService: authorizationService)
-        let resolvedOpenAI = openAIService ?? OpenAITTSService()
-        let resolvedGoogle = googleService ?? GoogleTTSService()
+        let resolvedOpenAI = openAIService ?? OpenAITTSService(authorizationService: authorizationService)
+        let resolvedGoogle = googleService ?? GoogleTTSService(authorizationService: authorizationService)
         let resolvedLocal = localService ?? LocalTTSService()
         self.elevenLabs = resolvedElevenLabs
         self.openAI = resolvedOpenAI
@@ -144,19 +144,19 @@ class TTSViewModel: ObservableObject {
         var resolvedTranscriptionServices = transcriptionServices
         if resolvedTranscriptionServices.isEmpty {
             resolvedTranscriptionServices = [
-                .openAI: OpenAITranscriptionService(),
+                .openAI: OpenAITranscriptionService(authorizationService: authorizationService),
                 .googleChirp2: GoogleTranscriptionService()
             ]
         } else {
             if resolvedTranscriptionServices[.openAI] == nil {
-                resolvedTranscriptionServices[.openAI] = OpenAITranscriptionService()
+                resolvedTranscriptionServices[.openAI] = OpenAITranscriptionService(authorizationService: authorizationService)
             }
             if resolvedTranscriptionServices[.googleChirp2] == nil {
                 resolvedTranscriptionServices[.googleChirp2] = GoogleTranscriptionService()
             }
         }
-        let resolvedInsightsService = transcriptInsightsService ?? TranscriptInsightsService()
-        let resolvedCleanupService = transcriptCleanupService ?? TranscriptCleanupService()
+        let resolvedInsightsService = transcriptInsightsService ?? TranscriptInsightsService(authorizationService: authorizationService)
+        let resolvedCleanupService = transcriptCleanupService ?? TranscriptCleanupService(authorizationService: authorizationService)
         var insertTextHandler: ((String) -> Void)?
         self.transcription = TTSTranscriptionViewModel(
             transcriptionServices: resolvedTranscriptionServices,

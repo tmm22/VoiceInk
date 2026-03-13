@@ -1,5 +1,7 @@
 # WhisperState SOLID Refactoring Plan
 
+> See also: [`CODEBASE_ALIGNMENT_CLEANUP_PLAN_2026-03-14.md`](CODEBASE_ALIGNMENT_CLEANUP_PLAN_2026-03-14.md) for the current cleanup pass and remaining actor/threading follow-up.
+
 ## Executive Summary
 
 This document outlines a comprehensive refactoring plan for the `WhisperState` class to apply SOLID principles, specifically the Single Responsibility Principle (SRP). The current implementation spans ~1,200 lines across 9 files and handles multiple distinct responsibilities that should be separated into focused, testable components.

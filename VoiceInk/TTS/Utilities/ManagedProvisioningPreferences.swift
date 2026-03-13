@@ -29,9 +29,7 @@ final class ManagedProvisioningPreferences {
             if let newValue {
                 // SECURITY: Only allow HTTPS URLs for managed provisioning
                 guard newValue.baseURL.scheme?.lowercased() == "https" else {
-                    #if DEBUG
-                    print("ManagedProvisioningPreferences: Rejecting non-HTTPS URL")
-                    #endif
+                    AppLogger.network.error("Rejecting non-HTTPS managed provisioning URL")
                     return
                 }
                 AppSettings.setValue(newValue.baseURL.absoluteString, forKey: Keys.baseURL)

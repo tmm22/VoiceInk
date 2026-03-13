@@ -1,5 +1,7 @@
 # Cloud Transcription Service Registry Pattern Design
 
+> See also: [`CODEBASE_ALIGNMENT_CLEANUP_PLAN_2026-03-14.md`](CODEBASE_ALIGNMENT_CLEANUP_PLAN_2026-03-14.md) for the repo-wide cleanup and review-alignment tracker.
+
 ## Current State Analysis
 
 ### ✅ Well-Designed Components

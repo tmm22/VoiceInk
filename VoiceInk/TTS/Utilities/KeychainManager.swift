@@ -62,11 +62,9 @@ class KeychainManager {
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         
         guard status == errSecSuccess else {
-            #if DEBUG
             if status != errSecItemNotFound {
-                print("Keychain read error: \(status)")
+                AppLogger.storage.error("Keychain read error: \(status)")
             }
-            #endif
             return nil
         }
         

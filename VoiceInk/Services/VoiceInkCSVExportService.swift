@@ -17,9 +17,7 @@ class VoiceInkCSVExportService {
                 do {
                     try csvString.write(to: url, atomically: true, encoding: .utf8)
                 } catch {
-                    #if DEBUG
-                    print("Error writing CSV file: \(error)")
-                    #endif
+                    AppLogger.storage.error("Failed to export CSV: \(error.localizedDescription)")
                 }
             }
         }

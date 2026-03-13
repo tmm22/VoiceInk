@@ -60,9 +60,7 @@ final class WaveformGenerator {
             cache.setObject(normalizedSamples as NSArray, forKey: cacheKey)
             return normalizedSamples
         } catch {
-            #if DEBUG
-            print("Error reading audio file: \(error)")
-            #endif
+            AppLogger.audio.error("Waveform generation failed: \(error.localizedDescription)")
             return []
         }
     }
@@ -92,9 +90,7 @@ final class AudioPlayerManager: ObservableObject {
                 }
             }
         } catch {
-            #if DEBUG
-            print("Error loading audio: \(error.localizedDescription)")
-            #endif
+            AppLogger.audio.error("Audio player failed to load audio: \(error.localizedDescription)")
         }
     }
 
