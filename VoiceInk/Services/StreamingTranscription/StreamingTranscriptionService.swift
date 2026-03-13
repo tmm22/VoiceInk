@@ -187,16 +187,14 @@ class StreamingTranscriptionService {
     private func startSendLoop() {
         let source = chunkSource
         let provider = provider
+        let logger = logger
 
-        sendTask = Task.detached { [weak self] in
+        sendTask = Task.detached {
             for await chunk in source.stream {
                 do {
                     try await provider?.sendAudioChunk(chunk)
                 } catch {
-                    let desc = error.localizedDescription
-                    await MainActor.run {
-                        self?.logger.error("Failed to send audio chunk: \(desc, privacy: .public)")
-                    }
+                    logger.error("Failed to send audio chunk: \(error.localizedDescription, privacy: .public)")
                 }
             }
         }
@@ -214,36 +212,34 @@ class StreamingTranscriptionService {
         guard let provider = provider else { return }
         let events = provider.transcriptionEvents
 
-        eventConsumerTask = Task.detached { [weak self] in
+        eventConsumerTask = Task { [weak self] in
             for await event in events {
                 guard let self = self else { break }
-                switch event {
-                case .committed(let text):
-                    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                    await MainActor.run {
-                        if !trimmed.isEmpty {
-                            self.committedSegments.append(trimmed)
-                        }
-
-                        // Signal for any committed response (including empty) during committing phase.
-                        if self.state == .committing {
-                            self.commitSignal?.yield()
-                        }
-                    }
-                case .partial(let text):
-                    await MainActor.run {
-                        if self.state == .streaming {
-                            self.onPartialTranscript?(text)
-                        }
-                    }
-                case .sessionStarted:
-                    break
-                case .error(let error):
-                    await MainActor.run {
-                        self.logger.error("Streaming event error: \(error.localizedDescription, privacy: .public)")
-                    }
-                }
+                self.handleStreamingEvent(event)
             }
+        }
+    }
+
+    private func handleStreamingEvent(_ event: StreamingTranscriptionEvent) {
+        switch event {
+        case .committed(let text):
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                committedSegments.append(trimmed)
+            }
+
+            // Signal for any committed response (including empty) during committing phase.
+            if state == .committing {
+                commitSignal?.yield()
+            }
+        case .partial(let text):
+            if state == .streaming {
+                onPartialTranscript?(text)
+            }
+        case .sessionStarted:
+            break
+        case .error(let error):
+            logger.error("Streaming event error: \(error.localizedDescription, privacy: .public)")
         }
     }
 

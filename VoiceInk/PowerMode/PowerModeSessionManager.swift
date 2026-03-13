@@ -36,9 +36,7 @@ class PowerModeSessionManager {
 
     func beginSession(with config: PowerModeConfig) async {
         guard let whisperState = whisperState, let enhancementService = enhancementService else {
-            #if DEBUG
-            print("SessionManager not configured.")
-            #endif
+            AppLogger.powerMode.warning("PowerModeSessionManager beginSession called before configuration")
             return
         }
 
@@ -180,9 +178,7 @@ class PowerModeSessionManager {
                 do {
                     try await whisperState.loadModel(localModel)
                 } catch {
-                    #if DEBUG
-                    print("Power Mode: Failed to load local model '\(localModel.name)': \(error)")
-                    #endif
+                    AppLogger.powerMode.error("Failed to load Power Mode local model \(localModel.name, privacy: .public): \(error.localizedDescription)")
                 }
             }
         case .parakeet:
@@ -195,9 +191,7 @@ class PowerModeSessionManager {
     
     private func recoverSession() {
         guard let _ = loadSession() else { return }
-        #if DEBUG
-        print("Recovering abandoned Power Mode session.")
-        #endif
+        AppLogger.powerMode.info("Recovering abandoned Power Mode session")
         Task { [weak self] in
             await self?.endSession()
         }
@@ -208,9 +202,7 @@ class PowerModeSessionManager {
             let data = try JSONEncoder().encode(session)
             AppSettings.PowerMode.activeSessionData = data
         } catch {
-            #if DEBUG
-            print("Error saving Power Mode session: \(error)")
-            #endif
+            AppLogger.powerMode.error("Failed to save Power Mode session: \(error.localizedDescription)")
         }
     }
     
@@ -219,9 +211,7 @@ class PowerModeSessionManager {
         do {
             return try JSONDecoder().decode(PowerModeSession.self, from: data)
         } catch {
-            #if DEBUG
-            print("Error loading Power Mode session: \(error)")
-            #endif
+            AppLogger.powerMode.error("Failed to load Power Mode session: \(error.localizedDescription)")
             return nil
         }
     }

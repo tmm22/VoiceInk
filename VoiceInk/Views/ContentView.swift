@@ -108,83 +108,53 @@ struct ContentView: View {
         }
         // inside ContentView body:
         .onReceive(NotificationCenter.default.publisher(for: .navigateToDestination)) { notification in
-            #if DEBUG
-            print("ContentView: Received navigation notification")
-            #endif
+            AppLogger.ui.debug("ContentView received navigation notification")
             if let destination = notification.userInfo?["destination"] as? String {
-                #if DEBUG
-                print("ContentView: Destination received: \(destination)")
-                #endif
+                AppLogger.ui.debug("ContentView destination received: \(destination, privacy: .public)")
                 switch destination {
                 case "Settings":
-                    #if DEBUG
-                    print("ContentView: Navigating to Settings")
-                    #endif
+                    AppLogger.ui.debug("ContentView navigating to Settings")
                     selectedView = .settings
                 case "AI Models":
                     guard enableAIEnhancementFeatures else {
-                        #if DEBUG
-                        print("ContentView: AI features disabled; ignoring AI Models navigation")
-                        #endif
+                        AppLogger.ui.info("ContentView blocked AI Models navigation because AI features are disabled")
                         return
                     }
-                    #if DEBUG
-                    print("ContentView: Navigating to AI Models")
-                    #endif
+                    AppLogger.ui.debug("ContentView navigating to AI Models")
                     selectedView = .models
                 case "Community":
-                    #if DEBUG
-                    print("ContentView: Navigating to Community")
-                    #endif
+                    AppLogger.ui.debug("ContentView navigating to Community")
                     selectedView = .community
                 case "History":
-                    #if DEBUG
-                    print("ContentView: Navigating to History")
-                    #endif
+                    AppLogger.ui.debug("ContentView navigating to History")
                     selectedView = .history
                 case "Permissions":
-                    #if DEBUG
-                    print("ContentView: Navigating to Permissions")
-                    #endif
+                    AppLogger.ui.debug("ContentView navigating to Permissions")
                     selectedView = .permissions
                 case "Enhancement":
                     guard enableAIEnhancementFeatures else {
-                        #if DEBUG
-                        print("ContentView: AI features disabled; ignoring Enhancement navigation")
-                        #endif
+                        AppLogger.ui.info("ContentView blocked Enhancement navigation because AI features are disabled")
                         return
                     }
-                    #if DEBUG
-                    print("ContentView: Navigating to Enhancement")
-                    #endif
+                    AppLogger.ui.debug("ContentView navigating to Enhancement")
                     selectedView = .enhancement
                 case "Transcribe Audio":
                     // Ensure we switch to the Transcribe Audio view in-place
-                    #if DEBUG
-                    print("ContentView: Navigating to Transcribe Audio")
-                    #endif
+                    AppLogger.ui.debug("ContentView navigating to Transcribe Audio")
                     selectedView = .transcribeAudio
                 case "Text to Speech":
                     guard enableAIEnhancementFeatures else {
-                        #if DEBUG
-                        print("ContentView: AI features disabled; ignoring Text to Speech navigation")
-                        #endif
+                        AppLogger.ui.info("ContentView blocked Text to Speech navigation because AI features are disabled")
                         return
                     }
-                    #if DEBUG
-                    print("ContentView: Navigating to Text to Speech")
-                    #endif
+                    AppLogger.ui.debug("ContentView navigating to Text to Speech")
                     selectedView = .textToSpeech
                 default:
-                    #if DEBUG
-                    print("ContentView: No matching destination found for: \(destination)")
-                    #endif
+                    AppLogger.ui.debug("ContentView found no matching destination for \(destination, privacy: .public)")
                     break
                 }
             } else {
-                #if DEBUG
-                print("ContentView: No destination in notification")
-                #endif
+                AppLogger.ui.error("ContentView received a navigation notification without a destination")
             }
         }
         .onChange(of: enableAIEnhancementFeatures) { _, _ in

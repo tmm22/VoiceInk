@@ -56,10 +56,6 @@ class WhisperState: NSObject, ObservableObject {
 
     var whisperContext: WhisperContext?
     let recorder = Recorder()
-    lazy var recordingSessionManager = RecordingSessionManager(
-        recorder: recorder,
-        recordingsDirectory: recordingsDirectory
-    )
     var recordedFile: URL? = nil
     let whisperPrompt = WhisperPrompt()
 
@@ -159,7 +155,7 @@ class WhisperState: NSObject, ObservableObject {
         if recordingState == .recording {
             partialTranscript = ""
             recordingState = .transcribing
-            await recorder.stopRecording()
+            recorder.stopRecording()
             if let recordedFile {
                 if !shouldCancelRecording {
                     let audioAsset = AVURLAsset(url: recordedFile)
@@ -175,33 +171,27 @@ class WhisperState: NSObject, ObservableObject {
                     try? modelContext.save()
                     NotificationCenter.default.post(name: .transcriptionCreated, object: transcription)
 
-                    await transcribeAudioLegacy(on: transcription)
+                    await transcribeAudio(on: transcription)
                 } else {
                     currentSession?.cancel()
                     currentSession = nil
                     try? FileManager.default.removeItem(at: recordedFile)
-                    await MainActor.run {
-                        recordingState = .idle
-                    }
+                    recordingState = .idle
                     await cleanupModelResources()
                 }
             } else {
                 logger.error("❌ No recorded file found after stopping recording")
                 currentSession?.cancel()
                 currentSession = nil
-                await MainActor.run {
-                    recordingState = .idle
-                }
+                recordingState = .idle
             }
         } else {
             logger.notice("toggleRecord: entering start-recording branch")
             guard currentTranscriptionModel != nil else {
-                await MainActor.run {
-                    NotificationManager.shared.showNotification(
-                        title: "No AI Model Selected",
-                        type: .error
-                    )
-                }
+                NotificationManager.shared.showNotification(
+                    title: "No AI Model Selected",
+                    type: .error
+                )
                 return
             }
             shouldCancelRecording = false
@@ -224,9 +214,7 @@ class WhisperState: NSObject, ObservableObject {
                             // Start recording immediately — no waiting for network
                             try await self.recorder.startRecording(toOutputFile: permanentURL)
 
-                            await MainActor.run {
-                                self.recordingState = .recording
-                            }
+                            self.recordingState = .recording
                             self.logger.notice("toggleRecord: recording started successfully, state=recording")
 
                             // Power Mode resolves while recording runs (~50-200ms)
@@ -269,24 +257,22 @@ class WhisperState: NSObject, ObservableObject {
                                         do {
                                             try await self.loadModel(localWhisperModel)
                                         } catch {
-                                            await self.logger.error("❌ Model loading failed: \(error.localizedDescription)")
+                                            self.logger.error("❌ Model loading failed: \(error.localizedDescription)")
                                         }
                                     }
                                 } else if let parakeetModel = await self.currentTranscriptionModel as? ParakeetModel {
                                     try? await self.serviceRegistry.parakeetTranscriptionService.loadModel(for: parakeetModel)
                                 }
 
-                                if let enhancementService = await self.enhancementService {
-                                    await MainActor.run {
-                                        enhancementService.captureClipboardContext()
-                                    }
+                                if let enhancementService = self.enhancementService {
+                                    await enhancementService.captureClipboardContext()
                                     await enhancementService.captureScreenContext()
                                 }
                             }
 
                         } catch {
                             self.logger.error("❌ Failed to start recording: \(error.localizedDescription)")
-                            await NotificationManager.shared.showNotification(title: "Recording failed to start", type: .error)
+                            NotificationManager.shared.showNotification(title: "Recording failed to start", type: .error)
                             self.logger.notice("toggleRecord: calling dismissMiniRecorder from error handler")
                             await self.dismissMiniRecorder()
                             // Do not remove the file on a failed start, to preserve all recordings.
@@ -304,12 +290,18 @@ class WhisperState: NSObject, ObservableObject {
         response(true)
     }
 
-    private func transcribeAudioLegacy(on transcription: Transcription) async {
+    func toggleRecord() async {
+        await toggleRecord(powerModeId: nil)
+    }
+
+    func getEnhancementService() -> AIEnhancementService? {
+        enhancementService
+    }
+
+    private func transcribeAudio(on transcription: Transcription) async {
         guard let urlString = transcription.audioFileURL, let url = URL(string: urlString) else {
             logger.error("❌ Invalid audio file URL in transcription object.")
-            await MainActor.run {
-                recordingState = .idle
-            }
+            recordingState = .idle
             transcription.text = "Transcription Failed: Invalid audio file URL"
             transcription.transcriptionStatus = TranscriptionStatus.failed.rawValue
             try? modelContext.save()
@@ -317,16 +309,12 @@ class WhisperState: NSObject, ObservableObject {
         }
 
         if shouldCancelRecording {
-            await MainActor.run {
-                recordingState = .idle
-            }
+            recordingState = .idle
             await cleanupModelResources()
             return
         }
 
-        await MainActor.run {
-            recordingState = .transcribing
-        }
+        recordingState = .transcribing
 
         // Play stop sound when transcription starts with a small delay
         Task {
@@ -334,9 +322,7 @@ class WhisperState: NSObject, ObservableObject {
             if isSystemMuteEnabled {
                 try? await Task.sleep(nanoseconds: 200_000_000) // 200 milliseconds delay
             }
-            await MainActor.run {
-                SoundManager.shared.playStopSound()
-            }
+            SoundManager.shared.playStopSound()
         }
 
         defer {
@@ -399,7 +385,7 @@ class WhisperState: NSObject, ObservableObject {
             finalPastedText = text
 
             if let enhancementService = enhancementService, enhancementService.isConfigured {
-                let detectionResult = await promptDetectionService.analyzeText(text, with: enhancementService)
+                let detectionResult = promptDetectionService.analyzeText(text, with: enhancementService)
                 promptDetectionResult = detectionResult
                 await promptDetectionService.applyDetectionResult(detectionResult, to: enhancementService)
             }
@@ -409,7 +395,7 @@ class WhisperState: NSObject, ObservableObject {
                enhancementService.isConfigured {
                 if await checkCancellationAndCleanup() { return }
 
-                await MainActor.run { self.recordingState = .enhancing }
+                self.recordingState = .enhancing
                 let textForAI = promptDetectionResult?.processedText ?? text
 
                 do {
@@ -473,19 +459,11 @@ class WhisperState: NSObject, ObservableObject {
         shouldCancelRecording = false
     }
 
-    func getEnhancementServiceLegacy() -> AIEnhancementService? {
-        return enhancementService
-    }
-
     private func checkCancellationAndCleanup() async -> Bool {
         if shouldCancelRecording {
             await cleanupModelResources()
             return true
         }
         return false
-    }
-
-    private func cleanupAndDismiss() async {
-        await dismissMiniRecorder()
     }
 }
