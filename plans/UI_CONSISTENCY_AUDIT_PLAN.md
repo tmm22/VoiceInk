@@ -1,5 +1,7 @@
 # UI Consistency Audit & Responsive Design Plan
 
+> See also: [`CODEBASE_ALIGNMENT_CLEANUP_PLAN_2026-03-14.md`](CODEBASE_ALIGNMENT_CLEANUP_PLAN_2026-03-14.md) for the broader cleanup and review-alignment tracker.
+
 ## Executive Summary
 The inspector panel cutoff issue at non-fullscreen sizes indicates a broader responsive design problem. This document outlines a comprehensive audit and fixes to ensure UI consistency across all window sizes and configurations.
 

@@ -2,7 +2,7 @@ import Foundation
 
 /// Service for providing authorization headers for TTS and AI services
 @MainActor
-class AuthorizationService {
+final class AuthorizationService {
     private let keychain: KeychainManager
     private let managedProvisioningClient: ManagedProvisioningClient
 
@@ -19,7 +19,16 @@ class AuthorizationService {
     ///   - provider: The provider name (e.g., "OpenAI", "ElevenLabs")
     ///   - headerType: The type of authorization header needed
     /// - Returns: AuthorizationHeader with the appropriate credentials
-    func authorizationHeader(for provider: String, headerType: HeaderType) async throws -> AuthorizationHeader {
+    func authorizationHeader(
+        for provider: String,
+        headerType: HeaderType,
+        preferredKey: String? = nil
+    ) async throws -> AuthorizationHeader {
+        if let preferredKey, !preferredKey.isEmpty {
+            let (header, value) = headerType.authorizationPair(for: preferredKey)
+            return AuthorizationHeader(header: header, value: value, usedManagedCredential: false)
+        }
+
         // Try Keychain first
         if let key = keychain.getAPIKey(for: provider), !key.isEmpty {
             let (header, value) = headerType.authorizationPair(for: key)
@@ -43,6 +52,25 @@ class AuthorizationService {
     /// Whether managed provisioning is enabled and configured.
     var hasManagedProvisioningConfiguration: Bool {
         managedProvisioningClient.isEnabled && managedProvisioningClient.configuration != nil
+    }
+
+    func storedAPIKey(for provider: String) -> String? {
+        guard let key = keychain.getAPIKey(for: provider), !key.isEmpty else {
+            return nil
+        }
+        return key
+    }
+
+    func hasCredentials(for provider: String, preferredKey: String? = nil) -> Bool {
+        if let preferredKey, !preferredKey.isEmpty {
+            return true
+        }
+
+        if storedAPIKey(for: provider) != nil {
+            return true
+        }
+
+        return hasManagedProvisioningConfiguration && providerType(for: provider) != nil
     }
 
     /// Invalidate a managed credential if one was used and found to be unauthorized.

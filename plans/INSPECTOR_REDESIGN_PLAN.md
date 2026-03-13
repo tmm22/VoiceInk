@@ -1,5 +1,7 @@
 # Inspector Redesign Plan
 
+> See also: [`CODEBASE_ALIGNMENT_CLEANUP_PLAN_2026-03-14.md`](CODEBASE_ALIGNMENT_CLEANUP_PLAN_2026-03-14.md) for the broader cleanup and review-alignment work that intersects with UI maintenance.
+
 ## Current Issues
 
 ### Problems with Current Design

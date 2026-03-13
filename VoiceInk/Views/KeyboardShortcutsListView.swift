@@ -462,8 +462,10 @@ private struct NotSetBadge: View {
 }
 
 #Preview {
-    let container = try? ModelContainer(for: Transcription.self)
-    let context = container.map { ModelContext($0) }
-    return KeyboardShortcutsListView()
-        .environmentObject(HotkeyManager(whisperState: WhisperState(modelContext: context ?? ModelContext(try! ModelContainer(for: Transcription.self)))))
+    if let container = try? ModelContainer(for: Transcription.self) {
+        KeyboardShortcutsListView()
+            .environmentObject(HotkeyManager(whisperState: WhisperState(modelContext: ModelContext(container))))
+    } else {
+        Text("Preview unavailable")
+    }
 }

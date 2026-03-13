@@ -214,9 +214,7 @@ struct AudioTranscribeView: View {
             if provider.hasItemConformingToTypeIdentifier(typeIdentifier) {
                 provider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { (item, error) in
                     if let error = error {
-                        #if DEBUG
-                        print("Error loading dropped file with type \(typeIdentifier): \(error)")
-                        #endif
+                        AppLogger.audio.error("Failed to load dropped file for type \(typeIdentifier, privacy: .public): \(error.localizedDescription)")
                         return
                     }
                     
@@ -237,7 +235,7 @@ struct AudioTranscribeView: View {
                     }
                     
                     if let finalURL = fileURL {
-                        DispatchQueue.main.async {
+                        Task { @MainActor in
                             self.validateAndSetAudioFile(finalURL)
                         }
                         return
@@ -249,15 +247,11 @@ struct AudioTranscribeView: View {
     }
     
     private func validateAndSetAudioFile(_ url: URL) {
-        #if DEBUG
-        print("Attempting to validate file: \(url.path)")
-        #endif
+        AppLogger.audio.debug("Validating dropped audio file \(url.lastPathComponent, privacy: .public)")
         
         // Check if file exists
         guard FileManager.default.fileExists(atPath: url.path) else {
-            #if DEBUG
-            print("File does not exist at path: \(url.path)")
-            #endif
+            AppLogger.audio.error("Dropped audio file was missing at validation time")
             return
         }
         
@@ -272,9 +266,7 @@ struct AudioTranscribeView: View {
         // Validate file type
         guard SupportedMedia.isSupported(url: url) else { return }
         
-        #if DEBUG
-        print("File validated successfully: \(url.lastPathComponent)")
-        #endif
+        AppLogger.audio.info("Validated audio file \(url.lastPathComponent, privacy: .public)")
         selectedAudioURL = url
         isAudioFileSelected = true
     }

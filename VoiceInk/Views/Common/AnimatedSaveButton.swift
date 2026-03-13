@@ -59,9 +59,7 @@ struct AnimatedSaveButton: View {
                     }
                 }
             } catch {
-                #if DEBUG
-                print("Failed to save file: \(error.localizedDescription)")
-                #endif
+                AppLogger.storage.error("Failed to save exported text: \(error.localizedDescription)")
             }
         }
     }
@@ -118,4 +116,4 @@ struct AnimatedSaveButton_Previews: PreviewProvider {
         }
         .padding()
     }
-} 
+}

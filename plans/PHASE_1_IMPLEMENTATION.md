@@ -1,5 +1,7 @@
 # Phase 1 Implementation Checklist
 
+> See also: [`CODEBASE_ALIGNMENT_CLEANUP_PLAN_2026-03-14.md`](CODEBASE_ALIGNMENT_CLEANUP_PLAN_2026-03-14.md) for the current cleanup pass and remaining cross-cutting follow-ups.
+
 Scope: Critical + High issues from the 2025-12-05 code review.
 
 ## Status

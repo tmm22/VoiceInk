@@ -1,5 +1,7 @@
 # Phase 2 Implementation Checklist
 
+> See also: [`CODEBASE_ALIGNMENT_CLEANUP_PLAN_2026-03-14.md`](CODEBASE_ALIGNMENT_CLEANUP_PLAN_2026-03-14.md) for the active cleanup tracker covering remaining runtime and test-structure work.
+
 Scope: Medium/low review issues plus structural refactors (large file splits) and optional hardening tasks.
 
 ## Status

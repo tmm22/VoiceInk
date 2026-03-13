@@ -1,5 +1,7 @@
 # VoiceInk Code Duplication Refactoring Plan
 
+> See also: [`CODEBASE_ALIGNMENT_CLEANUP_PLAN_2026-03-14.md`](CODEBASE_ALIGNMENT_CLEANUP_PLAN_2026-03-14.md) for the current repo-wide cleanup status and follow-up phases.
+
 **Analysis Date:** 2025-12-27
 **Status:** Major duplications already addressed, remaining work minimal
 

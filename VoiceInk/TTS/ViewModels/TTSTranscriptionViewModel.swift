@@ -363,9 +363,7 @@ final class TTSTranscriptionViewModel: ObservableObject {
         }
 
         // Critical error: no services available, but don't crash the app
-        #if DEBUG
-        print("No transcription services configured - returning placeholder")
-        #endif
+        AppLogger.transcription.error("No transcription services configured; using placeholder service")
 
         return PlaceholderTranscriptionService()
     }

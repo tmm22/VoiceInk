@@ -1,5 +1,7 @@
 # Need for Comprehensive Testing Framework - Critical Bugs Found
 
+> See also: [`CODEBASE_ALIGNMENT_CLEANUP_PLAN_2026-03-14.md`](CODEBASE_ALIGNMENT_CLEANUP_PLAN_2026-03-14.md) for the current repo-wide cleanup plan, including oversized test follow-up.
+
 ## 🎯 Issue Summary
 
 VoiceInk currently lacks systematic testing, which has led to the discovery of **3 critical crash vectors** that affect production stability. This issue documents the testing gaps, bugs found through analysis, and proposes a comprehensive testing solution.
