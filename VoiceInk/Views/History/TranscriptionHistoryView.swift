@@ -127,7 +127,7 @@ struct TranscriptionHistoryView: View {
         }
         .onChange(of: searchText) { _, _ in
             Task {
-                await resetPagination()
+                resetPagination()
                 await loadInitialContent()
             }
         }
@@ -135,7 +135,7 @@ struct TranscriptionHistoryView: View {
             guard isViewCurrentlyVisible else { return }
             if newId != oldId {
                 Task {
-                    await resetPagination()
+                    resetPagination()
                     await loadInitialContent()
                 }
             }
@@ -350,7 +350,7 @@ struct TranscriptionHistoryView: View {
             lastTimestamp = items.last?.timestamp
             hasMoreContent = items.count == pageSize
         } catch {
-            print("Error loading transcriptions: \(error)")
+            AppLogger.storage.error("Failed to load transcriptions: \(error.localizedDescription)")
         }
     }
 
@@ -367,7 +367,7 @@ struct TranscriptionHistoryView: View {
             self.lastTimestamp = newItems.last?.timestamp
             hasMoreContent = newItems.count == pageSize
         } catch {
-            print("Error loading more transcriptions: \(error)")
+            AppLogger.storage.error("Failed to load more transcriptions: \(error.localizedDescription)")
         }
     }
 
@@ -386,7 +386,7 @@ struct TranscriptionHistoryView: View {
             do {
                 try FileManager.default.removeItem(at: url)
             } catch {
-                print("Error deleting audio file: \(error.localizedDescription)")
+                AppLogger.storage.error("Failed to delete transcription audio file: \(error.localizedDescription)")
             }
         }
 
@@ -404,7 +404,7 @@ struct TranscriptionHistoryView: View {
             NotificationCenter.default.post(name: .transcriptionDeleted, object: nil)
             await loadInitialContent()
         } catch {
-            print("Error saving deletion: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to save transcription deletion: \(error.localizedDescription)")
             await loadInitialContent()
         }
     }
@@ -435,6 +435,7 @@ struct TranscriptionHistoryView: View {
         }
     }
 
+    @MainActor
     private func selectAllTranscriptions() async {
         do {
             var allDescriptor = FetchDescriptor<Transcription>()
@@ -450,17 +451,15 @@ struct TranscriptionHistoryView: View {
             let allTranscriptions = try modelContext.fetch(allDescriptor)
             let visibleIds = Set(displayedTranscriptions.map { $0.id })
 
-            await MainActor.run {
-                selectedTranscriptions = Set(displayedTranscriptions)
+            selectedTranscriptions = Set(displayedTranscriptions)
 
-                for transcription in allTranscriptions {
-                    if !visibleIds.contains(transcription.id) {
-                        selectedTranscriptions.insert(transcription)
-                    }
+            for transcription in allTranscriptions {
+                if !visibleIds.contains(transcription.id) {
+                    selectedTranscriptions.insert(transcription)
                 }
             }
         } catch {
-            print("Error selecting all transcriptions: \(error)")
+            AppLogger.storage.error("Failed to select all transcriptions: \(error.localizedDescription)")
         }
     }
 }
