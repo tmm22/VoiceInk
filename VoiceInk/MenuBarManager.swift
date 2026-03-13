@@ -61,9 +61,7 @@ class MenuBarManager: ObservableObject {
     func focusMainWindow() {
         applyActivationPolicy()
         if WindowManager.shared.showMainWindow() == nil {
-            #if DEBUG
-            print("MenuBarManager: Unable to locate main window to focus")
-            #endif
+            AppLogger.ui.debug("MenuBarManager was unable to locate the main window to focus")
         }
     }
     
@@ -84,15 +82,11 @@ class MenuBarManager: ObservableObject {
     }
     
     func openMainWindowAndNavigate(to destination: String) {
-        #if DEBUG
-        print("MenuBarManager: Navigating to \(destination)")
-        #endif
+        AppLogger.ui.debug("MenuBarManager navigating to \(destination, privacy: .public)")
 
         let aiFeaturesEnabled = AppSettings.General.enableAIEnhancementFeatures ?? false
         if !aiFeaturesEnabled && (destination == "AI Models" || destination == "Enhancement" || destination == "Text to Speech") {
-            #if DEBUG
-            print("MenuBarManager: AI features disabled; navigation to \(destination) blocked")
-            #endif
+            AppLogger.ui.info("MenuBarManager blocked navigation to \(destination, privacy: .public) because AI features are disabled")
             let alert = NSAlert()
             alert.messageText = "AI enhancements are disabled"
             alert.informativeText = "Enable AI enhancement features in Settings before accessing this workspace."
@@ -105,9 +99,7 @@ class MenuBarManager: ObservableObject {
         applyActivationPolicy()
         
         guard WindowManager.shared.showMainWindow() != nil else {
-            #if DEBUG
-            print("MenuBarManager: Unable to show main window for navigation")
-            #endif
+            AppLogger.ui.error("MenuBarManager was unable to show the main window for navigation")
             return
         }
         
@@ -119,9 +111,7 @@ class MenuBarManager: ObservableObject {
                 object: nil,
                 userInfo: ["destination": destination]
             )
-            #if DEBUG
-            print("MenuBarManager: Posted navigation notification for \(destination)")
-            #endif
+            AppLogger.ui.debug("MenuBarManager posted navigation notification for \(destination, privacy: .public)")
         }
     }
 
@@ -136,19 +126,5 @@ class MenuBarManager: ObservableObject {
             modelContainer: modelContainer,
             whisperState: whisperState
         )
-    }
-}
-
-// Window delegate to handle window closing
-class WindowDelegate: NSObject, NSWindowDelegate {
-    let onClose: () -> Void
-    
-    init(onClose: @escaping () -> Void) {
-        self.onClose = onClose
-        super.init()
-    }
-    
-    func windowWillClose(_ notification: Notification) {
-        onClose()
     }
 }

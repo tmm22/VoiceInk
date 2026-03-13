@@ -2,6 +2,16 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-03-13
+
+### Release Preparation
+- Bumped the community build metadata to version `1.62` (`v1.62-community` release target) for the next GitHub release on `tmm22/VoiceInk`.
+
+### Maintenance
+- Replaced remaining menu bar navigation `print()` diagnostics with `AppLogger.ui` logging in `VoiceInk/MenuBarManager.swift` so the app stays aligned with the existing structured logging conventions.
+- Removed an unused `WindowDelegate` helper from `VoiceInk/MenuBarManager.swift`.
+- Removed unused `hotkeyManager`, `audioDeviceManager`, and `isHovered` state from `VoiceInk/Views/MenuBarView.swift` to keep the menu bar view surface in sync with its actual dependencies.
+
 ## 2026-03-10
 
 ### Release Preparation

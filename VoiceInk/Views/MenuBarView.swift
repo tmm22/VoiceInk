@@ -3,15 +3,12 @@ import LaunchAtLogin
 
 struct MenuBarView: View {
     @EnvironmentObject var whisperState: WhisperState
-    @EnvironmentObject var hotkeyManager: HotkeyManager
     @EnvironmentObject var menuBarManager: MenuBarManager
     @EnvironmentObject var updaterViewModel: UpdaterViewModel
     @EnvironmentObject var enhancementService: AIEnhancementService
     @EnvironmentObject var aiService: AIService
-    @ObservedObject var audioDeviceManager = AudioDeviceManager.shared
     @State private var launchAtLoginEnabled = LaunchAtLogin.isEnabled
     @State private var menuRefreshTrigger = false
-    @State private var isHovered = false
     @AppStorage("enableAIEnhancementFeatures") private var enableAIEnhancementFeatures = false
     
     var body: some View {
