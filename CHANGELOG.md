@@ -2,6 +2,20 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-03-14
+
+### Release Preparation
+- Bumped the community build metadata to version `1.63` (`v1.63-community` release target) for the next GitHub release on `tmm22/VoiceInk`.
+
+### Architecture & Maintenance
+- Merged PR `#33` to remove the duplicate Whisper recording path, inline the remaining recording flow into `WhisperState`, and replace residual debug prints with structured `AppLogger` usage.
+- Merged PR `#34` to align TTS authorization and service helpers with current codebase standards, tighten cleanup around related view/view-model call sites, and record the March 14 alignment plan.
+
+### Privacy & Standards
+- Merged PR `#35` to harden logs so they preserve debugging metadata without exposing filenames, paths, raw payloads, browser URLs, device identifiers, or stable model identifiers.
+- Cleaned up redundant main-actor hops, recorder task capture patterns, localized touched recorder notifications, and resolved the compiler warnings surfaced in the touched paths during the privacy pass.
+- Applied a small follow-up fix in `LocalTTSService` after the privacy PR merge so the release branch reflects the merged remote state exactly.
+
 ## 2026-03-13
 
 ### Release Preparation
