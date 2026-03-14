@@ -2,18 +2,29 @@
 
 ## Building Release Version
 
-### Option 1: Build in Xcode (Recommended)
+### Option 1: Public Community Release Artifact (Recommended)
+
+Use the scripted release flow for the actual unsigned GitHub/community DMG:
+
+```bash
+make release-artifact
+```
+
+That path is the project source of truth. It stages outside Desktop/iCloud-backed paths, uses the dedicated `VoiceInkRelease` scheme, disables release coverage payload, prunes unused ESpeakNG dictionaries, strips symbols, thins embedded universal binaries to `arm64`, and produces the publishable DMG plus checksum in `release-artifacts/`.
+
+### Option 2: Build in Xcode for Local Testing
 
 1. **Open the project:**
    ```bash
    open VoiceInk.xcodeproj
    ```
 
-2. **Select Release scheme:**
+2. **Select a scheme:**
    - Click the scheme dropdown (next to Play button)
-   - Select "VoiceInk" scheme
+   - Use `VoiceInk` for ordinary development runs
+   - Use `VoiceInkRelease` only if you specifically need to inspect the release-oriented scheme locally
    - Hold Option key and click the scheme
-   - Change "Build Configuration" to "Release"
+   - Change "Build Configuration" to `Release` only for local testing; do not use this path as a substitute for `make release-artifact`
 
 3. **Configure Signing:**
    - Select "VoiceInk" project in sidebar
@@ -52,7 +63,7 @@ If you run tests with code signing disabled (for example using an empty identity
      ```
 3. **If you need UI tests:** configure signing for the UI test bundle targets in Xcode (assign a valid Team / signing identity) so the UI test runner can be built and launched.
 
-### Option 2: Archive for Distribution
+### Option 3: Archive for Distribution
 
 1. **Archive:**
    - Product → Archive

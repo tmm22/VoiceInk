@@ -1424,18 +1424,24 @@ make release-artifact
 
 **Release rules:**
 - `scripts/build-release-artifact.sh` is the source of truth for unsigned GitHub DMG packaging
+- `VoiceInkRelease` is the dedicated shared scheme for scripted public/community release builds; do not swap release automation back to the everyday `VoiceInk` scheme unless the release policy changes
 - The unsigned GitHub/community release strategy is a project constraint, not a temporary preference
 - Do not switch the public release flow to Apple-signed/notarized distribution, require Apple Developer enrollment, or treat paid signing as the default solution unless the user explicitly changes that policy
 - Unsigned GitHub DMGs must be built from Xcode `Release`
 - Unsigned GitHub DMGs must preserve the size-focused release contract:
+  - `ENABLE_CODE_COVERAGE=NO`
+  - `CLANG_COVERAGE_MAPPING=NO`
   - `DEPLOYMENT_POSTPROCESSING=YES`
   - `STRIP_INSTALLED_PRODUCT=YES`
   - `COPY_PHASE_STRIP=YES`
   - `DEAD_CODE_STRIPPING=YES`
+  - `LLVM_LTO=YES_THIN`
   - `STRIPFLAGS=-x`
+  - `OTHER_SWIFT_FLAGS='$(inherited) -cross-module-optimization'`
   - `SWIFT_OPTIMIZATION_LEVEL=-Osize`
+- Unsigned GitHub DMGs should keep the release binary free of `__llvm_prf*` and `__LLVM_COV` sections; if those sections reappear, treat it as a release-size regression
 - Unsigned GitHub DMGs may prune bundled ESpeakNG dictionary data down to the English-only Pocket TTS subset, because the shipped Pocket voices are English-only in the current product
-- Unsigned GitHub DMGs must strip non-global symbols and thin universal embedded binaries to `arm64`
+- Unsigned GitHub DMGs must use scripted symbol stripping, `UDBZ` DMG packaging, and arm64 thinning for universal embedded binaries
 - Do not hand-assemble or publish a `Debug` app, an unstripped app, or a universal unsigned DMG unless the release policy is explicitly changed first
 - `scripts/generate-release-notes.sh` is the source of truth for release note composition
 - `scripts/publish-github-release.sh` requires a clean git worktree and authenticated `gh`

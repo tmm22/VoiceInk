@@ -27,10 +27,12 @@ Available scripts:
 - `./scripts/build-release-artifact.sh`
   - Creates a temporary staging copy outside Desktop/iCloud-backed locations
   - Builds the app with the unsigned local-build configuration by default
-  - Uses the Xcode `Release` configuration so debug dylibs are not shipped in the DMG
-  - Enables Release stripping, dead-code stripping, and `-Osize` so manual and scripted release builds stay aligned on bundle-size optimization
+  - Uses the dedicated `VoiceInkRelease` shared scheme with Xcode `Release` so debug dylibs and test-oriented coverage settings are not shipped in the DMG
+  - Forces Release stripping, dead-code stripping, `-Osize`, ThinLTO, and cross-module optimization so manual and scripted release builds stay aligned on bundle-size optimization
+  - Forces `ENABLE_CODE_COVERAGE=NO` and `CLANG_COVERAGE_MAPPING=NO` so the release binary does not carry accidental LLVM coverage/profiling sections
   - Strips non-global symbols in the packaged app to reduce DMG size without changing behavior
   - For unsigned artifacts, thins universal embedded binaries to `arm64` and re-signs the app bundle ad hoc
+  - Uses `UDBZ` DMG packaging for the current smallest reproducible public artifact in this fork
   - This means public unsigned GitHub DMGs are Apple Silicon-only by policy
   - Produces `release-artifacts/vX.YY-community/VoiceInk.dmg`
   - Produces `release-artifacts/vX.YY-community/VoiceInk.dmg.sha256`
@@ -50,16 +52,23 @@ Available scripts:
 For public GitHub/community releases, the artifact policy is:
 
 - Build from Xcode `Release`
+- Use the `VoiceInkRelease` scheme when invoking the scripted public/community release path
 - Stage outside Desktop/iCloud-backed paths
 - Preserve these size-focused build settings:
+  - `ENABLE_CODE_COVERAGE=NO`
+  - `CLANG_COVERAGE_MAPPING=NO`
   - `DEPLOYMENT_POSTPROCESSING=YES`
   - `STRIP_INSTALLED_PRODUCT=YES`
   - `COPY_PHASE_STRIP=YES`
   - `DEAD_CODE_STRIPPING=YES`
+  - `LLVM_LTO=YES_THIN`
   - `STRIPFLAGS=-x`
+  - `OTHER_SWIFT_FLAGS='$(inherited) -cross-module-optimization'`
   - `SWIFT_OPTIMIZATION_LEVEL=-Osize`
+- Keep the release binary free of `__llvm_prf*` and `__LLVM_COV` sections; their reappearance is a release-size regression
 - For unsigned artifacts, prune bundled ESpeakNG dictionary data to the English-only Pocket TTS subset used by the current shipped voices
 - For unsigned artifacts, thin universal embedded binaries to `arm64`
+- Package the public DMG with `UDBZ`
 - Publish via `./scripts/publish-github-release.sh`, not by manually uploading a hand-built app or DMG
 
 If this contract changes, update the release scripts, `AGENTS.md`, `docs/development/BUILDING.md`, and `.github/RELEASE_TEMPLATE.md` together.

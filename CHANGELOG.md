@@ -18,6 +18,8 @@ All notable changes to the VoiceLink Community application are documented here.
 - Documented the signed local-release testing path and the macOS TCC constraints in `docs/development/RELEASING.md`.
 - Switched unsigned GitHub DMG packaging to Xcode `Release`, stripped non-global symbols, and thinned universal embedded binaries to `arm64` so public community releases stay materially smaller without dropping functionality.
 - Aligned the Xcode `Release` defaults and release-artifact script on copy-phase stripping, dead-code stripping, and `-Osize` so manual Release builds are less likely to ship avoidable binary bloat.
+- Added the dedicated `VoiceInkRelease` shared scheme and forced `ENABLE_CODE_COVERAGE=NO` plus `CLANG_COVERAGE_MAPPING=NO` in the scripted release path so unsigned community builds stop shipping accidental LLVM coverage payload.
+- Switched the scripted public DMG output to `UDBZ`; the current unsigned `v1.65-community` test artifact now lands at about `13.9 MB` instead of the earlier `17 MB` result from the same feature set.
 - Expanded the maintainer release guidance across `AGENTS.md`, `docs/development/BUILDING.md`, `docs/development/RELEASING.md`, `.github/RELEASE_TEMPLATE.md`, and `scripts/publish-github-release.sh` so future agents and maintainers keep the GitHub release path aligned with the smaller unsigned `Release` artifact policy.
 - Made the unsigned GitHub/community release strategy explicit in the agent and maintainer guidance so future work does not drift toward Apple-paid signing as the default distribution assumption.
 - Added release-artifact pruning for bundled ESpeakNG dictionaries so unsigned public DMGs keep only the English Pocket TTS data required by the currently shipped voices.

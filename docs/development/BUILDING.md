@@ -130,11 +130,13 @@ make release-artifact
 
 That path is the source of truth for GitHub/community DMGs and it:
 
-- builds with Xcode `Release`
+- builds with the `VoiceInkRelease` shared scheme on Xcode `Release`
 - stages outside Desktop/iCloud-backed paths
-- enables stripping, dead-code stripping, and `-Osize`
+- disables release coverage mapping so the shipped binary does not carry LLVM coverage payload
+- enables stripping, dead-code stripping, ThinLTO, cross-module optimization, and `-Osize`
 - prunes bundled ESpeakNG dictionaries to the shipped English-only Pocket TTS subset
 - strips non-global symbols
+- packages the public artifact as `UDBZ`
 - thins unsigned public artifacts to Apple Silicon-only (`arm64`)
 
 If you are publishing a GitHub release, use:
