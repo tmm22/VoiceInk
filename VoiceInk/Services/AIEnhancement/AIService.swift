@@ -29,18 +29,12 @@ class AIService: ObservableObject {
             AppSettings.AI.customProviderModel = customModel
         }
     }
+    @Published private var connectedProviderCache: Set<String> = Set(AppSettings.AI.connectedProviderRawValues)
     @Published var selectedProvider: AIProvider {
         didSet {
             AppSettings.AI.selectedProviderRawValue = selectedProvider.rawValue
             if selectedProvider.requiresAPIKey {
-                // Try Keychain first
-                if let savedKey = keychain.getAPIKey(for: selectedProvider.rawValue) {
-                    self.apiKey = savedKey
-                    self.isAPIKeyValid = true
-                } else {
-                    self.apiKey = ""
-                    self.isAPIKeyValid = false
-                }
+                loadStoredAPIKey(for: selectedProvider)
             } else {
                 self.apiKey = ""
                 self.isAPIKeyValid = true
@@ -63,7 +57,7 @@ class AIService: ObservableObject {
             if provider == .ollama {
                 return ollamaService.isConnected
             } else if provider.requiresAPIKey {
-                return keychain.hasAPIKey(for: provider.rawValue)
+                return connectedProviderCache.contains(provider.rawValue)
             }
             return false
         }
@@ -97,11 +91,7 @@ class AIService: ObservableObject {
         }
 
         if selectedProvider.requiresAPIKey {
-            // Try Keychain first
-            if let savedKey = keychain.getAPIKey(for: selectedProvider.rawValue) {
-                self.apiKey = savedKey
-                self.isAPIKeyValid = true
-            }
+            self.isAPIKeyValid = connectedProviderCache.contains(selectedProvider.rawValue)
         } else {
             self.isAPIKeyValid = true
         }
@@ -141,6 +131,7 @@ class AIService: ObservableObject {
                         try self.keychain.saveAPIKey(key, for: self.selectedProvider.rawValue)
                         self.apiKey = key
                         self.isAPIKeyValid = true
+                        self.updateConnectedProviderCache(for: self.selectedProvider, isConnected: true)
                         NotificationCenter.default.post(name: .aiProviderKeyChanged, object: nil)
                     } catch {
                         self.isAPIKeyValid = false
@@ -164,7 +155,13 @@ class AIService: ObservableObject {
         isAPIKeyValid = false
         // Best-effort cleanup; key may already be missing.
         try? keychain.deleteAPIKey(for: selectedProvider.rawValue)
+        updateConnectedProviderCache(for: selectedProvider, isConnected: false)
         NotificationCenter.default.post(name: .aiProviderKeyChanged, object: nil)
+    }
+
+    func loadStoredAPIKeyForSelectedProvider() {
+        guard selectedProvider.requiresAPIKey else { return }
+        loadStoredAPIKey(for: selectedProvider)
     }
     
     // MARK: - Private Methods
@@ -180,6 +177,31 @@ class AIService: ObservableObject {
     
     private func loadSavedOpenRouterModels() {
         openRouterModels = AppSettings.AI.openRouterModels
+    }
+
+    private func loadStoredAPIKey(for provider: AIProvider) {
+        guard provider.requiresAPIKey else { return }
+
+        if let savedKey = keychain.getAPIKey(for: provider.rawValue), !savedKey.isEmpty {
+            apiKey = savedKey
+            isAPIKeyValid = true
+            updateConnectedProviderCache(for: provider, isConnected: true)
+        } else {
+            apiKey = ""
+            isAPIKeyValid = false
+            updateConnectedProviderCache(for: provider, isConnected: false)
+        }
+    }
+
+    private func updateConnectedProviderCache(for provider: AIProvider, isConnected: Bool) {
+        var updated = connectedProviderCache
+        if isConnected {
+            updated.insert(provider.rawValue)
+        } else {
+            updated.remove(provider.rawValue)
+        }
+        connectedProviderCache = updated
+        AppSettings.AI.connectedProviderRawValues = updated.sorted()
     }
     
     // MARK: - Internal Methods (for extensions)

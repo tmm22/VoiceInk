@@ -22,6 +22,7 @@ enum AppSettings {
         static let ttsHiddenPocketVoiceIDs = "hiddenPocketVoiceIDs"
         static let ttsSelectedTranscriptionProvider = "selectedTranscriptionProvider"
         static let aiSelectedProvider = "selectedAIProvider"
+        static let aiConnectedProviders = "connectedAIProviders"
         static let aiCustomProviderBaseURL = "customProviderBaseURL"
         static let aiCustomProviderModel = "customProviderModel"
         static let aiOpenRouterModels = "openRouterModels"

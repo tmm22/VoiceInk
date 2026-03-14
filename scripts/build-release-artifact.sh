@@ -4,6 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_FILE="$ROOT_DIR/VoiceInk.xcodeproj/project.pbxproj"
+signing_mode="${VOICEINK_RELEASE_SIGNING_MODE:-unsigned}"
 
 if ! command -v rsync >/dev/null 2>&1; then
   echo "rsync is required" >&2
@@ -65,18 +66,36 @@ rsync -a \
 echo "Building VoiceInk $version ($build_number)"
 (
   cd "$stage_dir"
-  xcodebuild \
-    -project VoiceInk.xcodeproj \
-    -scheme VoiceInk \
-    -configuration Debug \
-    -derivedDataPath "$derived_data_dir" \
-    -xcconfig LocalBuild.xcconfig \
-    CODE_SIGN_IDENTITY="-" \
-    CODE_SIGNING_REQUIRED=NO \
-    CODE_SIGNING_ALLOWED=YES \
-    DEVELOPMENT_TEAM="" \
-    "CODE_SIGN_ENTITLEMENTS=$stage_dir/VoiceInk/VoiceInk.local.entitlements" \
-    clean build
+  case "$signing_mode" in
+    unsigned)
+      xcodebuild \
+        -project VoiceInk.xcodeproj \
+        -scheme VoiceInk \
+        -configuration Debug \
+        -derivedDataPath "$derived_data_dir" \
+        -xcconfig LocalBuild.xcconfig \
+        CODE_SIGN_IDENTITY="-" \
+        CODE_SIGNING_REQUIRED=NO \
+        CODE_SIGNING_ALLOWED=YES \
+        DEVELOPMENT_TEAM="" \
+        "CODE_SIGN_ENTITLEMENTS=$stage_dir/VoiceInk/VoiceInk.local.entitlements" \
+        clean build
+      ;;
+    project)
+      xcodebuild \
+        -project VoiceInk.xcodeproj \
+        -scheme VoiceInk \
+        -configuration Debug \
+        -derivedDataPath "$derived_data_dir" \
+        CODE_SIGNING_ALLOWED=YES \
+        clean build
+      ;;
+    *)
+      echo "Unsupported VOICEINK_RELEASE_SIGNING_MODE: $signing_mode" >&2
+      echo "Expected 'unsigned' or 'project'" >&2
+      exit 1
+      ;;
+  esac
 )
 
 app_path="$derived_data_dir/Build/Products/Debug/VoiceInk.app"

@@ -27,10 +27,20 @@ class APIKeyMigrationService {
             ("OpenRouterAPIKey", "OpenRouter"),
         ]
         
+        let legacyEntries = keysToMigrate.filter { entry in
+            guard AppSettings.contains(key: entry.userDefaultsKey) else { return false }
+            return !AppSettings.string(forKey: entry.userDefaultsKey, default: "").isEmpty
+        }
+
+        guard !legacyEntries.isEmpty else {
+            logger.debug("Migration check complete - no legacy API keys found in UserDefaults")
+            return
+        }
+
         var migratedThisRun = 0
         var needsMigration = false
-        
-        for (oldKey, provider) in keysToMigrate {
+
+        for (oldKey, provider) in legacyEntries {
             // Check if already migrated (key in Keychain, not in UserDefaults)
             if keychain.hasAPIKey(for: provider) {
                 // Already in Keychain, clean up UserDefaults if needed
@@ -71,7 +81,7 @@ class APIKeyMigrationService {
         } else if migratedThisRun > 0 {
             logger.notice("🧹 API Key Cleanup: \(migratedThisRun) keys cleaned from UserDefaults")
         } else {
-            logger.debug("Migration check complete - all keys already in Keychain")
+            logger.debug("Migration check complete - all legacy keys already in Keychain")
         }
         
     }

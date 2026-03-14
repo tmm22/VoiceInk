@@ -22,6 +22,11 @@ extension AppSettings {
             set { updateString(newValue, forKey: Keys.aiSelectedProvider) }
         }
 
+        static var connectedProviderRawValues: [String] {
+            get { defaults.stringArray(forKey: Keys.aiConnectedProviders) ?? [] }
+            set { setValue(newValue, forKey: Keys.aiConnectedProviders) }
+        }
+
         static var customProviderBaseURL: String {
             get { defaults.string(forKey: Keys.aiCustomProviderBaseURL) ?? "" }
             set { setValue(newValue, forKey: Keys.aiCustomProviderBaseURL) }

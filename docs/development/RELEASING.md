@@ -24,7 +24,7 @@ Available scripts:
 
 - `./scripts/build-release-artifact.sh`
   - Creates a temporary staging copy outside Desktop/iCloud-backed locations
-  - Builds the app with the unsigned local-build configuration
+  - Builds the app with the unsigned local-build configuration by default
   - Produces `release-artifacts/vX.YY-community/VoiceInk.dmg`
   - Produces `release-artifacts/vX.YY-community/VoiceInk.dmg.sha256`
 - `./scripts/generate-release-notes.sh`
@@ -42,6 +42,30 @@ If you only want the binary artifact, run:
 ```bash
 make release-artifact
 ```
+
+## Preserving macOS Permissions During Local Testing
+
+If you want Accessibility, Microphone, and Screen Recording permissions to survive across your own local test releases, install the app over the same path and use a stable signing identity.
+
+For this repository, that means:
+
+- Public GitHub release artifacts remain `unsigned` by default.
+- Local maintainer test builds can opt into project signing with:
+
+```bash
+VOICEINK_RELEASE_SIGNING_MODE=project ./scripts/build-release-artifact.sh
+```
+
+That mode uses the Xcode project's normal signing configuration instead of `LocalBuild.xcconfig`. On a machine that has working project signing, macOS is much more likely to treat successive builds as the same app for TCC purposes.
+
+Important limits:
+
+- This does not change the public GitHub release flow, which still uses unsigned local-build artifacts.
+- Permissions are managed by macOS TCC, not by app code, so persistence depends on:
+  - stable bundle identifier
+  - stable signing identity
+  - replacing the app in the same installed location (for example `/Applications/VoiceInk.app`)
+- If you intentionally run `reset_permissions.sh`, macOS will forget those permissions by design.
 
 ## Why the Template Includes Gatekeeper Notes
 

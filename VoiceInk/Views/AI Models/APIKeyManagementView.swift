@@ -43,6 +43,7 @@ struct APIKeyManagementView: View {
             Text(alertMessage)
         }
         .onAppear {
+            aiService.loadStoredAPIKeyForSelectedProvider()
             if aiService.selectedProvider == .ollama {
                 checkOllamaConnection()
             }

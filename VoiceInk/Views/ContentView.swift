@@ -52,7 +52,7 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var whisperState: WhisperState
     @EnvironmentObject private var hotkeyManager: HotkeyManager
-    @StateObject private var ttsViewModel = TTSViewModel()
+    @State private var ttsViewModel: TTSViewModel?
     @State private var selectedView: ViewType = .metrics
     @State private var hasLoadedData = false
     @State private var showingShortcutCheatSheet = false
@@ -105,6 +105,7 @@ struct ContentView: View {
         .onAppear {
             hasLoadedData = true
             ensureValidSelection()
+            loadTTSViewModelIfNeeded(for: selectedView)
         }
         // inside ContentView body:
         .onReceive(NotificationCenter.default.publisher(for: .navigateToDestination)) { notification in
@@ -159,6 +160,10 @@ struct ContentView: View {
         }
         .onChange(of: enableAIEnhancementFeatures) { _, _ in
             ensureValidSelection()
+            loadTTSViewModelIfNeeded(for: selectedView)
+        }
+        .onChange(of: selectedView) { _, newValue in
+            loadTTSViewModelIfNeeded(for: newValue)
         }
         .sheet(isPresented: $showingShortcutCheatSheet) {
             KeyboardShortcutCheatSheet()
@@ -190,7 +195,15 @@ struct ContentView: View {
             AudioTranscribeView()
         case .textToSpeech:
             if enableAIEnhancementFeatures {
-                TextToSpeechView(viewModel: ttsViewModel)
+                if let ttsViewModel {
+                    TextToSpeechView(viewModel: ttsViewModel)
+                } else {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .onAppear {
+                            loadTTSViewModelIfNeeded(for: .textToSpeech)
+                        }
+                }
             } else {
                 FeatureUnavailablePlaceholder()
             }
@@ -239,6 +252,13 @@ struct ContentView: View {
                 selectedView = .metrics
             }
         }
+    }
+
+    private func loadTTSViewModelIfNeeded(for view: ViewType) {
+        guard enableAIEnhancementFeatures else { return }
+        guard view == .textToSpeech else { return }
+        guard ttsViewModel == nil else { return }
+        ttsViewModel = TTSViewModel()
     }
 }
 
