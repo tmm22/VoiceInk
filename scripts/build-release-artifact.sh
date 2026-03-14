@@ -42,12 +42,21 @@ artifact_path="$output_root/$artifact_name"
 checksum_path="$artifact_path.sha256"
 dmg_staging_dir="$stage_dir/dmg-root"
 build_configuration="Release"
+build_scheme="VoiceInkRelease"
+dmg_format="UDBZ"
 # Public GitHub/community artifacts rely on these settings for bundle-size control.
 strip_build_args=(
+  ENABLE_CODE_COVERAGE=NO
+  CLANG_COVERAGE_MAPPING=NO
+  CLANG_ENABLE_CODE_COVERAGE=NO
   DEPLOYMENT_POSTPROCESSING=YES
   STRIP_INSTALLED_PRODUCT=YES
   COPY_PHASE_STRIP=YES
   DEAD_CODE_STRIPPING=YES
+  GENERATE_PROFILING_CODE=NO
+  GCC_GENERATE_TEST_COVERAGE_FILES=NO
+  LLVM_LTO=YES_THIN
+  OTHER_SWIFT_FLAGS='$(inherited) -cross-module-optimization'
   STRIPFLAGS=-x
   SWIFT_OPTIMIZATION_LEVEL=-Osize
 )
@@ -138,7 +147,7 @@ echo "Building VoiceInk $version ($build_number) [$build_configuration]"
     unsigned)
       xcodebuild \
         -project VoiceInk.xcodeproj \
-        -scheme VoiceInk \
+        -scheme "$build_scheme" \
         -configuration "$build_configuration" \
         -derivedDataPath "$derived_data_dir" \
         -xcconfig LocalBuild.xcconfig \
@@ -153,7 +162,7 @@ echo "Building VoiceInk $version ($build_number) [$build_configuration]"
     project)
       xcodebuild \
         -project VoiceInk.xcodeproj \
-        -scheme VoiceInk \
+        -scheme "$build_scheme" \
         -configuration "$build_configuration" \
         -derivedDataPath "$derived_data_dir" \
         "${strip_build_args[@]}" \
@@ -189,7 +198,7 @@ echo "Creating DMG at $artifact_path"
 hdiutil create \
   -volname "VoiceInk $version" \
   -srcfolder "$dmg_staging_dir" \
-  -format UDZO \
+  -format "$dmg_format" \
   "$artifact_path" \
   >/dev/null
 
