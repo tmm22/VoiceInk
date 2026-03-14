@@ -5,6 +5,21 @@ All notable changes to the VoiceLink Community application are documented here.
 ## 2026-03-14
 
 ### Release Preparation
+- Bumped the community build metadata to version `1.64` (`v1.64-community` release target) for the next GitHub release on `tmm22/VoiceInk`.
+
+### Stability & Permissions
+- Removed the redundant Soniox streaming error fallback that was generating a compiler warning during release builds.
+- Reduced repeated Keychain access on app launch by deferring eager Text to Speech credential reads until the TTS workspace is actually opened.
+- Narrowed API key migration checks so startup only touches Keychain when legacy `UserDefaults` credentials still exist and actually need migration.
+- Stopped the AI provider menu/state from re-reading every provider key on launch by caching non-secret connection metadata and refreshing the selected provider key only when the AI key-management UI is opened.
+
+### Release Tooling
+- Added an optional `VOICEINK_RELEASE_SIGNING_MODE=project` mode to `scripts/build-release-artifact.sh` for local maintainer test builds that want a stable signing identity and better macOS permission persistence between installed test releases.
+- Documented the signed local-release testing path and the macOS TCC constraints in `docs/development/RELEASING.md`.
+
+## 2026-03-14
+
+### Release Preparation
 - Bumped the community build metadata to version `1.63` (`v1.63-community` release target) for the next GitHub release on `tmm22/VoiceInk`.
 
 ### Architecture & Maintenance
