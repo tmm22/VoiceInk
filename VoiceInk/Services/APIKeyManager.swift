@@ -103,7 +103,7 @@ final class APIKeyManager {
         let keyIdentifier = customModelKeyIdentifier(for: modelId)
         let success = keychain.save(key, forKey: keyIdentifier)
         if success {
-            logger.info("Saved API key for custom model: \(modelId.uuidString, privacy: .public)")
+            logger.info("Saved API key for custom model")
         }
         return success
     }
@@ -120,7 +120,7 @@ final class APIKeyManager {
         let keyIdentifier = customModelKeyIdentifier(for: modelId)
         let success = keychain.delete(forKey: keyIdentifier)
         if success {
-            logger.info("Deleted API key for custom model: \(modelId.uuidString, privacy: .public)")
+            logger.info("Deleted API key for custom model")
         }
         return success
     }
@@ -170,7 +170,7 @@ final class APIKeyManager {
                 keychain.save(model.apiKey, forKey: keyIdentifier)
             }
         } catch {
-            logger.error("Failed to decode legacy custom models: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to decode legacy custom models: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
 

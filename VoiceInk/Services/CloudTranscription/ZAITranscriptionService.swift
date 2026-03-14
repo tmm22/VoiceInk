@@ -33,7 +33,7 @@ class ZAITranscriptionService: CloudTranscriptionBase, CloudTranscriptionProvide
             let transcriptionResponse = try JSONDecoder().decode(TranscriptionResponse.self, from: responseData)
             return transcriptionResponse.text
         } catch {
-            logger.error("Failed to decode Z.AI API response: \(error.localizedDescription)")
+            logger.error("Failed to decode Z.AI API response: \(AppLogger.errorMetadata(error), privacy: .public)")
             throw CloudTranscriptionError.noTranscriptionReturned
         }
     }

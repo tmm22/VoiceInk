@@ -49,7 +49,7 @@ extension TTSSettingsViewModel {
             do {
                 try await LocalTTSService.removeCachedPocketVoiceEmbedding(for: voice.id)
             } catch {
-                AppLogger.audio.warning("Failed to remove cached Pocket voice embedding for \(voice.id): \(error.localizedDescription)")
+                AppLogger.audio.warning("Failed to remove cached Pocket voice embedding for \(voice.id): \(AppLogger.errorMetadata(error), privacy: .public)")
             }
         }
     }

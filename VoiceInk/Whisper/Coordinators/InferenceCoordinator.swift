@@ -124,7 +124,7 @@ class InferenceCoordinator: ObservableObject {
         } catch {
             operation.status = .failed
             operation.error = error
-            logger.error("Operation failed: \(operation.modelName) - \(error.localizedDescription)")
+            logger.error("Operation failed: \(operation.modelName) - \(AppLogger.errorMetadata(error), privacy: .public)")
 
             // Continue with next operation despite failure
             try await processNextOperation()

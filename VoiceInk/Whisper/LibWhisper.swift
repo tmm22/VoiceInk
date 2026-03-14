@@ -165,7 +165,7 @@ actor WhisperContext {
         if let context {
             self.context = context
         } else {
-            logger.error("Couldn't load model at \(path)")
+            logger.error("Couldn't load Whisper model from the requested location")
             throw WhisperStateError.modelLoadFailed
         }
     }

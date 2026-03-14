@@ -33,7 +33,7 @@ class GeminiTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProv
             } catch let error as CloudTranscriptionError {
                 throw error
             } catch {
-                logger.error("Failed to decode Gemini API response: \(error.localizedDescription, privacy: .public)")
+                logger.error("Failed to decode Gemini API response: \(AppLogger.errorMetadata(error), privacy: .public)")
                 throw CloudTranscriptionError.noTranscriptionReturned
             }
         }
@@ -74,7 +74,7 @@ private extension GeminiTranscriptionService {
         do {
             startRequest.httpBody = try JSONEncoder().encode(StartUploadRequest(file: .init(displayName: audioURL.lastPathComponent)))
         } catch {
-            logger.error("Failed to encode Gemini upload metadata: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to encode Gemini upload metadata: \(AppLogger.errorMetadata(error), privacy: .public)")
             throw CloudTranscriptionError.dataEncodingError
         }
 
@@ -102,7 +102,7 @@ private extension GeminiTranscriptionService {
             logger.notice("Gemini file upload complete. Size: \(fileSize, privacy: .public) bytes")
             return payload.file
         } catch {
-            logger.error("Failed to decode Gemini upload response: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to decode Gemini upload response: \(AppLogger.errorMetadata(error), privacy: .public)")
             throw CloudTranscriptionError.noTranscriptionReturned
         }
     }
@@ -165,7 +165,7 @@ private extension GeminiTranscriptionService {
         do {
             request.httpBody = try JSONEncoder().encode(requestBody)
         } catch {
-            logger.error("Failed to encode Gemini request: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to encode Gemini request: \(AppLogger.errorMetadata(error), privacy: .public)")
             throw CloudTranscriptionError.dataEncodingError
         }
 
@@ -185,7 +185,7 @@ private extension GeminiTranscriptionService {
             let payload = try JSONDecoder().decode(FileEnvelope.self, from: responseData)
             return payload.file
         } catch {
-            logger.error("Failed to decode Gemini file status response: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to decode Gemini file status response: \(AppLogger.errorMetadata(error), privacy: .public)")
             throw CloudTranscriptionError.noTranscriptionReturned
         }
     }
@@ -216,7 +216,7 @@ private extension GeminiTranscriptionService {
         do {
             try await deleteFile(named: fileName, apiKey: apiKey)
         } catch {
-            logger.warning("Failed to delete Gemini file \(fileName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            logger.warning("Failed to delete Gemini upload artifact: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
 

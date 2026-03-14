@@ -57,7 +57,7 @@ final class LocalModelProvider: ObservableObject, LoadableModelProviderProtocol 
         do {
             try FileManager.default.createDirectory(at: modelsDirectory, withIntermediateDirectories: true, attributes: nil)
         } catch {
-            logger.error("Error creating models directory: \(error.localizedDescription)")
+            logger.error("Error creating models directory: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     
@@ -78,7 +78,7 @@ final class LocalModelProvider: ObservableObject, LoadableModelProviderProtocol 
                 return WhisperModel(name: canonicalName, url: url)
             }
         } catch {
-            logger.error("Error loading available models: \(error.localizedDescription)")
+            logger.error("Error loading available models: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     
@@ -284,7 +284,7 @@ final class LocalModelProvider: ObservableObject, LoadableModelProviderProtocol 
             do {
                 try FileManager.default.removeItem(at: model.url)
             } catch {
-                logger.error("Error deleting model during cleanup: \(error.localizedDescription)")
+                logger.error("Error deleting model during cleanup: \(AppLogger.errorMetadata(error), privacy: .public)")
             }
         }
         whisperModels.removeAll()
@@ -338,7 +338,7 @@ final class LocalModelProvider: ObservableObject, LoadableModelProviderProtocol 
             
             return newWhisperModel
         } catch {
-            logger.error("Failed to import local model: \(error.localizedDescription)")
+            logger.error("Failed to import local model: \(AppLogger.errorMetadata(error), privacy: .public)")
             NotificationManager.shared.showNotification(
                 title: String(format: Localization.Models.importFailed, error.localizedDescription),
                 type: .error,

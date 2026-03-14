@@ -307,7 +307,7 @@ extension WhisperState {
     private func handleModelDownloadError(_ model: LocalModel, _ error: Error) {
         self.downloadProgress.removeValue(forKey: model.name + "_main")
         self.downloadProgress.removeValue(forKey: model.name + "_coreml")
-        logger.error("Model download failed for \(model.displayName): \(error.localizedDescription)")
+        logger.error("Model download failed for \(model.displayName): \(AppLogger.errorMetadata(error), privacy: .public)")
         NotificationManager.shared.showNotification(
             title: String(format: Localization.Models.downloadFailedForModel, model.displayName),
             type: .error
@@ -396,7 +396,7 @@ extension WhisperState {
     // MARK: - Helper Methods
     
     private func logError(_ message: String, _ error: Error) {
-        self.logger.error("\(message): \(error.localizedDescription)")
+        self.logger.error("\(message): \(AppLogger.errorMetadata(error), privacy: .public)")
     }
 
     // MARK: - Import Local Model (User-provided .bin)

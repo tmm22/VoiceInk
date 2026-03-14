@@ -19,7 +19,7 @@ enum OnnxModelFileLocator {
         }
         
         guard let contents = listOnnxFiles(in: directory) else {
-            logger.debug("Failed to read directory contents: \(directory.path)")
+            logger.debug("Failed to read ONNX directory contents")
             return nil
         }
         
@@ -29,18 +29,18 @@ enum OnnxModelFileLocator {
         
         if let primary = primaryFiles.first {
             if primaryFiles.count > 1 {
-                logger.debug("Multiple ONNX files in \(directory.lastPathComponent), selecting primary: \(primary.lastPathComponent)")
+                logger.debug("Multiple ONNX files found, selecting the primary candidate")
             }
             return primary
         }
         
         let fallbackFiles = contents.sorted { $0.lastPathComponent.lowercased() < $1.lastPathComponent.lowercased() }
         if let fallback = fallbackFiles.first {
-            logger.debug("No primary ONNX found in \(directory.lastPathComponent), using fallback: \(fallback.lastPathComponent)")
+            logger.debug("No primary ONNX file found, using a fallback candidate")
             return fallback
         }
         
-        logger.debug("No ONNX model files found in directory: \(directory.path)")
+        logger.debug("No ONNX model files found in directory")
         return nil
     }
     

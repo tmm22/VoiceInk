@@ -224,7 +224,7 @@ final class TTSHistoryViewModel: ObservableObject {
         do {
             try FileManager.default.createDirectory(at: historyCacheDirectory, withIntermediateDirectories: true)
         } catch {
-            AppLogger.storage.error("Failed to create history cache directory: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to create history cache directory: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
 
         clearHistoryCacheDirectory()
@@ -248,7 +248,7 @@ final class TTSHistoryViewModel: ObservableObject {
             try audioData.write(to: fileURL, options: .atomic)
             return (nil, fileURL, sizeBytes)
         } catch {
-            AppLogger.storage.error("Failed to cache history audio: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to cache history audio: \(AppLogger.errorMetadata(error), privacy: .public)")
             return (audioData, nil, sizeBytes)
         }
     }
@@ -279,7 +279,7 @@ final class TTSHistoryViewModel: ObservableObject {
                 try? FileManager.default.removeItem(at: fileURL)
             }
         } catch {
-            AppLogger.storage.error("Failed to clear history cache directory: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to clear history cache directory: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
 }

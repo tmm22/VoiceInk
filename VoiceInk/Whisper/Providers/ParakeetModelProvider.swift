@@ -110,7 +110,7 @@ final class ParakeetModelProvider: ObservableObject, ModelProviderProtocol {
             downloadProgress[modelName] = 1.0
         } catch {
             AppSettings.setValue(false, forKey: defaultsKey(for: modelName))
-            logger.error("Failed to download Parakeet model \(modelName): \(error.localizedDescription)")
+            logger.error("Failed to download Parakeet model \(modelName): \(AppLogger.errorMetadata(error), privacy: .public)")
             throw error
         }
 

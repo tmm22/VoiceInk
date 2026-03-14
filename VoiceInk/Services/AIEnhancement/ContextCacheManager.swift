@@ -29,7 +29,7 @@ class ContextCacheManager: ObservableObject {
         
         // Validation: If URL is provided and doesn't match, invalidate
         if let url = url, entry.context.url != url {
-            logger.debug("❌ Cache invalid: URL changed from \(entry.context.url) to \(url)")
+            logger.debug("❌ Browser context cache invalidated because the URL changed")
             invalidateBrowserCache()
             return nil
         }

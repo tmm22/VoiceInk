@@ -137,7 +137,7 @@ class ScreenCaptureService: ObservableObject {
             let trimmedText = wasTruncated ? String(text.prefix(maxOCRCharacters)) + "..." : text
             return (trimmedText, wasTruncated)
         case .failure(let error):
-            logger.notice("📸 Text recognition failed: \(error.localizedDescription, privacy: .public)")
+            logger.notice("📸 Text recognition failed: \(AppLogger.errorMetadata(error), privacy: .public)")
             return (nil, false)
         }
     }

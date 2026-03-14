@@ -112,9 +112,6 @@ class AudioDeviceManager: ObservableObject {
         }
 
         logger.info("Found \(devices.count) input devices")
-        devices.forEach { device in
-            logger.info("Available device: \(device.name) (ID: \(device.id))")
-        }
 
         availableDevices = devices.map { ($0.id, $0.uid, $0.name) }
         if let currentID = selectedDeviceID, !devices.contains(where: { $0.id == currentID }) {
@@ -129,10 +126,10 @@ class AudioDeviceManager: ObservableObject {
             let uid = deviceToSelect.uid
             selectedDeviceID = id
             AppSettings.AudioInput.selectedAudioDeviceUID = uid
-            logger.info("Device selection saved with UID: \(uid)")
+            logger.info("Device selection saved")
             notifyDeviceChange()
         } else {
-            logger.error("Attempted to select unavailable device: \(id)")
+            logger.error("Attempted to select an unavailable device")
             fallbackToDefaultDevice()
         }
     }
@@ -146,7 +143,7 @@ class AudioDeviceManager: ObservableObject {
             AppSettings.AudioInput.selectedAudioDeviceUID = uid
             notifyDeviceChange()
         } else {
-            logger.error("Attempted to select unavailable device: \(id)")
+            logger.error("Attempted to select an unavailable device")
             fallbackToDefaultDevice()
         }
     }
@@ -261,12 +258,9 @@ class AudioDeviceManager: ObservableObject {
         if let savedUID = AppSettings.AudioInput.selectedAudioDeviceUID {
             if let device = availableDevices.first(where: { $0.uid == savedUID }) {
                 selectedDeviceID = device.id
-                logger.info("Loaded saved device UID: \(savedUID), mapped to ID: \(device.id)")
-                if let name = AudioDeviceHardware.deviceName(deviceID: device.id, logger: logger) {
-                    logger.info("Using saved device: \(name)")
-                }
+                logger.info("Loaded saved audio input selection")
             } else {
-                logger.warning("Saved device UID \(savedUID) is no longer available")
+                logger.warning("Saved audio input selection is no longer available")
                 AppSettings.AudioInput.selectedAudioDeviceUID = nil
                 fallbackToDefaultDevice()
             }
@@ -287,8 +281,7 @@ class AudioDeviceManager: ObservableObject {
             return
         }
 
-        let newDeviceName = AudioDeviceHardware.deviceName(deviceID: newDeviceID, logger: logger) ?? "Unknown Device"
-        logger.notice("🎙️ Auto-selecting new device: \(newDeviceName)")
+        logger.notice("🎙️ Auto-selecting a replacement input device")
         selectDevice(id: newDeviceID)
     }
 
@@ -297,7 +290,7 @@ class AudioDeviceManager: ObservableObject {
             return device.id
         }
         if let device = availableDevices.first {
-            logger.warning("🎙️ No built-in device found, using: \(device.name)")
+            logger.warning("🎙️ No built-in device found, using a fallback input device")
             return device.id
         }
         return nil
@@ -323,7 +316,7 @@ class AudioDeviceManager: ObservableObject {
         for device in sortedDevices {
             if let availableDevice = availableDevices.first(where: { $0.uid == device.id }) {
                 selectedDeviceID = availableDevice.id
-                logger.notice("🎙️ Selected prioritized device: \(device.name)")
+                logger.notice("🎙️ Selected prioritized input device")
                 notifyDeviceChange()
                 return
             }
@@ -365,7 +358,7 @@ class AudioDeviceManager: ObservableObject {
                 guard let currentID = selectedDeviceID else { return }
 
                 if !isDeviceAvailable(currentID) {
-                    logger.warning("🎙️ Recording device \(currentID) no longer available - requesting switch")
+                    logger.warning("🎙️ Active recording device is no longer available - requesting switch")
 
                     let newDeviceID: AudioDeviceID?
                     if inputMode == .prioritized {

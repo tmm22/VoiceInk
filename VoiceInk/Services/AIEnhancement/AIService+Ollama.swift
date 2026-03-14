@@ -36,7 +36,7 @@ extension AIService {
             logger.notice("✅ Ollama enhancement completed successfully (\(result.count) characters)")
             return result
         } catch {
-            logger.notice("❌ Ollama enhancement failed: \(error.localizedDescription)")
+            logger.notice("❌ Ollama enhancement failed: \(AppLogger.errorMetadata(error), privacy: .public)")
             throw error
         }
     }

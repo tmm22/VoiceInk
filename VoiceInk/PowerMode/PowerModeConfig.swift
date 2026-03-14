@@ -152,7 +152,7 @@ class PowerModeManager: ObservableObject {
         do {
             configurations = try JSONDecoder().decode([PowerModeConfig].self, from: data)
         } catch {
-            AppLogger.storage.error("Failed to decode Power Mode configs: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to decode Power Mode configs: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
 
@@ -161,7 +161,7 @@ class PowerModeManager: ObservableObject {
             let data = try JSONEncoder().encode(configurations)
             AppSettings.PowerMode.configurationsData = data
         } catch {
-            AppLogger.storage.error("Failed to encode Power Mode configs: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to encode Power Mode configs: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
         NotificationCenter.default.post(name: NSNotification.Name("PowerModeConfigurationsDidChange"), object: nil)
     }

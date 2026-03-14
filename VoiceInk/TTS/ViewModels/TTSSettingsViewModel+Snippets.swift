@@ -35,7 +35,7 @@ extension TTSSettingsViewModel {
             let data = try JSONEncoder().encode(textSnippets)
             AppSettings.TTS.snippetsData = data
         } catch {
-            AppLogger.storage.error("Failed to persist text snippets: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to persist text snippets: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
 }

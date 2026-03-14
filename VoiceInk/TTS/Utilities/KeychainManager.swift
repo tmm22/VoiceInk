@@ -222,7 +222,7 @@ extension KeychainManager {
                     // Remove from UserDefaults after successful migration
                     AppSettings.removeValue(forKey: key)
                 } catch {
-                    AppLogger.storage.error("Failed to migrate legacy API key for \(provider, privacy: .public): \(error.localizedDescription)")
+                    AppLogger.storage.error("Failed to migrate legacy API key for \(provider, privacy: .public): \(AppLogger.errorMetadata(error), privacy: .public)")
                 }
             }
         }

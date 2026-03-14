@@ -99,7 +99,7 @@ class AudioTranscriptionService: ObservableObject {
                 let allowLinking = standardizedSource.path.hasPrefix(recordingsPath) || standardizedSource.path.hasPrefix(tempPath)
                 try FileCopyUtilities.cloneOrCopyFile(from: standardizedSource, to: permanentURL, allowLinking: allowLinking)
             } catch {
-                logger.error("❌ Failed to create permanent copy of audio: \(error.localizedDescription)")
+                logger.error("❌ Failed to create permanent copy of audio: \(AppLogger.errorMetadata(error), privacy: .public)")
                 isTranscribing = false
                 throw error
             }
@@ -144,7 +144,7 @@ class AudioTranscriptionService: ObservableObject {
                         NotificationCenter.default.post(name: .transcriptionCreated, object: newTranscription)
                         NotificationCenter.default.post(name: .transcriptionCompleted, object: newTranscription)
                     } catch {
-                        logger.error("❌ Failed to save transcription: \(error.localizedDescription)")
+                        logger.error("❌ Failed to save transcription: \(AppLogger.errorMetadata(error), privacy: .public)")
                     }
 
                     // Restore original prompt settings if AI was temporarily enabled
@@ -174,7 +174,7 @@ class AudioTranscriptionService: ObservableObject {
                         NotificationCenter.default.post(name: .transcriptionCreated, object: newTranscription)
                         NotificationCenter.default.post(name: .transcriptionCompleted, object: newTranscription)
                     } catch {
-                        logger.error("❌ Failed to save transcription: \(error.localizedDescription)")
+                        logger.error("❌ Failed to save transcription: \(AppLogger.errorMetadata(error), privacy: .public)")
                     }
                     
                     // No need for MainActor.run - this class is already @MainActor
@@ -198,7 +198,7 @@ class AudioTranscriptionService: ObservableObject {
                     try modelContext.save()
                     NotificationCenter.default.post(name: .transcriptionCompleted, object: newTranscription)
                 } catch {
-                    logger.error("❌ Failed to save transcription: \(error.localizedDescription)")
+                    logger.error("❌ Failed to save transcription: \(AppLogger.errorMetadata(error), privacy: .public)")
                 }
                 
                 // No need for MainActor.run - this class is already @MainActor
@@ -207,7 +207,7 @@ class AudioTranscriptionService: ObservableObject {
                 return newTranscription
             }
         } catch {
-            logger.error("❌ Transcription failed: \(error.localizedDescription)")
+            logger.error("❌ Transcription failed: \(AppLogger.errorMetadata(error), privacy: .public)")
             currentError = .transcriptionFailed
             isTranscribing = false
             throw error

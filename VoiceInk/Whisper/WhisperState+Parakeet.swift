@@ -60,7 +60,7 @@ extension WhisperState {
             downloadProgress[modelName] = 1.0
         } catch {
             AppSettings.setValue(false, forKey: parakeetDefaultsKey(for: modelName))
-            logger.error("Failed to download Parakeet model \(modelName): \(error.localizedDescription)")
+            logger.error("Failed to download Parakeet model \(modelName): \(AppLogger.errorMetadata(error), privacy: .public)")
         }
 
         timer.invalidate()
@@ -88,7 +88,7 @@ extension WhisperState {
             }
             AppSettings.setValue(false, forKey: parakeetDefaultsKey(for: model.name))
         } catch {
-            logger.error("Failed to delete Parakeet cache for \(model.name): \(error.localizedDescription)")
+            logger.error("Failed to delete Parakeet cache for \(model.name): \(AppLogger.errorMetadata(error), privacy: .public)")
         }
 
         refreshAllAvailableModels()

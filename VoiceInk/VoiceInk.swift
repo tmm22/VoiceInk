@@ -218,7 +218,7 @@ struct VoiceInkApp: App {
                 configurations: transcriptConfig, dictionaryConfig
             )
         } catch {
-            logger.error("Failed to create persistent ModelContainer: \(error.localizedDescription)")
+            logger.error("Failed to create persistent ModelContainer: \(AppLogger.errorMetadata(error), privacy: .public)")
             return nil
         }
     }
@@ -243,7 +243,7 @@ struct VoiceInkApp: App {
 
             return try ModelContainer(for: schema, configurations: transcriptConfig, dictionaryConfig)
         } catch {
-            logger.error("Failed to create in-memory ModelContainer: \(error.localizedDescription)")
+            logger.error("Failed to create in-memory ModelContainer: \(AppLogger.errorMetadata(error), privacy: .public)")
             return nil
         }
     }

@@ -96,7 +96,7 @@ class BrowserURLService {
     
     func getCurrentURL(from browser: BrowserType) async throws -> String {
         guard let scriptURL = Bundle.main.url(forResource: browser.scriptName, withExtension: "scpt") else {
-            logger.error("❌ AppleScript file not found: \(browser.scriptName, privacy: .public).scpt")
+            logger.error("❌ AppleScript resource not found for \(browser.displayName, privacy: .public)")
             throw BrowserURLError.scriptNotFound
         }
         
@@ -141,7 +141,7 @@ class BrowserURLService {
                 throw BrowserURLError.executionFailed
             }
         } catch {
-            logger.error("❌ AppleScript execution failed for \(browser.displayName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            logger.error("❌ AppleScript execution failed for \(browser.displayName, privacy: .public): \(AppLogger.errorMetadata(error), privacy: .public)")
             throw BrowserURLError.executionFailed
         }
     }

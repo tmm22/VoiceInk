@@ -83,7 +83,7 @@ final class ModelPrewarmService: ObservableObject {
             logger.notice("🌅 Prewarm completed in \(String(format: "%.2f", duration))s")
 
         } catch {
-            logger.error("❌ Prewarm failed: \(error.localizedDescription)")
+            logger.error("❌ Prewarm failed: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
 

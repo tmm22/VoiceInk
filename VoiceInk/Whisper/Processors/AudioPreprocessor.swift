@@ -18,7 +18,7 @@ class AudioPreprocessor {
 
     /// Preprocess audio data for transcription
     func preprocessAudio(from url: URL) async throws -> (data: Data, duration: TimeInterval) {
-        logger.info("🔄 Starting audio preprocessing for \(url.lastPathComponent)")
+        logger.info("🔄 Starting audio preprocessing. \(AppLogger.fileMetadata(for: url), privacy: .public)")
 
         // Avoid blocking the main actor for large files.
         let audioData = try await Task.detached(priority: .utility) {
@@ -74,9 +74,9 @@ class AudioPreprocessor {
         for url in urls {
             do {
                 try FileManager.default.removeItem(at: url)
-                logger.info("🧹 Cleaned up temporary file: \(url.lastPathComponent)")
+                logger.info("🧹 Cleaned up temporary file. \(AppLogger.fileMetadata(for: url), privacy: .public)")
             } catch {
-                logger.warning("Failed to clean up temporary file \(url.lastPathComponent): \(error.localizedDescription)")
+                logger.warning("Failed to clean up temporary file. \(AppLogger.fileMetadata(for: url), privacy: .public), \(AppLogger.errorMetadata(error), privacy: .public)")
             }
         }
     }

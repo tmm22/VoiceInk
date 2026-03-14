@@ -59,7 +59,7 @@ struct AnimatedSaveButton: View {
                     }
                 }
             } catch {
-                AppLogger.storage.error("Failed to save exported text: \(error.localizedDescription)")
+                AppLogger.storage.error("Failed to save exported text: \(AppLogger.errorMetadata(error), privacy: .public)")
             }
         }
     }

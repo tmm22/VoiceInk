@@ -22,7 +22,7 @@ class CustomModelManager: ObservableObject {
             do {
                 try KeychainManager.shared.saveAPIKey(apiKey, for: "custom_model_\(model.id.uuidString)")
             } catch {
-                logger.error("Failed to save API key for custom model \(model.displayName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                logger.error("Failed to save API key for custom model: \(AppLogger.errorMetadata(error), privacy: .public)")
             }
         }
         
@@ -48,7 +48,7 @@ class CustomModelManager: ObservableObject {
                 do {
                     try KeychainManager.shared.saveAPIKey(newKey, for: "custom_model_\(updatedModel.id.uuidString)")
                 } catch {
-                    logger.error("Failed to save API key for custom model \(updatedModel.displayName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    logger.error("Failed to save updated API key for custom model: \(AppLogger.errorMetadata(error), privacy: .public)")
                 }
             }
             
@@ -76,7 +76,7 @@ class CustomModelManager: ObservableObject {
                 do {
                     try KeychainManager.shared.saveAPIKey(legacy.apiKey, for: "custom_model_\(legacy.id.uuidString)")
                 } catch {
-                    logger.error("Failed to migrate custom model API key for \(legacy.displayName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    logger.error("Failed to migrate custom model API key: \(AppLogger.errorMetadata(error), privacy: .public)")
                 }
                 
                 // Create new model (apiKey property will now read from Keychain)
@@ -103,7 +103,7 @@ class CustomModelManager: ObservableObject {
         do {
             customModels = try JSONDecoder().decode([CustomCloudModel].self, from: data)
         } catch {
-            logger.error("Failed to decode custom models: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to decode custom models: \(AppLogger.errorMetadata(error), privacy: .public)")
             customModels = []
         }
     }
@@ -113,7 +113,7 @@ class CustomModelManager: ObservableObject {
             let data = try JSONEncoder().encode(customModels)
             AppSettings.setValue(data, forKey: customModelsKey)
         } catch {
-            logger.error("Failed to encode custom models: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to encode custom models: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     

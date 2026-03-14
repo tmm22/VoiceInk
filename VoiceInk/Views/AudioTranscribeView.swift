@@ -214,7 +214,7 @@ struct AudioTranscribeView: View {
             if provider.hasItemConformingToTypeIdentifier(typeIdentifier) {
                 provider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { (item, error) in
                     if let error = error {
-                        AppLogger.audio.error("Failed to load dropped file for type \(typeIdentifier, privacy: .public): \(error.localizedDescription)")
+                        AppLogger.audio.error("Failed to load dropped file for type \(typeIdentifier, privacy: .public): \(AppLogger.errorMetadata(error), privacy: .public)")
                         return
                     }
                     
@@ -247,7 +247,7 @@ struct AudioTranscribeView: View {
     }
     
     private func validateAndSetAudioFile(_ url: URL) {
-        AppLogger.audio.debug("Validating dropped audio file \(url.lastPathComponent, privacy: .public)")
+        AppLogger.audio.debug("Validating dropped audio file. \(AppLogger.fileMetadata(for: url), privacy: .public)")
         
         // Check if file exists
         guard FileManager.default.fileExists(atPath: url.path) else {
@@ -266,7 +266,7 @@ struct AudioTranscribeView: View {
         // Validate file type
         guard SupportedMedia.isSupported(url: url) else { return }
         
-        AppLogger.audio.info("Validated audio file \(url.lastPathComponent, privacy: .public)")
+        AppLogger.audio.info("Validated dropped audio file. \(AppLogger.fileMetadata(for: url), privacy: .public)")
         selectedAudioURL = url
         isAudioFileSelected = true
     }

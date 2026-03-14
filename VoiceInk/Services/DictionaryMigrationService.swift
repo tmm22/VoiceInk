@@ -43,7 +43,7 @@ class DictionaryMigrationService {
 
                 logger.info("Successfully migrated \(vocabularyMigrated, privacy: .public) vocabulary words")
             } catch {
-                logger.error("Failed to migrate vocabulary words: \(error.localizedDescription, privacy: .public)")
+                logger.error("Failed to migrate vocabulary words: \(AppLogger.errorMetadata(error), privacy: .public)")
             }
         } else {
             logger.info("No vocabulary words found to migrate")
@@ -76,7 +76,7 @@ class DictionaryMigrationService {
             UserDefaults.standard.set(true, forKey: migrationCompletedKey)
             logger.info("Migration completed successfully")
         } catch {
-            logger.error("Failed to save migrated data: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to save migrated data: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
 }

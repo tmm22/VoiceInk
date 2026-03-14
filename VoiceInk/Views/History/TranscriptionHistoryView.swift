@@ -350,7 +350,7 @@ struct TranscriptionHistoryView: View {
             lastTimestamp = items.last?.timestamp
             hasMoreContent = items.count == pageSize
         } catch {
-            AppLogger.storage.error("Failed to load transcriptions: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to load transcriptions: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
 
@@ -367,7 +367,7 @@ struct TranscriptionHistoryView: View {
             self.lastTimestamp = newItems.last?.timestamp
             hasMoreContent = newItems.count == pageSize
         } catch {
-            AppLogger.storage.error("Failed to load more transcriptions: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to load more transcriptions: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
 
@@ -386,7 +386,7 @@ struct TranscriptionHistoryView: View {
             do {
                 try FileManager.default.removeItem(at: url)
             } catch {
-                AppLogger.storage.error("Failed to delete transcription audio file: \(error.localizedDescription)")
+                AppLogger.storage.error("Failed to delete transcription audio file: \(AppLogger.errorMetadata(error), privacy: .public)")
             }
         }
 
@@ -404,7 +404,7 @@ struct TranscriptionHistoryView: View {
             NotificationCenter.default.post(name: .transcriptionDeleted, object: nil)
             await loadInitialContent()
         } catch {
-            AppLogger.storage.error("Failed to save transcription deletion: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to save transcription deletion: \(AppLogger.errorMetadata(error), privacy: .public)")
             await loadInitialContent()
         }
     }
@@ -459,7 +459,7 @@ struct TranscriptionHistoryView: View {
                 }
             }
         } catch {
-            AppLogger.storage.error("Failed to select all transcriptions: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to select all transcriptions: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
 }

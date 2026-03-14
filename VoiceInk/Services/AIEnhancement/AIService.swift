@@ -145,7 +145,7 @@ class AIService: ObservableObject {
                     } catch {
                         self.isAPIKeyValid = false
                         let message = "Failed to save API key. Please try again."
-                        self.logger.error("Failed to save API key for \(self.selectedProvider.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                        self.logger.error("Failed to save API key for \(self.selectedProvider.rawValue, privacy: .public): \(AppLogger.errorMetadata(error), privacy: .public)")
                         completion(false, message)
                         return
                     }

@@ -60,7 +60,7 @@ final class WaveformGenerator {
             cache.setObject(normalizedSamples as NSArray, forKey: cacheKey)
             return normalizedSamples
         } catch {
-            AppLogger.audio.error("Waveform generation failed: \(error.localizedDescription)")
+            AppLogger.audio.error("Waveform generation failed: \(AppLogger.errorMetadata(error), privacy: .public)")
             return []
         }
     }
@@ -90,7 +90,7 @@ final class AudioPlayerManager: ObservableObject {
                 }
             }
         } catch {
-            AppLogger.audio.error("Audio player failed to load audio: \(error.localizedDescription)")
+            AppLogger.audio.error("Audio player failed to load audio: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
 

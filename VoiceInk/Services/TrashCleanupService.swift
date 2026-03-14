@@ -47,7 +47,7 @@ final class TrashCleanupService {
                         }
                         try FileManager.default.removeItem(at: url)
                     } catch {
-                        logger.error("Failed to delete audio file during trash cleanup: \(error.localizedDescription)")
+                        logger.error("Failed to delete audio file during trash cleanup: \(AppLogger.errorMetadata(error), privacy: .public)")
                     }
                 }
                 
@@ -61,7 +61,7 @@ final class TrashCleanupService {
                 logger.info("Trash cleanup: Permanently deleted \(cleanedCount) items, freed \(String(format: "%.2f", freedMB)) MB")
             }
         } catch {
-            logger.error("Failed to cleanup expired trash items: \(error.localizedDescription)")
+            logger.error("Failed to cleanup expired trash items: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     
@@ -75,7 +75,7 @@ final class TrashCleanupService {
             )
             return try modelContext.fetchCount(descriptor)
         } catch {
-            logger.error("Failed to get trash count: \(error.localizedDescription)")
+            logger.error("Failed to get trash count: \(AppLogger.errorMetadata(error), privacy: .public)")
             return 0
         }
     }

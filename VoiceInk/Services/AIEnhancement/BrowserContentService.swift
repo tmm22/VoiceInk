@@ -145,7 +145,7 @@ class BrowserContentService {
         
         // Skip unsupported browsers entirely
         guard category != .unsupported else {
-            logger.debug("Unsupported browser for content extraction: \(bundleId)")
+            logger.debug("Unsupported browser for content extraction")
             return nil
         }
         
@@ -200,7 +200,7 @@ class BrowserContentService {
     ) -> BrowserContentContext? {
         var error: NSDictionary?
         guard let script = NSAppleScript(source: source) else {
-            logger.error("Failed to create AppleScript for \(browserName)")
+            logger.error("Failed to create AppleScript for browser content extraction")
             return nil
         }
         
@@ -208,7 +208,8 @@ class BrowserContentService {
         
         if let error = error {
             // Log but don't fail - common for AppleEvents timeout/cancel
-            logger.debug("AppleScript error for \(browserName): \(error)")
+            let errorNumber = error[NSAppleScript.errorNumber] as? Int ?? -1
+            logger.debug("AppleScript error for browser content extraction. code=\(errorNumber, privacy: .public)")
             return nil
         }
         
@@ -251,7 +252,7 @@ class BrowserContentService {
             )
         }
         
-        logger.debug("Failed to parse AppleScript result for \(browserName)")
+        logger.debug("Failed to parse browser content AppleScript result")
         return nil
     }
 }

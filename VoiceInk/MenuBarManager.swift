@@ -82,11 +82,11 @@ class MenuBarManager: ObservableObject {
     }
     
     func openMainWindowAndNavigate(to destination: String) {
-        AppLogger.ui.debug("MenuBarManager navigating to \(destination, privacy: .public)")
+        AppLogger.ui.debug("MenuBarManager received a navigation request")
 
         let aiFeaturesEnabled = AppSettings.General.enableAIEnhancementFeatures ?? false
         if !aiFeaturesEnabled && (destination == "AI Models" || destination == "Enhancement" || destination == "Text to Speech") {
-            AppLogger.ui.info("MenuBarManager blocked navigation to \(destination, privacy: .public) because AI features are disabled")
+            AppLogger.ui.info("MenuBarManager blocked navigation because AI features are disabled")
             let alert = NSAlert()
             alert.messageText = "AI enhancements are disabled"
             alert.informativeText = "Enable AI enhancement features in Settings before accessing this workspace."
@@ -111,7 +111,7 @@ class MenuBarManager: ObservableObject {
                 object: nil,
                 userInfo: ["destination": destination]
             )
-            AppLogger.ui.debug("MenuBarManager posted navigation notification for \(destination, privacy: .public)")
+            AppLogger.ui.debug("MenuBarManager posted a navigation notification")
         }
     }
 

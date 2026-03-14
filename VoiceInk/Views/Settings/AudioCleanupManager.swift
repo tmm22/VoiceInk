@@ -85,7 +85,7 @@ class AudioCleanupManager {
                             eligibleTranscriptions.append(transcription)
                         }
                     } catch {
-                        logger.error("Failed to get attributes for \(url.lastPathComponent): \(error.localizedDescription)")
+                        logger.error("Failed to get audio file attributes: \(AppLogger.errorMetadata(error), privacy: .public)")
                     }
                 }
             }
@@ -151,10 +151,10 @@ class AudioCleanupManager {
                         transcription.audioFileURL = nil
 
                         deletedCount += 1
-                        logger.debug("Deleted audio file: \(url.lastPathComponent)")
+                        logger.debug("Deleted audio file during cleanup")
                     } catch {
                         errorCount += 1
-                        logger.error("Failed to delete audio file \(url.lastPathComponent): \(error.localizedDescription)")
+                        logger.error("Failed to delete audio file during cleanup: \(AppLogger.errorMetadata(error), privacy: .public)")
                     }
                 }
             }
@@ -193,10 +193,10 @@ class AudioCleanupManager {
                     transcription.audioFileURL = nil
 
                     deletedCount += 1
-                    logger.debug("Deleted audio file: \(url.lastPathComponent)")
+                    logger.debug("Deleted audio file during targeted cleanup")
                 } catch {
                     errorCount += 1
-                    logger.error("Failed to delete audio file \(url.lastPathComponent): \(error.localizedDescription)")
+                    logger.error("Failed to delete audio file during targeted cleanup: \(AppLogger.errorMetadata(error), privacy: .public)")
                 }
             }
         }
@@ -206,7 +206,7 @@ class AudioCleanupManager {
                 try modelContext.save()
                 logger.info("Cleanup complete. Deleted \(deletedCount) files. Failed: \(errorCount)")
             } catch {
-                logger.error("Error saving model context after cleanup: \(error.localizedDescription)")
+                logger.error("Error saving model context after cleanup: \(AppLogger.errorMetadata(error), privacy: .public)")
             }
         }
 

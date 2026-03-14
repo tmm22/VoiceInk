@@ -189,7 +189,7 @@ struct AudioFeedbackSettingsView: View {
             }
             
         case .failure(let error):
-            AppLogger.audio.error("Failed to select custom audio file: \(error.localizedDescription)")
+            AppLogger.audio.error("Failed to select custom audio file: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
         
         currentSoundType = nil

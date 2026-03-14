@@ -49,7 +49,7 @@ class AudioEngineRecorder: ObservableObject {
             do {
                 try restartRecordingPreservingFile()
             } catch {
-                logger.error("Failed to recover from configuration change: \(error.localizedDescription)")
+                logger.error("Failed to recover from configuration change: \(AppLogger.errorMetadata(error), privacy: .public)")
                 onRecordingError?(error)
                 stopRecording()
             }
@@ -98,7 +98,7 @@ class AudioEngineRecorder: ObservableObject {
                 interleaved: desiredFormat.isInterleaved
             )
         } catch {
-            logger.error("Failed to create audio file: \(error.localizedDescription)")
+            logger.error("Failed to create audio file: \(AppLogger.errorMetadata(error), privacy: .public)")
             throw AudioEngineRecorderError.failedToCreateFile(error)
         }
 
@@ -129,7 +129,7 @@ class AudioEngineRecorder: ObservableObject {
             isRecording = true
             logger.info("✅ Audio engine started successfully")
         } catch {
-            logger.error("Failed to start audio engine: \(error.localizedDescription)")
+            logger.error("Failed to start audio engine: \(AppLogger.errorMetadata(error), privacy: .public)")
             input.removeTap(onBus: tapBusNumber)
             throw AudioEngineRecorderError.failedToStartEngine(error)
         }

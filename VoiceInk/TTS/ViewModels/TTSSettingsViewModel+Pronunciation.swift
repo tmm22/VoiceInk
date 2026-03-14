@@ -23,7 +23,7 @@ extension TTSSettingsViewModel {
             let data = try JSONEncoder().encode(pronunciationRules)
             AppSettings.TTS.pronunciationRulesData = data
         } catch {
-            AppLogger.storage.error("Failed to persist pronunciation rules: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to persist pronunciation rules: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
 

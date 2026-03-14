@@ -24,7 +24,7 @@ final class OpenAICloudTranscriptionService: CloudTranscriptionBase, CloudTransc
             let transcriptionResponse = try JSONDecoder().decode(TranscriptionResponse.self, from: responseData)
             return transcriptionResponse.text
         } catch {
-            logger.error("Failed to decode OpenAI transcription response: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to decode OpenAI transcription response: \(AppLogger.errorMetadata(error), privacy: .public)")
             throw CloudTranscriptionError.noTranscriptionReturned
         }
     }

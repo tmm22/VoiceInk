@@ -46,7 +46,7 @@ extension AIService {
         do {
             url = try AIProvider.validateSecureURL(baseURL, allowLocalhost: allowLocalhost)
         } catch {
-            logger.error("Invalid or insecure base URL for provider: \(baseURL, privacy: .public)")
+            logger.error("Invalid or insecure base URL for provider \(providerName, privacy: .public)")
             completion(false, error.localizedDescription)
             return
         }
@@ -87,16 +87,16 @@ extension AIService {
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: testBody)
         } catch {
-            logger.warning("Failed to serialize API key verification request body: \(error.localizedDescription)")
+            logger.warning("Failed to serialize API key verification request body: \(AppLogger.errorMetadata(error), privacy: .public)")
             completion(false, "Failed to create verification request")
             return
         }
         
-        logger.notice("🔑 Verifying API key for \(providerName, privacy: .public) provider at \(url.absoluteString, privacy: .public)")
+        logger.notice("🔑 Verifying API key for \(providerName, privacy: .public) provider")
         
         session.dataTask(with: request) { data, response, error in
             if let error = error {
-                self.logger.notice("🔑 API key verification failed for \(providerName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                self.logger.notice("🔑 API key verification failed for \(providerName, privacy: .public): \(AppLogger.errorMetadata(error), privacy: .public)")
                 completion(false, error.localizedDescription)
                 return
             }
@@ -105,9 +105,10 @@ extension AIService {
                 let isValid = httpResponse.statusCode == 200
                 
                 if !isValid {
-                    // Log and return the exact API error response
                     if let data = data, let exactAPIError = String(data: data, encoding: .utf8) {
-                        self.logger.notice("🔑 API key verification failed for \(providerName, privacy: .public) - Status: \(httpResponse.statusCode) - \(exactAPIError, privacy: .public)")
+                        self.logger.notice(
+                            "🔑 API key verification failed for \(providerName, privacy: .public). \(AppLogger.responseMetadata(statusCode: httpResponse.statusCode, responseSize: data.count), privacy: .public)"
+                        )
                         // Truncate error message to 500 characters to prevent UI overflow
                         let truncatedError = exactAPIError.count > 500 ? String(exactAPIError.prefix(500)) + "..." : exactAPIError
                         completion(false, truncatedError)
@@ -141,7 +142,7 @@ extension AIService {
     
     func verifyAnthropicAPIKey(_ key: String, completion: @escaping (Bool, String?) -> Void) {
         guard let url = URL(string: self.selectedProvider.baseURL) else {
-            logger.error("Invalid base URL for provider: \(self.selectedProvider.baseURL)")
+            logger.error("Invalid base URL for provider \(self.selectedProvider.rawValue, privacy: .public)")
             completion(false, "Invalid base URL for Anthropic")
             return
         }
@@ -164,7 +165,7 @@ extension AIService {
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: testBody)
         } catch {
-            logger.warning("Failed to serialize Anthropic API key verification request body: \(error.localizedDescription)")
+            logger.warning("Failed to serialize Anthropic API key verification request body: \(AppLogger.errorMetadata(error), privacy: .public)")
             completion(false, "Failed to create verification request")
             return
         }
@@ -215,7 +216,11 @@ extension AIService {
             let isValid = (response as? HTTPURLResponse)?.statusCode == 200
 
             if let data = data, let body = String(data: data, encoding: .utf8) {
-                self.logger.info("ElevenLabs verification response: \(body)")
+                if let statusCode = (response as? HTTPURLResponse)?.statusCode {
+                    self.logger.info(
+                        "ElevenLabs verification completed. \(AppLogger.responseMetadata(statusCode: statusCode, responseSize: data.count), privacy: .public)"
+                    )
+                }
                 if !isValid {
                     // Truncate error message to 500 characters to prevent UI overflow
                     let truncatedError = body.count > 500 ? String(body.prefix(500)) + "..." : body
@@ -242,7 +247,7 @@ extension AIService {
         
         session.dataTask(with: request) { data, response, error in
             if let error = error {
-                self.logger.error("Mistral API key verification failed: \(error.localizedDescription)")
+                self.logger.error("Mistral API key verification failed: \(AppLogger.errorMetadata(error), privacy: .public)")
                 completion(false, error.localizedDescription)
                 return
             }
@@ -252,7 +257,9 @@ extension AIService {
                     completion(true, nil)
                 } else {
                     if let data = data, let body = String(data: data, encoding: .utf8) {
-                        self.logger.error("Mistral API key verification failed with status code \(httpResponse.statusCode): \(body)")
+                        self.logger.error(
+                            "Mistral API key verification failed. \(AppLogger.responseMetadata(statusCode: httpResponse.statusCode, responseSize: data.count), privacy: .public)"
+                        )
                         // Truncate error message to 500 characters to prevent UI overflow
                         let truncatedError = body.count > 500 ? String(body.prefix(500)) + "..." : body
                         completion(false, truncatedError)
@@ -282,7 +289,7 @@ extension AIService {
         
         session.dataTask(with: request) { data, response, error in
             if let error = error {
-                self.logger.error("Deepgram API key verification failed: \(error.localizedDescription)")
+                self.logger.error("Deepgram API key verification failed: \(AppLogger.errorMetadata(error), privacy: .public)")
                 completion(false, error.localizedDescription)
                 return
             }
@@ -319,7 +326,7 @@ extension AIService {
         
         session.dataTask(with: request) { data, response, error in
             if let error = error {
-                self.logger.error("Soniox API key verification failed: \(error.localizedDescription)")
+                self.logger.error("Soniox API key verification failed: \(AppLogger.errorMetadata(error), privacy: .public)")
                 completion(false, error.localizedDescription)
                 return
             }
@@ -356,7 +363,7 @@ extension AIService {
         
         session.dataTask(with: request) { data, response, error in
             if let error = error {
-                self.logger.error("AssemblyAI API key verification failed: \(error.localizedDescription)")
+                self.logger.error("AssemblyAI API key verification failed: \(AppLogger.errorMetadata(error), privacy: .public)")
                 completion(false, error.localizedDescription)
                 return
             }
@@ -369,7 +376,9 @@ extension AIService {
                     completion(true, nil)
                 } else {
                     if let data = data, let body = String(data: data, encoding: .utf8) {
-                        self.logger.error("AssemblyAI API key verification failed with status \(httpResponse.statusCode): \(body)")
+                        self.logger.error(
+                            "AssemblyAI API key verification failed. \(AppLogger.responseMetadata(statusCode: httpResponse.statusCode, responseSize: data.count), privacy: .public)"
+                        )
                         // Truncate error message to 500 characters to prevent UI overflow
                         let truncatedError = body.count > 500 ? String(body.prefix(500)) + "..." : body
                         completion(false, truncatedError)
