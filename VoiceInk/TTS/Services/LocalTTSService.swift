@@ -97,7 +97,7 @@ private extension LocalTTSService {
         } catch let error as TTSError {
             throw error
         } catch {
-            AppLogger.audio.error("Pocket TTS synthesis failed for \(pocketVoiceID): \(AppLogger.errorMetadata(error), privacy: .public)")
+            AppLogger.audio.error("Pocket TTS synthesis failed: \(AppLogger.errorMetadata(error), privacy: .public)")
             throw TTSError.apiError(error.localizedDescription)
         }
     }
