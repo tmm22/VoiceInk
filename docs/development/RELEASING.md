@@ -25,6 +25,10 @@ Available scripts:
 - `./scripts/build-release-artifact.sh`
   - Creates a temporary staging copy outside Desktop/iCloud-backed locations
   - Builds the app with the unsigned local-build configuration by default
+  - Uses the Xcode `Release` configuration so debug dylibs are not shipped in the DMG
+  - Strips non-global symbols in the packaged app to reduce DMG size without changing behavior
+  - For unsigned artifacts, thins universal embedded binaries to `arm64` and re-signs the app bundle ad hoc
+  - This means public unsigned GitHub DMGs are Apple Silicon-only by policy
   - Produces `release-artifacts/vX.YY-community/VoiceInk.dmg`
   - Produces `release-artifacts/vX.YY-community/VoiceInk.dmg.sha256`
 - `./scripts/generate-release-notes.sh`
@@ -50,6 +54,7 @@ If you want Accessibility, Microphone, and Screen Recording permissions to survi
 For this repository, that means:
 
 - Public GitHub release artifacts remain `unsigned` by default.
+- Public GitHub release artifacts are Apple Silicon-only by default.
 - Local maintainer test builds can opt into project signing with:
 
 ```bash
@@ -61,6 +66,7 @@ That mode uses the Xcode project's normal signing configuration instead of `Loca
 Important limits:
 
 - This does not change the public GitHub release flow, which still uses unsigned local-build artifacts.
+- This does not change the public GitHub release flow, which still publishes Apple Silicon-only DMGs.
 - Permissions are managed by macOS TCC, not by app code, so persistence depends on:
   - stable bundle identifier
   - stable signing identity
@@ -72,3 +78,5 @@ Important limits:
 VoiceLink Community releases are currently unsigned and not notarized. The template keeps the Gatekeeper workaround visible in every release so users do not have to hunt through the README before opening the app.
 
 It also explains the reason plainly: as of March 10, 2026, the Apple Developer Program costs 99 USD per year, and this project is an open-source accessibility effort maintained independently by a disabled developer.
+
+The template should also clearly state that attached unsigned DMGs are Apple Silicon-only and that Intel users should build from source instead.

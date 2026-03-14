@@ -7,12 +7,15 @@
 ## Downloads
 
 - Download the app asset attached to this release.
+- The attached unsigned DMG is Apple Silicon-only (`arm64`).
 - Verify `VoiceInk.dmg.sha256` if you want to confirm the downloaded DMG matches the published checksum.
-- If you would rather build it yourself, see `docs/development/BUILDING.md` in the repository.
+- If you need an Intel build or would rather build it yourself, see `docs/development/BUILDING.md` in the repository.
 
 ## Running This Release on macOS
 
 This release is currently distributed without Apple code signing and notarization.
+
+It is also packaged as an Apple Silicon-only community artifact to keep the GitHub DMG smaller without removing functionality from the shipped app.
 
 As of March 10, 2026, the Apple Developer Program costs [99 USD per year](https://developer.apple.com/programs/whats-included/). This project is an open-source accessibility effort maintained independently by a disabled developer, so that recurring cost is currently not being absorbed just to clear Gatekeeper warnings for GitHub releases.
 
@@ -27,7 +30,7 @@ If macOS blocks the app on first launch:
 
 You can also Control-click the app in Finder, choose `Open`, then confirm `Open`.
 
-Only bypass Gatekeeper for builds downloaded from this repository. If you are unsure, build the app from source instead.
+Only bypass Gatekeeper for builds downloaded from this repository. If you need Intel support or are unsure, build the app from source instead.
 
 Full guide: `docs/RUNNING_UNSIGNED_RELEASES.md`
 

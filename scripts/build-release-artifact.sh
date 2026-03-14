@@ -41,6 +41,46 @@ artifact_name="VoiceInk.dmg"
 artifact_path="$output_root/$artifact_name"
 checksum_path="$artifact_path.sha256"
 dmg_staging_dir="$stage_dir/dmg-root"
+build_configuration="Release"
+strip_build_args=(
+  DEPLOYMENT_POSTPROCESSING=YES
+  STRIP_INSTALLED_PRODUCT=YES
+  COPY_PHASE_STRIP=YES
+  STRIPFLAGS=-x
+)
+
+thin_arm64_unsigned_app() {
+  local app_bundle="$1"
+  local path=""
+  local info=""
+  local temp_output=""
+
+  echo "Thinning universal embedded binaries to arm64"
+
+  while IFS= read -r -d '' path; do
+    info="$(lipo -info "$path" 2>/dev/null || true)"
+    if [[ "$info" != *"x86_64 arm64"* && "$info" != *"arm64 x86_64"* ]]; then
+      continue
+    fi
+
+    temp_output="${path}.arm64"
+    lipo "$path" -thin arm64 -output "$temp_output"
+    mv "$temp_output" "$path"
+  done < <(find "$app_bundle/Contents" -type f -perm -111 -print0)
+
+  echo "Re-signing thinned app bundle"
+  while IFS= read -r -d '' path; do
+    codesign --force --sign - \
+      --preserve-metadata=identifier,entitlements,requirements,flags,runtime \
+      "$path"
+  done < <(find "$app_bundle/Contents" \
+    \( -name '*.app' -o -name '*.xpc' -o -name '*.framework' -o -name '*.dylib' \) \
+    -depth -print0)
+
+  codesign --force --sign - \
+    --preserve-metadata=identifier,entitlements,requirements,flags,runtime \
+    "$app_bundle"
+}
 
 cleanup() {
   if [[ -d "$stage_dir" ]]; then
@@ -63,7 +103,7 @@ rsync -a \
   "$ROOT_DIR/" \
   "$stage_dir/"
 
-echo "Building VoiceInk $version ($build_number)"
+echo "Building VoiceInk $version ($build_number) [$build_configuration]"
 (
   cd "$stage_dir"
   case "$signing_mode" in
@@ -71,9 +111,10 @@ echo "Building VoiceInk $version ($build_number)"
       xcodebuild \
         -project VoiceInk.xcodeproj \
         -scheme VoiceInk \
-        -configuration Debug \
+        -configuration "$build_configuration" \
         -derivedDataPath "$derived_data_dir" \
         -xcconfig LocalBuild.xcconfig \
+        "${strip_build_args[@]}" \
         CODE_SIGN_IDENTITY="-" \
         CODE_SIGNING_REQUIRED=NO \
         CODE_SIGNING_ALLOWED=YES \
@@ -85,8 +126,9 @@ echo "Building VoiceInk $version ($build_number)"
       xcodebuild \
         -project VoiceInk.xcodeproj \
         -scheme VoiceInk \
-        -configuration Debug \
+        -configuration "$build_configuration" \
         -derivedDataPath "$derived_data_dir" \
+        "${strip_build_args[@]}" \
         CODE_SIGNING_ALLOWED=YES \
         clean build
       ;;
@@ -98,7 +140,7 @@ echo "Building VoiceInk $version ($build_number)"
   esac
 )
 
-app_path="$derived_data_dir/Build/Products/Debug/VoiceInk.app"
+app_path="$derived_data_dir/Build/Products/$build_configuration/VoiceInk.app"
 if [[ ! -d "$app_path" ]]; then
   echo "Expected app bundle not found at $app_path" >&2
   exit 1
@@ -107,6 +149,10 @@ fi
 mkdir -p "$dmg_staging_dir"
 ditto "$app_path" "$dmg_staging_dir/VoiceInk.app"
 ln -s /Applications "$dmg_staging_dir/Applications"
+
+if [[ "$signing_mode" == "unsigned" ]]; then
+  thin_arm64_unsigned_app "$dmg_staging_dir/VoiceInk.app"
+fi
 
 rm -f "$artifact_path" "$checksum_path"
 

@@ -33,13 +33,15 @@ Highlights of this fork:
 
 ### Download or Build
 
-- **Releases** – download the latest community build from the repository releases tab. These builds are currently unsigned and not notarized, so macOS Gatekeeper will show a warning the first time you open them.
+- **Releases** – download the latest community build from the repository releases tab. These DMGs are currently unsigned, not notarized, and Apple Silicon-only, so macOS Gatekeeper will show a warning the first time you open them.
 - **Homebrew (optional)** – once a tap is available you’ll be able to `brew install --cask voiceink-community`.
 - **From source** – follow [Building from Source](docs/development/BUILDING.md) to compile the app with Xcode. Run `./scripts/download-models.sh` beforehand to drop the default Whisper binaries into the bundle if you haven’t downloaded them yet.
 
 ### Running Unsigned Releases
 
 VoiceLink Community releases are currently distributed without Apple code signing and notarization. As of March 10, 2026, the Apple Developer Program costs [99 USD per year](https://developer.apple.com/programs/whats-included/). For this project, that ongoing cost is being avoided so the app can stay available as an open-source accessibility tool maintained independently by a disabled developer.
+
+The prebuilt GitHub DMGs are also Apple Silicon-only (`arm64`) to keep release downloads smaller without removing app functionality.
 
 If macOS blocks the app on first launch:
 
@@ -52,7 +54,7 @@ If macOS blocks the app on first launch:
 
 You can also Control-click the app in Finder, choose `Open`, then confirm `Open`.
 
-Only bypass Gatekeeper for builds you downloaded from this repository. If you prefer, you can also [build the app from source](docs/development/BUILDING.md).
+Only bypass Gatekeeper for builds you downloaded from this repository. If you need an Intel build, or if you prefer, you can also [build the app from source](docs/development/BUILDING.md).
 
 ## Requirements
 

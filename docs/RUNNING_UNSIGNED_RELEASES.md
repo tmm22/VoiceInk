@@ -2,6 +2,8 @@
 
 VoiceLink Community releases are currently distributed without Apple code signing and notarization.
 
+The prebuilt GitHub DMGs are also Apple Silicon-only (`arm64`) release artifacts.
+
 As of March 10, 2026, the Apple Developer Program costs [99 USD per year](https://developer.apple.com/programs/whats-included/). This project is an open-source accessibility effort maintained independently by a disabled developer, so that recurring cost is currently not being absorbed just to clear Gatekeeper warnings for GitHub releases.
 
 ## What to Expect
@@ -9,6 +11,8 @@ As of March 10, 2026, the Apple Developer Program costs [99 USD per year](https:
 When you download the app from GitHub Releases, macOS may block it on first launch with a message that Apple cannot verify it.
 
 This does **not** mean the app is known malware. It means the app was not signed and notarized through Apple's paid developer pipeline.
+
+If you are on an Intel Mac, use the source build flow instead of the attached DMG.
 
 ## How to Open the App
 
@@ -33,7 +37,7 @@ You can also use Finder:
 
 - Only bypass Gatekeeper for builds downloaded from this repository.
 - If a checksum or release hash is published, verify it before opening the app.
-- If you are unsure, build the app yourself from source instead.
+- If you need Intel support or are unsure, build the app yourself from source instead.
 
 ## Build Instead
 

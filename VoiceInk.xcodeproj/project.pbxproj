@@ -483,7 +483,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 164;
+				CURRENT_PROJECT_VERSION = 165;
 				DEVELOPMENT_ASSET_PATHS = "\"VoiceInk/Preview Content\"";
 				DEVELOPMENT_TEAM = V6J6A3VWY2;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -499,7 +499,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.64;
+				MARKETING_VERSION = 1.65;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tmm22.VoiceLinkCommunity;
 				PRODUCT_MODULE_NAME = VoiceInk;
 				PRODUCT_NAME = "VoiceInk";
@@ -519,7 +519,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 164;
+				CURRENT_PROJECT_VERSION = 165;
 				DEVELOPMENT_ASSET_PATHS = "\"VoiceInk/Preview Content\"";
 				DEVELOPMENT_TEAM = V6J6A3VWY2;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -535,7 +535,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.64;
+				MARKETING_VERSION = 1.65;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tmm22.VoiceLinkCommunity;
 				PRODUCT_MODULE_NAME = VoiceInk;
 				PRODUCT_NAME = "VoiceInk";

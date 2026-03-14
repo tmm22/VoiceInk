@@ -5,7 +5,7 @@ All notable changes to the VoiceLink Community application are documented here.
 ## 2026-03-14
 
 ### Release Preparation
-- Bumped the community build metadata to version `1.64` (`v1.64-community` release target) for the next GitHub release on `tmm22/VoiceInk`.
+- Bumped the community build metadata to version `1.65` (`v1.65-community` release target) for the next GitHub release on `tmm22/VoiceInk`.
 
 ### Stability & Permissions
 - Removed the redundant Soniox streaming error fallback that was generating a compiler warning during release builds.
@@ -16,6 +16,8 @@ All notable changes to the VoiceLink Community application are documented here.
 ### Release Tooling
 - Added an optional `VOICEINK_RELEASE_SIGNING_MODE=project` mode to `scripts/build-release-artifact.sh` for local maintainer test builds that want a stable signing identity and better macOS permission persistence between installed test releases.
 - Documented the signed local-release testing path and the macOS TCC constraints in `docs/development/RELEASING.md`.
+- Switched unsigned GitHub DMG packaging to Xcode `Release`, stripped non-global symbols, and thinned universal embedded binaries to `arm64` so public community releases stay materially smaller without dropping functionality.
+- Updated the release template, README, unsigned-release guide, and agent instructions so Apple Silicon-only unsigned GitHub artifacts remain the documented default going forward.
 
 ## 2026-03-14
 

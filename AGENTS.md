@@ -1424,11 +1424,13 @@ make release-artifact
 
 **Release rules:**
 - `scripts/build-release-artifact.sh` is the source of truth for unsigned GitHub DMG packaging
+- Unsigned GitHub DMGs must be built from Xcode `Release`, strip non-global symbols, and thin universal embedded binaries to `arm64`
+- Do not hand-assemble or publish a `Debug` app, an unstripped app, or a universal unsigned DMG unless the release policy is explicitly changed first
 - `scripts/generate-release-notes.sh` is the source of truth for release note composition
 - `scripts/publish-github-release.sh` requires a clean git worktree and authenticated `gh`
 - Community releases publish to `tmm22/VoiceInk` by default, target branch `custom-main-v2`, and use tags in the form `vX.YY-community`
 - Keep user-visible release changes in the latest top entry of `CHANGELOG.md`; the automation pulls from that entry
-- Keep Gatekeeper and unsigned-build instructions in `.github/RELEASE_TEMPLATE.md`; the automation merges that text into the GitHub release body
+- Keep Gatekeeper, Apple Silicon-only artifact notes, and unsigned-build instructions in `.github/RELEASE_TEMPLATE.md`; the automation merges that text into the GitHub release body
 
 ### Post-Debug-Build Step
 
