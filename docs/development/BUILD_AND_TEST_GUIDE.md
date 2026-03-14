@@ -7,6 +7,9 @@
 Use the scripted release flow for the actual unsigned GitHub/community DMG:
 
 ```bash
+make release
+
+# Equivalent explicit command
 make release-artifact
 ```
 

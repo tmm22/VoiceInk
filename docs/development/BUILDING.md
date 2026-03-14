@@ -125,6 +125,9 @@ For public/community release artifacts, do not hand-build a DMG from Xcode Organ
 Use the repository release automation instead:
 
 ```bash
+make release
+
+# Equivalent explicit command
 make release-artifact
 ```
 
@@ -142,6 +145,9 @@ That path is the source of truth for GitHub/community DMGs and it:
 If you are publishing a GitHub release, use:
 
 ```bash
+make publish-release
+
+# Equivalent explicit command
 ./scripts/publish-github-release.sh
 ```
 

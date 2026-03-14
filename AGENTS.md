@@ -1413,16 +1413,24 @@ Use the repository scripts instead of hand-building release artifacts or hand-as
 
 ```bash
 # Build unsigned DMG artifact in a temporary non-synced staging workspace
+make release
+
+# Equivalent explicit artifact-only command
 make release-artifact
 
 # Generate release notes from CHANGELOG.md + .github/RELEASE_TEMPLATE.md
 ./scripts/generate-release-notes.sh
 
 # Build artifact, generate notes, push branch, tag, and publish GitHub release
+make publish-release
+
+# Equivalent explicit publish command
 ./scripts/publish-github-release.sh
 ```
 
 **Release rules:**
+- If the user says "do a release" without further qualification, default to `make release` for an artifact-only release build
+- If the user clearly wants the GitHub release published, default to `make publish-release`
 - `scripts/build-release-artifact.sh` is the source of truth for unsigned GitHub DMG packaging
 - `VoiceInkRelease` is the dedicated shared scheme for scripted public/community release builds; do not swap release automation back to the everyday `VoiceInk` scheme unless the release policy changes
 - The unsigned GitHub/community release strategy is a project constraint, not a temporary preference

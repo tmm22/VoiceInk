@@ -76,7 +76,22 @@ If this contract changes, update the release scripts, `AGENTS.md`, `docs/develop
 If you only want the binary artifact, run:
 
 ```bash
+make release
+
+# Equivalent explicit command
 make release-artifact
+```
+
+If you want the full GitHub publish flow, run:
+
+```bash
+make publish-release
+```
+
+Equivalent explicit command:
+
+```bash
+./scripts/publish-github-release.sh
 ```
 
 ## Preserving macOS Permissions During Local Testing

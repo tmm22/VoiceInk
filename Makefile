@@ -3,7 +3,7 @@ DEPS_DIR := $(HOME)/VoiceInk-Dependencies
 WHISPER_CPP_DIR := $(DEPS_DIR)/whisper.cpp
 FRAMEWORK_PATH := $(WHISPER_CPP_DIR)/build-apple/whisper.xcframework
 
-.PHONY: all clean whisper setup build local check healthcheck help dev run release-artifact
+.PHONY: all clean whisper setup build local check healthcheck help dev run release release-artifact publish-release
 
 # Default target
 all: check build
@@ -96,8 +96,13 @@ clean:
 	@rm -rf $(DEPS_DIR)
 	@echo "Clean complete"
 
+release: release-artifact
+
 release-artifact:
 	./scripts/build-release-artifact.sh
+
+publish-release:
+	./scripts/publish-github-release.sh
 
 # Help
 help:
@@ -109,7 +114,9 @@ help:
 	@echo "  local              Build for local use (no Apple Developer certificate needed)"
 	@echo "  run                Launch the built VoiceInk app"
 	@echo "  dev                Build and run the app (for development)"
+	@echo "  release            Build the unsigned public/community release artifact"
 	@echo "  release-artifact   Build a release DMG via a temp staging workspace"
+	@echo "  publish-release    Build, tag, and publish the unsigned GitHub release"
 	@echo "  all                Run full build process (default)"
 	@echo "  clean              Remove build artifacts"
 	@echo "  help               Show this help message"
