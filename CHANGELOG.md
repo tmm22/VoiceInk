@@ -20,6 +20,7 @@ All notable changes to the VoiceLink Community application are documented here.
 - Aligned the Xcode `Release` defaults and release-artifact script on copy-phase stripping, dead-code stripping, and `-Osize` so manual Release builds are less likely to ship avoidable binary bloat.
 - Expanded the maintainer release guidance across `AGENTS.md`, `docs/development/BUILDING.md`, `docs/development/RELEASING.md`, `.github/RELEASE_TEMPLATE.md`, and `scripts/publish-github-release.sh` so future agents and maintainers keep the GitHub release path aligned with the smaller unsigned `Release` artifact policy.
 - Made the unsigned GitHub/community release strategy explicit in the agent and maintainer guidance so future work does not drift toward Apple-paid signing as the default distribution assumption.
+- Added release-artifact pruning for bundled ESpeakNG dictionaries so unsigned public DMGs keep only the English Pocket TTS data required by the currently shipped voices.
 - Updated the release template, README, unsigned-release guide, and agent instructions so Apple Silicon-only unsigned GitHub artifacts remain the documented default going forward.
 
 ## 2026-03-14

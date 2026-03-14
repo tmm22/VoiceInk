@@ -1434,6 +1434,7 @@ make release-artifact
   - `DEAD_CODE_STRIPPING=YES`
   - `STRIPFLAGS=-x`
   - `SWIFT_OPTIMIZATION_LEVEL=-Osize`
+- Unsigned GitHub DMGs may prune bundled ESpeakNG dictionary data down to the English-only Pocket TTS subset, because the shipped Pocket voices are English-only in the current product
 - Unsigned GitHub DMGs must strip non-global symbols and thin universal embedded binaries to `arm64`
 - Do not hand-assemble or publish a `Debug` app, an unstripped app, or a universal unsigned DMG unless the release policy is explicitly changed first
 - `scripts/generate-release-notes.sh` is the source of truth for release note composition

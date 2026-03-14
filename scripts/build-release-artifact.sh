@@ -85,6 +85,31 @@ thin_arm64_unsigned_app() {
     "$app_bundle"
 }
 
+prune_espeak_to_english_only() {
+  local app_bundle="$1"
+  local data_dir="$app_bundle/Contents/Frameworks/ESpeakNG.framework/Versions/A/Resources/espeak-ng-data/espeak-ng-data"
+  local keep_name=""
+
+  if [[ ! -d "$data_dir" ]]; then
+    echo "ESpeakNG data directory not found, skipping language-data pruning"
+    return
+  fi
+
+  echo "Pruning ESpeakNG dictionaries to the English-only Pocket TTS subset"
+
+  while IFS= read -r -d '' path; do
+    keep_name="$(basename "$path")"
+    case "$keep_name" in
+      en_dict|phondata|phondata-manifest|phonindex|phontab|intonations)
+        continue
+        ;;
+      *_dict)
+        rm -f "$path"
+        ;;
+    esac
+  done < <(find "$data_dir" -maxdepth 1 -type f -print0)
+}
+
 cleanup() {
   if [[ -d "$stage_dir" ]]; then
     rm -rf "$stage_dir"
@@ -154,6 +179,7 @@ ditto "$app_path" "$dmg_staging_dir/VoiceInk.app"
 ln -s /Applications "$dmg_staging_dir/Applications"
 
 if [[ "$signing_mode" == "unsigned" ]]; then
+  prune_espeak_to_english_only "$dmg_staging_dir/VoiceInk.app"
   thin_arm64_unsigned_app "$dmg_staging_dir/VoiceInk.app"
 fi
 

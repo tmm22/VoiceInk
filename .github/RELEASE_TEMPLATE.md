@@ -8,7 +8,7 @@
 
 - Download the app asset attached to this release.
 - The attached unsigned DMG is Apple Silicon-only (`arm64`).
-- The attached DMG is built from the repository's automated `Release` packaging flow with stripping and arm64-thinning to keep downloads smaller without removing app functionality.
+- The attached DMG is built from the repository's automated `Release` packaging flow with stripping, English-only Pocket TTS dictionary pruning, and arm64-thinning to keep downloads smaller without removing shipped functionality.
 - Verify `VoiceInk.dmg.sha256` if you want to confirm the downloaded DMG matches the published checksum.
 - If you need an Intel build or would rather build it yourself, see `docs/development/BUILDING.md` in the repository.
 

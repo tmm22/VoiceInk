@@ -58,6 +58,7 @@ For public GitHub/community releases, the artifact policy is:
   - `DEAD_CODE_STRIPPING=YES`
   - `STRIPFLAGS=-x`
   - `SWIFT_OPTIMIZATION_LEVEL=-Osize`
+- For unsigned artifacts, prune bundled ESpeakNG dictionary data to the English-only Pocket TTS subset used by the current shipped voices
 - For unsigned artifacts, thin universal embedded binaries to `arm64`
 - Publish via `./scripts/publish-github-release.sh`, not by manually uploading a hand-built app or DMG
 
