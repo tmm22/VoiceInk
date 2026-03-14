@@ -17,6 +17,9 @@ All notable changes to the VoiceLink Community application are documented here.
 - Added an optional `VOICEINK_RELEASE_SIGNING_MODE=project` mode to `scripts/build-release-artifact.sh` for local maintainer test builds that want a stable signing identity and better macOS permission persistence between installed test releases.
 - Documented the signed local-release testing path and the macOS TCC constraints in `docs/development/RELEASING.md`.
 - Switched unsigned GitHub DMG packaging to Xcode `Release`, stripped non-global symbols, and thinned universal embedded binaries to `arm64` so public community releases stay materially smaller without dropping functionality.
+- Aligned the Xcode `Release` defaults and release-artifact script on copy-phase stripping, dead-code stripping, and `-Osize` so manual Release builds are less likely to ship avoidable binary bloat.
+- Expanded the maintainer release guidance across `AGENTS.md`, `docs/development/BUILDING.md`, `docs/development/RELEASING.md`, `.github/RELEASE_TEMPLATE.md`, and `scripts/publish-github-release.sh` so future agents and maintainers keep the GitHub release path aligned with the smaller unsigned `Release` artifact policy.
+- Made the unsigned GitHub/community release strategy explicit in the agent and maintainer guidance so future work does not drift toward Apple-paid signing as the default distribution assumption.
 - Updated the release template, README, unsigned-release guide, and agent instructions so Apple Silicon-only unsigned GitHub artifacts remain the documented default going forward.
 
 ## 2026-03-14

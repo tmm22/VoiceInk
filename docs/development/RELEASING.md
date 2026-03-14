@@ -20,12 +20,15 @@ For this repository, the release body source of truth is:
 
 The repository currently lives under Desktop in some local setups, which can cause `xcodebuild` to stall inside macOS file coordination before it even starts compiling. To avoid that, release builds should be staged into a temporary non-synced path first.
 
+Public GitHub/community releases in this repository are intentionally unsigned. That is a maintainer/project constraint, not an accidental omission: this project does not assume an Apple Developer subscription or paid signing/notarization workflow.
+
 Available scripts:
 
 - `./scripts/build-release-artifact.sh`
   - Creates a temporary staging copy outside Desktop/iCloud-backed locations
   - Builds the app with the unsigned local-build configuration by default
   - Uses the Xcode `Release` configuration so debug dylibs are not shipped in the DMG
+  - Enables Release stripping, dead-code stripping, and `-Osize` so manual and scripted release builds stay aligned on bundle-size optimization
   - Strips non-global symbols in the packaged app to reduce DMG size without changing behavior
   - For unsigned artifacts, thins universal embedded binaries to `arm64` and re-signs the app bundle ad hoc
   - This means public unsigned GitHub DMGs are Apple Silicon-only by policy
@@ -38,8 +41,27 @@ Available scripts:
 - `./scripts/publish-github-release.sh`
   - Requires a clean git worktree and authenticated GitHub CLI
   - Builds the DMG through the staging workflow above
+  - Refuses non-`unsigned` signing mode for GitHub publishing so the public release path cannot drift away from the documented size-optimized artifact policy
   - Generates the final release body from both `CHANGELOG.md` and `.github/RELEASE_TEMPLATE.md`
   - Pushes `custom-main-v2`, tags `vX.YY-community`, and creates the GitHub release on `tmm22/VoiceInk`
+
+## Release Build Contract
+
+For public GitHub/community releases, the artifact policy is:
+
+- Build from Xcode `Release`
+- Stage outside Desktop/iCloud-backed paths
+- Preserve these size-focused build settings:
+  - `DEPLOYMENT_POSTPROCESSING=YES`
+  - `STRIP_INSTALLED_PRODUCT=YES`
+  - `COPY_PHASE_STRIP=YES`
+  - `DEAD_CODE_STRIPPING=YES`
+  - `STRIPFLAGS=-x`
+  - `SWIFT_OPTIMIZATION_LEVEL=-Osize`
+- For unsigned artifacts, thin universal embedded binaries to `arm64`
+- Publish via `./scripts/publish-github-release.sh`, not by manually uploading a hand-built app or DMG
+
+If this contract changes, update the release scripts, `AGENTS.md`, `docs/development/BUILDING.md`, and `.github/RELEASE_TEMPLATE.md` together.
 
 If you only want the binary artifact, run:
 
@@ -67,6 +89,7 @@ Important limits:
 
 - This does not change the public GitHub release flow, which still uses unsigned local-build artifacts.
 - This does not change the public GitHub release flow, which still publishes Apple Silicon-only DMGs.
+- This local project-signed mode is only for maintainer testing on machines that already have working signing configured; it is not the project default and must not replace the unsigned public release strategy without an explicit policy change.
 - Permissions are managed by macOS TCC, not by app code, so persistence depends on:
   - stable bundle identifier
   - stable signing identity

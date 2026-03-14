@@ -42,11 +42,14 @@ artifact_path="$output_root/$artifact_name"
 checksum_path="$artifact_path.sha256"
 dmg_staging_dir="$stage_dir/dmg-root"
 build_configuration="Release"
+# Public GitHub/community artifacts rely on these settings for bundle-size control.
 strip_build_args=(
   DEPLOYMENT_POSTPROCESSING=YES
   STRIP_INSTALLED_PRODUCT=YES
   COPY_PHASE_STRIP=YES
+  DEAD_CODE_STRIPPING=YES
   STRIPFLAGS=-x
+  SWIFT_OPTIMIZATION_LEVEL=-Osize
 )
 
 thin_arm64_unsigned_app() {

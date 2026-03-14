@@ -1424,13 +1424,24 @@ make release-artifact
 
 **Release rules:**
 - `scripts/build-release-artifact.sh` is the source of truth for unsigned GitHub DMG packaging
-- Unsigned GitHub DMGs must be built from Xcode `Release`, strip non-global symbols, and thin universal embedded binaries to `arm64`
+- The unsigned GitHub/community release strategy is a project constraint, not a temporary preference
+- Do not switch the public release flow to Apple-signed/notarized distribution, require Apple Developer enrollment, or treat paid signing as the default solution unless the user explicitly changes that policy
+- Unsigned GitHub DMGs must be built from Xcode `Release`
+- Unsigned GitHub DMGs must preserve the size-focused release contract:
+  - `DEPLOYMENT_POSTPROCESSING=YES`
+  - `STRIP_INSTALLED_PRODUCT=YES`
+  - `COPY_PHASE_STRIP=YES`
+  - `DEAD_CODE_STRIPPING=YES`
+  - `STRIPFLAGS=-x`
+  - `SWIFT_OPTIMIZATION_LEVEL=-Osize`
+- Unsigned GitHub DMGs must strip non-global symbols and thin universal embedded binaries to `arm64`
 - Do not hand-assemble or publish a `Debug` app, an unstripped app, or a universal unsigned DMG unless the release policy is explicitly changed first
 - `scripts/generate-release-notes.sh` is the source of truth for release note composition
 - `scripts/publish-github-release.sh` requires a clean git worktree and authenticated `gh`
 - Community releases publish to `tmm22/VoiceInk` by default, target branch `custom-main-v2`, and use tags in the form `vX.YY-community`
 - Keep user-visible release changes in the latest top entry of `CHANGELOG.md`; the automation pulls from that entry
 - Keep Gatekeeper, Apple Silicon-only artifact notes, and unsigned-build instructions in `.github/RELEASE_TEMPLATE.md`; the automation merges that text into the GitHub release body
+- If release packaging policy changes, update `AGENTS.md`, `docs/development/RELEASING.md`, `docs/development/BUILDING.md`, `.github/RELEASE_TEMPLATE.md`, and the release scripts in the same change
 
 ### Post-Debug-Build Step
 

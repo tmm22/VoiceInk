@@ -118,6 +118,32 @@ xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug bui
   CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 ```
 
+## Release Packaging
+
+For public/community release artifacts, do not hand-build a DMG from Xcode Organizer or a stale `DerivedData` app bundle.
+
+Use the repository release automation instead:
+
+```bash
+make release-artifact
+```
+
+That path is the source of truth for GitHub/community DMGs and it:
+
+- builds with Xcode `Release`
+- stages outside Desktop/iCloud-backed paths
+- enables stripping, dead-code stripping, and `-Osize`
+- strips non-global symbols
+- thins unsigned public artifacts to Apple Silicon-only (`arm64`)
+
+If you are publishing a GitHub release, use:
+
+```bash
+./scripts/publish-github-release.sh
+```
+
+For the full maintainer release flow and policy details, see [Releasing on GitHub](RELEASING.md).
+
 ## Development Setup
 
 1. **Xcode Configuration**

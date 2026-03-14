@@ -63,6 +63,7 @@ Only bypass Gatekeeper for builds you downloaded from this repository. If you ne
 ## Documentation
 
 - [Building from Source](docs/development/BUILDING.md) - Detailed build setup and signing notes
+- [Releasing on GitHub](docs/development/RELEASING.md) - Maintainer release workflow and artifact policy
 - [Running Unsigned Releases](docs/RUNNING_UNSIGNED_RELEASES.md) - Gatekeeper workaround steps for GitHub downloads
 - [Documentation Index](docs/README.md) - Feature guides, development docs, plans, and audits
 - [Power Mode Guide](docs/POWER_MODE_GUIDE.md) - Context-aware automation by app or URL

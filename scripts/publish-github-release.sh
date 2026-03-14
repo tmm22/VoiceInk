@@ -22,6 +22,13 @@ if [[ -n "$(git -C "$ROOT_DIR" status --short)" ]]; then
   exit 1
 fi
 
+release_signing_mode="${VOICEINK_RELEASE_SIGNING_MODE:-unsigned}"
+if [[ "$release_signing_mode" != "unsigned" ]]; then
+  echo "GitHub publishing only supports VOICEINK_RELEASE_SIGNING_MODE=unsigned." >&2
+  echo "Use scripts/build-release-artifact.sh directly for local project-signed test releases." >&2
+  exit 1
+fi
+
 version="$(
   perl -ne 'if (/MARKETING_VERSION = ([0-9.]+);/) { print $1; exit }' "$PROJECT_FILE"
 )"
@@ -35,6 +42,7 @@ release_body_path="$artifact_dir/release-notes.md"
 
 mkdir -p "$artifact_dir"
 
+# Public GitHub releases must flow through the size-optimized unsigned artifact path.
 "$BUILD_SCRIPT" "$artifact_dir"
 GITHUB_REPO="$repo" "$NOTES_SCRIPT" "$release_body_path" >/dev/null
 
