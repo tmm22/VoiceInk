@@ -65,7 +65,7 @@ class AssemblyAITranscriptionService: CloudTranscriptionBase, CloudTranscription
             let uploadResponse = try JSONDecoder().decode(UploadResponse.self, from: responseData)
             return uploadResponse.upload_url
         } catch {
-            AppLogger.network.error("AssemblyAI upload decode failed: \(error.localizedDescription)")
+            AppLogger.network.error("AssemblyAI upload decode failed: \(AppLogger.errorMetadata(error), privacy: .public)")
             throw CloudTranscriptionError.noTranscriptionReturned
         }
     }
@@ -125,7 +125,7 @@ class AssemblyAITranscriptionService: CloudTranscriptionBase, CloudTranscription
             let createResponse = try JSONDecoder().decode(TranscriptCreateResponse.self, from: responseData)
             return createResponse.id
         } catch {
-            AppLogger.network.error("AssemblyAI create decode failed: \(error.localizedDescription)")
+            AppLogger.network.error("AssemblyAI create decode failed: \(AppLogger.errorMetadata(error), privacy: .public)")
             throw CloudTranscriptionError.noTranscriptionReturned
         }
     }
@@ -164,7 +164,7 @@ class AssemblyAITranscriptionService: CloudTranscriptionBase, CloudTranscription
             } catch let error as CloudTranscriptionError {
                 throw error
             } catch {
-                AppLogger.network.error("AssemblyAI status decode failed: \(error.localizedDescription)")
+                AppLogger.network.error("AssemblyAI status decode failed: \(AppLogger.errorMetadata(error), privacy: .public)")
                 // Continue polling on decode errors
             }
             

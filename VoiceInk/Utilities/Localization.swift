@@ -70,6 +70,7 @@ struct Localization {
     }
     
     enum Recording {
+        static let failed = NSLocalizedString("Recording Failed", comment: "Title shown when recording fails")
         static let failedToStart = NSLocalizedString("Recording failed to start", comment: "Error when recording cannot start")
         static let noAudioDetected = NSLocalizedString("No Audio Detected", comment: "Warning when no audio input is detected")
         static let noAudioDescription = NSLocalizedString("Please check your microphone and try again.", comment: "Description for no audio detected")
@@ -77,6 +78,7 @@ struct Localization {
         static let encodeError = NSLocalizedString("Recording error: %@", comment: "Error during recording encode")
         static let cancelled = NSLocalizedString("Recording cancelled", comment: "Recording was cancelled")
         static let escToCancelHint = NSLocalizedString("Press ESC again to cancel recording", comment: "Hint for cancelling recording")
+        static let switchedDevice = NSLocalizedString("Switched to: %@", comment: "Notification showing which audio device recording switched to")
         static let usingDevice = NSLocalizedString("Using: %@", comment: "Notification showing which audio device is being used")
     }
     

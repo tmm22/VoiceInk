@@ -63,7 +63,7 @@ class ParakeetModelManager: ObservableObject {
             downloadProgress[modelName] = 1.0
         } catch {
             UserDefaults.standard.set(false, forKey: parakeetDefaultsKey(for: modelName))
-            logger.error("❌ Parakeet download failed for \(modelName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            logger.error("❌ Parakeet download failed for \(modelName, privacy: .public): \(AppLogger.errorMetadata(error), privacy: .public)")
         }
 
         timer.invalidate()

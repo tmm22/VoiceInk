@@ -124,7 +124,7 @@ class StreamingTranscriptionService {
         } catch {
             commitSignal?.finish()
             commitSignal = nil
-            logger.error("Failed to send commit: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to send commit: \(AppLogger.errorMetadata(error), privacy: .public)")
             state = .failed
             await cleanupStreaming()
             throw error
@@ -194,7 +194,7 @@ class StreamingTranscriptionService {
                 do {
                     try await provider?.sendAudioChunk(chunk)
                 } catch {
-                    logger.error("Failed to send audio chunk: \(error.localizedDescription, privacy: .public)")
+                    logger.error("Failed to send audio chunk: \(AppLogger.errorMetadata(error), privacy: .public)")
                 }
             }
         }
@@ -239,7 +239,7 @@ class StreamingTranscriptionService {
         case .sessionStarted:
             break
         case .error(let error):
-            logger.error("Streaming event error: \(error.localizedDescription, privacy: .public)")
+            logger.error("Streaming event error: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
 

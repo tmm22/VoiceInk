@@ -285,7 +285,7 @@ final class TrashViewModel: ObservableObject {
             )
             deletedTranscriptions = try modelContext.fetch(descriptor)
         } catch {
-            AppLogger.storage.error("Failed to load deleted transcriptions: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to load deleted transcriptions: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     
@@ -296,7 +296,7 @@ final class TrashViewModel: ObservableObject {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.storage.error("Failed to restore transcription: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to restore transcription: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     
@@ -309,7 +309,7 @@ final class TrashViewModel: ObservableObject {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.storage.error("Failed to restore transcriptions: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to restore transcriptions: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     
@@ -321,7 +321,7 @@ final class TrashViewModel: ObservableObject {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.storage.error("Failed to permanently delete transcription: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to permanently delete transcription: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     
@@ -335,7 +335,7 @@ final class TrashViewModel: ObservableObject {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.storage.error("Failed to permanently delete transcriptions: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to permanently delete transcriptions: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     
@@ -347,7 +347,7 @@ final class TrashViewModel: ObservableObject {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.storage.error("Failed to empty trash: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to empty trash: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     

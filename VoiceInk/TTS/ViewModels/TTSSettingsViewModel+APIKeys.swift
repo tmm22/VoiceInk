@@ -6,7 +6,7 @@ extension TTSSettingsViewModel {
         do {
             try keychainManager.saveAPIKey(key, for: provider.rawValue)
         } catch {
-            AppLogger.storage.error("Failed to save \(provider.rawValue, privacy: .public) API key: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to save \(provider.rawValue, privacy: .public) API key: \(AppLogger.errorMetadata(error), privacy: .public)")
             onErrorMessage?("Failed to save API key. Please try again.")
             return
         }

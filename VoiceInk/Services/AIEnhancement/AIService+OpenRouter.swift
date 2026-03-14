@@ -48,7 +48,7 @@ extension AIService {
             logger.info("Successfully fetched \(models.count) OpenRouter models.")
             
         } catch {
-            logger.error("Error fetching OpenRouter models: \(error.localizedDescription)")
+            logger.error("Error fetching OpenRouter models: \(AppLogger.errorMetadata(error), privacy: .public)")
             self.setOpenRouterModels([])
             self.saveOpenRouterModels()
             self.objectWillChange.send()

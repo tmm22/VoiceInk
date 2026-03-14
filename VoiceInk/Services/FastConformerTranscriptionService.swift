@@ -100,11 +100,11 @@ final class FastConformerTranscriptionService: TranscriptionService {
 
         let modelDirectory = modelsDirectory.appendingPathComponent(model.name)
         guard let modelPath = OnnxModelFileLocator.findModelFile(in: modelDirectory) else {
-            logger.error("No ONNX model file found in directory: \(modelDirectory.path)")
+            logger.error("No ONNX model file found for \(model.name, privacy: .public)")
             throw WhisperStateError.modelLoadFailed
         }
         
-        logger.info("Loading ONNX model: \(modelPath.lastPathComponent) for \(model.name)")
+        logger.info("Loading ONNX model for \(model.name, privacy: .public)")
 
         let options = try ORTSessionOptions()
         _ = try? options.setGraphOptimizationLevel(.all)

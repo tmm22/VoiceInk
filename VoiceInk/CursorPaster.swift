@@ -25,7 +25,7 @@ class CursorPaster {
             }
         }
 
-        ClipboardManager.setClipboard(text, transient: shouldRestoreClipboard)
+        _ = ClipboardManager.setClipboard(text, transient: shouldRestoreClipboard)
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             if UserDefaults.standard.bool(forKey: "useAppleScriptPaste") {
@@ -69,7 +69,8 @@ class CursorPaster {
         var error: NSDictionary?
         pasteScript?.executeAndReturnError(&error)
         if let error = error {
-            logger.error("AppleScript paste failed: \(error, privacy: .public)")
+            let errorNumber = error[NSAppleScript.errorNumber] as? Int ?? -1
+            logger.error("AppleScript paste failed with code \(errorNumber, privacy: .public)")
         }
     }
 
@@ -86,9 +87,8 @@ class CursorPaster {
             logger.error("TISCopyCurrentKeyboardInputSource returned nil")
             return
         }
-        let currentID = sourceID(for: currentSource) ?? "unknown"
         let switched = switchToQWERTYInputSource()
-        logger.notice("Pasting: inputSource=\(currentID, privacy: .public), switched=\(switched)")
+        logger.notice("Pasting from clipboard. switchedInputSource=\(switched, privacy: .public)")
 
         // If we switched input sources, wait 30 ms for the system to apply it
         // before posting the CGEvents.
@@ -117,7 +117,7 @@ class CursorPaster {
                 // posted events are processed under ABC/US first.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     TISSelectInputSource(currentSource)
-                    logger.notice("Restored input source to \(currentID, privacy: .public)")
+                    logger.notice("Restored original input source")
                 }
             }
         }
@@ -142,7 +142,7 @@ class CursorPaster {
             if let match = list.first(where: { sourceID(for: $0) == targetID }) {
                 let status = TISSelectInputSource(match)
                 if status == noErr {
-                    logger.notice("Switched input source to \(targetID, privacy: .public)")
+                    logger.notice("Switched to fallback QWERTY input source")
                     return true
                 } else {
                     logger.error("TISSelectInputSource failed with status \(status, privacy: .public)")

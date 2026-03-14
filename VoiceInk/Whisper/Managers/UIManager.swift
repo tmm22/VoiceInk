@@ -57,7 +57,7 @@ class UIManager: ObservableObject, UIManagerProtocol {
 
     func showError(_ error: Error) {
         // Error display will be handled by existing NotificationManager
-        logger.error("❌ Error to display: \(error.localizedDescription)")
+        logger.error("❌ Error to display: \(AppLogger.errorMetadata(error), privacy: .public)")
     }
 
     func updateModelLoadingState(isLoading: Bool) {

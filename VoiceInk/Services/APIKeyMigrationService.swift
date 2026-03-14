@@ -51,7 +51,7 @@ class APIKeyMigrationService {
             do {
                 try keychain.saveAPIKey(apiKey, for: provider)
             } catch {
-                logger.error("❌ Failed to save \(provider, privacy: .public) API key: \(error.localizedDescription, privacy: .public)")
+                logger.error("❌ Failed to save \(provider, privacy: .public) API key: \(AppLogger.errorMetadata(error), privacy: .public)")
             }
 
             // Verify save was successful

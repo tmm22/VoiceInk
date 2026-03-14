@@ -8,8 +8,8 @@ import OSLog
 ///
 /// ## Usage
 /// ```swift
-/// AppLogger.transcription.info("Starting transcription for \(audioURL.lastPathComponent)")
-/// AppLogger.audio.error("Failed to configure audio device: \(error)")
+/// AppLogger.transcription.info("Starting transcription")
+/// AppLogger.audio.error("Failed to configure audio device: \(AppLogger.errorMetadata(error), privacy: .public)")
 /// ```
 struct AppLogger {
     private init() {}
@@ -127,12 +127,31 @@ struct AppLogger {
     static func logMetrics(_ message: String, level: OSLogType = .info, file: String = #file, function: String = #function, line: Int = #line) {
         log(message, logger: metrics, level: level, file: file, function: function, line: line)
     }
+
+    // MARK: - Privacy Helpers
+
+    /// Sanitized metadata for logging errors without leaking user content, paths, or raw payloads.
+    static func errorMetadata(_ error: any Error) -> String {
+        let nsError = error as NSError
+        let errorType = String(reflecting: type(of: error))
+        return "type=\(errorType), domain=\(nsError.domain), code=\(nsError.code)"
+    }
+
+    /// Sanitized metadata for logging response failures without including raw bodies.
+    static func responseMetadata(statusCode: Int, responseSize: Int) -> String {
+        "status=\(statusCode), bytes=\(responseSize)"
+    }
+
+    /// Sanitized metadata for logging local file usage without file names or paths.
+    static func fileMetadata(for url: URL) -> String {
+        let fileType = url.pathExtension.isEmpty ? "unknown" : url.pathExtension.lowercased()
+        return "type=\(fileType)"
+    }
     
     // MARK: - Private Helpers
     
     private static func log(_ message: String, logger: Logger, level: OSLogType, file: String, function: String, line: Int) {
-        let fileName = URL(fileURLWithPath: file).lastPathComponent
-        let context = "[\(fileName):\(line) \(function)]"
+        let context = "[\(function):\(line)]"
         
         switch level {
         case .debug:

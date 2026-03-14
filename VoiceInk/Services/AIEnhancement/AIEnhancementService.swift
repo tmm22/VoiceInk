@@ -65,7 +65,7 @@ class AIEnhancementService: ObservableObject {
                 let encoded = try JSONEncoder().encode(customPrompts)
                 AppSettings.Enhancements.customPromptsData = encoded
             } catch {
-                logger.error("Failed to encode custom prompts for persistence: \(error.localizedDescription)")
+                logger.error("Failed to encode custom prompts for persistence: \(AppLogger.errorMetadata(error), privacy: .public)")
             }
             
             // Sync to Cloud

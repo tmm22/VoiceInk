@@ -96,7 +96,7 @@ class OllamaAIService: ObservableObject {
                 selectedModel = models[0].name
             }
         } catch {
-            AppLogger.ai.error("Ollama model refresh failed: \(error.localizedDescription, privacy: .public)")
+            AppLogger.ai.error("Ollama model refresh failed: \(AppLogger.errorMetadata(error), privacy: .public)")
             availableModels = []
         }
     }

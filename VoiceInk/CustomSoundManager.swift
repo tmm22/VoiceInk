@@ -66,7 +66,7 @@ class CustomSoundManager: ObservableObject {
             do {
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             } catch {
-                AppLogger.storage.error("Failed to create custom sounds directory: \(error.localizedDescription)")
+                AppLogger.storage.error("Failed to create custom sounds directory: \(AppLogger.errorMetadata(error), privacy: .public)")
             }
         }
     }

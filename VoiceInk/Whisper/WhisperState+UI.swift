@@ -45,9 +45,7 @@ extension WhisperState {
         } else {
             SoundManager.shared.playStartSound()
 
-            await MainActor.run {
-                isMiniRecorderVisible = true // This will call showRecorderPanel() via didSet
-            }
+            isMiniRecorderVisible = true // This will call showRecorderPanel() via didSet
 
             await toggleRecord(powerModeId: powerModeId)
         }
@@ -62,56 +60,44 @@ extension WhisperState {
 
         let wasRecording = recordingState == .recording
 
-        await MainActor.run {
-            self.recordingState = .busy
-        }
+        recordingState = .busy
 
         // Cancel and release any active streaming session to prevent resource leaks.
         currentSession?.cancel()
         currentSession = nil
 
         if wasRecording {
-            await recorder.stopRecording()
+            recorder.stopRecording()
         }
 
         hideRecorderPanel()
 
         // Clear captured context when the recorder is dismissed
         if let enhancementService = enhancementService {
-            await MainActor.run {
-                enhancementService.clearCapturedContexts()
-            }
+            enhancementService.clearCapturedContexts()
         }
 
-        await MainActor.run {
-            isMiniRecorderVisible = false
-        }
+        isMiniRecorderVisible = false
 
         await cleanupModelResources()
 
         if UserDefaults.standard.bool(forKey: PowerModeDefaults.autoRestoreKey) {
             await PowerModeSessionManager.shared.endSession()
-            await MainActor.run {
-                PowerModeManager.shared.setActiveConfiguration(nil)
-            }
+            PowerModeManager.shared.setActiveConfiguration(nil)
         }
 
-        await MainActor.run {
-            recordingState = .idle
-        }
+        recordingState = .idle
         logger.notice("dismissMiniRecorder completed")
     }
 
     func resetOnLaunch() async {
         logger.notice("🔄 Resetting recording state on launch")
-        await recorder.stopRecording()
+        recorder.stopRecording()
         hideRecorderPanel()
-        await MainActor.run {
-            isMiniRecorderVisible = false
-            shouldCancelRecording = false
-            miniRecorderError = nil
-            recordingState = .idle
-        }
+        isMiniRecorderVisible = false
+        shouldCancelRecording = false
+        miniRecorderError = nil
+        recordingState = .idle
         await cleanupModelResources()
     }
 

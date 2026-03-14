@@ -70,7 +70,7 @@ extension TTSSettingsViewModel {
             let data = try JSONEncoder().encode(filtered)
             AppSettings.TTS.styleValuesData = data
         } catch {
-            AppLogger.storage.error("Failed to persist style values: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to persist style values: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
 

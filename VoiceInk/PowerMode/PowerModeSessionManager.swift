@@ -178,7 +178,7 @@ class PowerModeSessionManager {
                 do {
                     try await whisperState.loadModel(localModel)
                 } catch {
-                    AppLogger.powerMode.error("Failed to load Power Mode local model \(localModel.name, privacy: .public): \(error.localizedDescription)")
+                    AppLogger.powerMode.error("Failed to load Power Mode local model: \(AppLogger.errorMetadata(error), privacy: .public)")
                 }
             }
         case .parakeet:
@@ -202,7 +202,7 @@ class PowerModeSessionManager {
             let data = try JSONEncoder().encode(session)
             AppSettings.PowerMode.activeSessionData = data
         } catch {
-            AppLogger.powerMode.error("Failed to save Power Mode session: \(error.localizedDescription)")
+            AppLogger.powerMode.error("Failed to save Power Mode session: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     
@@ -211,7 +211,7 @@ class PowerModeSessionManager {
         do {
             return try JSONDecoder().decode(PowerModeSession.self, from: data)
         } catch {
-            AppLogger.powerMode.error("Failed to load Power Mode session: \(error.localizedDescription)")
+            AppLogger.powerMode.error("Failed to load Power Mode session: \(AppLogger.errorMetadata(error), privacy: .public)")
             return nil
         }
     }

@@ -40,7 +40,7 @@ final class TranscriptionHistoryViewModel: ObservableObject {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.storage.error("Failed to save context after soft deletion: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to save context after soft deletion: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
 
@@ -54,7 +54,7 @@ final class TranscriptionHistoryViewModel: ObservableObject {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.storage.error("Failed to save context after bulk soft deletion: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to save context after bulk soft deletion: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     
@@ -67,7 +67,7 @@ final class TranscriptionHistoryViewModel: ObservableObject {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.storage.error("Failed to save context after permanent deletion: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to save context after permanent deletion: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     
@@ -82,7 +82,7 @@ final class TranscriptionHistoryViewModel: ObservableObject {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.storage.error("Failed to save context after bulk permanent deletion: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to save context after bulk permanent deletion: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     
@@ -94,7 +94,7 @@ final class TranscriptionHistoryViewModel: ObservableObject {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.storage.error("Failed to save context after restoration: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to save context after restoration: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     
@@ -108,7 +108,7 @@ final class TranscriptionHistoryViewModel: ObservableObject {
         do {
             try modelContext.save()
         } catch {
-            AppLogger.storage.error("Failed to save context after bulk restoration: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to save context after bulk restoration: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
 
@@ -130,7 +130,7 @@ final class TranscriptionHistoryViewModel: ObservableObject {
             lastTimestamp = items.last?.timestamp
             hasMoreContent = items.count == pageSize
         } catch {
-            AppLogger.storage.error("Failed to load transcription history: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to load transcription history: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
 

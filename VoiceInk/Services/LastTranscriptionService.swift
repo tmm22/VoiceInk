@@ -15,7 +15,7 @@ class LastTranscriptionService: ObservableObject {
             let transcriptions = try modelContext.fetch(descriptor)
             return transcriptions.first
         } catch {
-            AppLogger.transcription.error("Error fetching last transcription: \(error)")
+            AppLogger.transcription.error("Error fetching last transcription: \(AppLogger.errorMetadata(error), privacy: .public)")
             return nil
         }
     }

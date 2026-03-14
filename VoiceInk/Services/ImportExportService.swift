@@ -203,7 +203,7 @@ class ImportExportService {
                             AppSettings.Dictionary.customVocabularyItemsData = encoded
                             self.logger.info("Successfully imported vocabulary words.")
                         } catch {
-                            self.logger.error("Failed to import vocabulary words: \(error.localizedDescription)")
+                            self.logger.error("Failed to import vocabulary words: \(AppLogger.errorMetadata(error), privacy: .public)")
                         }
                     } else {
                         self.logger.info("No custom vocabulary items (for spelling) found in the imported file. Existing items remain unchanged.")

@@ -44,11 +44,12 @@ class WhisperState: NSObject, ObservableObject {
     @Published var isMiniRecorderVisible = false {
         didSet {
             // Dispatch asynchronously to avoid "Publishing changes from within view updates" warning
-            DispatchQueue.main.async { [self] in
-                if isMiniRecorderVisible {
-                    showRecorderPanel()
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if self.isMiniRecorderVisible {
+                    self.showRecorderPanel()
                 } else {
-                    hideRecorderPanel()
+                    self.hideRecorderPanel()
                 }
             }
         }
@@ -146,7 +147,7 @@ class WhisperState: NSObject, ObservableObject {
         do {
             try FileManager.default.createDirectory(at: recordingsDirectory, withIntermediateDirectories: true, attributes: nil)
         } catch {
-            logger.error("Error creating recordings directory: \(error.localizedDescription)")
+            logger.error("Error creating recordings directory: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
 
@@ -257,7 +258,7 @@ class WhisperState: NSObject, ObservableObject {
                                         do {
                                             try await self.loadModel(localWhisperModel)
                                         } catch {
-                                            self.logger.error("❌ Model loading failed: \(error.localizedDescription)")
+                                            self.logger.error("❌ Model loading failed: \(AppLogger.errorMetadata(error), privacy: .public)")
                                         }
                                     }
                                 } else if let parakeetModel = await self.currentTranscriptionModel as? ParakeetModel {
@@ -271,7 +272,7 @@ class WhisperState: NSObject, ObservableObject {
                             }
 
                         } catch {
-                            self.logger.error("❌ Failed to start recording: \(error.localizedDescription)")
+                            self.logger.error("❌ Failed to start recording: \(AppLogger.errorMetadata(error), privacy: .public)")
                             NotificationManager.shared.showNotification(title: "Recording failed to start", type: .error)
                             self.logger.notice("toggleRecord: calling dismissMiniRecorder from error handler")
                             await self.dismissMiniRecorder()
@@ -435,15 +436,15 @@ class WhisperState: NSObject, ObservableObject {
         if await checkCancellationAndCleanup() { return }
 
         if let textToPaste = finalPastedText, transcription.transcriptionStatus == TranscriptionStatus.completed.rawValue {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 50_000_000)
                 CursorPaster.pasteAtCursor(textToPaste + " ")
 
                 let powerMode = PowerModeManager.shared
                 if let activeConfig = powerMode.currentActiveConfiguration, activeConfig.isAutoSendEnabled {
                     // Slight delay to ensure the paste operation completes
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        CursorPaster.pressEnter()
-                    }
+                    try? await Task.sleep(nanoseconds: 200_000_000)
+                    CursorPaster.pressEnter()
                 }
             }
         }

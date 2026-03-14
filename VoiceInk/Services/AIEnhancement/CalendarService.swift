@@ -42,7 +42,7 @@ class CalendarService {
                 return try await store.requestAccess(to: .event)
             }
         } catch {
-            logger.error("Failed to request calendar access: \(error.localizedDescription)")
+            logger.error("Failed to request calendar access: \(AppLogger.errorMetadata(error), privacy: .public)")
             return false
         }
     }

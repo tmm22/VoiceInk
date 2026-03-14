@@ -56,14 +56,14 @@ final class CoreAudioRecorder: @unchecked Sendable {
         }
 
         guard isDeviceAvailable(deviceID) else {
-            logger.error("Cannot start recording - device \(deviceID, privacy: .public) is no longer available")
+            logger.error("Cannot start recording - selected device is no longer available")
             throw CoreAudioRecorderError.deviceNotAvailable
         }
 
         currentDeviceID = deviceID
         recordingURL = url
 
-        logger.notice("🎙️ Starting recording from device \(deviceID, privacy: .public)")
+        logger.notice("🎙️ Starting recording")
         logDeviceDetails(deviceID: deviceID)
 
         try createAudioUnit()
@@ -128,7 +128,7 @@ final class CoreAudioRecorder: @unchecked Sendable {
         guard newDeviceID != currentDeviceID else { return }
 
         let oldDeviceID = currentDeviceID
-        logger.notice("🎙️ Switching recording device from \(oldDeviceID, privacy: .public) to \(newDeviceID, privacy: .public)")
+        logger.notice("🎙️ Switching recording device")
 
         var status = AudioOutputUnitStop(unit)
         if status != noErr {
@@ -227,6 +227,6 @@ final class CoreAudioRecorder: @unchecked Sendable {
             throw CoreAudioRecorderError.failedToStart(status: status)
         }
 
-        logger.notice("🎙️ Successfully switched to device \(newDeviceID, privacy: .public)")
+        logger.notice("🎙️ Successfully switched recording device")
     }
 }

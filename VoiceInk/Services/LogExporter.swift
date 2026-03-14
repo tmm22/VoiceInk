@@ -37,7 +37,7 @@ final class LogExporter {
         let logs = try await fetchLogs()
         let fileURL = try saveLogsToFile(logs)
 
-        logger.notice("🎙️ Log export completed: \(fileURL.path, privacy: .public)")
+        logger.notice("🎙️ Log export completed")
         return fileURL
     }
 

@@ -163,7 +163,7 @@ final class MetricsManager: NSObject, MXMetricManagerSubscriber {
             UserDefaults.standard.set(data, forKey: Self.summaryKey)
             AppLogger.metrics.debug("Stored metrics summary to UserDefaults")
         } catch {
-            AppLogger.metrics.error("Failed to encode metrics summary: \(error.localizedDescription)")
+            AppLogger.metrics.error("Failed to encode metrics summary: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     
@@ -206,7 +206,7 @@ final class MetricsManager: NSObject, MXMetricManagerSubscriber {
             decoder.dateDecodingStrategy = .iso8601
             return try decoder.decode(MetricsSummary.self, from: data)
         } catch {
-            AppLogger.metrics.error("Failed to decode metrics summary: \(error.localizedDescription)")
+            AppLogger.metrics.error("Failed to decode metrics summary: \(AppLogger.errorMetadata(error), privacy: .public)")
             return nil
         }
     }

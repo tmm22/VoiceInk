@@ -31,7 +31,7 @@ class GroqTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProvid
             let transcriptionResponse = try JSONDecoder().decode(TranscriptionResponse.self, from: responseData)
             return transcriptionResponse.text
         } catch {
-            logger.error("Failed to decode Groq API response: \(error.localizedDescription)")
+            logger.error("Failed to decode Groq API response: \(AppLogger.errorMetadata(error), privacy: .public)")
             throw CloudTranscriptionError.noTranscriptionReturned
         }
     }

@@ -73,7 +73,7 @@ extension CoreAudioRecorder {
         )
 
         if status != noErr {
-            logger.error("Failed to set input device \(deviceID, privacy: .public): \(status, privacy: .public)")
+            logger.error("Failed to set input device: \(status, privacy: .public)")
             throw CoreAudioRecorderError.failedToSetDevice(status: status)
         }
     }
@@ -199,7 +199,7 @@ extension CoreAudioRecorder {
         )
 
         if status != noErr {
-            logger.error("Failed to create audio file at \(url.path, privacy: .public): \(status, privacy: .public)")
+            logger.error("Failed to create audio file: \(status, privacy: .public)")
             throw CoreAudioRecorderError.failedToCreateFile(status: status)
         }
 

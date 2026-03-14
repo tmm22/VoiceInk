@@ -29,7 +29,9 @@ class DeepgramTranscriptionService: CloudTranscriptionBase, CloudTranscriptionPr
 
         if !(200...299).contains(httpResponse.statusCode) {
             let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-            logger.error("Deepgram API request failed with status \(httpResponse.statusCode): \(errorMessage, privacy: .public)")
+            logger.error(
+                "Deepgram API request failed. \(AppLogger.responseMetadata(statusCode: httpResponse.statusCode, responseSize: data.count), privacy: .public)"
+            )
             throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
         }
 
@@ -42,7 +44,7 @@ class DeepgramTranscriptionService: CloudTranscriptionBase, CloudTranscriptionPr
             }
             return transcript
         } catch {
-            logger.error("Failed to decode Deepgram API response: \(error.localizedDescription)")
+            logger.error("Failed to decode Deepgram API response: \(AppLogger.errorMetadata(error), privacy: .public)")
             throw CloudTranscriptionError.noTranscriptionReturned
         }
     }

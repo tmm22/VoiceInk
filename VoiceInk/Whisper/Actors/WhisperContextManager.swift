@@ -41,7 +41,7 @@ actor WhisperContextManager {
             logger.info("Successfully loaded context for model: \(modelName)")
             return context
         } catch {
-            logger.error("Failed to load context for model \(modelName): \(error.localizedDescription)")
+            logger.error("Failed to load context for model \(modelName): \(AppLogger.errorMetadata(error), privacy: .public)")
             throw error
         }
     }

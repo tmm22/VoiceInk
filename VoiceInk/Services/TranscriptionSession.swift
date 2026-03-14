@@ -71,19 +71,14 @@ final class StreamingTranscriptionSession: TranscriptionSession {
             service?.sendAudioChunk(data)
         }
 
-        Task.detached { [weak self] in
+        Task { [weak self] in
             guard let self = self else { return }
             do {
                 try await self.streamingService.startStreaming(model: model)
-                await MainActor.run {
-                    self.logger.notice("Streaming connected for \(model.displayName, privacy: .public)")
-                }
+                self.logger.notice("Streaming connected")
             } catch {
-                let desc = error.localizedDescription
-                await MainActor.run {
-                    self.logger.error("❌ Failed to start streaming, will fall back to batch: \(desc, privacy: .public)")
-                    self.streamingFailed = true
-                }
+                self.logger.error("❌ Failed to start streaming, will fall back to batch: \(AppLogger.errorMetadata(error), privacy: .public)")
+                self.streamingFailed = true
             }
         }
 
@@ -101,7 +96,7 @@ final class StreamingTranscriptionSession: TranscriptionSession {
                 logger.notice("Streaming transcript received")
                 return text
             } catch {
-                logger.error("❌ Streaming failed, falling back to batch: \(error.localizedDescription, privacy: .public)")
+                logger.error("❌ Streaming failed, falling back to batch: \(AppLogger.errorMetadata(error), privacy: .public)")
                 streamingService.cancel()
             }
         } else {
@@ -110,7 +105,7 @@ final class StreamingTranscriptionSession: TranscriptionSession {
 
         // Use fallbackModel if set — streaming-only models are rejected by the batch REST API.
         let modelForFallback = fallbackModel ?? model
-        logger.notice("Using batch fallback for \(model.displayName, privacy: .public) with model \(modelForFallback.displayName, privacy: .public)")
+        logger.notice("Using batch fallback transcription")
         return try await fallbackService.transcribe(audioURL: audioURL, model: modelForFallback)
     }
 

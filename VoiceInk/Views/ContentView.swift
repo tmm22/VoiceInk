@@ -110,7 +110,7 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .navigateToDestination)) { notification in
             AppLogger.ui.debug("ContentView received navigation notification")
             if let destination = notification.userInfo?["destination"] as? String {
-                AppLogger.ui.debug("ContentView destination received: \(destination, privacy: .public)")
+                AppLogger.ui.debug("ContentView received a navigation destination")
                 switch destination {
                 case "Settings":
                     AppLogger.ui.debug("ContentView navigating to Settings")
@@ -150,7 +150,7 @@ struct ContentView: View {
                     AppLogger.ui.debug("ContentView navigating to Text to Speech")
                     selectedView = .textToSpeech
                 default:
-                    AppLogger.ui.debug("ContentView found no matching destination for \(destination, privacy: .public)")
+                    AppLogger.ui.debug("ContentView found no matching navigation destination")
                     break
                 }
             } else {

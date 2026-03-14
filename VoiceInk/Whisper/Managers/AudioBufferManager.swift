@@ -33,7 +33,7 @@ class AudioBufferManager: ObservableObject {
         // Cache the buffer
         audioBuffers[url] = buffer
 
-        logger.info("✅ Loaded audio buffer from \(url.lastPathComponent), frames: \(frameCount)")
+        logger.info("✅ Loaded audio buffer. \(AppLogger.fileMetadata(for: url), privacy: .public), frames=\(frameCount, privacy: .public)")
         return buffer
     }
 
@@ -45,7 +45,6 @@ class AudioBufferManager: ObservableObject {
             throw AudioBufferError.unsupportedFormat("Non-interleaved formats not supported")
         }
 
-        let channelCount = Int(format.channelCount)
         let frameLength = Int(buffer.frameLength)
         let bytesPerFrame = format.isInterleaved ? Int(format.streamDescription.pointee.mBytesPerFrame) : 0
 
@@ -78,13 +77,13 @@ class AudioBufferManager: ObservableObject {
             throw error
         }
 
-        logger.info("✅ Converted audio to WAV: \(outputURL.lastPathComponent)")
+        logger.info("✅ Converted audio to WAV. \(AppLogger.fileMetadata(for: outputURL), privacy: .public)")
     }
 
     /// Clear cached buffers for a specific URL
     func clearBuffer(for url: URL) {
         audioBuffers.removeValue(forKey: url)
-        logger.info("🧹 Cleared buffer cache for \(url.lastPathComponent)")
+        logger.info("🧹 Cleared buffer cache. \(AppLogger.fileMetadata(for: url), privacy: .public)")
     }
 
     /// Clear all cached buffers

@@ -31,7 +31,7 @@ class LocalTranscriptionService: TranscriptionService {
             throw WhisperStateError.modelLoadFailed
         }
         
-        logger.notice("Initiating local transcription for model: \(model.displayName)")
+        logger.notice("Initiating local transcription")
         
         // Try to use LocalModelProvider first (new interface)
         if let localProvider = localProvider {
@@ -49,20 +49,20 @@ class LocalTranscriptionService: TranscriptionService {
            let currentModel = await localProvider.loadedModel,
            currentModel.name == model.name {
 
-            logger.notice("✅ Using already loaded model from LocalModelProvider: \(model.name)")
+            logger.notice("✅ Using already loaded local model from LocalModelProvider")
         } else {
             // Model not loaded or wrong model loaded, proceed with loading
             let resolvedURL: URL? = await localProvider.whisperModels.first(where: { $0.name == model.name })?.url
             guard let modelURL = resolvedURL, FileManager.default.fileExists(atPath: modelURL.path) else {
-                logger.error("Model file not found for: \(model.name)")
+                logger.error("Local model file not found")
                 throw WhisperStateError.modelLoadFailed
             }
 
-            logger.notice("Loading model: \(model.name)")
+            logger.notice("Loading local model")
             do {
                 _ = try await contextManager.loadContext(for: model.name, modelURL: modelURL)
             } catch {
-                logger.error("Failed to load model: \(model.name) - \(error.localizedDescription)")
+                logger.error("Failed to load local model: \(AppLogger.errorMetadata(error), privacy: .public)")
                 throw WhisperStateError.modelLoadFailed
             }
         }
@@ -73,21 +73,21 @@ class LocalTranscriptionService: TranscriptionService {
     private func transcribeWithWhisperState(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         // Check if the required model is already loaded
         if await contextManager.isContextLoaded(for: model.name) {
-            logger.notice("✅ Using already loaded model: \(model.name)")
+            logger.notice("✅ Using already loaded local model")
         } else {
             // Model not loaded, proceed with loading
             // Resolve the on-disk URL using WhisperState.availableModels (covers imports)
             let resolvedURL: URL? = await whisperState?.availableModels.first(where: { $0.name == model.name })?.url
             guard let modelURL = resolvedURL, FileManager.default.fileExists(atPath: modelURL.path) else {
-                logger.error("Model file not found for: \(model.name)")
+                logger.error("Local model file not found")
                 throw WhisperStateError.modelLoadFailed
             }
 
-            logger.notice("Loading model: \(model.name)")
+            logger.notice("Loading local model")
             do {
                 _ = try await contextManager.loadContext(for: model.name, modelURL: modelURL)
             } catch {
-                logger.error("Failed to load model: \(model.name) - \(error.localizedDescription)")
+                logger.error("Failed to load local model: \(AppLogger.errorMetadata(error), privacy: .public)")
                 throw WhisperStateError.modelLoadFailed
             }
         }

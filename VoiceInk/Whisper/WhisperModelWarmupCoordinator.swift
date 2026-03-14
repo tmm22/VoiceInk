@@ -31,7 +31,7 @@ final class WhisperModelWarmupCoordinator: ObservableObject {
                 try await self.runWarmup(for: model, whisperState: whisperState)
             } catch {
                 // No need for MainActor.run - this class is already @MainActor
-                whisperState.logger.error("Warmup failed for \(model.name): \(error.localizedDescription)")
+                whisperState.logger.error("Warmup failed for \(model.name): \(AppLogger.errorMetadata(error), privacy: .public)")
             }
 
             // No need for MainActor.run - this class is already @MainActor
@@ -53,7 +53,7 @@ final class WhisperModelWarmupCoordinator: ObservableObject {
             do {
                 try await self.runWarmup(for: model, localProvider: localProvider)
             } catch {
-                logger.error("Warmup failed for \(model.name): \(error.localizedDescription)")
+                logger.error("Warmup failed for \(model.name): \(AppLogger.errorMetadata(error), privacy: .public)")
             }
 
             self.warmingModels.remove(model.name)

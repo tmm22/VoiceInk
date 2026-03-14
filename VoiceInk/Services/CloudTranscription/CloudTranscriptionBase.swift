@@ -29,7 +29,9 @@ class CloudTranscriptionBase {
 
         guard (200...299).contains(httpResponse.statusCode) else {
             let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-            logger?.error("\(providerName, privacy: .public) API request failed with status \(httpResponse.statusCode): \(errorMessage, privacy: .public)")
+            logger?.error(
+                "\(providerName, privacy: .public) API request failed. \(AppLogger.responseMetadata(statusCode: httpResponse.statusCode, responseSize: data.count), privacy: .public)"
+            )
             throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
         }
 

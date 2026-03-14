@@ -230,7 +230,7 @@ class QuickRulesService {
         do {
             return try JSONDecoder().decode([QuickRule].self, from: data)
         } catch {
-            AppLogger.storage.error("Failed to decode quick rules: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to decode quick rules: \(AppLogger.errorMetadata(error), privacy: .public)")
             return Self.defaultRules
         }
     }
@@ -241,7 +241,7 @@ class QuickRulesService {
             let data = try JSONEncoder().encode(rules)
             AppSettings.QuickRules.rulesData = data
         } catch {
-            AppLogger.storage.error("Failed to encode quick rules: \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to encode quick rules: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     
@@ -269,7 +269,7 @@ class QuickRulesService {
                         withTemplate: rule.replacement
                     )
                 } catch {
-                    AppLogger.storage.error("Invalid quick rule regex '\(rule.pattern)': \(error.localizedDescription)")
+                    AppLogger.storage.error("Invalid quick rule regex: \(AppLogger.errorMetadata(error), privacy: .public)")
                 }
             } else {
                 processed = processed.replacingOccurrences(

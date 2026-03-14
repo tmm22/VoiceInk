@@ -64,7 +64,7 @@ class Recorder: NSObject, ObservableObject {
         isReconfiguring = true
         defer { isReconfiguring = false }
 
-        logger.notice("🎙️ Device switch required: switching to device \(newDeviceID, privacy: .public)")
+        logger.notice("🎙️ Device switch required")
 
         do {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
@@ -80,17 +80,15 @@ class Recorder: NSObject, ObservableObject {
 
             // Notify user about the switch
             if let deviceName = deviceManager.availableDevices.first(where: { $0.id == newDeviceID })?.name {
-                await MainActor.run {
-                    NotificationManager.shared.showNotification(
-                        title: "Switched to: \(deviceName)",
-                        type: .info
-                    )
-                }
+                NotificationManager.shared.showNotification(
+                    title: String(format: Localization.Recording.switchedDevice, deviceName),
+                    type: .info
+                )
             }
 
-            logger.notice("🎙️ Successfully switched recording to device \(newDeviceID, privacy: .public)")
+            logger.notice("🎙️ Successfully switched recording device")
         } catch {
-            logger.error("❌ Failed to switch device: \(error.localizedDescription, privacy: .public)")
+            logger.error("❌ Failed to switch device: \(AppLogger.errorMetadata(error), privacy: .public)")
 
             // If switch fails, stop recording and notify user
             await handleRecordingError(error)
@@ -98,7 +96,7 @@ class Recorder: NSObject, ObservableObject {
     }
 
     func startRecording(toOutputFile url: URL) async throws {
-        logger.notice("startRecording called – deviceID=\(self.deviceManager.getCurrentDevice(), privacy: .public), file=\(url.lastPathComponent, privacy: .public)")
+        logger.notice("startRecording called")
         deviceManager.isRecordingActive = true
 
         let currentDeviceID = deviceManager.getCurrentDevice()
@@ -106,12 +104,10 @@ class Recorder: NSObject, ObservableObject {
 
         if String(currentDeviceID) != lastDeviceID {
             if let deviceName = deviceManager.availableDevices.first(where: { $0.id == currentDeviceID })?.name {
-                await MainActor.run {
-                    NotificationManager.shared.showNotification(
-                        title: "Using: \(deviceName)",
-                        type: .info
-                    )
-                }
+                NotificationManager.shared.showNotification(
+                    title: String(format: Localization.Recording.usingDevice, deviceName),
+                    type: .info
+                )
             }
         }
         UserDefaults.standard.set(String(currentDeviceID), forKey: "lastUsedMicrophoneDeviceID")
@@ -152,7 +148,8 @@ class Recorder: NSObject, ObservableObject {
 
             startAudioMeterTimer()
 
-            audioLevelCheckTask = Task {
+            audioLevelCheckTask = Task { [weak self] in
+                guard let self else { return }
                 let notificationChecks: [TimeInterval] = [5.0, 12.0]
 
                 for delay in notificationChecks {
@@ -164,17 +161,15 @@ class Recorder: NSObject, ObservableObject {
                         return
                     }
 
-                    await MainActor.run {
-                        NotificationManager.shared.showNotification(
-                            title: "No Audio Detected",
-                            type: .warning
-                        )
-                    }
+                    NotificationManager.shared.showNotification(
+                        title: Localization.Recording.noAudioDetected,
+                        type: .warning
+                    )
                 }
             }
 
         } catch {
-            logger.error("Failed to create audio recorder: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to create audio recorder: \(AppLogger.errorMetadata(error), privacy: .public)")
             stopRecording()
             throw RecorderError.couldNotStartRecording
         }
@@ -201,32 +196,33 @@ class Recorder: NSObject, ObservableObject {
 
         audioMeter = AudioMeter(averagePower: 0, peakPower: 0)
 
-        audioRestorationTask = Task {
-            await mediaController.unmuteSystemAudio()
-            await playbackController.resumeMedia()
+        audioRestorationTask = Task { [weak self] in
+            guard let self else { return }
+            await self.mediaController.unmuteSystemAudio()
+            await self.playbackController.resumeMedia()
         }
         deviceManager.isRecordingActive = false
     }
 
     private func handleRecordingError(_ error: Error) async {
-        logger.error("❌ Recording error occurred: \(error.localizedDescription, privacy: .public)")
+        logger.error("❌ Recording error occurred: \(AppLogger.errorMetadata(error), privacy: .public)")
         // Stop the recording
         stopRecording()
 
         // Notify the user about the recording failure
-        await MainActor.run {
-            NotificationManager.shared.showNotification(
-                title: "Recording Failed: \(error.localizedDescription)",
-                type: .error
-            )
-        }
+        NotificationManager.shared.showNotification(
+            title: Localization.Recording.failed,
+            type: .error
+        )
     }
 
     private func startAudioMeterTimer() {
         let timer = DispatchSource.makeTimerSource(queue: audioMeterQueue)
         timer.schedule(deadline: .now(), repeating: .milliseconds(17))
         timer.setEventHandler { [weak self] in
-            self?.updateAudioMeter()
+            Task { @MainActor [weak self] in
+                self?.updateAudioMeter()
+            }
         }
         timer.resume()
         audioMeterUpdateTimer = timer
@@ -268,14 +264,10 @@ class Recorder: NSObject, ObservableObject {
         let newAudioMeter = AudioMeter(averagePower: Double(smoothedAverage), peakPower: Double(smoothedPeak))
         smoothedValuesLock.unlock()
 
-        // Dispatch to main queue for UI updates (more efficient than Task)
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            if !self.hasDetectedAudioInCurrentSession && newAudioMeter.averagePower > 0.01 {
-                self.hasDetectedAudioInCurrentSession = true
-            }
-            self.audioMeter = newAudioMeter
+        if !hasDetectedAudioInCurrentSession && newAudioMeter.averagePower > 0.01 {
+            hasDetectedAudioInCurrentSession = true
         }
+        audioMeter = newAudioMeter
     }
 
     // MARK: - Cleanup

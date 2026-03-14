@@ -149,14 +149,13 @@ final class SelectedFileService: Sendable {
         
         // Handle execution errors
         if let error = errorDict {
-            let errorMessage = error[NSAppleScript.errorMessage] as? String ?? "Unknown error"
             let errorNumber = error[NSAppleScript.errorNumber] as? Int ?? -1
             
             // Error -600 means Finder is not running - this is expected in some cases
             if errorNumber == -600 {
                 logger.info("Finder is not running, skipping file selection")
             } else {
-                logger.warning("AppleScript error (\(errorNumber)): \(errorMessage)")
+                logger.warning("AppleScript error code \(errorNumber, privacy: .public)")
             }
             return []
         }
@@ -204,7 +203,7 @@ final class SelectedFileService: Sendable {
                 
                 // Validate path exists before processing
                 guard FileManager.default.fileExists(atPath: path) else {
-                    logger.debug("File does not exist at path: \(path)")
+                    logger.debug("Selected Finder item no longer exists at index \(index)")
                     return
                 }
                 
@@ -235,7 +234,7 @@ final class SelectedFileService: Sendable {
         
         // Check file exists and is accessible
         guard fileManager.isReadableFile(atPath: trimmedPath) else {
-            logger.debug("File not readable at path: \(trimmedPath)")
+            logger.debug("Selected Finder item is not readable")
             return nil
         }
         
@@ -265,11 +264,10 @@ final class SelectedFileService: Sendable {
                 fileExtension: ext
             )
         } catch let error as NSError {
-            // Log specific error information for debugging
-            logger.error("Failed to read file attributes at '\(trimmedPath)': [\(error.domain):\(error.code)] \(error.localizedDescription)")
+            logger.error("Failed to read file attributes: \(AppLogger.errorMetadata(error), privacy: .public)")
             return nil
         } catch {
-            logger.error("Unexpected error reading file at '\(trimmedPath)': \(error.localizedDescription)")
+            logger.error("Unexpected error reading file attributes: \(AppLogger.errorMetadata(error), privacy: .public)")
             return nil
         }
     }

@@ -44,7 +44,7 @@ class CloudSyncService: ObservableObject {
             store.synchronize()
             logger.info("Successfully synced \(prompts.count) prompts to iCloud")
         } catch {
-            logger.error("Failed to encode prompts for iCloud sync: \(error.localizedDescription)")
+            logger.error("Failed to encode prompts for iCloud sync: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     
@@ -59,7 +59,7 @@ class CloudSyncService: ObservableObject {
             let prompts = try JSONDecoder().decode([CustomPrompt].self, from: data)
             return prompts
         } catch {
-            logger.error("Failed to decode prompts from iCloud: \(error.localizedDescription)")
+            logger.error("Failed to decode prompts from iCloud: \(AppLogger.errorMetadata(error), privacy: .public)")
             return nil
         }
     }

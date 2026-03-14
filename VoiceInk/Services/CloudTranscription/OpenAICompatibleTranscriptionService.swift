@@ -74,7 +74,7 @@ class OpenAICompatibleTranscriptionService: CloudTranscriptionBase, CloudTranscr
             let transcriptionResponse = try JSONDecoder().decode(TranscriptionResponse.self, from: responseData)
             return transcriptionResponse.text
         } catch {
-            logger.error("Failed to decode OpenAI-compatible API response: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to decode OpenAI-compatible API response: \(AppLogger.errorMetadata(error), privacy: .public)")
             throw CloudTranscriptionError.noTranscriptionReturned
         }
     }

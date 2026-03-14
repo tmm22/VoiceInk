@@ -13,7 +13,7 @@ class SelectedTextService {
             let selectedText = try await SelectedTextManager.shared.getSelectedText(strategies: strategies)
             return selectedText
         } catch {
-            AppLogger.ui.error("Failed to get selected text: \(error)")
+            AppLogger.ui.error("Failed to get selected text: \(AppLogger.errorMetadata(error), privacy: .public)")
             return nil
         }
         #else

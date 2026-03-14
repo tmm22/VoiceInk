@@ -19,7 +19,7 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
             self.env = try ORTEnv(loggingLevel: .warning)
             logger.notice("ONNX Runtime environment initialized successfully")
         } catch {
-            logger.error("Failed to initialize ONNX Runtime environment: \(error.localizedDescription)")
+            logger.error("Failed to initialize ONNX Runtime environment: \(AppLogger.errorMetadata(error), privacy: .public)")
             self.env = nil
         }
     }
@@ -140,7 +140,7 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
             .appendingPathComponent(modelName)
             .appendingPathComponent("model.int8.onnx")
 
-        logger.notice("SenseVoice model path: \(modelPath.path, privacy: .public)")
+        logger.notice("SenseVoice model lookup started for \(modelName, privacy: .public)")
         logger.notice("SenseVoice model exists: \(FileManager.default.fileExists(atPath: modelPath.path), privacy: .public)")
         
         guard FileManager.default.fileExists(atPath: modelPath.path) else {
@@ -157,7 +157,7 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
             session = try ORTSession(env: env, modelPath: modelPath.path, sessionOptions: options)
             logger.notice("SenseVoice: ONNX session created successfully")
         } catch {
-            logger.error("SenseVoice: Failed to create ONNX session: \(error.localizedDescription, privacy: .public)")
+            logger.error("SenseVoice: Failed to create ONNX session: \(AppLogger.errorMetadata(error), privacy: .public)")
             throw WhisperStateError.modelLoadFailed
         }
         cacheLock.lock()

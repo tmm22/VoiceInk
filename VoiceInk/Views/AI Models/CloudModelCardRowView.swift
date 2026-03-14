@@ -273,7 +273,7 @@ struct CloudModelCardView: View {
 
         guard let aiProvider = ModelCapabilityRegistry.shared.getAIServiceProvider(for: model.provider) else {
             // This case should ideally not be hit for cloud models in this view
-            AppLogger.ai.error("API key verification called for unsupported provider \(model.provider.rawValue, privacy: .public)")
+            AppLogger.ai.error("API key verification called for an unsupported provider")
             isVerifying = false
             verificationStatus = .failure
             return
@@ -292,7 +292,7 @@ struct CloudModelCardView: View {
                     do {
                         try keychain.saveAPIKey(self.apiKey, for: self.providerKey)
                     } catch {
-                        AppLogger.storage.error("Failed to save API key for \(self.providerKey, privacy: .public): \(error.localizedDescription)")
+                        AppLogger.storage.error("Failed to save API key: \(AppLogger.errorMetadata(error), privacy: .public)")
                         self.verificationStatus = .failure
                         self.verificationError = "Failed to save API key. Please try again."
                         return
@@ -316,7 +316,7 @@ struct CloudModelCardView: View {
         do {
             try keychain.deleteAPIKey(for: providerKey)
         } catch {
-            AppLogger.storage.error("Failed to clear API key for \(providerKey, privacy: .public): \(error.localizedDescription)")
+            AppLogger.storage.error("Failed to clear API key: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
         apiKey = ""
         verificationStatus = .none

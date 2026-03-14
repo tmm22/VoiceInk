@@ -34,11 +34,11 @@ class MistralTranscriptionService: CloudTranscriptionBase, CloudTranscriptionPro
                 logger.notice("Successfully received transcription from Mistral.")
                 return transcriptionResponse.text
             } catch {
-                logger.error("Failed to decode Mistral response: \(error.localizedDescription)")
+                logger.error("Failed to decode Mistral response: \(AppLogger.errorMetadata(error), privacy: .public)")
                 throw CloudTranscriptionError.noTranscriptionReturned
             }
         } catch {
-            logger.error("Mistral transcription request threw an error: \(error.localizedDescription)")
+            logger.error("Mistral transcription request threw an error: \(AppLogger.errorMetadata(error), privacy: .public)")
             throw error
         }
     }

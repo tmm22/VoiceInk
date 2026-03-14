@@ -197,14 +197,14 @@ extension TTSImportExportViewModel {
                 do {
                     try await playback.audioPlayer.loadAudio(from: previousAudioData)
                 } catch {
-                    AppLogger.audio.error("Failed to restore previous audio after regeneration error: \(error.localizedDescription)")
+                    AppLogger.audio.error("Failed to restore previous audio after regeneration error: \(AppLogger.errorMetadata(error), privacy: .public)")
                     playback.stop()
                 }
             } else if let previousAudioFileURL {
                 do {
                     try await playback.audioPlayer.loadAudio(from: previousAudioFileURL)
                 } catch {
-                    AppLogger.audio.error("Failed to restore previous file-backed audio after regeneration error: \(error.localizedDescription)")
+                    AppLogger.audio.error("Failed to restore previous file-backed audio after regeneration error: \(AppLogger.errorMetadata(error), privacy: .public)")
                     playback.stop()
                 }
             } else {
@@ -221,14 +221,14 @@ extension TTSImportExportViewModel {
                 do {
                     try await playback.audioPlayer.loadAudio(from: previousAudioData)
                 } catch {
-                    AppLogger.audio.error("Failed to restore previous audio after regeneration failure: \(error.localizedDescription)")
+                    AppLogger.audio.error("Failed to restore previous audio after regeneration failure: \(AppLogger.errorMetadata(error), privacy: .public)")
                     playback.stop()
                 }
             } else if let previousAudioFileURL {
                 do {
                     try await playback.audioPlayer.loadAudio(from: previousAudioFileURL)
                 } catch {
-                    AppLogger.audio.error("Failed to restore previous file-backed audio after regeneration failure: \(error.localizedDescription)")
+                    AppLogger.audio.error("Failed to restore previous file-backed audio after regeneration failure: \(AppLogger.errorMetadata(error), privacy: .public)")
                     playback.stop()
                 }
             } else {
