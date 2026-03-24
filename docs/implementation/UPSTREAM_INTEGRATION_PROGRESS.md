@@ -1,8 +1,53 @@
 # Upstream Integration Progress
 
-**Date Started:** December 8, 2025  
-**Date Updated:** March 6, 2026  
+**Date Started:** December 8, 2025
+**Date Updated:** March 25, 2026
 **Objective:** Incorporate upstream fixes from `Beingpax/VoiceInk` into VoiceLink Community fork
+
+---
+
+## Session 5: March 25, 2026
+
+**Objective:** Selectively adopt the latest relevant upstream fixes without regressing the fork's category-based Settings architecture or other fork-specific UX decisions.
+
+### Sync Result
+
+- Fork PR merged: `d123ee6e` (`Merge pull request #37 from tmm22/chore/upstream-sync-preserve-settings-categories`)
+- Primary integration commit: `4e7d7d35` (`Integrate upstream fixes while preserving settings categories`)
+- Review follow-up commit: `febaf10b` (`Address PR review feedback`)
+- Behavior-preservation follow-up: `6dded7d6` (`Keep existing filler word defaults`)
+- Branch state after merge: upstream ancestry still reports commits behind, but this session was intentionally implemented as a selective port rather than a merge/rebase from `upstream/main`
+
+### What Was Adopted
+
+- Disabled shared `URLCache` persistence for API responses and restored early `AppDefaults.registerDefaults()` initialization
+- Added user-facing AI enhancement failure notification handling
+- Improved emoji validation for compound emoji / multi-scalar grapheme clusters
+- Isolated local builds into `.local-build` and updated ignore rules/tooling accordingly
+- Reused recorder windows on hide/show while preserving the fork's existing recorder UI structure
+- Preserved non-QWERTY paste support by automatically falling back to AppleScript paste when the active keyboard layout is not compatible with the CGEvent path
+- Restored the "No Audio Detected" warning path after review feedback confirmed it remained useful in this fork
+
+### What Was Explicitly Preserved
+
+- The existing category-based Settings layout and navigation used in this fork
+- Current fork-side settings organization even where upstream now uses different panel/flow patterns
+- Existing filler-word defaults, since removing common English hesitation words was judged a behavior change rather than a clear fix for this fork
+
+> The raw GitHub "behind upstream" count is not a reliable freshness metric for this fork. It reflects commit ancestry, not whether equivalent fixes have already been ported selectively or whether the remaining upstream commits are applicable to the fork's architecture.
+
+### Upstream Commits Reviewed But Not Ported Wholesale
+
+- Large sliding-panel and settings refactor work was not merged directly because upstream does not share this fork's category-based Settings structure
+- Per-hotkey activation-mode redesign was left out pending a fork-specific UX decision
+- Other upstream-only commits that changed defaults or adjacent UI behavior were evaluated individually and either adapted, preserved differently, or skipped by design
+
+### Validation
+
+- Completed targeted manual/code review verification that the upstream-compatible fixes did not alter the fork's existing Settings category structure
+- Updated `CHANGELOG.md`, `docs/development/DESIGN_DOCUMENT.md`, and `VoiceInk/Views/Settings/SettingsView.swift` to document the compatibility constraint explicitly
+- Resolved review feedback on paste behavior, recorder panel reuse, and no-audio warnings before merge
+- Full `xcodebuild` verification remained inconclusive in the automation environment because the build process hung without producing diagnostics
 
 ---
 
