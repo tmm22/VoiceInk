@@ -13,9 +13,11 @@ class Recorder: NSObject, ObservableObject {
     private let mediaController = MediaController.shared
     private let playbackController = PlaybackController.shared
     @Published var audioMeter = AudioMeter(averagePower: 0, peakPower: 0)
+    private var audioLevelCheckTask: Task<Void, Never>?
     private var audioMeterUpdateTimer: DispatchSourceTimer?
     private let audioMeterQueue = DispatchQueue(label: "com.prakashjoshipax.voiceink.audiometer", qos: .userInteractive)
     private var audioRestorationTask: Task<Void, Never>?
+    private var hasDetectedAudioInCurrentSession = false
     /// Dedicated serial queue for hardware setup.
     private let audioSetupQueue = DispatchQueue(label: "com.prakashjoshipax.voiceink.audioSetup", qos: .userInitiated)
     private let smoothedValuesLock = NSLock()
@@ -109,6 +111,7 @@ class Recorder: NSObject, ObservableObject {
             }
         }
         UserDefaults.standard.set(String(currentDeviceID), forKey: "lastUsedMicrophoneDeviceID")
+        hasDetectedAudioInCurrentSession = false
 
         let deviceID = deviceManager.getCurrentDevice()
 
@@ -139,9 +142,28 @@ class Recorder: NSObject, ObservableObject {
                 _ = await self.mediaController.muteSystemAudio()
             }
 
+            audioLevelCheckTask?.cancel()
             audioMeterUpdateTimer?.cancel()
 
             startAudioMeterTimer()
+
+            audioLevelCheckTask = Task { [weak self] in
+                guard let self else { return }
+                let notificationChecks: [TimeInterval] = [5.0, 12.0]
+
+                for delay in notificationChecks {
+                    try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+
+                    if Task.isCancelled || self.hasDetectedAudioInCurrentSession {
+                        return
+                    }
+
+                    NotificationManager.shared.showNotification(
+                        title: Localization.Recording.noAudioDetected,
+                        type: .warning
+                    )
+                }
+            }
 
         } catch {
             logger.error("Failed to create audio recorder: \(AppLogger.errorMetadata(error), privacy: .public)")
@@ -152,6 +174,7 @@ class Recorder: NSObject, ObservableObject {
 
     func stopRecording() {
         logger.notice("stopRecording called")
+        audioLevelCheckTask?.cancel()
         audioMeterUpdateTimer?.cancel()
         audioMeterUpdateTimer = nil
         
@@ -238,12 +261,16 @@ class Recorder: NSObject, ObservableObject {
         let newAudioMeter = AudioMeter(averagePower: Double(smoothedAverage), peakPower: Double(smoothedPeak))
         smoothedValuesLock.unlock()
 
+        if !hasDetectedAudioInCurrentSession && newAudioMeter.averagePower > 0.01 {
+            hasDetectedAudioInCurrentSession = true
+        }
         audioMeter = newAudioMeter
     }
 
     // MARK: - Cleanup
 
     deinit {
+        audioLevelCheckTask?.cancel()
         audioMeterUpdateTimer?.cancel()
         audioRestorationTask?.cancel()
         if let observer = deviceSwitchObserver {

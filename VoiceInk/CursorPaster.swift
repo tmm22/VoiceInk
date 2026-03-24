@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import Carbon
 import os
 
 private let logger = Logger(subsystem: "com.VoiceInk", category: "CursorPaster")
@@ -27,7 +28,7 @@ class CursorPaster {
         _ = ClipboardManager.setClipboard(text, transient: shouldRestoreClipboard)
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            if UserDefaults.standard.bool(forKey: "useAppleScriptPaste") {
+            if UserDefaults.standard.bool(forKey: "useAppleScriptPaste") || !currentInputSourceSupportsCGEventPaste() {
                 pasteUsingAppleScript()
             } else {
                 pasteFromClipboard()
@@ -97,6 +98,29 @@ class CursorPaster {
         cmdUp?.post(tap: .cghidEventTap)
 
         logger.notice("CGEvents posted for Cmd+V")
+    }
+
+    private static func currentInputSourceSupportsCGEventPaste() -> Bool {
+        guard let currentSource = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
+              let currentID = sourceID(for: currentSource) else {
+            logger.error("Unable to determine current keyboard input source; falling back to AppleScript paste")
+            return false
+        }
+
+        let qwertyIDs: Set<String> = [
+            "com.apple.keylayout.ABC",
+            "com.apple.keylayout.US",
+            "com.apple.keylayout.USInternational-PC",
+            "com.apple.keylayout.British",
+            "com.apple.keylayout.Australian",
+            "com.apple.keylayout.Canadian",
+        ]
+        return qwertyIDs.contains(currentID)
+    }
+
+    private static func sourceID(for source: TISInputSource) -> String? {
+        guard let raw = TISGetInputSourceProperty(source, kTISPropertyInputSourceID) else { return nil }
+        return Unmanaged<CFString>.fromOpaque(raw).takeUnretainedValue() as String
     }
 
     // MARK: - Enter key

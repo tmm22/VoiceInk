@@ -31,11 +31,12 @@ class MiniWindowManager: ObservableObject {
     @objc private func handleHideNotification() {
         hide()
     }
+
     func show() {
         if isVisible { return }
 
-        if miniPanel == nil {
-            let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
+        let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
+        if miniPanel == nil || screenIdentifier(for: miniPanel?.screen) != screenIdentifier(for: activeScreen) {
             initializeWindow(screen: activeScreen)
         }
         self.isVisible = true
@@ -47,11 +48,6 @@ class MiniWindowManager: ObservableObject {
 
         self.isVisible = false
         miniPanel?.orderOut(nil)
-    }
-
-    func destroyWindow() {
-        isVisible = false
-        deinitializeWindow()
     }
 
     private func initializeWindow(screen: NSScreen) {
@@ -78,6 +74,10 @@ class MiniWindowManager: ObservableObject {
         windowController?.close()
         windowController = nil
         miniPanel = nil
+    }
+
+    private func screenIdentifier(for screen: NSScreen?) -> NSNumber? {
+        screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
     }
 
     func toggle() {
