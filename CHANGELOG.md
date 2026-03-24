@@ -2,6 +2,17 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-03-25
+
+### Upstream Sync
+- Integrated the latest upstream changes that were compatible with the community fork, including cache handling, recorder behavior, paste behavior, emoji validation, local build tooling, and related low-risk fixes.
+- Preserved the existing settings categories implementation to prevent regressions while adopting the upstream changes.
+- Kept the current category-based settings structure and organization unchanged even though upstream does not use the same settings layout.
+
+### Documentation
+- Updated the changelog and related architecture documentation to clarify that upstream compatibility work in this fork must retain the existing settings categories structure.
+- Documented that the upstream changes were adopted while retaining the existing settings categories used in this project, so the current settings structure and organisation remain unchanged and do not regress.
+
 ## 2026-03-14
 
 ### Release Preparation

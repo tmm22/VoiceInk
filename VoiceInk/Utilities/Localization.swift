@@ -41,6 +41,10 @@ struct Localization {
         static let missingKey = NSLocalizedString("API Key is missing", comment: "Error when API key is not found")
         static let invalidKey = NSLocalizedString("Invalid API Key", comment: "Error when API key is invalid")
     }
+
+    enum Enhancement {
+        static let failedTitle = NSLocalizedString("Enhancement failed", comment: "Notification title when AI enhancement fails")
+    }
     
     enum Trash {
         static var title: String { usesBinTerminology ? "Bin" : "Trash" }

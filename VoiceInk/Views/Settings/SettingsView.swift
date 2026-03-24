@@ -15,6 +15,11 @@ import AVFoundation
 /// - SettingsView+Shortcuts.swift - Shortcuts settings tab
 /// - SettingsView+Data.swift - Data settings tab
 /// - SettingsView+Navigation.swift - SettingsNavigationRail, SettingsRailItem
+///
+/// Upstream changes are integrated selectively in this fork while preserving the
+/// existing category-based Settings structure. The current settings layout and
+/// organization should remain unchanged unless this project explicitly chooses
+/// to redesign it.
 
 struct SettingsView: View {
     // Environment objects - internal access for extension files

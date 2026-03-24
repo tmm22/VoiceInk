@@ -219,12 +219,21 @@ private struct AddEmojiButton: View {
 
 extension String {
     var isValidEmoji: Bool {
-        guard !self.isEmpty else { return false }
-        return self.count == 1 && self.unicodeScalars.first?.properties.isEmoji ?? false
+        guard !self.isEmpty, self.count == 1, let char = self.first else { return false }
+        let scalars = char.unicodeScalars
+        if scalars.count > 1 {
+            return scalars.contains { $0.properties.isEmoji }
+        }
+        return scalars.first?.properties.isEmojiPresentation == true
     }
 
     func firstValidEmojiCharacter() -> String {
-        return self.filter { $0.unicodeScalars.allSatisfy { $0.properties.isEmoji } }.prefix(1).map(String.init).joined()
+        for char in self {
+            if String(char).isValidEmoji {
+                return String(char)
+            }
+        }
+        return ""
     }
 }
 

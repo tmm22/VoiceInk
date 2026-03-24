@@ -40,6 +40,11 @@ struct VoiceInkApp: App {
     #endif
     
     init() {
+        // Disable shared HTTP response caching so API responses are not persisted to Cache.db.
+        URLCache.shared = URLCache(memoryCapacity: 0, diskCapacity: 0)
+
+        AppDefaults.registerDefaults()
+
         // Migrate API keys from UserDefaults to Keychain (runs once on first launch after update)
         APIKeyMigrationService.migrateAPIKeysIfNeeded()
         

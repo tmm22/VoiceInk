@@ -111,7 +111,6 @@ class Recorder: NSObject, ObservableObject {
             }
         }
         UserDefaults.standard.set(String(currentDeviceID), forKey: "lastUsedMicrophoneDeviceID")
-
         hasDetectedAudioInCurrentSession = false
 
         let deviceID = deviceManager.getCurrentDevice()
@@ -155,9 +154,7 @@ class Recorder: NSObject, ObservableObject {
                 for delay in notificationChecks {
                     try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
 
-                    if Task.isCancelled { return }
-
-                    if self.hasDetectedAudioInCurrentSession {
+                    if Task.isCancelled || self.hasDetectedAudioInCurrentSession {
                         return
                     }
 

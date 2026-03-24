@@ -110,6 +110,7 @@ Temporary Items
 .apdisk 
 # Xcode DerivedData
 DerivedData/
+.local-build/
 
 # Release builds
 Release/
