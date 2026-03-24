@@ -411,6 +411,10 @@ class WhisperState: NSObject, ObservableObject {
                     finalPastedText = enhancedText
                 } catch {
                     transcription.enhancedText = "Enhancement failed: \(error)"
+                    NotificationManager.shared.showNotification(
+                        title: Localization.Enhancement.failedTitle,
+                        type: .warning
+                    )
 
                     if await checkCancellationAndCleanup() { return }
                 }

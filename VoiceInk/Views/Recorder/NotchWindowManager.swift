@@ -32,9 +32,10 @@ class NotchWindowManager: ObservableObject {
     func show() {
         if isVisible { return }
 
-        let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
-
-        initializeWindow(screen: activeScreen)
+        if notchPanel == nil {
+            let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
+            initializeWindow(screen: activeScreen)
+        }
         self.isVisible = true
         notchPanel?.show()
     }
@@ -43,11 +44,12 @@ class NotchWindowManager: ObservableObject {
         guard isVisible else { return }
 
         self.isVisible = false
+        notchPanel?.orderOut(nil)
+    }
 
-        self.notchPanel?.hide { [weak self] in
-            guard let self = self else { return }
-            self.deinitializeWindow()
-        }
+    func destroyWindow() {
+        isVisible = false
+        deinitializeWindow()
     }
 
     private func initializeWindow(screen: NSScreen) {

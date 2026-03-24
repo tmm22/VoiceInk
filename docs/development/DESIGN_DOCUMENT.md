@@ -104,6 +104,8 @@ VoiceInk is a **privacy-focused, native macOS application** for voice-to-text tr
 | **Service** | Business logic, API integrations, provider abstractions |
 | **Data** | Persistence (SwiftData), secure storage (Keychain), settings (AppSettings via UserDefaults) |
 
+> The upstream changes have been adopted while retaining the existing settings categories used in this project. This ensures that the current settings structure and organisation remain unchanged and do not regress.
+
 ---
 
 ## 3. Core Components
@@ -140,6 +142,10 @@ struct VoiceInkApp: App {
 The **central orchestrator** managing the entire transcription workflow.
 
 ```
+
+### Settings Architecture Note
+
+This fork keeps the existing category-based Settings structure used throughout the project. Upstream changes may be adopted selectively, but they must not replace or flatten the current category-based settings organization in this codebase.
 ┌────────────────────────────────────────────────────────────────────────┐
 │                      RecordingState Flow                                │
 │                                                                         │

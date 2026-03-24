@@ -34,9 +34,10 @@ class MiniWindowManager: ObservableObject {
     func show() {
         if isVisible { return }
 
-        let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
-
-        initializeWindow(screen: activeScreen)
+        if miniPanel == nil {
+            let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
+            initializeWindow(screen: activeScreen)
+        }
         self.isVisible = true
         miniPanel?.show()
     }
@@ -45,10 +46,12 @@ class MiniWindowManager: ObservableObject {
         guard isVisible else { return }
 
         self.isVisible = false
-        self.miniPanel?.hide { [weak self] in
-            guard let self = self else { return }
-            self.deinitializeWindow()
-        }
+        miniPanel?.orderOut(nil)
+    }
+
+    func destroyWindow() {
+        isVisible = false
+        deinitializeWindow()
     }
 
     private func initializeWindow(screen: NSScreen) {
