@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/tisfeng/AXSwift.git",
       "state" : {
-        "revision" : "2efa201fa18184de98674165592fd1ecb0c00a6d",
-        "version" : "0.3.6"
+        "revision" : "1c90446468f179fff9cfa6d8841cd031ea740e8e",
+        "version" : "0.3.7"
       }
     },
     {
@@ -15,7 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/FluidInference/FluidAudio",
       "state" : {
-        "revision" : "a402e327c942ac275e58615ca4a99ad2a8b5140e"
+        "revision" : "a1d7e620068c6a889fdfc2814f3ff21c9c1db29e",
+        "version" : "0.12.6"
       }
     },
     {
@@ -23,7 +24,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sindresorhus/KeyboardShortcuts",
       "state" : {
-        "revision" : "1aef85578fdd4f9eaeeb8d53b7b4fc31bf08fe27",
+        "revision" : "834156b492d82c4c003c680629dfad377a59a07f",
         "version" : "2.4.0"
       }
     },
@@ -51,7 +52,7 @@
       "location" : "https://github.com/Beingpax/LLMkit.git",
       "state" : {
         "branch" : "main",
-        "revision" : "5b67cd28862692c05210aeaf130cbe4775c5b381"
+        "revision" : "e9908b1af7bbad0f4ad34850ca0bc4d5d1d70e31"
       }
     },
     {
@@ -60,7 +61,7 @@
       "location" : "https://github.com/ejbills/mediaremote-adapter",
       "state" : {
         "branch" : "master",
-        "revision" : "de7ec3298aaacc4795fd328673c7b1d6a60e0a1b"
+        "revision" : "a6d707dd19f1204b831531760b116b621afe7a6b"
       }
     },
     {
@@ -68,8 +69,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/microsoft/onnxruntime-swift-package-manager",
       "state" : {
-        "revision" : "12ce7374c86944e1f68f3a866d10105d8357f074",
-        "version" : "1.20.0"
+        "revision" : "b7fb7f7dea8a2469e6335d95a61b8f36d0dc83b2",
+        "version" : "1.24.2"
       }
     },
     {
@@ -77,8 +78,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sparkle-project/Sparkle",
       "state" : {
-        "revision" : "5581748cef2bae787496fe6d61139aebe0a451f6",
-        "version" : "2.8.1"
+        "revision" : "21d8df80440b1ca3b65fa82e40782f1e5a9e6ba2",
+        "version" : "2.9.0"
       }
     },
     {
