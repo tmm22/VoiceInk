@@ -80,6 +80,14 @@ thin_arm64_unsigned_app() {
     mv "$temp_output" "$path"
   done < <(find "$app_bundle/Contents" -type f -perm -111 -print0)
 
+  echo "Removing inherited code signatures from embedded code"
+  while IFS= read -r -d '' path; do
+    codesign --remove-signature "$path" 2>/dev/null || true
+  done < <(find "$app_bundle/Contents" \
+    \( -name '*.app' -o -name '*.xpc' -o -name '*.framework' -o -name '*.dylib' \) \
+    -depth -print0)
+  codesign --remove-signature "$app_bundle" 2>/dev/null || true
+
   echo "Re-signing thinned app bundle"
   while IFS= read -r -d '' path; do
     codesign --force --sign - \
@@ -131,6 +139,7 @@ mkdir -p "$output_root"
 echo "Staging repository into $stage_dir"
 rsync -a \
   --exclude '.git' \
+  --exclude '.codex_quarantine_duplicates' \
   --exclude 'build' \
   --exclude '.derivedData-local' \
   --exclude '.derivedData-local-2' \
