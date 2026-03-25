@@ -5,6 +5,28 @@ All notable changes to the VoiceLink Community application are documented here.
 ## 2026-03-25
 
 ### Release Preparation
+- Bumped the community build metadata to version `1.67` (`v1.67-community` release target) for the current GitHub release on `tmm22/VoiceInk`.
+
+### Dependencies
+- Updated the Swift package graph to current compatible revisions, including `AXSwift 0.3.7`, `FluidAudio 0.12.6`, `onnxruntime-swift-package-manager 1.24.2`, `Sparkle 2.9.0`, and the latest allowed upstream revisions for `LLMkit` and `mediaremote-adapter`.
+- Updated the vendored `SelectedTextKit` package manifest so its `AXSwift` requirement matches the resolved package graph.
+- Refreshed the Xcode SwiftPM resolution state for the release build after the dependency update.
+
+### Apple Silicon & Local Inference
+- Updated the external `whisper.cpp` dependency checkout and rebuilt `whisper.xcframework` so the bundled macOS framework includes a native `arm64` slice alongside `x86_64`.
+- Verified the macOS `whisper` framework binary is universal and that the packaged `onnxruntime` dependency remains the official macOS binary distribution for the current release.
+
+### Compatibility Fixes
+- Updated `LocalTTSService` to the current `FluidAudio` `PocketTtsManager` API after the dependency upgrade removed the previous `FluidAudioTTS` surface.
+- Adjusted `ParakeetTranscriptionService` cleanup flow to match the newer async `FluidAudio` resource lifecycle.
+
+### Verification
+- Completed a successful scripted release build via `scripts/build-release-artifact.sh`, producing the `v1.67-community` DMG and checksum.
+- Verified the dependency-updated release path still compiles and packages successfully with the current release automation.
+
+## 2026-03-25
+
+### Release Preparation
 - Bumped the community build metadata to version `1.66` (`v1.66-community` release target) for the next GitHub release on `tmm22/VoiceInk`.
 
 ### Upstream Sync
