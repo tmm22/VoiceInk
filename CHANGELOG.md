@@ -4,6 +4,9 @@ All notable changes to the VoiceLink Community application are documented here.
 
 ## 2026-03-25
 
+### Release Preparation
+- Bumped the community build metadata to version `1.66` (`v1.66-community` release target) for the next GitHub release on `tmm22/VoiceInk`.
+
 ### Upstream Sync
 - Integrated the latest upstream changes that were compatible with the community fork, including cache handling, recorder behavior, paste behavior, emoji validation, local build tooling, and related low-risk fixes.
 - Preserved the existing settings categories implementation to prevent regressions while adopting the upstream changes.
