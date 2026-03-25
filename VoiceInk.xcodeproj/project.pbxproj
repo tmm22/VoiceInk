@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		E11BBA4E2E5DC555000AB839 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = E11BBA4D2E5DC555000AB839 /* FluidAudio */; };
-		E11BBA502E5DC555000AB839 /* FluidAudioTTS in Frameworks */ = {isa = PBXBuildFile; productRef = E11BBA4F2E5DC555000AB839 /* FluidAudioTTS */; };
 		E1342C1F2EB4844800CED8A2 /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = E1342C1E2EB4844800CED8A2 /* Atomics */; };
 		E1A261122CC143AC00B233D1 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = E1A261112CC143AC00B233D1 /* KeyboardShortcuts */; };
 		E1438ED22F3F3D5E00DBE2A1 /* LLMkit in Frameworks */ = {isa = PBXBuildFile; productRef = E1438ED12F3F3D5E00DBE2A1 /* LLMkit */; };
@@ -95,7 +94,6 @@
 				E1ECEC162E44591300DFFBA8 /* Zip in Frameworks */,
 				E1ADD45A2CC5352A00303ECB /* LaunchAtLogin in Frameworks */,
 				E11BBA4E2E5DC555000AB839 /* FluidAudio in Frameworks */,
-				E11BBA502E5DC555000AB839 /* FluidAudioTTS in Frameworks */,
 				E1438ED22F3F3D5E00DBE2A1 /* LLMkit in Frameworks */,
 				E1D7EF992E35E16C00640029 /* MediaRemoteAdapter in Frameworks */,
 				E1ADD45F2CC544F100303ECB /* Sparkle in Frameworks */,
@@ -181,7 +179,6 @@
 				E1D7EF982E35E16C00640029 /* MediaRemoteAdapter */,
 				E1ECEC152E44591300DFFBA8 /* Zip */,
 				E11BBA4D2E5DC555000AB839 /* FluidAudio */,
-				E11BBA4F2E5DC555000AB839 /* FluidAudioTTS */,
 				E1342C1E2EB4844800CED8A2 /* Atomics */,
 				E1F1037A2EF85FC700A4FF94 /* SelectedTextKit */,
 				E1438ED12F3F3D5E00DBE2A1 /* LLMkit */,
@@ -747,11 +744,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E11BBA4C2E5DC555000AB839 /* XCRemoteSwiftPackageReference "FluidAudio" */;
 			productName = FluidAudio;
-		};
-		E11BBA4F2E5DC555000AB839 /* FluidAudioTTS */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E11BBA4C2E5DC555000AB839 /* XCRemoteSwiftPackageReference "FluidAudio" */;
-			productName = FluidAudioTTS;
 		};
 		E1342C1E2EB4844800CED8A2 /* Atomics */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -1,13 +1,13 @@
 import Foundation
 import AVFoundation
-import FluidAudioTTS
+import FluidAudio
 
 @MainActor
 final class LocalTTSService: NSObject, TTSProvider {
     // MARK: - Properties
     private let voices: [Voice]
     private let systemVoices: [Voice]
-    private let pocketVoiceEngine = PocketVoiceEngine()
+    private let pocketVoiceEngine = PocketTtsManager()
 
     override init() {
         let loadedSystemVoices = LocalTTSService.loadSystemVoices()
@@ -86,14 +86,13 @@ private extension LocalTTSService {
     func synthesizePocketSpeech(text: String,
                                 pocketVoiceID: String,
                                 settings: AudioSettings) async throws -> Data {
-        let clampedSpeed = Float(min(max(settings.speed, 0.5), 2.0))
-
         do {
-            return try await pocketVoiceEngine.synthesize(
-                text: text,
-                voiceID: pocketVoiceID,
-                speed: clampedSpeed
-            )
+            if await !pocketVoiceEngine.isAvailable {
+                try await pocketVoiceEngine.initialize()
+            }
+
+            _ = settings
+            return try await pocketVoiceEngine.synthesize(text: text, voice: pocketVoiceID)
         } catch let error as TTSError {
             throw error
         } catch {
