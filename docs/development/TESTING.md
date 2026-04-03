@@ -1,5 +1,16 @@
 # VoiceInk Testing Framework
 
+Document role:
+- Architecture/reference for the test framework, utilities, and coverage model.
+- Use this file to understand structure and long-lived testing principles.
+
+Update this file when:
+- Test architecture changes (new suites, harnesses, utilities, or strategy shifts).
+- Coverage targets or framework-level conventions change.
+
+For execution steps and troubleshooting, use `BUILD_AND_TEST_GUIDE.md`.
+For current progress snapshot, use `TESTING_STATUS.md`.
+
 **Created:** November 5, 2025  
 **Status:** Infrastructure Complete, Tests Ready for Execution  
 **Coverage Goal:** 85%+ on critical paths

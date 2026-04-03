@@ -1,5 +1,15 @@
 # Quick Start: Running VoiceInk Tests
 
+Document role:
+- Fast-start checklist for a short first test pass.
+- Keep this concise and action-oriented.
+
+Update this file when:
+- The shortest recommended test entry flow changes.
+- Key shortcuts or first-pass expectations change.
+
+For deep execution/troubleshooting details, use `BUILD_AND_TEST_GUIDE.md` and `NEXT_STEPS_TESTING.md`.
+
 **⚡ 5-Minute Guide to Execute 249 Tests**
 
 ---
@@ -7,7 +17,7 @@
 ## Step 1: Open Project (30 seconds)
 
 ```bash
-open "/Users/deborahmangan/Desktop/Prototypes/dev/untitled folder 3/VoiceInk.xcodeproj"
+open VoiceInk.xcodeproj
 ```
 
 Wait for Xcode to load and index the project.

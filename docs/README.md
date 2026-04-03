@@ -1,4 +1,4 @@
-# Documentation Index (VoiceLink Community 65.2)
+# Documentation Index
 
 ## Feature Guides
 
@@ -25,7 +25,11 @@
 - [Releasing on GitHub](development/RELEASING.md)
 - [Build and Test Guide](development/BUILD_AND_TEST_GUIDE.md)
 - [Testing Framework Overview](development/TESTING.md)
+- [Testing Status Snapshot](development/TESTING_STATUS.md)
+- [Comprehensive Test Run Steps](development/NEXT_STEPS_TESTING.md)
 - [Quick Start Testing](development/QUICK_START_TESTING.md)
+- [Quick Build Steps](development/QUICK_BUILD_STEPS.md)
+- [Crash Fix Tracking](development/CRASH_FIXES.md)
 - [Design Document](development/DESIGN_DOCUMENT.md)
 
 ## Implementation Notes
