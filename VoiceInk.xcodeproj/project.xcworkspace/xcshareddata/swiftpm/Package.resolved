@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/FluidInference/FluidAudio",
       "state" : {
-        "revision" : "a1d7e620068c6a889fdfc2814f3ff21c9c1db29e",
-        "version" : "0.12.6"
+        "revision" : "a3780d2c6364c1438ea7b9348cf1f7b4d252ce04",
+        "version" : "0.13.5"
       }
     },
     {
@@ -52,7 +52,7 @@
       "location" : "https://github.com/Beingpax/LLMkit.git",
       "state" : {
         "branch" : "main",
-        "revision" : "e9908b1af7bbad0f4ad34850ca0bc4d5d1d70e31"
+        "revision" : "1fde8fe8d63e292f24a23093030b7f6d09c5bdca"
       }
     },
     {
@@ -61,7 +61,7 @@
       "location" : "https://github.com/ejbills/mediaremote-adapter",
       "state" : {
         "branch" : "master",
-        "revision" : "a6d707dd19f1204b831531760b116b621afe7a6b"
+        "revision" : "b4ae765bbfa111f1e8fad240a8ea74f01e91d325"
       }
     },
     {
@@ -78,8 +78,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sparkle-project/Sparkle",
       "state" : {
-        "revision" : "21d8df80440b1ca3b65fa82e40782f1e5a9e6ba2",
-        "version" : "2.9.0"
+        "revision" : "066e75a8b3e99962685d6a90cdd5293ebffd9261",
+        "version" : "2.9.1"
       }
     },
     {
