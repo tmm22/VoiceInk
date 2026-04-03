@@ -1,5 +1,16 @@
 # VoiceInk Testing Implementation Status
 
+Document role:
+- Point-in-time implementation/progress snapshot.
+- Use this file for status reporting, milestones, and current test completion state.
+
+Update this file when:
+- A milestone/phase completes.
+- Status percentages, counts, or immediate priorities change.
+
+For framework architecture, use `TESTING.md`.
+For how to execute tests, use `BUILD_AND_TEST_GUIDE.md` and `NEXT_STEPS_TESTING.md`.
+
 **Date:** November 5, 2025  
 **Implementer:** AI Coding Agent  
 **Status:** Phase 1 Complete, Ready for Phase 2-6

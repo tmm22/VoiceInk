@@ -1,5 +1,16 @@
 # Build and Test Guide
 
+This is the canonical execution guide for local build/test verification and troubleshooting.
+
+Scope:
+- Run builds for local verification
+- Run tests and sanitizer checks
+- Reset permissions and validate expected behavior
+
+For policy and ownership:
+- Build setup/source checkout: `BUILDING.md`
+- Release artifact and publish policy: `RELEASING.md`
+
 ## Building Release Version
 
 ### Option 1: Public Community Release Artifact (Recommended)

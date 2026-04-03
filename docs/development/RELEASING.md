@@ -1,5 +1,11 @@
 # Releasing on GitHub
 
+This is the canonical policy and workflow document for release artifacts and GitHub publishing.
+
+Companion docs:
+- `BUILDING.md` for local build setup and command references
+- `BUILD_AND_TEST_GUIDE.md` for local verification and troubleshooting
+
 GitHub does not currently support a repository file that automatically pre-fills the body of manual releases in the web UI.
 
 For this repository, the release body source of truth is:

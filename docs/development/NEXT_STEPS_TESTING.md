@@ -1,5 +1,16 @@
 # Next Steps: Running the Comprehensive Test Suite
 
+Document role:
+- Step-by-step execution checklist for comprehensive runs (including sanitizer passes).
+- Use this file when actively running a full validation session.
+
+Update this file when:
+- Command syntax, sanitizer workflow, or execution order changes.
+- The test-run playbook changes in a way that affects operators.
+
+For canonical build/test troubleshooting and expected behaviors, use `BUILD_AND_TEST_GUIDE.md`.
+For architecture/background, use `TESTING.md`.
+
 **Framework Status:** ✅ **100% Complete - 249 Tests Ready**  
 **Date:** November 6, 2025
 
@@ -31,7 +42,7 @@ This is the easiest way to run tests with proper signing:
 
 1. Open the project:
    ```bash
-   open "/Users/deborahmangan/Desktop/Prototypes/dev/untitled folder 3/VoiceInk.xcodeproj"
+   open VoiceInk.xcodeproj
    ```
 
 2. In Xcode:
@@ -50,7 +61,7 @@ This is the easiest way to run tests with proper signing:
 If you have valid signing configured:
 
 ```bash
-cd "/Users/deborahmangan/Desktop/Prototypes/dev/untitled folder 3"
+cd /path/to/VoiceInk
 
 # Run all tests
 xcodebuild test \

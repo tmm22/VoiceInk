@@ -306,6 +306,18 @@ VoiceInk/
 - ✅ Files MUST NOT exceed **1,000 lines** of code without explicit justification
 - ⛔ Never let a file grow beyond 2,000 lines - refactor immediately
 
+**Current inventory snapshot (2026-04-03):**
+- `>=500` source files are currently concentrated in tests:
+  - `VoiceInkTests/TTS/TTSServiceTests.swift` (~765)
+  - `VoiceInkTests/TTS/TTSViewModelTests.swift` (~609)
+  - `VoiceInkTests/Services/CloudTranscriptionServiceTests.swift` (~529)
+  - `VoiceInkTests/Transcription/WhisperStateTests.swift` (~517)
+- `VoiceInk/` production sources are currently below 500, but maintain a watchlist for files in the 400-499 range (for example `VoiceInk.swift`, `WhisperState.swift`, and large feature views/services).
+
+**Split trigger guidance:**
+- If a test file exceeds 500, split by provider/feature area when touching it next.
+- If a production file approaches 500, extract subviews/services/helpers before adding new feature scope.
+
 **Strategies for Splitting Large Files:**
 
 1. **Use Extensions for Feature Groups:**
@@ -1375,88 +1387,22 @@ Before committing changes:
 **Assets:**
 - [ ] Audio files verified with `file` command (WAV/MP3 format matches extension)
 
-### Build & Run
+### Build & Release Policy (Canonical References)
 
-```bash
-# Open in Xcode
-open VoiceInk.xcodeproj
+Use canonical docs for commands and step-by-step procedures:
 
-# Or build from command line
-xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug build
+- Build commands and local setup: `docs/development/BUILDING.md`
+- Release artifact/publish policy: `docs/development/RELEASING.md`
+- Build/test troubleshooting and verification: `docs/development/BUILD_AND_TEST_GUIDE.md`
 
-# Debug build WITHOUT code signing (for testing)
-xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug build \
-    CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+Policy constraints that must remain true:
 
-# Debug build with pinned destination (avoids multiple matching destinations warning)
-xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug build \
-    -destination 'platform=macOS,arch=arm64,name=My Mac' \
-    CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
-```
-
-### Build Location Rule
-
-Avoid running `xcodebuild` release packaging flows from iCloud-synced or Desktop-backed working copies.
-
-**Why:**
-- macOS file coordination can cause `xcodebuild` to stall before compilation begins, often inside `NSFileCoordinator`
-- This was reproduced from a Desktop-backed checkout during the `v1.61-community` release workflow
-
-**Rule:**
-- Prefer a normal local clone in a non-synced path such as `~/Developer/VoiceInk`
-- If the current checkout lives under Desktop/iCloud/Dropbox/OneDrive, stage the repo into a temporary local path before doing release builds
-- The repository automation already handles this for release artifacts; do not reintroduce direct in-place release packaging from synced folders
-
-### Release Automation
-
-Use the repository scripts instead of hand-building release artifacts or hand-assembling release notes.
-
-```bash
-# Build unsigned DMG artifact in a temporary non-synced staging workspace
-make release
-
-# Equivalent explicit artifact-only command
-make release-artifact
-
-# Generate release notes from CHANGELOG.md + .github/RELEASE_TEMPLATE.md
-./scripts/generate-release-notes.sh
-
-# Build artifact, generate notes, push branch, tag, and publish GitHub release
-make publish-release
-
-# Equivalent explicit publish command
-./scripts/publish-github-release.sh
-```
-
-**Release rules:**
-- If the user says "do a release" without further qualification, default to `make release` for an artifact-only release build
-- If the user clearly wants the GitHub release published, default to `make publish-release`
-- `scripts/build-release-artifact.sh` is the source of truth for unsigned GitHub DMG packaging
-- `VoiceInkRelease` is the dedicated shared scheme for scripted public/community release builds; do not swap release automation back to the everyday `VoiceInk` scheme unless the release policy changes
-- The unsigned GitHub/community release strategy is a project constraint, not a temporary preference
-- Do not switch the public release flow to Apple-signed/notarized distribution, require Apple Developer enrollment, or treat paid signing as the default solution unless the user explicitly changes that policy
-- Unsigned GitHub DMGs must be built from Xcode `Release`
-- Unsigned GitHub DMGs must preserve the size-focused release contract:
-  - `ENABLE_CODE_COVERAGE=NO`
-  - `CLANG_COVERAGE_MAPPING=NO`
-  - `DEPLOYMENT_POSTPROCESSING=YES`
-  - `STRIP_INSTALLED_PRODUCT=YES`
-  - `COPY_PHASE_STRIP=YES`
-  - `DEAD_CODE_STRIPPING=YES`
-  - `LLVM_LTO=YES_THIN`
-  - `STRIPFLAGS=-x`
-  - `OTHER_SWIFT_FLAGS='$(inherited) -cross-module-optimization'`
-  - `SWIFT_OPTIMIZATION_LEVEL=-Osize`
-- Unsigned GitHub DMGs should keep the release binary free of `__llvm_prf*` and `__LLVM_COV` sections; if those sections reappear, treat it as a release-size regression
-- Unsigned GitHub DMGs may prune bundled ESpeakNG dictionary data down to the English-only Pocket TTS subset, because the shipped Pocket voices are English-only in the current product
-- Unsigned GitHub DMGs must use scripted symbol stripping, `UDBZ` DMG packaging, and arm64 thinning for universal embedded binaries
-- Do not hand-assemble or publish a `Debug` app, an unstripped app, or a universal unsigned DMG unless the release policy is explicitly changed first
-- `scripts/generate-release-notes.sh` is the source of truth for release note composition
-- `scripts/publish-github-release.sh` requires a clean git worktree and authenticated `gh`
-- Community releases publish to `tmm22/VoiceInk` by default, target branch `custom-main-v2`, and use tags in the form `vX.YY-community`
-- Keep user-visible release changes in the latest top entry of `CHANGELOG.md`; the automation pulls from that entry
-- Keep Gatekeeper, Apple Silicon-only artifact notes, and unsigned-build instructions in `.github/RELEASE_TEMPLATE.md`; the automation merges that text into the GitHub release body
-- If release packaging policy changes, update `AGENTS.md`, `docs/development/RELEASING.md`, `docs/development/BUILDING.md`, `.github/RELEASE_TEMPLATE.md`, and the release scripts in the same change
+- Release packaging should not run directly from Desktop/iCloud-backed working copies; stage in a non-synced path
+- If user asks to "do a release" with no qualifier, default to `make release`
+- If user explicitly wants GitHub publishing, default to `make publish-release`
+- Public/community GitHub releases are unsigned by project policy and remain Apple Silicon (`arm64`) only
+- Use `VoiceInkRelease` + Xcode `Release` for scripted public/community release builds
+- Keep release notes generated from `CHANGELOG.md` + `.github/RELEASE_TEMPLATE.md`
 
 ### Post-Debug-Build Step
 
@@ -1966,6 +1912,7 @@ None - purely additive feature
 
 ### Documentation
 
+- **Docs Index**: `docs/README.md` - Canonical documentation navigation entrypoint
 - **Build Guide**: `docs/development/BUILDING.md` - Compilation instructions
 - **Contributing**: `CONTRIBUTING.md` - How to contribute
 - **Security Audit**: `docs/reviews/TTS_SECURITY_AUDIT.md` - Security analysis
@@ -2106,82 +2053,3 @@ This guide is a living document. If you find errors, outdated information, or ha
 **Maintained By:** VoiceInk Community
 **License:** GPL v3 (same as project)
 
-**Recent Updates:**
-- **v1.12** (2026-03-10) - Release Automation and Synced-Workspace Build Lessons
-  - Added release-build guidance to avoid Desktop/iCloud-backed workspaces for `xcodebuild`
-  - Added troubleshooting steps for pre-compilation `xcodebuild` hangs caused by file coordination
-  - Documented automated artifact/release-note publishing via `scripts/build-release-artifact.sh`, `scripts/generate-release-notes.sh`, and `scripts/publish-github-release.sh`
-  - Added community release defaults for repo, branch, and tag naming
-- **v1.11** (2026-02-07) - Recent Lessons (Build + Data Consistency)
-  - Added workspace hygiene guidance for duplicate untracked Swift files before building
-  - Added dictionary source-of-truth guidance (`VocabularyWord` + `VocabularyWordData` mirror)
-  - Added typed notification-name requirement via `AppNotifications.swift`
-  - Added `CustomCloudModel` API key ownership/single-property rule
-  - Added troubleshooting path for `sandbox-exec: sandbox_apply` package-resolution failures
-- **v1.10** (2026-01-10) - MetricKit Production Performance Monitoring
-  - Added [`MetricsManager`](VoiceInk/Services/MetricsManager.swift) for production performance monitoring via MetricKit
-  - Extended [`AppLogger`](VoiceInk/Utilities/AppLogger.swift) with `.metrics` category for performance logging
-  - Added optional [`DebugMetricsView`](VoiceInk/Views/Settings/DebugMetricsView.swift) for DEBUG builds to display metrics summary
-  - Integrated MetricsManager registration in app lifecycle (`VoiceInk.swift`)
-  - Collects: CPU time, peak memory, disk I/O, launch times, hang diagnostics
-  - View metrics in Console.app with filter `category:Metrics`
-- **v1.9** (2026-01-02) - Graphite Integration
-  - Configured Graphite CLI for stacked PRs workflow
-  - Updated **Development Workflow** section to use `gt` commands instead of `git`/`gh`
-  - Added **Stacked PRs (When to Use)** section with workflow examples
-  - Added **Graphite Commands** quick reference table for AI agents
-  - AI agents MUST use Graphite commands for branching, commits, and PR submission
-- **v1.8** (2025-12-27) - Documentation Guidance Updates
-  - Documented provider capability registry guidance via [`ModelCapabilityRegistry`](VoiceInk/Whisper/ModelCapabilityRegistry.swift:28) and [`ProviderCapabilities`](VoiceInk/Whisper/ModelCapabilityRegistry.swift:7)
-  - Documented centralized TTS authorization header usage via [`AuthorizationService`](VoiceInk/TTS/Utilities/AuthorizationService.swift:5) and [`AuthorizationService.authorizationHeader(for:headerType:)`](VoiceInk/TTS/Utilities/AuthorizationService.swift:22)
-  - Documented non-blocking local file I/O guidance via [`FileDataLoader.loadData(from:options:)`](VoiceInk/Services/FileDataLoader.swift:9)
-  - Added build/test note about UI test bundle signing limitations when signing is disabled (see [`docs/development/BUILD_AND_TEST_GUIDE.md`](docs/development/BUILD_AND_TEST_GUIDE.md:39))
-- **v1.7** (2025-12-27) - WhisperState SOLID Refactoring
-  - Updated **Codebase Structure** section with new Whisper architecture
-  - Documented new subdirectories: Protocols/, Providers/, Managers/, Processors/, Actors/, Coordinators/, Models/
-  - Added descriptions for all new components (ModelManager, RecordingState, WhisperContextManager, etc.)
-  - Architecture follows SOLID principles with protocol-based extensibility
-- **v1.6** (2025-12-05) - AI Context Awareness System
-  - Added **AI Context System** section documenting the new v2 architecture
-  - Detailed the structured context pipeline (`AIContext`, `Builder`, `Renderer`)
-  - Documented new context sources: Calendar, Browser, Files, Input Field, User Bio
-  - Defined protocol for adding new context types
-- **v1.5** (2025-12-05) - Build Fixes and SwiftUI Struct Guidance
-  - Added **SwiftUI Structs and `[weak self]`** section explaining value type limitations
-  - Added **Redundant `MainActor.run`** section with examples of what to avoid
-  - Added **URL Domain Matching** section to Security Guidelines
-  - Added **Debug build without code signing** command to Build & Run section
-  - Updated Critical Rules to prohibit redundant `MainActor.run` in `@MainActor` classes
-  - Clarified that `[weak self]` in Timer closures only applies to classes, not structs
-- **v1.4** (2025-12-03) - Comprehensive Code Review Guidelines
-  - Added new **Memory Management** section with Task lifecycle rules
-  - Added `[weak self]` requirements for ALL stored Tasks and closures
-  - Added Task cancellation requirements in `deinit`
-  - Added pattern for nonisolated delegate methods creating Tasks
-  - Expanded **deinit Cleanup Checklist** with comprehensive verification items
-  - Added **File Size Limits** section (500 line guideline, 1000 max)
-  - Added strategies for splitting large files with extensions
-  - Added **Silent Failure Prevention** guidelines for `try?` usage
-  - Added **URL Validation for Custom Providers** to Security Guidelines
-  - Expanded **Pre-Commit Checklist** with memory, concurrency, and security items
-  - Added context boxes explaining *why* each rule matters
-  - Updated useful snippets to use `[weak self]` pattern
-- **v1.3** (2025-11-26) - Audio File Guidelines
-  - Added `Audio File Guidelines` section with format verification rules
-  - Added guidance on generating WAV files with Python/scipy
-  - Warning against using `afconvert` for MP3 creation (produces M4A containers)
-  - Updated `Pre-Commit Checklist` to include audio format verification
-- **v1.2** (2025-11-25) - Code Audit Findings
-  - Added mandatory `@MainActor` requirements for all `ObservableObject` classes
-  - Added `deinit` + `@MainActor` pattern guidance
-  - Added `Data Encoding` section with safe UTF-8 patterns
-  - Expanded `Security Guidelines` with API key migration note and anti-pattern examples
-  - Added `SwiftUI Preview Guidelines` section
-  - Enhanced `Pre-Commit Checklist` with 5 new critical items
-  - Updated `Logging` section to require `#if DEBUG` for print statements
-- **v1.1** (2025-11-23) - Enhanced Production Standards
-  - Added `Production Standards` section
-  - Updated `Security Guidelines` (Strict Keychain usage)
-  - Updated `Coding Standards` (Localization, Logging)
-  - Updated `Testing Strategy` (Automated tests via `run_tests.sh`)
-- **v1.0** (2025-11-03) - Initial AGENTS.md created
