@@ -1323,17 +1323,6 @@ The AI enhancement engine (v2) uses a structured pipeline to gather "Maximum Con
 2.  **Unit Tests**: Required for all business logic (Services, ViewModels).
 3.  **Manual Verification**: Use only for UI interactions that XCTest cannot cover.
 
-### Source of Truth for Build / Release / Testing
-
-To reduce maintenance drift and conflicting guidance:
-
-- Build setup and local build commands live in `docs/development/BUILDING.md`
-- Release policy and publish flow live in `docs/development/RELEASING.md`
-- Build+test troubleshooting and test execution checklist live in `docs/development/BUILD_AND_TEST_GUIDE.md`
-- The docs index and navigation entrypoint is `docs/README.md`
-
-Keep `AGENTS.md` policy-oriented. If process steps change, update the canonical docs first, then update policy pointers here.
-
 ### SwiftUI Preview Guidelines
 
 **Never use force-try (`try!`) in SwiftUI previews. Use safe fallback patterns.**
