@@ -99,7 +99,7 @@
 
 ### Step 1: Run Git Workflow
 ```bash
-cd /path/to/VoiceInk
+cd "/path/to/VoiceInk"
 ../../GIT_COMMANDS.sh
 ```
 

@@ -92,7 +92,7 @@ All test files are staged and ready on branch `testing-framework-upstream`:
 ### Step 1: Commit Manually
 
 ```bash
-cd /path/to/VoiceInk
+cd "/path/to/VoiceInk"
 
 # Verify you're on the right branch
 git branch
