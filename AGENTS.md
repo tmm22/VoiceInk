@@ -2047,6 +2047,13 @@ This guide is a living document. If you find errors, outdated information, or ha
 - Security practices evolve
 - Common issues are discovered
 
+### Doc Split Roadmap (Short-Term)
+
+To keep this guide maintainable and reduce drift:
+- Keep `AGENTS.md` policy-first; detailed procedures should live in `docs/development/*` and `docs/README.md`.
+- When touching large sections, prefer extracting topic-specific operational runbooks instead of adding long new procedural blocks here.
+- Prioritize future splits around testing workflow history/status content if those sections continue to grow.
+
 ---
 
 **Last Updated:** March 10, 2026
