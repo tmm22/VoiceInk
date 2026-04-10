@@ -9,7 +9,7 @@ struct MenuBarView: View {
     @EnvironmentObject var aiService: AIService
     @State private var launchAtLoginEnabled = LaunchAtLogin.isEnabled
     @State private var menuRefreshTrigger = false
-    @AppStorage("enableAIEnhancementFeatures") private var enableAIEnhancementFeatures = false
+    @AppStorage("enableAIEnhancementFeatures") private var enableAIEnhancementFeatures = true
     
     var body: some View {
         VStack {

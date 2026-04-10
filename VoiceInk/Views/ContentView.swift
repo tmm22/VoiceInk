@@ -56,7 +56,7 @@ struct ContentView: View {
     @State private var selectedView: ViewType = .metrics
     @State private var hasLoadedData = false
     @State private var showingShortcutCheatSheet = false
-    @AppStorage("enableAIEnhancementFeatures") private var enableAIEnhancementFeatures = false
+    @AppStorage("enableAIEnhancementFeatures") private var enableAIEnhancementFeatures = true
     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
 
     private var sidebarSections: [SidebarSection] {

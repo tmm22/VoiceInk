@@ -6,7 +6,7 @@ struct EnhancementSettingsView: View {
     @State private var isEditingPrompt = false
     @State private var isShortcutsExpanded = false
     @State private var selectedPromptForEdit: CustomPrompt?
-    @AppStorage("enableAIEnhancementFeatures") private var enableAIEnhancementFeatures = false
+    @AppStorage("enableAIEnhancementFeatures") private var enableAIEnhancementFeatures = true
     
     /// Formats the timeout value for display (e.g., "30s" or "2m 30s")
     private func formatTimeout(_ seconds: TimeInterval) -> String {
