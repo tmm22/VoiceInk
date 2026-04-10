@@ -109,7 +109,7 @@ struct VoiceInkApp: App {
 
         let enhancementService = AIEnhancementService(aiService: aiService, modelContext: container.mainContext)
         _enhancementService = StateObject(wrappedValue: enhancementService)
-        if !(AppSettings.General.enableAIEnhancementFeatures ?? true) {
+        if AppSettings.General.enableAIEnhancementFeatures == false {
             enhancementService.isEnhancementEnabled = false
         }
         
