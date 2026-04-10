@@ -84,7 +84,7 @@ class MenuBarManager: ObservableObject {
     func openMainWindowAndNavigate(to destination: String) {
         AppLogger.ui.debug("MenuBarManager received a navigation request")
 
-        let aiFeaturesEnabled = AppSettings.General.enableAIEnhancementFeatures ?? false
+        let aiFeaturesEnabled = AppSettings.General.enableAIEnhancementFeatures ?? true
         if !aiFeaturesEnabled && (destination == "AI Models" || destination == "Enhancement" || destination == "Text to Speech") {
             AppLogger.ui.info("MenuBarManager blocked navigation because AI features are disabled")
             let alert = NSAlert()

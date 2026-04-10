@@ -102,9 +102,14 @@ struct VoiceInkApp: App {
         let updaterViewModel = UpdaterViewModel()
         _updaterViewModel = StateObject(wrappedValue: updaterViewModel)
         
+        if AppSettings.General.enableAIEnhancementFeatures == nil {
+            AppSettings.General.enableAIEnhancementFeatures = true
+            logger.info("Defaulted AI enhancement feature visibility to enabled for first launch")
+        }
+
         let enhancementService = AIEnhancementService(aiService: aiService, modelContext: container.mainContext)
         _enhancementService = StateObject(wrappedValue: enhancementService)
-        if !(AppSettings.General.enableAIEnhancementFeatures ?? false) {
+        if !(AppSettings.General.enableAIEnhancementFeatures ?? true) {
             enhancementService.isEnhancementEnabled = false
         }
         
