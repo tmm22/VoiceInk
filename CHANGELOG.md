@@ -2,6 +2,20 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-04-24
+
+### Release Preparation
+- Bumped the community build metadata to version `1.68` (`v1.68-community` release target) for the current GitHub release on `tmm22/VoiceInk`.
+
+### App Behavior
+- Integrated the latest AI workspace visibility defaults so fresh installs keep the AI workspace options visible as expected.
+- Updated menu bar and content view wiring to align AI workspace availability across the app shell and enhancement settings.
+
+### Maintenance
+- Refreshed Swift package resolution for the current compatible dependency graph.
+- Hardened unsigned release packaging and kept the public community release path aligned with the smaller unsigned `Release` artifact policy.
+- Cleaned up documentation ownership, roadmap paths, and agent guidance after the previous release.
+
 ## 2026-03-25
 
 ### Release Preparation
