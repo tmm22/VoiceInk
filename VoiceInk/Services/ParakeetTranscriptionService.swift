@@ -27,7 +27,7 @@ class ParakeetTranscriptionService: TranscriptionService {
         let models = try await getOrLoadModels(for: version)
 
         let manager = AsrManager(config: .default)
-        try await manager.initialize(models: models)
+        try await manager.loadModels(models)
         self.asrManager = manager
         self.activeVersion = version
     }

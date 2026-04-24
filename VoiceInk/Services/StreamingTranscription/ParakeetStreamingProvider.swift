@@ -3,13 +3,13 @@ import FluidAudio
 import Foundation
 import os
 
-/// On-device streaming transcription provider using FluidAudio's StreamingAsrManager
+/// On-device streaming transcription provider using FluidAudio's SlidingWindowAsrManager
 /// with Parakeet TDT models (v2/v3).
 final class ParakeetStreamingProvider: StreamingTranscriptionProvider {
 
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "ParakeetStreaming")
     private let parakeetService: ParakeetTranscriptionService
-    private var streamingManager: StreamingAsrManager?
+    private var streamingManager: SlidingWindowAsrManager?
     private var eventsContinuation: AsyncStream<StreamingTranscriptionEvent>.Continuation?
 
     private(set) var transcriptionEvents: AsyncStream<StreamingTranscriptionEvent>
@@ -29,7 +29,7 @@ final class ParakeetStreamingProvider: StreamingTranscriptionProvider {
         let version: AsrModelVersion = model.name.lowercased().contains("v2") ? .v2 : .v3
         let models = try await parakeetService.getOrLoadModels(for: version)
 
-        let manager = StreamingAsrManager(config: .streaming)
+        let manager = SlidingWindowAsrManager(config: .streaming)
         try await manager.start(models: models)
         self.streamingManager = manager
 
