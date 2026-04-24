@@ -6,8 +6,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_FILE="$ROOT_DIR/VoiceInk.xcodeproj/project.pbxproj"
 signing_mode="${VOICEINK_RELEASE_SIGNING_MODE:-unsigned}"
 
-if ! command -v rsync >/dev/null 2>&1; then
-  echo "rsync is required" >&2
+if ! command -v tar >/dev/null 2>&1; then
+  echo "tar is required" >&2
   exit 1
 fi
 
@@ -137,17 +137,16 @@ trap cleanup EXIT
 mkdir -p "$output_root"
 
 echo "Staging repository into $stage_dir"
-rsync -a \
-  --exclude '.git' \
-  --exclude '.codex_quarantine_duplicates' \
-  --exclude 'build' \
-  --exclude '.derivedData-local' \
-  --exclude '.derivedData-local-2' \
-  --exclude 'release-artifacts' \
-  --exclude 'TestResults*' \
-  --exclude '*.xcresult' \
-  "$ROOT_DIR/" \
-  "$stage_dir/"
+tar -C "$ROOT_DIR" \
+  --exclude './.git' \
+  --exclude './.codex_quarantine_duplicates' \
+  --exclude './build' \
+  --exclude './.derivedData-local' \
+  --exclude './.derivedData-local-2' \
+  --exclude './release-artifacts' \
+  --exclude './TestResults*' \
+  --exclude './*.xcresult' \
+  -cf - . | tar -C "$stage_dir" -xf -
 
 echo "Building VoiceInk $version ($build_number) [$build_configuration]"
 (
