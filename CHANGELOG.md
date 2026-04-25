@@ -2,6 +2,16 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-04-25
+
+### Release Preparation
+- Bumped the community build metadata to version `1.69` (`v1.69-community` release target) for the current GitHub release on `tmm22/VoiceInk`.
+
+### AI Enhancement
+- Added `gpt-5.5` and `gpt-5.5-pro` to the OpenAI AI enhancement model list.
+- Updated the OpenAI AI enhancement default model to `gpt-5.5`.
+- Marked both GPT-5.5 variants as reasoning-capable and covered the catalog update with focused service tests.
+
 ## 2026-04-24
 
 ### Release Preparation
