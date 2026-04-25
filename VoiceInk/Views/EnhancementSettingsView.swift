@@ -127,7 +127,7 @@ struct EnhancementSettingsView: View {
                                     
                                     InfoTip(
                                         title: "Reasoning Effort",
-                                        message: "Controls how much reasoning the AI model performs. Higher levels produce better quality results but take longer. Only applies to models that support reasoning (GPT-5.2, Gemini 2.5+, etc.)."
+                                        message: "Controls how much reasoning the AI model performs. Higher levels produce better quality results but take longer. Only applies to models that support reasoning (GPT-5+, Gemini 2.5+, etc.)."
                                     )
                                 }
                                 

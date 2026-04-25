@@ -98,4 +98,31 @@ final class AIServiceTests: XCTestCase {
         XCTAssertTrue(service.apiKey.isEmpty)
         XCTAssertTrue(service.isAPIKeyValid, "Ollama should be valid without key")
     }
+
+    func testOpenAIModelCatalogIncludesGPT55Variants() {
+        let models = AIProvider.openAI.availableModels
+
+        XCTAssertEqual(AIProvider.openAI.defaultModel, "gpt-5.5")
+        XCTAssertTrue(models.contains("gpt-5.5"))
+        XCTAssertTrue(models.contains("gpt-5.5-pro"))
+        XCTAssertLessThan(
+            models.firstIndex(of: "gpt-5.5") ?? Int.max,
+            models.firstIndex(of: "gpt-5.4") ?? Int.max
+        )
+    }
+
+    func testGPT55ModelsSupportReasoningEffort() {
+        XCTAssertEqual(
+            ReasoningConfig.getReasoningParameter(for: "gpt-5.5", userPreference: .low),
+            ReasoningEffort.low.rawValue
+        )
+        XCTAssertEqual(
+            ReasoningConfig.getReasoningParameter(for: "gpt-5.5-pro", userPreference: .low),
+            ReasoningEffort.medium.rawValue
+        )
+        XCTAssertEqual(
+            ReasoningConfig.getReasoningParameter(for: "gpt-5.5-pro", userPreference: .high),
+            ReasoningEffort.high.rawValue
+        )
+    }
 }
