@@ -55,7 +55,14 @@ struct TTSSettingsView: View {
             
             footerButtons
         }
-        .frame(width: 600, height: 500)
+        .frame(
+            minWidth: 560,
+            idealWidth: 600,
+            maxWidth: 720,
+            minHeight: 460,
+            idealHeight: 500,
+            maxHeight: 700
+        )
         .onAppear {
             loadAPIKeys()
             loadManagedProvisioning()
@@ -83,24 +90,30 @@ struct TTSSettingsView: View {
             Spacer()
             
             Button(action: { dismiss() }) {
-                Image(systemName: "xmark.circle.fill")
+                Label("Close Settings", systemImage: "xmark.circle.fill")
+                    .labelStyle(.iconOnly)
                     .font(.title2)
                     .foregroundColor(.secondary)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Close Settings")
+            .help("Close Settings")
         }
         .padding()
     }
     
     // MARK: - Tab Picker
     private var tabPicker: some View {
-        Picker("", selection: $selectedTab) {
+        Picker("Settings section", selection: $selectedTab) {
             Label("API Keys", systemImage: "key.fill").tag("api")
             Label("Audio", systemImage: "speaker.wave.2.fill").tag("audio")
             Label("General", systemImage: "gear").tag("general")
             Label("About", systemImage: "info.circle.fill").tag("about")
         }
         .pickerStyle(SegmentedPickerStyle())
+        .labelsHidden()
         .padding()
     }
     

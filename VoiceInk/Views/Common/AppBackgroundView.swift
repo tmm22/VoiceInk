@@ -18,13 +18,9 @@ struct AppBackgroundView<Content: View>: View {
             VisualEffectView(material: material, blendingMode: blendingMode)
                 .ignoresSafeArea()
 
-            LinearGradient(
-                colors: [VoiceInkTheme.Palette.canvas, VoiceInkTheme.Palette.surface],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .opacity(0.6)
-            .ignoresSafeArea()
+            VoiceInkTheme.Palette.canvas
+                .opacity(0.35)
+                .ignoresSafeArea()
 
             content()
         }

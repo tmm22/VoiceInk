@@ -147,12 +147,14 @@ struct TranscriptionCard: View {
 
     var body: some View {
         HStack(spacing: VoiceInkSpacing.md) {
-            Toggle("", isOn: Binding(
+            Toggle("Select transcription", isOn: Binding(
                 get: { isSelected },
                 set: { _ in onToggleSelection() }
             ))
             .toggleStyle(CircularCheckboxStyle())
             .labelsHidden()
+            .accessibilityLabel(isSelected ? "Deselect transcription" : "Select transcription")
+            .accessibilityHint("Adds this transcription to the current selection.")
             
             VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
                 HStack {
@@ -289,6 +291,8 @@ struct TranscriptionCard: View {
                 Label("Delete", systemImage: "trash")
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Transcription from \(transcription.timestamp.formatted(date: .abbreviated, time: .shortened))")
         .onChange(of: isExpanded) { oldValue, newValue in
             if newValue {
                 selectedTab = transcription.enhancedText != nil ? .enhanced : .original

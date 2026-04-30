@@ -100,6 +100,8 @@ struct TranscriptionResultView: View {
                     )
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Show \(title.lowercased()) transcription")
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
             .animation(.easeInOut(duration: 0.2), value: isSelected)
         }
     }

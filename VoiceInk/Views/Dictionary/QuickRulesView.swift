@@ -72,6 +72,7 @@ struct QuickRulesView: View {
                     Image(systemName: "arrow.counterclockwise")
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("Reset quick rules to defaults")
                 .help("Reset to defaults")
                 
                 Button {
@@ -80,6 +81,7 @@ struct QuickRulesView: View {
                     Image(systemName: "plus")
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("Add custom quick rule")
                 .help("Add custom rule")
             }
             
@@ -162,13 +164,14 @@ struct SimpleRuleRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: VoiceInkSpacing.sm) {
-                Toggle("", isOn: Binding(
+                Toggle("Enable \(rule.name)", isOn: Binding(
                     get: { rule.isEnabled },
                     set: { _ in onToggle() }
                 ))
                 .toggleStyle(.switch)
                 .labelsHidden()
                 .controlSize(.mini)
+                .accessibilityLabel(rule.isEnabled ? "Disable \(rule.name)" : "Enable \(rule.name)")
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(rule.name)
@@ -187,6 +190,8 @@ struct SimpleRuleRow: View {
                             .foregroundColor(.red)
                     }
                     .buttonStyle(.borderless)
+                    .accessibilityLabel("Delete \(rule.name)")
+                    .help("Delete custom rule")
                 }
                 
                 // Expand/collapse chevron
@@ -235,6 +240,7 @@ struct SimpleRuleRow: View {
                 .fill(VoiceInkTheme.Card.background)
         )
         .onHover { isHovered = $0 }
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -355,7 +361,7 @@ struct AddCustomRuleSheet: View {
                 .padding(.vertical)
             }
         }
-        .frame(width: 500, height: 600)
+        .frame(minWidth: 420, idealWidth: 500, maxWidth: 620, minHeight: 520, idealHeight: 600, maxHeight: 760)
     }
     
     private func addRule() {

@@ -38,6 +38,7 @@ struct VoiceInkDropZone<Accessory: View>: View {
                 Image(systemName: icon)
                     .font(.system(size: 32))
                     .foregroundColor(isActive ? VoiceInkTheme.Palette.accent : .secondary)
+                    .accessibilityHidden(true)
 
                 Text(title)
                     .voiceInkHeadline()
@@ -49,10 +50,13 @@ struct VoiceInkDropZone<Accessory: View>: View {
 
                 if let buttonTitle, let action = buttonAction {
                     Button(buttonTitle, action: action)
-                        .buttonStyle(SecondaryBorderedButtonStyle())
+                        .buttonStyle(.bordered)
+                        .controlSize(.regular)
+                        .help(buttonTitle)
                 }
             }
             .padding(VoiceInkSpacing.xl)
         }
+        .accessibilityLabel("\(title). \(subtitle)")
     }
 }

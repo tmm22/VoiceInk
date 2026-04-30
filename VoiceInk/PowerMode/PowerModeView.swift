@@ -96,41 +96,23 @@ struct PowerModeView: View {
                         HStack(spacing: 8) {
                             if !isReorderMode {
                                 Button(action: {
-                                    configurationMode = .add
-                                    navigationPath.append(configurationMode!)
+                                    let mode = ConfigurationMode.add
+                                    configurationMode = mode
+                                    navigationPath.append(mode)
                                 }) {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "plus")
-                                            .font(.system(size: 12, weight: .medium))
-                                        Text(Localization.PowerMode.addPowerModeLabel)
-                                            .font(.system(size: 13, weight: .medium))
-                                    }
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(Color.accentColor)
-                                    .cornerRadius(6)
+                                    Label(Localization.PowerMode.addPowerModeLabel, systemImage: "plus")
                                 }
-                                .buttonStyle(PlainButtonStyle())
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.regular)
                             }
                             Button(action: { withAnimation { isReorderMode.toggle() } }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: isReorderMode ? "checkmark" : "arrow.up.arrow.down")
-                                        .font(.system(size: 12, weight: .medium))
-                                    Text(isReorderMode ? Localization.PowerMode.doneButton : Localization.PowerMode.reorderLabel)
-                                        .font(.system(size: 13, weight: .medium))
-                                }
-                                .foregroundColor(.primary)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color(NSColor.controlBackgroundColor))
-                                .cornerRadius(6)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .stroke(Color(NSColor.separatorColor), lineWidth: 1)
+                                Label(
+                                    isReorderMode ? Localization.PowerMode.doneButton : Localization.PowerMode.reorderLabel,
+                                    systemImage: isReorderMode ? "checkmark" : "arrow.up.arrow.down"
                                 )
                             }
-                            .buttonStyle(PlainButtonStyle())
+                            .buttonStyle(.bordered)
+                            .controlSize(.regular)
                         }
                     }
                 }
@@ -239,8 +221,9 @@ struct PowerModeView: View {
                                         PowerModeConfigurationsGrid(
                                             powerModeManager: powerModeManager,
                                             onEditConfig: { config in
-                                                configurationMode = .edit(config)
-                                                navigationPath.append(configurationMode!)
+                                                let mode = ConfigurationMode.edit(config)
+                                                configurationMode = mode
+                                                navigationPath.append(mode)
                                             }
                                         )
                                         .padding(.horizontal, 24)
@@ -262,6 +245,7 @@ struct PowerModeView: View {
             .navigationDestination(for: ConfigurationMode.self) { mode in
                 ConfigurationView(mode: mode, powerModeManager: powerModeManager)
             }
+            .navigationTitle(Localization.PowerMode.powerModesTitle)
         }
     }
 }

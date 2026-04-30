@@ -59,9 +59,10 @@ struct EnhancementSettingsView: View {
                             
                             Spacer()
                             
-                            Toggle("", isOn: $enhancementService.isEnhancementEnabled)
+                            Toggle("Enable Enhancement", isOn: $enhancementService.isEnhancementEnabled)
                                 .toggleStyle(SwitchToggleStyle(tint: VoiceInkTheme.Palette.accent))
                                 .labelsHidden()
+                                .accessibilityHint("Turns AI-powered enhancement features on or off")
                                 .scaleEffect(1.2)
                         }
                         
@@ -131,12 +132,13 @@ struct EnhancementSettingsView: View {
                                     )
                                 }
                                 
-                                Picker("", selection: $enhancementService.reasoningEffort) {
+                                Picker("Reasoning Effort", selection: $enhancementService.reasoningEffort) {
                                     ForEach(ReasoningEffort.allCases, id: \.self) { effort in
                                         Text(effort.displayName).tag(effort)
                                     }
                                 }
                                 .pickerStyle(.segmented)
+                                .labelsHidden()
                                 .frame(maxWidth: 300)
                                 
                                 Text(enhancementService.reasoningEffort.description)

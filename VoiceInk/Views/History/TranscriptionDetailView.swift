@@ -105,6 +105,7 @@ private struct MessageBubble: View {
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(justCopied ? "Copied" : "Copy \(label.lowercased()) text")
                     .help("Copy to clipboard")
                     .padding(8)
                 }

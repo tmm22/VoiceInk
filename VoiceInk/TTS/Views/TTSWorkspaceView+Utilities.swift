@@ -219,8 +219,11 @@ struct TranslationComparisonView: View {
                 } label: {
                     Label("Copy", systemImage: "doc.on.doc")
                         .labelStyle(.iconOnly)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Copy \(title)")
                 .help("Copy this text to the clipboard")
             }
 
@@ -297,7 +300,7 @@ struct TranslationSettingsPopover: View {
             }
         }
         .padding(20)
-        .frame(minWidth: 260)
+        .frame(minWidth: 280, idealWidth: 320, maxWidth: 380)
     }
 }
 
@@ -380,7 +383,7 @@ struct VoicePreviewPopover: View {
             }
         }
         .padding(20)
-        .frame(minWidth: 280)
+        .frame(minWidth: 300, idealWidth: 360, maxWidth: 420, minHeight: 220, idealHeight: 360, maxHeight: 520)
     }
 
     private func rowBackground(for voice: Voice) -> some ShapeStyle {

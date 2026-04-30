@@ -3,19 +3,22 @@ import KeyboardShortcuts
 
 struct KeyboardShortcutView: View {
     let shortcut: KeyboardShortcuts.Shortcut?
-    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
-        if let shortcut = shortcut {
-            HStack(spacing: 6) {
-                ForEach(shortcutComponents(from: shortcut), id: \.self) { component in
-                    KeyCapView(text: component)
+        Group {
+            if let shortcut = shortcut {
+                HStack(spacing: 6) {
+                    ForEach(shortcutComponents(from: shortcut), id: \.self) { component in
+                        KeyCapView(text: component)
+                    }
                 }
+            } else {
+                KeyCapView(text: "Not Set")
+                    .foregroundColor(.secondary)
             }
-        } else {
-            KeyCapView(text: "Not Set")
-                .foregroundColor(.secondary)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText)
     }
     
     private func shortcutComponents(from shortcut: KeyboardShortcuts.Shortcut) -> [String] {
@@ -108,12 +111,18 @@ struct KeyboardShortcutView: View {
               return String(key.rawValue).uppercased()
         }
     }
+
+    private var accessibilityText: String {
+        guard let shortcut else {
+            return "Shortcut not set"
+        }
+        return "Shortcut \(shortcutComponents(from: shortcut).joined(separator: " "))"
+    }
 }
 
 struct KeyCapView: View {
     let text: String
     @Environment(\.colorScheme) private var colorScheme
-    @State private var isPressed = false
     
     private var keyColor: Color {
         colorScheme == .dark ? Color(white: 0.2) : .white
@@ -221,16 +230,7 @@ struct KeyCapView: View {
                     .offset(x: -1, y: -1)
                     .mask(RoundedRectangle(cornerRadius: 8))
             )
-            .scaleEffect(isPressed ? 0.95 : 1.0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isPressed)
-            .onTapGesture {
-                withAnimation {
-                    isPressed = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        isPressed = false
-                    }
-                }
-            }
+            .accessibilityHidden(true)
     }
 }
 

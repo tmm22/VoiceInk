@@ -104,6 +104,7 @@ struct PermissionCard: View {
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundColor(isGranted ? .green : .orange)
                         .symbolRenderingMode(.hierarchical)
+                        .accessibilityHidden(true)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -144,43 +145,35 @@ struct PermissionCard: View {
                             .rotationEffect(.degrees(isRefreshing ? 360 : 0))
                     }
                     .buttonStyle(.plain)
+                    .frame(minWidth: 20, minHeight: 20)
                     .contentShape(Rectangle())
+                    .accessibilityLabel("Refresh \(title) status")
+                    .help("Refresh \(title) status")
                     
                     if isGranted {
                         Image(systemName: "checkmark.seal.fill")
                             .font(.system(size: 20))
                             .foregroundColor(.green)
                             .symbolRenderingMode(.hierarchical)
+                            .accessibilityLabel("\(title) granted")
                     } else {
                         Image(systemName: "xmark.seal.fill")
                             .font(.system(size: 20))
                             .foregroundColor(.orange)
                             .symbolRenderingMode(.hierarchical)
+                            .accessibilityLabel("\(title) not granted")
                     }
                 }
             }
             
             if !isGranted {
                 Button(action: buttonAction) {
-                    HStack {
-                        Text(buttonTitle)
-                        Spacer()
-                        Image(systemName: "arrow.right")
-                    }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(
-                        LinearGradient(
-                            colors: [Color.accentColor, Color.accentColor.opacity(0.8)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .cornerRadius(10)
+                    Label(buttonTitle, systemImage: "arrow.right")
+                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .help(buttonTitle)
             }
         }
         .padding()
@@ -206,6 +199,7 @@ struct PermissionsView: View {
                         .background(Circle()
                             .fill(Color(.windowBackgroundColor).opacity(0.9))
                             .shadow(color: .black.opacity(0.1), radius: 10, y: 5))
+                        .accessibilityHidden(true)
                     
                     VStack(spacing: 8) {
                         Text("App Permissions")

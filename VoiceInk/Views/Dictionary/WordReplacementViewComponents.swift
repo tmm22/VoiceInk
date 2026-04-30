@@ -30,6 +30,7 @@ struct WordReplacementInputRow: View {
                         .font(.system(size: 16, weight: .semibold))
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("Add word replacement")
                 .disabled(originalWord.isEmpty || replacementWord.isEmpty)
                 .help("Add word replacement")
             }
@@ -155,6 +156,7 @@ struct ReplacementRow: View {
                             .contentTransition(.symbolEffect(.replace))
                     }
                     .buttonStyle(.borderless)
+                    .accessibilityLabel("Edit replacement from \(original) to \(replacement)")
                     .help("Edit replacement")
                     .onHover { hover in
                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -169,6 +171,7 @@ struct ReplacementRow: View {
                             .contentTransition(.symbolEffect(.replace))
                     }
                     .buttonStyle(.borderless)
+                    .accessibilityLabel("Remove replacement from \(original) to \(replacement)")
                     .help("Remove replacement")
                     .onHover { hover in
                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -181,5 +184,7 @@ struct ReplacementRow: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 4)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(original), replaced with \(replacement)")
     }
 }

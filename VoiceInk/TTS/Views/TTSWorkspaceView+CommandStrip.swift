@@ -41,7 +41,14 @@ struct CommandStripView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .popover(isPresented: $showingInspectorPopover, arrowEdge: .top) {
             TTSInspectorView(isVisible: $showingInspectorPopover)
-                .frame(width: 320, height: 500)
+                .frame(
+                    minWidth: 320,
+                    idealWidth: 360,
+                    maxWidth: 420,
+                    minHeight: 420,
+                    idealHeight: 520,
+                    maxHeight: 640
+                )
                 .environmentObject(viewModel)
                 .environmentObject(playback)
         }
@@ -343,11 +350,14 @@ struct CommandStripView: View {
                 .disabled(viewModel.currentTranscript == nil)
             }
         } label: {
-            Image(systemName: "ellipsis.circle")
+            Label("Actions", systemImage: "wand.and.stars")
+                .labelStyle(.iconOnly)
                 .imageScale(.large)
                 .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
         }
         .menuStyle(.borderlessButton)
+        .accessibilityLabel("Actions")
         .help("Actions and tools")
     }
     
@@ -357,11 +367,17 @@ struct CommandStripView: View {
             Button {
                 toggleInspector()
             } label: {
-                Image(systemName: isInspectorVisible ? "sidebar.right.fill" : "sidebar.right")
+                Label(
+                    isInspectorVisible ? "Hide Tickwick Settings" : "Show Tickwick Settings",
+                    systemImage: isInspectorVisible ? "sidebar.right.fill" : "sidebar.right"
+                )
+                    .labelStyle(.iconOnly)
                     .imageScale(.large)
                     .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
+            .accessibilityLabel(isInspectorVisible ? "Hide Tickwick Settings" : "Show Tickwick Settings")
             .help(isInspectorVisible ? "Hide Tickwick Settings" : "Show Tickwick Settings")
         }
     }
@@ -401,11 +417,14 @@ struct CommandStripView: View {
                 showingAbout = true
             }
         } label: {
-            Image(systemName: "ellipsis.circle")
+            Label("More", systemImage: "ellipsis.circle")
+                .labelStyle(.iconOnly)
                 .imageScale(.large)
                 .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
         }
         .menuStyle(.borderlessButton)
+        .accessibilityLabel("More options")
         .help("More options")
     }
 }

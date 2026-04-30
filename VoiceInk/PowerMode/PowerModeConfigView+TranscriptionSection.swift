@@ -26,7 +26,7 @@ extension ConfigurationView {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
 
-                    Picker("", selection: modelBinding) {
+                    Picker(Localization.PowerMode.modelLabel, selection: modelBinding) {
                         ForEach(whisperState.usableModels, id: \.name) { model in
                             Text(model.displayName).tag(model.name as String?)
                         }
@@ -74,7 +74,7 @@ extension ConfigurationView {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
 
-                Picker("", selection: languageBinding) {
+                Picker(Localization.PowerMode.languageLabel, selection: languageBinding) {
                     ForEach(modelInfo.supportedLanguages.sorted(by: {
                         if $0.key == "auto" { return true }
                         if $1.key == "auto" { return false }

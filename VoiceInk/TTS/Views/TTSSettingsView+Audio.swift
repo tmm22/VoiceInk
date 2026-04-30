@@ -13,7 +13,7 @@ extension TTSSettingsView {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
                         Text("Default Speed:")
-                        Picker("", selection: $playback.playbackSpeed) {
+                        Picker("Default speed", selection: $playback.playbackSpeed) {
                             Text("0.5×").tag(0.5)
                             Text("0.75×").tag(0.75)
                             Text("1.0×").tag(1.0)
@@ -23,6 +23,7 @@ extension TTSSettingsView {
                             Text("2.0×").tag(2.0)
                         }
                         .pickerStyle(MenuPickerStyle())
+                        .labelsHidden()
                         .frame(width: 100)
                         .onChange(of: playback.playbackSpeed) {
                             playback.applyPlaybackSpeed(save: true)
@@ -37,6 +38,8 @@ extension TTSSettingsView {
                                 playback.applyPlaybackVolume(save: true)
                             }
                             .frame(width: 200)
+                            .accessibilityLabel("Default volume")
+                            .accessibilityValue("\(Int(playback.volume * 100)) percent")
                         Text("\(Int(playback.volume * 100))%")
                             .frame(width: 50)
                             .monospacedDigit()

@@ -131,6 +131,7 @@ struct FastConformerModelCardView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
                 .disabled(isCurrent)
+                .help(isCurrent ? "\(model.displayName) is already in use" : "Use \(model.displayName) as the default transcription model")
 
                 Menu {
                     Button(action: showInFinderAction) {
@@ -144,6 +145,8 @@ struct FastConformerModelCardView: View {
                 }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
+                .accessibilityLabel("Manage \(model.displayName)")
+                .help("Manage \(model.displayName)")
             } else {
                 Button(action: downloadAction) {
                     HStack(spacing: 4) {
@@ -158,6 +161,7 @@ struct FastConformerModelCardView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
                 .disabled(isDownloading)
+                .accessibilityLabel(isDownloading ? "Downloading \(model.displayName)" : "Download \(model.displayName)")
             }
         }
     }

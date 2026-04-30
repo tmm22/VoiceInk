@@ -138,7 +138,7 @@ struct OllamaProviderSection: View {
                             .italic()
                     }
                 } else {
-                    Picker("", selection: $selectedModel) {
+                    Picker("Ollama model", selection: $selectedModel) {
                         ForEach(models) { model in
                             Text(model.name).tag(model.name)
                         }

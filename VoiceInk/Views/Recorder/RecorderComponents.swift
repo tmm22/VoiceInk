@@ -29,13 +29,25 @@ struct RecorderToggleButton: View {
     let icon: String
     let color: Color
     let disabled: Bool
+    let accessibilityLabel: String
+    let helpText: String
     let action: () -> Void
     
-    init(isEnabled: Bool, icon: String, color: Color, disabled: Bool = false, action: @escaping () -> Void) {
+    init(
+        isEnabled: Bool,
+        icon: String,
+        color: Color,
+        disabled: Bool = false,
+        accessibilityLabel: String,
+        helpText: String,
+        action: @escaping () -> Void
+    ) {
         self.isEnabled = isEnabled
         self.icon = icon
         self.color = color
         self.disabled = disabled
+        self.accessibilityLabel = accessibilityLabel
+        self.helpText = helpText
         self.action = action
     }
     
@@ -58,6 +70,10 @@ struct RecorderToggleButton: View {
         }
         .buttonStyle(PlainButtonStyle())
         .disabled(disabled)
+        .frame(minWidth: 28, minHeight: 28)
+        .contentShape(Rectangle())
+        .accessibilityLabel(accessibilityLabel)
+        .help(helpText)
     }
 }
 
@@ -90,6 +106,9 @@ struct RecorderRecordButton: View {
         }
         .buttonStyle(PlainButtonStyle())
         .disabled(isProcessing)
+        .frame(minWidth: 28, minHeight: 28)
+        .accessibilityLabel(isProcessing ? "Processing recording" : (isRecording ? "Stop recording" : "Start recording"))
+        .help(isProcessing ? "Processing recording" : (isRecording ? "Stop recording" : "Start recording"))
     }
     
     private var buttonColor: Color {
@@ -187,7 +206,9 @@ struct RecorderPromptButton: View {
             isEnabled: enhancementService.isEnhancementEnabled,
             icon: enhancementService.activePrompt?.icon ?? enhancementService.allPrompts.first(where: { $0.id == PredefinedPrompts.defaultPromptId })?.icon ?? "checkmark.seal.fill",
             color: .blue,
-            disabled: false
+            disabled: false,
+            accessibilityLabel: enhancementService.isEnhancementEnabled ? "Choose AI enhancement prompt" : "Enable AI enhancement",
+            helpText: enhancementService.isEnhancementEnabled ? "Choose AI enhancement prompt" : "Enable AI enhancement"
         ) {
             if enhancementService.isEnhancementEnabled {
                 activePopover = activePopover == .enhancement ? .none : .enhancement
@@ -251,7 +272,9 @@ struct RecorderPowerModeButton: View {
             isEnabled: !powerModeManager.enabledConfigurations.isEmpty,
             icon: powerModeManager.enabledConfigurations.isEmpty ? "✨" : (powerModeManager.currentActiveConfiguration?.emoji ?? "✨"),
             color: .orange,
-            disabled: powerModeManager.enabledConfigurations.isEmpty
+            disabled: powerModeManager.enabledConfigurations.isEmpty,
+            accessibilityLabel: "Choose Power Mode",
+            helpText: powerModeManager.enabledConfigurations.isEmpty ? "No Power Modes available" : "Choose Power Mode"
         ) {
             activePopover = activePopover == .power ? .none : .power
         }

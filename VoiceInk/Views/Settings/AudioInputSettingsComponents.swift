@@ -28,6 +28,7 @@ struct InputModeCard: View {
                     .font(.system(size: 28))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(isSelected ? VoiceInkTheme.Palette.accent : .secondary)
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(mode.rawValue)
@@ -50,6 +51,9 @@ struct InputModeCard: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(mode.rawValue)
+        .accessibilityValue(isSelected ? "Selected" : "")
+        .help(description)
     }
 }
 
@@ -66,6 +70,7 @@ struct DeviceSelectionCard: View {
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(isSelected ? VoiceInkTheme.Palette.accent : .secondary)
                     .font(.system(size: 18))
+                    .accessibilityHidden(true)
 
                 Text(name)
                     .foregroundStyle(.primary)
@@ -95,6 +100,8 @@ struct DeviceSelectionCard: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(name)
+        .accessibilityValue(isSelected ? "Selected" : (isActive ? "Active" : ""))
     }
 }
 
@@ -159,12 +166,20 @@ struct DevicePriorityCard: View {
                                 .foregroundStyle(canMoveUp ? VoiceInkTheme.Palette.accent : .secondary.opacity(0.5))
                         }
                         .disabled(!canMoveUp)
+                        .frame(minWidth: 20, minHeight: 20)
+                        .contentShape(Rectangle())
+                        .accessibilityLabel("Move \(name) up")
+                        .help("Move \(name) up")
 
                         Button(action: onMoveDown) {
                             Image(systemName: "chevron.down")
                                 .foregroundStyle(canMoveDown ? VoiceInkTheme.Palette.accent : .secondary.opacity(0.5))
                         }
                         .disabled(!canMoveDown)
+                        .frame(minWidth: 20, minHeight: 20)
+                        .contentShape(Rectangle())
+                        .accessibilityLabel("Move \(name) down")
+                        .help("Move \(name) down")
                     }
                 }
 
@@ -173,6 +188,10 @@ struct DevicePriorityCard: View {
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(isPrioritized ? .red : VoiceInkTheme.Palette.accent)
                 }
+                .frame(minWidth: 20, minHeight: 20)
+                .contentShape(Rectangle())
+                .accessibilityLabel(isPrioritized ? "Remove \(name) from prioritized devices" : "Add \(name) to prioritized devices")
+                .help(isPrioritized ? "Remove from prioritized devices" : "Add to prioritized devices")
             }
             .buttonStyle(.plain)
         }

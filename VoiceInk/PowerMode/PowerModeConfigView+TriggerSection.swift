@@ -22,7 +22,8 @@ extension ConfigurationView {
                         Label(Localization.PowerMode.addAppLabel, systemImage: "plus.circle.fill")
                             .font(.subheadline)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.borderless)
+                    .help(Localization.PowerMode.addAppLabel)
                 }
 
                 if selectedAppConfigs.isEmpty {
@@ -54,16 +55,20 @@ extension ConfigurationView {
                 HStack {
                     TextField(Localization.PowerMode.websitePlaceholder, text: $newWebsiteURL)
                         .textFieldStyle(.roundedBorder)
+                        .accessibilityLabel(Localization.PowerMode.websitePlaceholder)
                         .onSubmit {
                             addWebsite()
                         }
 
                     Button(action: addWebsite) {
-                        Image(systemName: "plus.circle.fill")
+                        Label(Localization.PowerMode.addButton, systemImage: "plus.circle.fill")
+                            .labelStyle(.iconOnly)
                             .foregroundColor(.accentColor)
                             .font(.system(size: 18))
                     }
                     .buttonStyle(.plain)
+                    .help(Localization.PowerMode.addButton)
+                    .accessibilityLabel(Localization.PowerMode.addButton)
                     .disabled(newWebsiteURL.isEmpty)
                 }
 
@@ -113,12 +118,15 @@ extension ConfigurationView {
                 Button(action: {
                     selectedAppConfigs.removeAll(where: { $0.id == appConfig.id })
                 }) {
-                    Image(systemName: "xmark.circle.fill")
+                    Label(Localization.PowerMode.deleteAction, systemImage: "xmark.circle.fill")
+                        .labelStyle(.iconOnly)
                         .font(.system(size: 14))
                         .foregroundColor(.white)
                         .background(Circle().fill(Color.black.opacity(0.6)))
                 }
                 .buttonStyle(.plain)
+                .help(Localization.PowerMode.deleteAction)
+                .accessibilityLabel(Localization.PowerMode.deleteAction)
                 .offset(x: 6, y: -6)
             }
         }
@@ -142,11 +150,14 @@ extension ConfigurationView {
             Button(action: {
                 websiteConfigs.removeAll(where: { $0.id == urlConfig.id })
             }) {
-                Image(systemName: "xmark.circle.fill")
+                Label(Localization.PowerMode.deleteAction, systemImage: "xmark.circle.fill")
+                    .labelStyle(.iconOnly)
                     .font(.system(size: 9))
                     .foregroundColor(.secondary)
             }
             .buttonStyle(.plain)
+            .help(Localization.PowerMode.deleteAction)
+            .accessibilityLabel(Localization.PowerMode.deleteAction)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)

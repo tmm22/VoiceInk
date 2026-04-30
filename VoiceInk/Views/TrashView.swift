@@ -31,7 +31,7 @@ struct TrashView: View {
             }
         }
         .alert("\(Localization.Trash.emptyTrash)?", isPresented: $showEmptyTrashConfirmation) {
-            Button("Cancel", role: .cancel) {}
+            Button(Localization.General.cancel, role: .cancel) {}
             Button(Localization.Trash.emptyTrash, role: .destructive) {
                 Task {
                     await viewModel.emptyTrash()
@@ -41,8 +41,8 @@ struct TrashView: View {
             Text("This will permanently delete \(viewModel.deletedTranscriptions.count) item(s). This action cannot be undone.")
         }
         .alert("Delete Permanently?", isPresented: $showDeleteConfirmation) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) {
+            Button(Localization.General.cancel, role: .cancel) {}
+            Button(Localization.Trash.deletePermanently, role: .destructive) {
                 Task {
                     await viewModel.permanentlyDeleteTranscriptions(Array(selectedTranscriptions))
                     selectedTranscriptions.removeAll()
@@ -73,7 +73,7 @@ struct TrashView: View {
                 .tint(.red)
             }
             
-            Button("Done") {
+            Button(Localization.General.done) {
                 dismiss()
             }
             .buttonStyle(.borderedProminent)
@@ -208,8 +208,11 @@ struct TrashItemCard: View {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 20))
                     .foregroundColor(isSelected ? .accentColor : .secondary)
+                    .frame(width: 28, height: 28)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(isSelected ? "Deselect transcription" : "Select transcription")
+            .help(isSelected ? "Deselect transcription" : "Select transcription")
             
             VStack(alignment: .leading, spacing: VoiceInkSpacing.xs) {
                 Text(transcription.text)
@@ -238,6 +241,7 @@ struct TrashItemCard: View {
                         .font(.system(size: 14))
                 }
                 .buttonStyle(.bordered)
+                .accessibilityLabel("Restore transcription")
                 .help("Restore")
                 
                 Button(action: onDelete) {
@@ -246,6 +250,7 @@ struct TrashItemCard: View {
                 }
                 .buttonStyle(.bordered)
                 .tint(.red)
+                .accessibilityLabel("Delete transcription permanently")
                 .help("Delete permanently")
             }
         }
@@ -354,6 +359,7 @@ final class TrashViewModel: ObservableObject {
     private func removeAssociatedAudio(for transcription: Transcription) {
         guard let urlString = transcription.audioFileURL,
               let url = URL(string: urlString) else { return }
+        // Best-effort cleanup; the database deletion should proceed even if the audio file is already gone.
         try? FileManager.default.removeItem(at: url)
     }
 }

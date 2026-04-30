@@ -44,7 +44,7 @@ extension SettingsView {
                                     .font(.system(size: 13, weight: .medium))
                                     .foregroundColor(.secondary)
 
-                                Picker("", selection: $mediaController.audioResumptionDelay) {
+                                Picker("Resume Delay", selection: $mediaController.audioResumptionDelay) {
                                     Text("0s").tag(0.0)
                                     Text("1s").tag(1.0)
                                     Text("2s").tag(2.0)
@@ -53,6 +53,7 @@ extension SettingsView {
                                     Text("5s").tag(5.0)
                                 }
                                 .pickerStyle(.menu)
+                                .labelsHidden()
                                 .frame(width: 90)
 
                                 Spacer()

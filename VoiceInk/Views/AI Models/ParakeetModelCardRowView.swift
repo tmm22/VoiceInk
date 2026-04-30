@@ -130,6 +130,7 @@ struct ParakeetModelCardRowView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .help("Use \(model.displayName) as the default transcription model")
             } else {
                 Button(action: {
                     Task {
@@ -148,11 +149,13 @@ struct ParakeetModelCardRowView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(isDownloading)
+                .accessibilityLabel(isDownloading ? "Downloading \(model.displayName)" : "Download \(model.displayName)")
+                .help(isDownloading ? "Downloading \(model.displayName)" : "Download \(model.displayName)")
             }
             
             if isDownloaded {
                 Menu {
-                    Button(action: {
+                    Button(role: .destructive, action: {
                          whisperState.deleteParakeetModel(model)
                     }) {
                         Label("Delete Model", systemImage: "trash")
@@ -169,7 +172,9 @@ struct ParakeetModelCardRowView: View {
                 }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
-                .frame(width: 20, height: 20)
+                .frame(width: 28, height: 28)
+                .accessibilityLabel("More actions for \(model.displayName)")
+                .help("More actions")
             }
         }
     }

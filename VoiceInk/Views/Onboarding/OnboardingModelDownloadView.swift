@@ -15,265 +15,151 @@ struct OnboardingModelDownloadView: View {
     
     var body: some View {
         ZStack {
-            GeometryReader { geometry in
-                // Reusable background
-                OnboardingBackgroundView()
-                
-                VStack(spacing: 40) {
-                    // Model icon and title
-                    VStack(spacing: 30) {
-                        // Model icon
-                        ZStack {
-                            Circle()
-                                .fill(Color.accentColor.opacity(0.1))
-                                .frame(width: 100, height: 100)
-                            
-                            if isModelSet {
-                                Image(systemName: "checkmark.seal.fill")
-                                    .font(.system(size: 50))
-                                    .foregroundColor(.accentColor)
-                                    .transition(.scale.combined(with: .opacity))
-                            } else {
-                                Image(systemName: "brain")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(.accentColor)
-                            }
-                        }
-                        .scaleEffect(scale)
-                        .opacity(opacity)
-                        
-                        // Title and description
-                        VStack(spacing: 12) {
-                            Text("Download AI Model")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                            
-                            Text("We'll download the optimized model to get you started.")
-                                .font(.body)
-                                .foregroundColor(.white.opacity(0.7))
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal)
-                        }
-                        .scaleEffect(scale)
-                        .opacity(opacity)
-                    }
-                    
-                    // Model card - Centered and compact
-                    Group {
-                        if let model = turboModel {
-                            VStack(alignment: .leading, spacing: 16) {
-                                // Model name and details
-                                VStack(alignment: .center, spacing: 8) {
-                                    Text(model.displayName)
-                                        .font(.headline)
-                                        .foregroundColor(.white)
-                                    Text("\(model.size) • \(model.language)")
-                                        .font(.caption)
-                                        .foregroundColor(.white.opacity(0.7))
-                                }
-                                .frame(maxWidth: .infinity)
-                                
-                                Divider()
-                                    .background(Color.white.opacity(0.1))
-                                
-                                // Performance indicators in a more compact layout
-                                HStack(spacing: 20) {
-                                    performanceIndicator(label: "Speed", value: model.speed)
-                                    performanceIndicator(label: "Accuracy", value: model.accuracy)
-                                    ramUsageLabel(gb: model.ramUsage)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                
-                                // Download progress
-                                if isDownloading {
-                                    DownloadProgressView(
-                                        modelName: model.name,
-                                        downloadProgress: whisperState.downloadProgress,
-                                        supportsCoreML: model.supportsCoreMLEncoder
-                                    )
-                                    .transition(.opacity)
-                                }
-                            }
-                        } else {
-                            VStack(spacing: 16) {
-                                Text("Model configuration error")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                Text("Unable to find the turbo model")
-                                    .font(.caption)
-                                    .foregroundColor(.white.opacity(0.7))
-                            }
-                        }
-                    }
-                    .padding(24)
-                    .frame(width: min(geometry.size.width * 0.6, 400))
-                    .background(Color.black.opacity(0.3))
-                    .cornerRadius(16)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                    )
-                    .scaleEffect(scale)
-                    .opacity(opacity)
-                    
-                    // Action buttons
-                    VStack(spacing: 16) {
-                        Button(action: handleAction) {
-                            Text(getButtonTitle())
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(width: 200, height: 50)
-                                .background(Color.accentColor)
-                                .cornerRadius(25)
-                        }
-                        .buttonStyle(ScaleButtonStyle())
-                        .disabled(isDownloading)
-                        
-                        if !isModelSet {
-                            SkipButton(text: "Skip for now") {
-                                withAnimation {
-                                    showTutorial = true
-                                }
-                            }
-                        }
-                    }
-                    .opacity(opacity)
-                }
-                .padding()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .frame(width: min(geometry.size.width * 0.8, 600))
-                .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
-            }
-            
             if showTutorial {
                 OnboardingTutorialView(hasCompletedOnboarding: $hasCompletedOnboarding)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             } else {
-                GeometryReader { geometry in
-                    // Reusable background
-                    OnboardingBackgroundView()
-                    
-                    VStack(spacing: 40) {
-                        // Model icon and title
-                        VStack(spacing: 30) {
-                            // Model icon
-                            ZStack {
-                                Circle()
-                                    .fill(Color.accentColor.opacity(0.1))
-                                    .frame(width: 100, height: 100)
-                                
-                                if isModelSet {
-                                    Image(systemName: "checkmark.seal.fill")
-                                        .font(.system(size: 50))
-                                        .foregroundColor(.accentColor)
-                                        .transition(.scale.combined(with: .opacity))
-                                } else {
-                                    Image(systemName: "brain")
-                                        .font(.system(size: 40))
-                                        .foregroundColor(.accentColor)
-                                }
-                            }
-                            .scaleEffect(scale)
-                            .opacity(opacity)
-                            
-                            // Title and description
-                            VStack(spacing: 12) {
-                                Text("Download AI Model")
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.white)
-                                
-                                Text("We'll download the optimized model to get you started.")
-                                    .font(.body)
-                                    .foregroundColor(.white.opacity(0.7))
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal)
-                            }
-                            .scaleEffect(scale)
-                            .opacity(opacity)
-                        }
-                        
-                        // Model card - Centered and compact
-                        VStack(alignment: .leading, spacing: 16) {
-                            // Model name and details
-                            VStack(alignment: .center, spacing: 8) {
-                                Text(turboModel?.displayName ?? "Turbo Model")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                Text("\(turboModel?.size ?? "Unknown") • \(turboModel?.language ?? "Unknown")")
-                                    .font(.caption)
-                                    .foregroundColor(.white.opacity(0.7))
-                            }
-                            .frame(maxWidth: .infinity)
-                            
-                            Divider()
-                                .background(Color.white.opacity(0.1))
-                            
-                            // Performance indicators in a more compact layout
-                            HStack(spacing: 20) {
-                                performanceIndicator(label: "Speed", value: turboModel?.speed ?? 0)
-                                performanceIndicator(label: "Accuracy", value: turboModel?.accuracy ?? 0)
-                                ramUsageLabel(gb: turboModel?.ramUsage ?? 0)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            
-                            // Download progress
-                            if isDownloading {
-                                DownloadProgressView(
-                                    modelName: turboModel?.name ?? "ggml-large-v3-turbo-q5_0",
-                                    downloadProgress: whisperState.downloadProgress,
-                                    supportsCoreML: turboModel?.supportsCoreMLEncoder ?? false
-                                )
-                                .transition(.opacity)
-                            }
-                        }
-                        .padding(24)
-                        .frame(width: min(geometry.size.width * 0.6, 400))
-                        .background(Color.black.opacity(0.3))
-                        .cornerRadius(16)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                        )
-                        .scaleEffect(scale)
-                        .opacity(opacity)
-                        
-                        // Action buttons
-                        VStack(spacing: 16) {
-                            Button(action: handleAction) {
-                                Text(getButtonTitle())
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                    .frame(width: 200, height: 50)
-                                    .background(Color.accentColor)
-                                    .cornerRadius(25)
-                            }
-                            .buttonStyle(ScaleButtonStyle())
-                            .disabled(isDownloading)
-                            
-                            if !isModelSet {
-                                SkipButton(text: "Skip for now") {
-                                    withAnimation {
-                                        showTutorial = true
-                                    }
-                                }
-                            }
-                        }
-                        .opacity(opacity)
-                    }
-                    .padding()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .frame(width: min(geometry.size.width * 0.8, 600))
-                    .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
-                }
-                .transition(.move(edge: .leading).combined(with: .opacity))
+                modelDownloadContent
+                    .transition(.move(edge: .leading).combined(with: .opacity))
             }
         }
+        .frame(minWidth: 720, minHeight: 560)
         .onAppear {
             animateIn()
             checkModelStatus()
         }
+    }
+
+    private var modelDownloadContent: some View {
+        GeometryReader { geometry in
+            OnboardingBackgroundView()
+
+            VStack(spacing: 40) {
+                modelHeader
+                modelCard(width: min(geometry.size.width * 0.6, 400))
+                actionButtons
+            }
+            .padding()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(width: min(geometry.size.width * 0.8, 600))
+            .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+        }
+    }
+
+    private var modelHeader: some View {
+        VStack(spacing: 30) {
+            ZStack {
+                Circle()
+                    .fill(Color.accentColor.opacity(0.1))
+                    .frame(width: 100, height: 100)
+
+                if isModelSet {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 50))
+                        .foregroundColor(.accentColor)
+                        .transition(.scale.combined(with: .opacity))
+                } else {
+                    Image(systemName: "brain")
+                        .font(.system(size: 40))
+                        .foregroundColor(.accentColor)
+                }
+            }
+
+            VStack(spacing: 12) {
+                Text("Download AI Model")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+
+                Text("We'll download the optimized model to get you started.")
+                    .font(.body)
+                    .foregroundColor(.white.opacity(0.7))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+        }
+        .scaleEffect(scale)
+        .opacity(opacity)
+    }
+
+    private func modelCard(width: CGFloat) -> some View {
+        Group {
+            if let model = turboModel {
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .center, spacing: 8) {
+                        Text(model.displayName)
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        Text("\(model.size) • \(model.language)")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                    .frame(maxWidth: .infinity)
+
+                    Divider()
+                        .background(Color.white.opacity(0.1))
+
+                    HStack(spacing: 20) {
+                        performanceIndicator(label: "Speed", value: model.speed)
+                        performanceIndicator(label: "Accuracy", value: model.accuracy)
+                        ramUsageLabel(gb: model.ramUsage)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+
+                    if isDownloading {
+                        DownloadProgressView(
+                            modelName: model.name,
+                            downloadProgress: whisperState.downloadProgress,
+                            supportsCoreML: model.supportsCoreMLEncoder
+                        )
+                        .transition(.opacity)
+                    }
+                }
+            } else {
+                VStack(spacing: 16) {
+                    Text("Model configuration error")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    Text("Unable to find the turbo model")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                }
+            }
+        }
+        .padding(24)
+        .frame(width: width)
+        .background(Color.black.opacity(0.3))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+        )
+        .scaleEffect(scale)
+        .opacity(opacity)
+    }
+
+    private var actionButtons: some View {
+        VStack(spacing: 16) {
+            Button(action: handleAction) {
+                Text(getButtonTitle())
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(width: 200, height: 50)
+                    .background(Color.accentColor)
+                    .cornerRadius(25)
+            }
+            .buttonStyle(ScaleButtonStyle())
+            .disabled(isDownloading)
+
+            if !isModelSet {
+                SkipButton(text: "Skip for now") {
+                    withAnimation {
+                        showTutorial = true
+                    }
+                }
+            }
+        }
+        .opacity(opacity)
     }
     
     private func animateIn() {

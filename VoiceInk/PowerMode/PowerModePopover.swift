@@ -48,8 +48,7 @@ struct PowerModePopover: View {
                 .padding(.horizontal)
             }
         }
-        .frame(width: 180)
-        .frame(maxHeight: 340)
+        .frame(minWidth: 180, idealWidth: 220, maxWidth: 260, maxHeight: 340)
         .padding(.vertical, 8)
         .background(Color.black)
         .environment(\.colorScheme, .dark)
@@ -99,6 +98,8 @@ struct PowerModeRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(config.name)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .background(isSelected ? Color.white.opacity(0.1) : Color.clear)
         .cornerRadius(4)
     }

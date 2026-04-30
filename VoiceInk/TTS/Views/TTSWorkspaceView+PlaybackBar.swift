@@ -35,10 +35,17 @@ struct PlaybackBarView: View {
                         showSegmentMarkers.toggle()
                     }
                 } label: {
-                    Image(systemName: showSegmentMarkers ? "chevron.down.circle" : "chevron.up.circle")
+                    Label(
+                        showSegmentMarkers ? "Hide segment markers" : "Show segment markers",
+                        systemImage: showSegmentMarkers ? "chevron.down.circle" : "chevron.up.circle"
+                    )
+                        .labelStyle(.iconOnly)
                         .imageScale(.large)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
+                .accessibilityLabel(showSegmentMarkers ? "Hide segment markers" : "Show segment markers")
                 .help("Toggle segment markers")
             }
 
@@ -55,41 +62,57 @@ struct PlaybackBarView: View {
             Button(action: {
                 playback.skipBackward()
             }) {
-                Image(systemName: "gobackward.10")
+                Label("Skip backward 10 seconds", systemImage: "gobackward.10")
+                    .labelStyle(.iconOnly)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
             .disabled(!viewModel.hasGeneratedAudio)
             .keyboardShortcut(.leftArrow, modifiers: .command)
+            .accessibilityLabel("Skip backward 10 seconds")
             .help("Skip backward 10 seconds (⌘←)")
 
             Button(action: {
                 playback.togglePlayPause()
             }) {
-                Image(systemName: playback.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                Label(playback.isPlaying ? "Pause" : "Play", systemImage: playback.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                    .labelStyle(.iconOnly)
                     .font(.system(size: 28))
                     .foregroundColor(.accentColor)
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
             .disabled(!viewModel.hasGeneratedAudio)
             .keyboardShortcut(.space, modifiers: [])
+            .accessibilityLabel(playback.isPlaying ? "Pause" : "Play")
             .help("Play or pause (Space)")
 
             Button(action: {
                 playback.skipForward()
             }) {
-                Image(systemName: "goforward.10")
+                Label("Skip forward 10 seconds", systemImage: "goforward.10")
+                    .labelStyle(.iconOnly)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
             .disabled(!viewModel.hasGeneratedAudio)
             .keyboardShortcut(.rightArrow, modifiers: .command)
+            .accessibilityLabel("Skip forward 10 seconds")
             .help("Skip forward 10 seconds (⌘→)")
 
             Button(action: playback.stop) {
-                Image(systemName: "stop.circle")
+                Label("Stop", systemImage: "stop.circle")
+                    .labelStyle(.iconOnly)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
             .disabled(!viewModel.hasGeneratedAudio || !playback.isPlaying)
             .keyboardShortcut(".", modifiers: .command)
+            .accessibilityLabel("Stop")
             .help("Stop playback (⌘.)")
         }
     }
@@ -100,42 +123,21 @@ struct PlaybackBarView: View {
                 .font(.system(size: 12, design: .monospaced))
                 .frame(width: 60, alignment: .trailing)
 
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.secondary.opacity(0.2))
-                        .frame(height: 6)
-
-                    Capsule()
-                            .fill(Color.accentColor)
-                            .frame(
-                            width: playback.duration > 0 ? geometry.size.width * CGFloat(progressValue) : 0,
-                                height: 6
-                            )
-
-                    if playback.duration > 0 {
-                        Circle()
-                            .fill(Color.accentColor)
-                            .frame(width: 14, height: 14)
-                            .offset(x: geometry.size.width * CGFloat(progressValue) - 7)
-                            .gesture(
-                                DragGesture()
-                                    .onChanged { value in
-                                        isScrubbing = true
-                                        let ratio = min(max(value.location.x / geometry.size.width, 0), 1)
-                                        temporaryTime = TimeInterval(ratio) * playback.duration
-                                    }
-                                    .onEnded { value in
-                                        let ratio = min(max(value.location.x / geometry.size.width, 0), 1)
-                                        let newTime = TimeInterval(ratio) * playback.duration
-                                        playback.seek(to: newTime)
-                                        isScrubbing = false
-                                    }
-                            )
-                    }
+            Slider(
+                value: Binding(
+                    get: { min(max(isScrubbing ? temporaryTime : playback.currentTime, 0), timelineDuration) },
+                    set: { temporaryTime = min(max($0, 0), timelineDuration) }
+                ),
+                in: 0...timelineDuration
+            ) { editing in
+                isScrubbing = editing
+                if !editing {
+                    playback.seek(to: temporaryTime)
                 }
             }
-            .frame(height: 18)
+            .accessibilityLabel("Playback position")
+            .accessibilityValue("\(formatTime(isScrubbing ? temporaryTime : playback.currentTime)) of \(formatTime(playback.duration))")
+            .disabled(!viewModel.hasGeneratedAudio || playback.duration <= 0)
 
             Text(formatTime(playback.duration))
                 .font(.system(size: 12, design: .monospaced))
@@ -149,11 +151,16 @@ struct PlaybackBarView: View {
             playback.isLoopEnabled.toggle()
             settings.saveSettings()
         } label: {
-            Image(systemName: playback.isLoopEnabled ? "repeat.circle.fill" : "repeat")
+            Label("Loop playback", systemImage: playback.isLoopEnabled ? "repeat.circle.fill" : "repeat")
+                .labelStyle(.iconOnly)
                 .imageScale(.large)
                 .foregroundColor(playback.isLoopEnabled ? .accentColor : .secondary)
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.borderless)
+        .accessibilityLabel("Loop playback")
+        .accessibilityValue(playback.isLoopEnabled ? "On" : "Off")
         .help("Toggle loop playback")
     }
 
@@ -182,10 +189,14 @@ struct PlaybackBarView: View {
                 }
                 playback.applyPlaybackVolume(save: true)
             } label: {
-                Image(systemName: volumeIcon)
+                Label(playback.volume == 0 ? "Unmute" : "Mute", systemImage: volumeIcon)
+                    .labelStyle(.iconOnly)
                     .imageScale(.large)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
+            .accessibilityLabel(playback.volume == 0 ? "Unmute" : "Mute")
             .help("Toggle mute")
 
             Slider(value: Binding(
@@ -200,16 +211,13 @@ struct PlaybackBarView: View {
                 }
             }
             .frame(width: 120)
+            .accessibilityLabel("Volume")
+            .accessibilityValue("\(Int(playback.volume * 100)) percent")
         }
     }
 
-    private var progressValue: Double {
-        if isScrubbing {
-            guard playback.duration > 0 else { return 0 }
-            return temporaryTime / playback.duration
-        }
-        guard playback.duration > 0 else { return 0 }
-        return playback.currentTime / playback.duration
+    private var timelineDuration: Double {
+        max(playback.duration, 0.01)
     }
 
     private var volumeIcon: String {

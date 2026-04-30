@@ -24,6 +24,8 @@ struct AudioSettingsView: View {
                             playback.applyPlaybackSpeed(save: true)
                         }
                     }
+                    .accessibilityLabel("Playback speed")
+                    .accessibilityValue(String(format: "%.2g times", playback.playbackSpeed))
                     Image(systemName: "hare")
                         .font(.caption2)
                 }
@@ -47,6 +49,8 @@ struct AudioSettingsView: View {
                             playback.applyPlaybackVolume(save: true)
                         }
                     }
+                    .accessibilityLabel("Volume")
+                    .accessibilityValue("\(Int(playback.volume * 100)) percent")
                     Image(systemName: "speaker.wave.3.fill")
                         .font(.caption2)
                 }
@@ -79,7 +83,7 @@ struct ExportSettingsView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
 
-                Picker("", selection: $settings.selectedFormat) {
+                Picker("Audio format", selection: $settings.selectedFormat) {
                     ForEach(settings.supportedFormats, id: \.self) { format in
                         Text(format.displayName).tag(format)
                     }
@@ -101,7 +105,7 @@ struct ExportSettingsView: View {
                     .foregroundColor(.secondary)
 
                 HStack {
-                    Picker("", selection: $selectedTranscriptFormat) {
+                    Picker("Transcript format", selection: $selectedTranscriptFormat) {
                         Text("SRT").tag(TranscriptFormat.srt)
                         Text("VTT").tag(TranscriptFormat.vtt)
                     }
@@ -146,9 +150,13 @@ struct CostView: View {
                 Button {
                     viewModel.objectWillChange.send()
                 } label: {
-                    Image(systemName: "arrow.clockwise")
+                    Label("Refresh estimate", systemImage: "arrow.clockwise")
+                        .labelStyle(.iconOnly)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Refresh estimate")
                 .help("Refresh estimate")
             }
 

@@ -90,11 +90,15 @@ struct TTSInspectorView: View {
                     isVisible = false
                 }
             } label: {
-                Image(systemName: "sidebar.right")
+                Label("Hide Tickwick Settings", systemImage: "sidebar.right")
+                    .labelStyle(.iconOnly)
                     .symbolRenderingMode(.hierarchical)
                     .foregroundColor(.primary)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Hide Tickwick Settings")
             .layoutPriority(1)
             .help("Hide Tickwick Settings")
         }

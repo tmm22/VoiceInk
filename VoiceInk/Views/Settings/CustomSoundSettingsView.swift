@@ -46,7 +46,8 @@ struct CustomSoundSettingsView: View {
                 Image(systemName: "play.fill")
             }
             .buttonStyle(.borderless)
-            .help("Test")
+            .accessibilityLabel("Test \(type.rawValue) sound")
+            .help("Test \(type.rawValue) sound")
 
             Button {
                 selectSound(for: type)
@@ -54,7 +55,8 @@ struct CustomSoundSettingsView: View {
                 Image(systemName: "folder")
             }
             .buttonStyle(.borderless)
-            .help("Choose")
+            .accessibilityLabel("Choose \(type.rawValue) sound")
+            .help("Choose \(type.rawValue) sound")
 
             if isCustom {
                 Button {
@@ -63,7 +65,8 @@ struct CustomSoundSettingsView: View {
                     Image(systemName: "arrow.uturn.backward")
                 }
                 .buttonStyle(.borderless)
-                .help("Reset")
+                .accessibilityLabel("Reset \(type.rawValue) sound")
+                .help("Reset \(type.rawValue) sound")
             }
         }
     }

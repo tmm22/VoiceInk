@@ -11,15 +11,18 @@ struct SettingsNavigationRail: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: VoiceInkSpacing.xs) {
-            // Search Field
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.secondary)
                     .font(.system(size: 12))
+                    .accessibilityHidden(true)
                 
-                TextField("Search settings...", text: $searchText)
+                TextField("Search settings", text: $searchText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
+                    .submitLabel(.search)
+                    .accessibilityLabel("Search settings")
+                    .help("Search settings")
                 
                 if !searchText.isEmpty {
                     Button(action: { searchText = "" }) {
@@ -28,6 +31,10 @@ struct SettingsNavigationRail: View {
                             .font(.system(size: 12))
                     }
                     .buttonStyle(.plain)
+                    .frame(minWidth: 20, minHeight: 20)
+                    .contentShape(Rectangle())
+                    .accessibilityLabel("Clear settings search")
+                    .help("Clear search")
                 }
             }
             .padding(.horizontal, VoiceInkSpacing.md)
@@ -53,7 +60,7 @@ struct SettingsNavigationRail: View {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 24))
                         .foregroundColor(.secondary)
-                    Text("No results found")
+                    Text("No settings found")
                         .font(.system(size: 13))
                         .foregroundColor(.secondary)
                 }
@@ -103,6 +110,8 @@ struct SettingsRailItem: View {
         .buttonStyle(.plain)
         .foregroundColor(isSelected ? VoiceInkTheme.Palette.accent : .secondary)
         .opacity(dimmed ? 0.4 : 1.0)
+        .accessibilityLabel(tab.rawValue)
+        .accessibilityValue(isSelected ? "Selected" : "")
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.1)) {
                 isHovering = hovering

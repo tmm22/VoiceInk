@@ -30,12 +30,16 @@ struct AppPickerSheet: View {
                     .foregroundColor(.secondary)
                 TextField(Localization.PowerMode.searchApplicationsPlaceholder, text: $searchText)
                     .textFieldStyle(.roundedBorder)
+                    .accessibilityLabel(Localization.PowerMode.searchApplicationsPlaceholder)
                 if !searchText.isEmpty {
                     Button(action: { searchText = "" }) {
-                        Image(systemName: "xmark.circle.fill")
+                        Label(Localization.PowerMode.cancelButton, systemImage: "xmark.circle.fill")
+                            .labelStyle(.iconOnly)
                             .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
+                    .help(Localization.PowerMode.cancelButton)
+                    .accessibilityLabel(Localization.PowerMode.cancelButton)
                 }
             }
             .padding(.horizontal)
@@ -56,7 +60,7 @@ struct AppPickerSheet: View {
                 .padding()
             }
         }
-        .frame(width: 600, height: 500)
+        .frame(minWidth: 500, idealWidth: 600, maxWidth: 720, minHeight: 420, idealHeight: 500, maxHeight: 640)
     }
     
     private func toggleAppSelection(_ app: (url: URL, name: String, bundleId: String, icon: NSImage)) {

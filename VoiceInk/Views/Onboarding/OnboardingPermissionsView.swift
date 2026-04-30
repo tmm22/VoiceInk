@@ -227,6 +227,7 @@ struct OnboardingPermissionsView: View {
             // Ensure audio devices are loaded
             audioDeviceManager.loadAvailableDevices()
         }
+        .frame(minWidth: 720, minHeight: 560)
     }
     
     private func animateIn() {
@@ -417,6 +418,8 @@ struct OnboardingPermissionsView: View {
                     )
                 }
                 .menuStyle(.borderlessButton)
+                .accessibilityLabel(label)
+                .help(label)
                 
                 Spacer()
             }

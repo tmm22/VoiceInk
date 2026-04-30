@@ -356,8 +356,8 @@ struct VoiceInkApp: App {
             }
         }
         .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 950, height: 730)
-        .windowResizability(.contentSize)
+        .defaultSize(width: 1200, height: 780)
+        .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(replacing: .newItem) { }
 
@@ -397,6 +397,7 @@ struct VoiceInkApp: App {
             }()
 
             Image(nsImage: image)
+                .accessibilityLabel(AppBrand.communityName)
         }
         .menuBarExtraStyle(.menu)
         

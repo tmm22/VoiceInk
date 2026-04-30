@@ -47,7 +47,7 @@ struct AudioTranscribeView: View {
             }
             return false
         }
-        .alert("Error", isPresented: .constant(transcriptionManager.errorMessage != nil)) {
+        .alert(Localization.General.error, isPresented: .constant(transcriptionManager.errorMessage != nil)) {
             Button("OK", role: .cancel) {
                 transcriptionManager.errorMessage = nil
             }

@@ -4,6 +4,7 @@ struct PlaybackControlsView: View {
     @EnvironmentObject var viewModel: TTSViewModel
     @EnvironmentObject var settings: TTSSettingsViewModel
     @EnvironmentObject var playback: TTSPlaybackViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isDraggingSlider = false
     @State private var temporaryTime: TimeInterval = 0
     
@@ -17,49 +18,65 @@ struct PlaybackControlsView: View {
                     Button(action: {
                         playback.skipBackward()
                     }) {
-                        Image(systemName: "gobackward.10")
+                        Label("Skip backward 10 seconds", systemImage: "gobackward.10")
+                            .labelStyle(.iconOnly)
                             .font(.system(size: settings.isMinimalistMode ? 16 : 20))
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
-                    .disabled(!viewModel.hasGeneratedAudio)
+                    .buttonStyle(.borderless)
+                    .disabled(!viewModel.hasGeneratedAudio || playback.duration <= 0)
                     .keyboardShortcut(.leftArrow, modifiers: .command)
+                    .accessibilityLabel("Skip backward 10 seconds")
                     .help("Skip backward 10 seconds (⌘←)")
                     
                     // Play/Pause
                     Button(action: {
                         playback.togglePlayPause()
                     }) {
-                        Image(systemName: playback.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                        Label(playback.isPlaying ? "Pause" : "Play", systemImage: playback.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                            .labelStyle(.iconOnly)
                             .font(.system(size: settings.isMinimalistMode ? 32 : 44))
                             .foregroundColor(.accentColor)
-                            .scaleEffect(playback.isPlaying ? 1.1 : 1.0)
-                            .animation(.easeInOut(duration: 0.2), value: playback.isPlaying)
+                            .scaleEffect(!reduceMotion && playback.isPlaying ? 1.1 : 1.0)
+                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: playback.isPlaying)
+                            .frame(width: settings.isMinimalistMode ? 36 : 48, height: settings.isMinimalistMode ? 36 : 48)
+                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.borderless)
                     .disabled(!viewModel.hasGeneratedAudio)
                     .keyboardShortcut(.space, modifiers: [])
+                    .accessibilityLabel(playback.isPlaying ? "Pause" : "Play")
                     .help("Play/Pause (Space)")
                     
                     // Skip forward
                     Button(action: {
                         playback.skipForward()
                     }) {
-                        Image(systemName: "goforward.10")
+                        Label("Skip forward 10 seconds", systemImage: "goforward.10")
+                            .labelStyle(.iconOnly)
                             .font(.system(size: settings.isMinimalistMode ? 16 : 20))
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.borderless)
                     .disabled(!viewModel.hasGeneratedAudio)
                     .keyboardShortcut(.rightArrow, modifiers: .command)
+                    .accessibilityLabel("Skip forward 10 seconds")
                     .help("Skip forward 10 seconds (⌘→)")
                     
                     // Stop
                     Button(action: playback.stop) {
-                        Image(systemName: "stop.circle")
+                        Label("Stop", systemImage: "stop.circle")
+                            .labelStyle(.iconOnly)
                             .font(.system(size: settings.isMinimalistMode ? 16 : 20))
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.borderless)
                     .disabled(!viewModel.hasGeneratedAudio || !playback.isPlaying)
                     .keyboardShortcut(".", modifiers: .command)
+                    .accessibilityLabel("Stop")
                     .help("Stop playback (⌘.)")
                 }
                 
@@ -73,53 +90,21 @@ struct PlaybackControlsView: View {
                         .foregroundColor(.secondary)
                         .frame(width: 50, alignment: .trailing)
                     
-                    // Custom progress slider
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            // Background track
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(Color.secondary.opacity(0.2))
-                                .frame(height: 6)
-                            
-                            // Progress track
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(Color.accentColor)
-                                .frame(
-                                    width: playback.duration > 0 ? 
-                                        geometry.size.width * CGFloat(isDraggingSlider ? temporaryTime : playback.currentTime) / CGFloat(playback.duration) : 0,
-                                    height: 6
-                                )
-                            
-                            // Draggable thumb
-                            if playback.duration > 0 {
-                                Circle()
-                                    .fill(Color.accentColor)
-                                    .frame(width: 14, height: 14)
-                                    .offset(x: geometry.size.width * CGFloat(isDraggingSlider ? temporaryTime : playback.currentTime) / CGFloat(playback.duration) - 7)
-                                    .gesture(
-                                        DragGesture()
-                                            .onChanged { value in
-                                                isDraggingSlider = true
-                                                let progress = max(0, min(1, value.location.x / geometry.size.width))
-                                                temporaryTime = playback.duration * Double(progress)
-                                            }
-                                            .onEnded { _ in
-                                                playback.seek(to: temporaryTime)
-                                                isDraggingSlider = false
-                                            }
-                                    )
-                            }
-                        }
-                        .frame(height: 14)
-                        .contentShape(Rectangle())
-                        .onTapGesture { location in
-                            let progress = max(0, min(1, location.x / geometry.size.width))
-                            let newTime = playback.duration * Double(progress)
-                            playback.seek(to: newTime)
+                    Slider(
+                        value: Binding(
+                            get: { min(max(isDraggingSlider ? temporaryTime : playback.currentTime, 0), timelineDuration) },
+                            set: { temporaryTime = min(max($0, 0), timelineDuration) }
+                        ),
+                        in: 0...timelineDuration
+                    ) { editing in
+                        isDraggingSlider = editing
+                        if !editing {
+                            playback.seek(to: temporaryTime)
                         }
                     }
-                    .frame(height: 14)
-                    .disabled(!viewModel.hasGeneratedAudio)
+                    .accessibilityLabel("Playback position")
+                    .accessibilityValue("\(formatTime(isDraggingSlider ? temporaryTime : playback.currentTime)) of \(formatTime(playback.duration))")
+                    .disabled(!viewModel.hasGeneratedAudio || playback.duration <= 0)
                     
                     Text(formatTime(playback.duration))
                         .font(.system(size: 12, design: .monospaced))
@@ -143,7 +128,7 @@ struct PlaybackControlsView: View {
                                         .font(.system(size: 13))
                                         .foregroundColor(.secondary)
                                     
-                                    Picker("", selection: $playback.playbackSpeed) {
+                                    Picker("Playback speed", selection: $playback.playbackSpeed) {
                                         Text("0.5×").tag(0.5)
                                         Text("0.75×").tag(0.75)
                                         Text("1.0×").tag(1.0)
@@ -153,6 +138,7 @@ struct PlaybackControlsView: View {
                                         Text("2.0×").tag(2.0)
                                     }
                                     .pickerStyle(MenuPickerStyle())
+                                    .labelsHidden()
                                     .frame(width: 80)
                                     .onChange(of: playback.playbackSpeed) {
                                         playback.applyPlaybackSpeed(save: true)
@@ -163,20 +149,28 @@ struct PlaybackControlsView: View {
                                         Button(action: {
                                             playback.playbackSpeed = max(0.5, playback.playbackSpeed - 0.25)
                                         }) {
-                                            Image(systemName: "minus.circle")
+                                            Label("Decrease speed", systemImage: "minus.circle")
+                                                .labelStyle(.iconOnly)
                                                 .font(.system(size: 14))
+                                                .frame(width: 24, height: 24)
+                                                .contentShape(Rectangle())
                                         }
-                                        .buttonStyle(.plain)
+                                        .buttonStyle(.borderless)
+                                        .accessibilityLabel("Decrease speed")
                                         .keyboardShortcut("[", modifiers: .command)
                                         .help("Decrease speed (⌘[)")
                                         
                                         Button(action: {
                                             playback.playbackSpeed = min(2.0, playback.playbackSpeed + 0.25)
                                         }) {
-                                            Image(systemName: "plus.circle")
+                                            Label("Increase speed", systemImage: "plus.circle")
+                                                .labelStyle(.iconOnly)
                                                 .font(.system(size: 14))
+                                                .frame(width: 24, height: 24)
+                                                .contentShape(Rectangle())
                                         }
-                                        .buttonStyle(.plain)
+                                        .buttonStyle(.borderless)
+                                        .accessibilityLabel("Increase speed")
                                         .keyboardShortcut("]", modifiers: .command)
                                         .help("Increase speed (⌘])")
                                     }
@@ -204,6 +198,8 @@ struct PlaybackControlsView: View {
                                         playback.applyPlaybackVolume()
                                     }
                                     .frame(width: 150)
+                                    .accessibilityLabel("Volume")
+                                    .accessibilityValue("\(Int(playback.volume * 100)) percent")
                                     
                                     Text("\(Int(playback.volume * 100))%")
                                         .font(.system(size: 12, design: .monospaced))
@@ -219,10 +215,14 @@ struct PlaybackControlsView: View {
                                         }
                                         playback.applyPlaybackVolume(save: true)
                                     }) {
-                                        Image(systemName: playback.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                                        Label(playback.volume == 0 ? "Unmute" : "Mute", systemImage: playback.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                                            .labelStyle(.iconOnly)
                                             .font(.system(size: 14))
+                                            .frame(width: 24, height: 24)
+                                            .contentShape(Rectangle())
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(.borderless)
+                                    .accessibilityLabel(playback.volume == 0 ? "Unmute" : "Mute")
                                     .help("Toggle mute")
                                 }
                                 
@@ -258,6 +258,10 @@ struct PlaybackControlsView: View {
         } else {
             return "speaker.wave.2"
         }
+    }
+
+    private var timelineDuration: Double {
+        max(playback.duration, 0.01)
     }
     
     private func formatTime(_ time: TimeInterval) -> String {

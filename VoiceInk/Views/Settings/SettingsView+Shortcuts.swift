@@ -168,17 +168,16 @@ extension SettingsView {
                                     .font(.system(size: 13, weight: .medium))
                                     .foregroundColor(.secondary)
                                 
-                                TextField("", value: $hotkeyManager.middleClickActivationDelay, formatter: {
+                                TextField("Activation Delay", value: $hotkeyManager.middleClickActivationDelay, formatter: {
                                     let formatter = NumberFormatter()
                                     formatter.numberStyle = .none
                                     formatter.minimum = 0
                                     return formatter
                                 }())
-                                .textFieldStyle(PlainTextFieldStyle())
-                                .padding(EdgeInsets(top: 3, leading: 6, bottom: 3, trailing: 6))
-                                .background(Color(NSColor.textBackgroundColor))
-                                .cornerRadius(5)
+                                .textFieldStyle(.roundedBorder)
+                                .labelsHidden()
                                 .frame(width: 70)
+                                .help("Activation delay in milliseconds")
                                 
                                 Text("ms")
                                     .foregroundColor(.secondary)
@@ -240,6 +239,8 @@ extension SettingsView {
                 )
             }
             .menuStyle(.borderlessButton)
+            .accessibilityLabel("\(title) trigger")
+            .help("Choose \(title.lowercased()) trigger")
             
             if binding.wrappedValue == .custom {
                 KeyboardShortcuts.Recorder(for: shortcutName)
@@ -256,6 +257,10 @@ extension SettingsView {
                         .foregroundColor(.red)
                 }
                 .buttonStyle(.plain)
+                .frame(minWidth: 20, minHeight: 20)
+                .contentShape(Rectangle())
+                .accessibilityLabel("Remove \(title)")
+                .help("Remove \(title.lowercased())")
             }
         }
     }

@@ -87,6 +87,7 @@ struct OnboardingView: View {
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
+        .frame(minWidth: 720, minHeight: 560)
         .onAppear {
             startAnimations()
         }
@@ -236,10 +237,15 @@ struct SkipButton: View {
     let action: () -> Void
     
     var body: some View {
-        Text(text)
-            .font(.system(size: 13, weight: .regular))
-            .foregroundColor(.white.opacity(0.2))
-            .onTapGesture(perform: action)
+        Button(action: action) {
+            Text(text)
+                .font(.system(size: 13, weight: .regular))
+                .foregroundColor(.white.opacity(0.65))
+                .frame(minWidth: 80, minHeight: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(text)
     }
 }
 
@@ -370,4 +376,3 @@ struct ScaleButtonStyle: ButtonStyle {
 #Preview {
     OnboardingView(hasCompletedOnboarding: .constant(false))
 } 
-

@@ -38,6 +38,7 @@ struct ConfigurationView: View {
     // Validation state
     @State var validationErrors: [PowerModeValidationError] = []
     @State var showValidationAlert = false
+    @State var showDeleteConfirmation = false
     
     // New state for AI provider and model
     @State var selectedAIProvider: String?
@@ -128,6 +129,20 @@ struct ConfigurationView: View {
             )
         }
         .powerModeValidationAlert(errors: validationErrors, isPresented: $showValidationAlert)
+        .confirmationDialog(
+            Localization.PowerMode.deletePowerModeTitle,
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(Localization.PowerMode.deleteAction, role: .destructive) {
+                deleteCurrentConfiguration()
+            }
+            Button(Localization.PowerMode.cancelButton, role: .cancel) { }
+        } message: {
+            if let config = editingConfiguration {
+                Text(String(format: Localization.PowerMode.deletePowerModeMessage, config.name))
+            }
+        }
         .onAppear {
             // Set AI provider and model for new power modes after environment objects are available
             if case .add = mode {

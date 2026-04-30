@@ -22,17 +22,17 @@ enum ViewType: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .metrics: return "gauge.medium"
-        case .transcribeAudio: return "waveform.circle.fill"
-        case .textToSpeech: return "speaker.wave.3.fill"
-        case .history: return "doc.text.fill"
+        case .transcribeAudio: return "waveform.circle"
+        case .textToSpeech: return "speaker.wave.3"
+        case .history: return "doc.text"
         case .models: return "brain.head.profile"
         case .enhancement: return "wand.and.stars"
-        case .powerMode: return "sparkles.square.fill.on.square"
-        case .permissions: return "shield.fill"
-        case .audioInput: return "mic.fill"
-        case .dictionary: return "character.book.closed.fill"
-        case .settings: return "gearshape.fill"
-        case .community: return "hands.sparkles.fill"
+        case .powerMode: return "sparkles"
+        case .permissions: return "shield"
+        case .audioInput: return "mic"
+        case .dictionary: return "character.book.closed"
+        case .settings: return "gearshape"
+        case .community: return "hands.sparkles"
         }
     }
 
@@ -90,18 +90,16 @@ struct ContentView: View {
                 sections: sidebarSections,
                 selectedView: $selectedView
             )
-            .frame(width: 220)
-            .navigationSplitViewColumnWidth(220)
+            .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 260)
         } detail: {
-            AppBackgroundView(material: .hudWindow) {
+            AppBackgroundView(material: .windowBackground) {
                 detailView
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .toolbar(.hidden, for: .automatic)
-                    .navigationTitle("")
+                    .navigationTitle(selectedView.displayName)
             }
         }
         .navigationSplitViewStyle(.balanced)
-        .frame(minWidth: 1200, idealWidth: 1440, minHeight: 800, idealHeight: 900)
+        .frame(minWidth: 980, idealWidth: 1200, minHeight: 680, idealHeight: 780)
         .onAppear {
             hasLoadedData = true
             ensureValidSelection()
@@ -279,6 +277,7 @@ private struct FeatureUnavailablePlaceholder: View {
                         .multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity)
+                .accessibilityElement(children: .combine)
             }
             .frame(maxWidth: 420)
         }

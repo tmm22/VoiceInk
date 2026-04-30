@@ -131,7 +131,10 @@ struct AudioFeedbackSettingsView: View {
                     .foregroundColor(VoiceInkTheme.Palette.accent)
             }
             .buttonStyle(.plain)
-            .help("Preview sound")
+            .frame(minWidth: 20, minHeight: 20)
+            .contentShape(Rectangle())
+            .accessibilityLabel("Preview \(title) sound")
+            .help("Preview \(title.lowercased()) sound")
         }
     }
     
@@ -155,7 +158,10 @@ struct AudioFeedbackSettingsView: View {
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
-                .help("Remove custom sound")
+                .frame(minWidth: 20, minHeight: 20)
+                .contentShape(Rectangle())
+                .accessibilityLabel("Remove \(title)")
+                .help("Remove \(title.lowercased())")
             } else {
                 Text("Using preset default")
                     .voiceInkCaptionStyle()

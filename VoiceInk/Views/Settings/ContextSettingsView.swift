@@ -189,7 +189,8 @@ struct ContextSettingsView: View {
                     }
                     Spacer()
                     
-                    Toggle("", isOn: $settings.includeConversationHistory)
+                    Toggle("Include conversation history", isOn: $settings.includeConversationHistory)
+                        .labelsHidden()
                         .toggleStyle(SwitchToggleStyle(tint: VoiceInkTheme.Palette.accent))
                 }
                 
@@ -232,7 +233,8 @@ struct ContextSettingsView: View {
                     .foregroundColor(.secondary)
             }
             Spacer()
-            Toggle("", isOn: isOn)
+            Toggle(title, isOn: isOn)
+                .labelsHidden()
                 .toggleStyle(SwitchToggleStyle(tint: VoiceInkTheme.Palette.accent))
         }
     }

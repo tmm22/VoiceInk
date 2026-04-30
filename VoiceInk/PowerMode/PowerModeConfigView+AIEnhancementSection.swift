@@ -65,7 +65,7 @@ extension ConfigurationView {
                     .italic()
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                Picker("", selection: providerBinding) {
+                Picker(Localization.PowerMode.aiProviderLabel, selection: providerBinding) {
                     ForEach(aiService.connectedProviders.filter { $0 != .elevenLabs && $0 != .deepgram }, id: \.self) { provider in
                         Text(provider.rawValue).tag(provider)
                     }
@@ -113,7 +113,7 @@ extension ConfigurationView {
 
                     let models = provider == .openRouter ? aiService.availableModels : (provider == .ollama ? aiService.availableModels : provider.availableModels)
 
-                    Picker("", selection: modelBinding) {
+                    Picker(Localization.PowerMode.aiModelLabel, selection: modelBinding) {
                         ForEach(models, id: \.self) { model in
                             Text(model).tag(model)
                         }
@@ -126,10 +126,12 @@ extension ConfigurationView {
                                 await aiService.fetchOpenRouterModels()
                             }
                         }) {
-                            Image(systemName: "arrow.clockwise")
+                            Label(Localization.PowerMode.refreshModelsHelp, systemImage: "arrow.clockwise")
+                                .labelStyle(.iconOnly)
                         }
                         .buttonStyle(.borderless)
                         .help(Localization.PowerMode.refreshModelsHelp)
+                        .accessibilityLabel(Localization.PowerMode.refreshModelsHelp)
                     }
 
                     Spacer()

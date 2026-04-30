@@ -84,6 +84,7 @@ struct AddIconButton: View {
         .buttonStyle(.plain)
         .help(helpText)
         .accessibilityLabel(helpText)
+        .frame(minWidth: 28, minHeight: 28)
         .disabled(isDisabled)
     }
 }
@@ -96,6 +97,7 @@ struct ConfigurationRow: View {
     @EnvironmentObject var enhancementService: AIEnhancementService
     @EnvironmentObject var whisperState: WhisperState
     @State private var isHovering = false
+    @State private var isShowingDeleteConfirmation = false
     
     private let maxAppIconsToShow = 5
     
@@ -205,7 +207,7 @@ struct ConfigurationRow: View {
                 
                 Spacer()
                 
-                Toggle("", isOn: $config.isEnabled)
+                Toggle(config.name, isOn: $config.isEnabled)
                     .toggleStyle(SwitchToggleStyle(tint: .accentColor))
                     .labelsHidden()
                     .onChange(of: config.isEnabled) { _, _ in
@@ -344,20 +346,22 @@ struct ConfigurationRow: View {
             Label(Localization.PowerMode.editAction, systemImage: "pencil")
         }
         Button(role: .destructive, action: {
-            let alert = NSAlert()
-            alert.messageText = Localization.PowerMode.deletePowerModeTitle
-            alert.informativeText = String(format: Localization.PowerMode.deletePowerModeMessage, config.name)
-            alert.alertStyle = .warning
-            alert.addButton(withTitle: Localization.PowerMode.deleteAction)
-            alert.addButton(withTitle: Localization.PowerMode.cancelButton)
-            alert.buttons[0].hasDestructiveAction = true
-            
-            if alert.runModal() == .alertFirstButtonReturn {
-                powerModeManager.removeConfiguration(with: config.id)
-            }
+            isShowingDeleteConfirmation = true
         }) {
             Label(Localization.PowerMode.deleteAction, systemImage: "trash")
         }
+    }
+    .confirmationDialog(
+        Localization.PowerMode.deletePowerModeTitle,
+        isPresented: $isShowingDeleteConfirmation,
+        titleVisibility: .visible
+    ) {
+        Button(Localization.PowerMode.deleteAction, role: .destructive) {
+            powerModeManager.removeConfiguration(with: config.id)
+        }
+        Button(Localization.PowerMode.cancelButton, role: .cancel) { }
+    } message: {
+        Text(String(format: Localization.PowerMode.deletePowerModeMessage, config.name))
     }
     }
     
@@ -415,5 +419,7 @@ struct AppGridItem: View {
             )
         }
         .buttonStyle(.plain)
+        .help(app.name)
+        .accessibilityLabel(app.name)
     }
 }

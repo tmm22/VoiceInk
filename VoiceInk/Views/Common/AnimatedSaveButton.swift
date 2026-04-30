@@ -4,34 +4,24 @@ import UniformTypeIdentifiers
 struct AnimatedSaveButton: View {
     let textToSave: String
     @State private var isSaved: Bool = false
-    @State private var showingSavePanel = false
     
     var body: some View {
         Menu {
-            Button("Save as TXT") {
+            Button("Save as Text…") {
                 saveFile(as: .plainText, extension: "txt")
             }
             
-            Button("Save as MD") {
+            Button("Save as Markdown…") {
                 saveFile(as: .text, extension: "md")
             }
         } label: {
-            HStack(spacing: 4) {
-                Image(systemName: isSaved ? "checkmark" : "square.and.arrow.down")
-                    .font(.system(size: 11, weight: .regular))
-                    .foregroundColor(isSaved ? .green : .secondary)
-                Text(isSaved ? "Saved" : "Save")
-                    .font(.system(size: 11, weight: .regular))
-                    .foregroundColor(isSaved ? .green : .secondary)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                RoundedRectangle(cornerRadius: 4)
-                    .strokeBorder(isSaved ? Color.green.opacity(0.4) : Color.primary.opacity(0.15), lineWidth: 1)
-            )
+            Label(isSaved ? "Saved" : "Save", systemImage: isSaved ? "checkmark" : "square.and.arrow.down")
+                .foregroundStyle(isSaved ? Color.green : .primary)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .accessibilityLabel(isSaved ? "Transcription Saved" : "Save Transcription")
+        .help(isSaved ? "Transcription Saved" : "Save Transcription")
         .animation(.easeInOut(duration: 0.2), value: isSaved)
     }
     
@@ -52,8 +42,8 @@ struct AnimatedSaveButton: View {
                     isSaved = true
                 }
                 
-                // Reset the animation after a delay
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                Task {
+                    try? await Task.sleep(for: .seconds(2))
                     withAnimation {
                         isSaved = false
                     }

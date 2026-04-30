@@ -22,6 +22,6 @@ struct VoiceInkCard<Content: View>: View {
         }
         .padding(padding)
         .voiceInkCardBackground(isSelected: isSelected, cornerRadius: cornerRadius)
-        .shadow(color: VoiceInkTheme.Shadow.subtle, radius: 8, x: 0, y: 4)
+        .shadow(color: VoiceInkTheme.Shadow.subtle, radius: 2, x: 0, y: 1)
     }
 }

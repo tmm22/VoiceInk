@@ -9,12 +9,14 @@ struct TranscriptionListItem: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Toggle("", isOn: Binding(
+            Toggle("Select transcription from \(transcription.timestamp.formatted(date: .abbreviated, time: .shortened))", isOn: Binding(
                 get: { isChecked },
                 set: { _ in onToggleCheck() }
             ))
             .toggleStyle(TranscriptionListCircularCheckboxStyle())
             .labelsHidden()
+            .accessibilityLabel(isChecked ? "Deselect transcription" : "Select transcription")
+            .accessibilityHint("Adds this transcription to the current selection.")
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
@@ -53,6 +55,10 @@ struct TranscriptionListItem: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { onSelect() }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Transcription from \(transcription.timestamp.formatted(date: .abbreviated, time: .shortened))")
+        .accessibilityHint("Selects this transcription and shows its details.")
+        .accessibilityAddTraits(.isButton)
     }
 }
 

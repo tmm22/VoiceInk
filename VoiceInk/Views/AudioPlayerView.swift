@@ -76,6 +76,8 @@ struct AudioPlayerView: View {
                     )
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(playerManager.isPlaying ? "Pause audio" : "Play audio")
+            .help(playerManager.isPlaying ? "Pause audio" : "Play audio")
             .scaleEffect(isHovering ? 1.05 : 1.0)
             .onHover { hovering in
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -95,6 +97,7 @@ struct AudioPlayerView: View {
             }
             .buttonStyle(.plain)
             .opacity(enhancementService.isEnhancementEnabled ? 1.0 : 0.4)
+            .accessibilityLabel("Select enhancement prompt")
             .help("Select enhancement prompt")
             .popover(isPresented: $showPromptPopover, arrowEdge: .bottom) {
                 EnhancementPromptPopover()
@@ -109,6 +112,7 @@ struct AudioPlayerView: View {
             }
             .buttonStyle(.plain)
             .disabled(isRetranscribing)
+            .accessibilityLabel(isRetranscribing ? "Retranscribing audio" : "Retranscribe this audio")
             .help("Retranscribe this audio")
         }
     }
@@ -167,6 +171,7 @@ struct AudioPlayerView: View {
                 )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(systemImage == "folder" ? "Show audio file in Finder" : systemImage)
     }
 
     private func statusBanner(systemImage: String, message: String, tint: Color) -> some View {

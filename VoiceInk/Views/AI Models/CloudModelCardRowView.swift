@@ -161,6 +161,7 @@ struct CloudModelCardView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .help("Use \(model.displayName) as the default transcription model")
             } else {
                 Button(action: {
                     withAnimation(.interpolatingSpring(stiffness: 170, damping: 20)) {
@@ -183,6 +184,8 @@ struct CloudModelCardView: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Configure \(model.displayName)")
+                .help("Configure \(model.displayName)")
             }
             
             if isConfiguredState {
@@ -198,7 +201,9 @@ struct CloudModelCardView: View {
                 }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
-                .frame(width: 20, height: 20)
+                .frame(width: 28, height: 28)
+                .accessibilityLabel("More actions for \(model.displayName)")
+                .help("More actions")
             }
         }
     }
@@ -237,6 +242,7 @@ struct CloudModelCardView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(apiKey.isEmpty || isVerifying)
+                .accessibilityLabel(isVerifying ? "Verifying \(model.provider.rawValue) API key" : "Verify \(model.provider.rawValue) API key")
             }
             
             if verificationStatus == .failure {

@@ -17,16 +17,16 @@ extension View {
 
 extension Text {
     func voiceInkHeadline() -> some View {
-        font(VoiceInkTheme.Typography.title(size: 14, weight: .semibold))
+        font(.headline)
     }
 
     func voiceInkSubheadline() -> some View {
-        font(VoiceInkTheme.Typography.body(size: 12))
+        font(.subheadline)
             .foregroundStyle(.secondary)
     }
 
     func voiceInkCaptionStyle() -> some View {
-        font(VoiceInkTheme.Typography.caption())
+        font(.caption)
             .foregroundStyle(.secondary)
     }
 }

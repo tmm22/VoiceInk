@@ -95,12 +95,14 @@ struct TranscriptionHistoryView: View {
                 Button(action: { withAnimation { isLeftSidebarVisible.toggle() } }) {
                     Label("Toggle Sidebar", systemImage: "sidebar.left")
                 }
+                .help(isLeftSidebarVisible ? "Hide transcription list" : "Show transcription list")
             }
 
             ToolbarItemGroup(placement: .automatic) {
                 Button(action: { withAnimation { isRightSidebarVisible.toggle() } }) {
                     Label("Toggle Inspector", systemImage: "sidebar.right")
                 }
+                .help(isRightSidebarVisible ? "Hide transcription metadata" : "Show transcription metadata")
             }
         }
         .alert("Delete Selected Items?", isPresented: $showDeleteConfirmation) {
@@ -299,8 +301,10 @@ struct TranscriptionHistoryView: View {
                     Image(systemName: "chart.bar.xaxis")
                         .font(.system(size: 14, weight: .regular))
                         .foregroundColor(.secondary)
+                        .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Analyze selected transcriptions")
                 .help("Analyze")
 
                 Button(action: {
@@ -309,16 +313,20 @@ struct TranscriptionHistoryView: View {
                     Image(systemName: "square.and.arrow.up")
                         .font(.system(size: 14, weight: .regular))
                         .foregroundColor(.secondary)
+                        .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Export selected transcriptions")
                 .help("Export")
 
                 Button(action: { showDeleteConfirmation = true }) {
                     Image(systemName: "trash")
                         .font(.system(size: 14, weight: .regular))
                         .foregroundColor(.secondary)
+                        .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Delete selected transcriptions")
                 .help("Delete")
             }
 

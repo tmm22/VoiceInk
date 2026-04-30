@@ -67,6 +67,7 @@ struct DictionaryView: View {
                     }
                     .buttonStyle(.borderless)
                     .disabled(newWord.isEmpty)
+                    .accessibilityLabel("Add word")
                     .help("Add word")
                 }
             }
@@ -236,6 +237,7 @@ struct VocabularyWordView: View {
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.borderless)
+            .accessibilityLabel("Remove \(item.word)")
             .help("Remove word")
             .onHover { hover in
                 withAnimation(.easeInOut(duration: 0.2)) {

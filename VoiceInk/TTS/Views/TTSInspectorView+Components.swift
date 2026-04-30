@@ -52,7 +52,7 @@ struct ProviderSelectionView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            Picker("", selection: $settings.selectedProvider) {
+            Picker("Provider", selection: $settings.selectedProvider) {
                 ForEach(TTSProviderType.allCases, id: \.self) { provider in
                     Label(provider.displayName, systemImage: provider.icon)
                         .tag(provider)
@@ -94,15 +94,19 @@ struct VoiceSelectionView: View {
                             preview.previewVoice(voice)
                         }
                     } label: {
-                        Image(systemName: preview.isPreviewPlaying ? "stop.fill" : "play.circle")
+                        Label(preview.isPreviewPlaying ? "Stop voice preview" : "Preview selected voice", systemImage: preview.isPreviewPlaying ? "stop.fill" : "play.circle")
+                            .labelStyle(.iconOnly)
                             .foregroundColor(.accentColor)
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel(preview.isPreviewPlaying ? "Stop voice preview" : "Preview selected voice")
                     .help("Preview selected voice")
                 }
             }
 
-            Picker("", selection: $settings.selectedVoice) {
+            Picker("Voice", selection: $settings.selectedVoice) {
                 Text("Default").tag(nil as Voice?)
                 ForEach(settings.availableVoices) { voice in
                     Text(voice.name).tag(voice as Voice?)

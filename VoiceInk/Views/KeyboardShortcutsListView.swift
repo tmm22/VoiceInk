@@ -200,11 +200,15 @@ struct KeyboardShortcutsListView: View {
 
 // MARK: - Shortcut Card
 private struct ShortcutCard<Content: View>: View {
+    let icon: String
+    let iconColor: Color
     let title: String
     let subtitle: String
     let shortcutView: Content
 
     init(icon: String = "", iconColor: Color = .clear, title: String, subtitle: String, @ViewBuilder shortcutView: () -> Content) {
+        self.icon = icon
+        self.iconColor = iconColor
         self.title = title
         self.subtitle = subtitle
         self.shortcutView = shortcutView()
@@ -212,16 +216,24 @@ private struct ShortcutCard<Content: View>: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
+            if !icon.isEmpty {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(iconColor)
+                    .frame(width: 22)
+                    .accessibilityHidden(true)
+            }
+
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.primary)
-                    .lineLimit(1)
+                    .lineLimit(2)
 
                 Text(subtitle)
                     .font(.system(size: 12, weight: .regular))
                     .foregroundColor(.secondary.opacity(0.8))
-                    .lineLimit(1)
+                    .lineLimit(2)
             }
 
             Spacer(minLength: 12)
@@ -231,6 +243,7 @@ private struct ShortcutCard<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
+        .frame(minHeight: 76)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(
@@ -259,6 +272,7 @@ private struct ShortcutCard<Content: View>: View {
                 )
         )
         .shadow(color: Color(NSColor.shadowColor).opacity(0.2), radius: 4, x: 0, y: 2)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -272,6 +286,8 @@ private struct KeyboardShortcutBadge: View {
                 KeyBadge(text: component)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Shortcut \(shortcutComponents.joined(separator: " "))")
     }
 
     private var shortcutComponents: [String] {
@@ -342,6 +358,8 @@ private struct StaticKeysBadge: View {
                 KeyBadge(text: key, isEnabled: isEnabled)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Shortcut \(keys.joined(separator: " "))")
     }
 }
 
@@ -377,6 +395,7 @@ private struct KeyBadge: View {
             )
             .shadow(color: Color(NSColor.shadowColor).opacity(isEnabled ? 0.15 : 0.05), radius: 2, x: 0, y: 1)
             .opacity(isEnabled ? 1.0 : 0.6)
+            .accessibilityHidden(true)
     }
 }
 
@@ -407,6 +426,7 @@ private struct HotkeyBadge: View {
                     .strokeBorder(Color(NSColor.separatorColor).opacity(0.4), lineWidth: 1)
             )
             .shadow(color: Color(NSColor.shadowColor).opacity(0.15), radius: 2, x: 0, y: 1)
+            .accessibilityLabel(text)
     }
 }
 
@@ -440,6 +460,8 @@ private struct MouseBadge: View {
                 .strokeBorder(Color(NSColor.separatorColor).opacity(0.4), lineWidth: 1)
         )
         .shadow(color: Color(NSColor.shadowColor).opacity(0.15), radius: 2, x: 0, y: 1)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Middle mouse button")
     }
 }
 
@@ -458,6 +480,7 @@ private struct NotSetBadge: View {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .strokeBorder(Color(NSColor.separatorColor).opacity(0.25), lineWidth: 1)
             )
+            .accessibilityLabel("Not set")
     }
 }
 

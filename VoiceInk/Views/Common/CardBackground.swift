@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct StyleConstants {
-    static let cardBorder = Color.primary.opacity(0.08)
+    static let cardBorder = Color(nsColor: .separatorColor).opacity(0.7)
     static let cardBorderSelected = Color.accentColor.opacity(0.4)
     static let cornerRadius: CGFloat = 6
 }
@@ -13,7 +13,11 @@ struct CardBackground: View {
     
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Color(NSColor.controlBackgroundColor))
+            .fill(
+                isSelected && useAccentGradientWhenSelected
+                ? Color.accentColor.opacity(0.08)
+                : Color(nsColor: .controlBackgroundColor)
+            )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .strokeBorder(
@@ -22,4 +26,4 @@ struct CardBackground: View {
                     )
             )
     }
-} 
+}

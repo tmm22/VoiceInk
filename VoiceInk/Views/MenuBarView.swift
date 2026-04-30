@@ -13,7 +13,7 @@ struct MenuBarView: View {
     
     var body: some View {
         VStack {
-            Button("Toggle Recorder") {
+            Button(recorderCommandLabel) {
                 whisperState.handleToggleMiniRecorder()
             }
 
@@ -36,16 +36,12 @@ struct MenuBarView: View {
                 Divider()
                 
                 if enableAIEnhancementFeatures {
-                    Button("Manage Models") {
+                    Button("Manage Transcription Models…") {
                         menuBarManager.openMainWindowAndNavigate(to: "AI Models")
                     }
                 }
             } label: {
-                HStack {
-                    Text("Transcription Model: \(whisperState.currentTranscriptionModel?.displayName ?? "None")")
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 10))
-                }
+                Text("Transcription Model: \(whisperState.currentTranscriptionModel?.displayName ?? "None")")
             }
             
             Divider()
@@ -78,15 +74,11 @@ struct MenuBarView: View {
                     
                     Divider()
                     
-                    Button("Manage AI Providers") {
+                    Button("Manage AI Providers…") {
                         menuBarManager.openMainWindowAndNavigate(to: "Enhancement")
                     }
                 } label: {
-                    HStack {
-                        Text("AI Provider: \(aiService.selectedProvider.rawValue)")
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 10))
-                    }
+                    Text("AI Provider: \(aiService.selectedProvider.rawValue)")
                 }
                 .disabled(!enhancementService.isEnhancementEnabled)
                 
@@ -111,21 +103,17 @@ struct MenuBarView: View {
                     
                     Divider()
                     
-                    Button("Manage AI Models") {
+                    Button("Manage AI Models…") {
                         menuBarManager.openMainWindowAndNavigate(to: "Enhancement")
                     }
                 } label: {
-                    HStack {
-                        Text("AI Model: \(aiService.currentModel)")
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 10))
-                    }
+                    Text("AI Model: \(aiService.currentModel)")
                 }
                 .disabled(!enhancementService.isEnhancementEnabled)
                 
                 LanguageSelectionView(whisperState: whisperState, displayMode: .menuItem, whisperPrompt: whisperState.whisperPrompt)
                 
-                Menu("Additional") {
+                Menu("Context Options") {
                     Button {
                         enhancementService.useClipboardContext.toggle()
                         menuRefreshTrigger.toggle()
@@ -167,17 +155,17 @@ struct MenuBarView: View {
                 LastTranscriptionService.copyLastTranscription(from: whisperState.modelContext)
             }
             
-            Button("History") {
+            Button("Show History") {
                 menuBarManager.openHistoryWindow()
             }
             .keyboardShortcut("h", modifiers: [.command, .shift])
             
-            Button("Settings") {
+            Button("Settings…") {
                 menuBarManager.openMainWindowAndNavigate(to: "Settings")
             }
             .keyboardShortcut(",", modifiers: .command)
             
-            Button(menuBarManager.isMenuBarOnly ? "Show Dock Icon" : "Hide Dock Icon") {
+            Button(menuBarManager.isMenuBarOnly ? "Show VoiceInk in Dock" : "Hide VoiceInk from Dock") {
                 menuBarManager.toggleMenuBarOnly()
             }
             
@@ -188,12 +176,12 @@ struct MenuBarView: View {
             
             Divider()
             
-            Button("Check for Updates") {
+            Button("Check for Updates…") {
                 updaterViewModel.checkForUpdates()
             }
             .disabled(!updaterViewModel.canCheckForUpdates)
             
-            Button("Help and Support") {
+            Button("Contact Support…") {
                 EmailSupport.openSupportEmail()
             }
             
@@ -202,6 +190,17 @@ struct MenuBarView: View {
             Button("Quit \(AppBrand.communityName)") {
                 NSApplication.shared.terminate(nil)
             }
+        }
+    }
+
+    private var recorderCommandLabel: String {
+        switch whisperState.recordingState {
+        case .recording:
+            return "Stop Recording"
+        case .transcribing, .enhancing, .busy:
+            return "Show Recorder"
+        case .idle:
+            return "Start Recording"
         }
     }
 }

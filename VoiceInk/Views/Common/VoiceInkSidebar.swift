@@ -21,27 +21,15 @@ struct VoiceInkSidebar: View {
                     Section {
                         ForEach(section.items) { item in
                             NavigationLink(value: item) {
-                                Label {
-                                    Text(item.displayName)
-                                        .foregroundStyle(selectedView == item ? .white : .primary)
-                                } icon: {
-                                    Image(systemName: item.icon)
-                                        .renderingMode(.template)
-                                        .foregroundStyle(selectedView == item ? .white : .primary)
-                                }
+                                Label(item.displayName, systemImage: item.icon)
                             }
-                            .listRowBackground(
-                                selectedView == item ?
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(VoiceInkTheme.Palette.accent)
-                                    .padding(.horizontal, 4) // Slight inset to match sidebar style
-                                : nil
-                            )
+                            .tag(item)
+                            .accessibilityLabel(item.displayName)
                         }
                     } header: {
                         if let title = section.title {
                             Text(title)
-                                .font(.subheadline)
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -50,6 +38,7 @@ struct VoiceInkSidebar: View {
             .listStyle(.sidebar)
             .scrollContentBackground(.hidden)
         }
+        .navigationTitle(AppBrand.primaryName)
     }
 
     private var header: some View {
@@ -64,6 +53,7 @@ struct VoiceInkSidebar: View {
                         RoundedRectangle(cornerRadius: VoiceInkRadius.small, style: .continuous)
                             .stroke(VoiceInkTheme.Card.stroke, lineWidth: 0.5)
                     )
+                    .accessibilityHidden(true)
             }
 
             VStack(alignment: .leading, spacing: VoiceInkSpacing.xxs) {
@@ -77,5 +67,7 @@ struct VoiceInkSidebar: View {
             Spacer()
         }
         .padding(.horizontal, VoiceInkSpacing.md)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(AppBrand.communityName)
     }
 }

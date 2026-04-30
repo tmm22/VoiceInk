@@ -53,12 +53,13 @@ struct EmojiPickerView: View {
             if isAddingCustomEmoji {
                 VStack(spacing: 8) {
                     HStack(spacing: 8) {
-                        TextField("➕", text: $newEmojiText)
+                        TextField(Localization.PowerMode.addEmojiLabel, text: $newEmojiText)
                             .textFieldStyle(.roundedBorder)
                             .font(.title2)
                             .multilineTextAlignment(.center)
                             .frame(maxWidth: 70)
                             .focused($isEmojiTextFieldFocused)
+                            .accessibilityLabel(Localization.PowerMode.addEmojiLabel)
                             .onChange(of: newEmojiText) { _, newValue in
                                 inputFeedbackMessage = ""
                                 let cleaned = newValue.firstValidEmojiCharacter()
@@ -181,16 +182,21 @@ private struct EmojiButton: View {
                     )
             }
             .buttonStyle(.plain) 
+            .help(emoji)
+            .accessibilityLabel(emoji)
 
             if isCustom {
                 Button(action: removeAction) {
-                    Image(systemName: "xmark.circle.fill")
+                    Label(Localization.PowerMode.deleteAction, systemImage: "xmark.circle.fill")
+                        .labelStyle(.iconOnly)
                         .symbolRenderingMode(.palette)
                         .foregroundStyle(Color.white, Color.red)
                         .font(.caption2)
                         .background(Circle().fill(Color.white.opacity(0.8)))
                 }
                 .buttonStyle(.borderless) 
+                .help(Localization.PowerMode.deleteAction)
+                .accessibilityLabel(Localization.PowerMode.deleteAction)
                 .offset(x: 6, y: -6)
             }
         }
@@ -214,6 +220,7 @@ private struct AddEmojiButton: View {
         }
         .buttonStyle(.plain)
         .help(Localization.PowerMode.addCustomEmojiHelp)
+        .accessibilityLabel(Localization.PowerMode.addCustomEmojiHelp)
     }
 }
 

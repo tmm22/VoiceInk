@@ -22,6 +22,9 @@ struct KeyboardShortcutCheatSheet: View {
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
+                .frame(minWidth: 20, minHeight: 20)
+                .contentShape(Rectangle())
+                .accessibilityLabel("Close keyboard shortcuts")
                 .help("Close")
             }
             .padding()
@@ -189,6 +192,7 @@ struct ShortcutSection<Content: View>: View {
                 Image(systemName: icon)
                     .foregroundColor(iconColor)
                     .font(.system(size: 16, weight: .semibold))
+                    .accessibilityHidden(true)
                 
                 Text(title)
                     .font(.headline)
@@ -240,6 +244,15 @@ struct ShortcutRow: View {
                 )
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityText)
+    }
+
+    private var accessibilityText: String {
+        if let description {
+            return "\(action), \(shortcut), \(description)"
+        }
+        return "\(action), \(shortcut)"
     }
 }
 

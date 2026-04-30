@@ -28,7 +28,7 @@ struct ClipboardPasteSection: View {
                             .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.secondary)
 
-                        Picker("", selection: $clipboardRestoreDelay) {
+                        Picker("Restore Delay", selection: $clipboardRestoreDelay) {
                             Text("0.25s").tag(0.25)
                             Text("0.5s").tag(0.5)
                             Text("1.0s").tag(1.0)
@@ -40,6 +40,7 @@ struct ClipboardPasteSection: View {
                             Text("5.0s").tag(5.0)
                         }
                         .pickerStyle(.menu)
+                        .labelsHidden()
                         .frame(width: 90)
 
                         Spacer()

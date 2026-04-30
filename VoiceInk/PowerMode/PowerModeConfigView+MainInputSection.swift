@@ -18,6 +18,8 @@ extension ConfigurationView {
                     }
                 }
                 .buttonStyle(.plain)
+                .help(Localization.PowerMode.addEmojiLabel)
+                .accessibilityLabel(Localization.PowerMode.addEmojiLabel)
                 .popover(isPresented: $isShowingEmojiPicker, arrowEdge: .bottom) {
                     EmojiPickerView(
                         selectedEmoji: $selectedEmoji,
@@ -31,6 +33,7 @@ extension ConfigurationView {
                     .foregroundColor(.primary)
                     .tint(.accentColor)
                     .focused($isNameFieldFocused)
+                    .accessibilityLabel(Localization.PowerMode.namePlaceholder)
             }
 
             HStack {

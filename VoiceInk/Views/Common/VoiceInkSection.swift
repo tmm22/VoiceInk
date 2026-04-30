@@ -26,6 +26,7 @@ struct VoiceInkSection<Content: View>: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(showWarning ? Color.red : .secondary)
                     .frame(width: 18, height: 18)
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: VoiceInkSpacing.xxs) {
                     Text(title)
@@ -40,6 +41,7 @@ struct VoiceInkSection<Content: View>: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 12))
                         .foregroundColor(.red)
+                        .accessibilityLabel("Needs attention")
                         .help("Permission required for VoiceInk to function properly")
                 }
             }
