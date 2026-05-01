@@ -140,7 +140,9 @@ echo "Staging repository into $stage_dir"
 tar -C "$ROOT_DIR" \
   --exclude './.git' \
   --exclude './.codex_quarantine_duplicates' \
+  --exclude './.build' \
   --exclude './build' \
+  --exclude './.local-build' \
   --exclude './.derivedData-local' \
   --exclude './.derivedData-local-2' \
   --exclude './release-artifacts' \
