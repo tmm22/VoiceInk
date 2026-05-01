@@ -2,6 +2,16 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-05-01
+
+### Release Preparation
+- Bumped the community build metadata to version `1.70` (`v1.70-community` release target) for the current GitHub release on `tmm22/VoiceInk`.
+
+### macOS UI & Accessibility
+- Audited the SwiftUI interface against Apple's macOS Human Interface Guidelines and documented the plan/report for future UI quality passes.
+- Improved native macOS behavior across the app shell, settings, TTS workspace, Power Mode, recorder, history, model management, dictionary, onboarding, and shared UI primitives.
+- Replaced empty control labels with semantic labels, improved icon-only button accessibility, relaxed rigid sizing, and aligned more confirmation flows with SwiftUI roles/dialogs.
+
 ## 2026-04-25
 
 ### Release Preparation
