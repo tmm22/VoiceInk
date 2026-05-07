@@ -70,8 +70,6 @@ class ElevenLabsTTSService: TTSProvider, StreamingSpeechSynthesizing {
          authorizationService: AuthorizationService? = nil) {
         self.session = session
         self.authorizationService = authorizationService ?? AuthorizationService()
-        // Load API key from keychain if available
-        self.apiKey = KeychainManager().getAPIKey(for: "ElevenLabs")
     }
     
     // MARK: - API Key Management
@@ -82,8 +80,7 @@ class ElevenLabsTTSService: TTSProvider, StreamingSpeechSynthesizing {
     }
     
     func hasValidAPIKey() -> Bool {
-        if let key = apiKey, !key.isEmpty { return true }
-        return authorizationService.hasManagedProvisioningConfiguration
+        authorizationService.hasCredentials(for: "ElevenLabs", preferredKey: apiKey)
     }
 
     func cachedVoices(for modelID: String) -> [Voice]? {
@@ -134,7 +131,11 @@ class ElevenLabsTTSService: TTSProvider, StreamingSpeechSynthesizing {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        let authorization = try await authorizationService.authorizationHeader(for: "ElevenLabs", headerType: HeaderType.elevenLabs)
+        let authorization = try await authorizationService.authorizationHeader(
+            for: "ElevenLabs",
+            headerType: HeaderType.elevenLabs,
+            preferredKey: apiKey
+        )
         request.setValue(authorization.value, forHTTPHeaderField: authorization.header)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 45
@@ -218,7 +219,11 @@ class ElevenLabsTTSService: TTSProvider, StreamingSpeechSynthesizing {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        let authorization = try await authorizationService.authorizationHeader(for: "ElevenLabs", headerType: HeaderType.elevenLabs)
+        let authorization = try await authorizationService.authorizationHeader(
+            for: "ElevenLabs",
+            headerType: HeaderType.elevenLabs,
+            preferredKey: apiKey
+        )
         request.setValue(authorization.value, forHTTPHeaderField: authorization.header)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 60
@@ -383,16 +388,17 @@ class ElevenLabsTTSService: TTSProvider, StreamingSpeechSynthesizing {
     
     // MARK: - Fetch Available Voices
     private func refreshVoiceCache() async throws {
-        guard let apiKey = apiKey, !apiKey.isEmpty else {
-            throw TTSError.invalidAPIKey
-        }
-
         guard let url = URL(string: "\(baseURL)/voices") else {
             throw TTSError.networkError("Invalid API endpoint")
         }
 
         var request = URLRequest(url: url)
-        request.setValue(apiKey, forHTTPHeaderField: "xi-api-key")
+        let authorization = try await authorizationService.authorizationHeader(
+            for: "ElevenLabs",
+            headerType: HeaderType.elevenLabs,
+            preferredKey: apiKey
+        )
+        request.setValue(authorization.value, forHTTPHeaderField: authorization.header)
         request.timeoutInterval = 45
 
         do {

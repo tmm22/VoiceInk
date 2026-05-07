@@ -67,7 +67,6 @@ class OpenAITTSService: TTSProvider {
         self.authorizationService = authorizationService ?? AuthorizationService(
             managedProvisioningClient: resolvedManagedProvisioningClient
         )
-        self.apiKey = self.authorizationService.storedAPIKey(for: "OpenAI")
     }
     
     // MARK: - API Key Management

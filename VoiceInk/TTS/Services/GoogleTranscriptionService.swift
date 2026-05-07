@@ -73,8 +73,7 @@ final class GoogleTranscriptionService: AudioTranscribing {
     }
 
     func hasCredentials() -> Bool {
-        guard let apiKey = keychain.getAPIKey(for: "Google") else { return false }
-        return !apiKey.isEmpty
+        keychain.hasAPIKey(for: "Google")
     }
 
     func transcribe(fileURL: URL,

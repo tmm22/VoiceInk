@@ -52,6 +52,8 @@ final class KeychainManagerTests: XCTestCase {
         // Should still save it
         let retrieved = keychainManager.getAPIKey(for: testProvider)
         XCTAssertEqual(retrieved, "", "Should save and retrieve empty key")
+        XCTAssertFalse(keychainManager.hasAPIKey(for: testProvider), "Empty stored key should not count as a usable API key")
+        XCTAssertTrue(keychainManager.containsAPIKeyItem(for: testProvider), "Empty stored key should still count as an existing keychain item")
     }
     
     // MARK: - Update Tests

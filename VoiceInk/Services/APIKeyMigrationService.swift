@@ -42,7 +42,7 @@ class APIKeyMigrationService {
 
         for (oldKey, provider) in legacyEntries {
             // Check if already migrated (key in Keychain, not in UserDefaults)
-            if keychain.hasAPIKey(for: provider) {
+            if keychain.containsAPIKeyItem(for: provider) {
                 // Already in Keychain, clean up UserDefaults if needed
                 if AppSettings.contains(key: oldKey) {
                     AppSettings.removeValue(forKey: oldKey)
@@ -65,7 +65,7 @@ class APIKeyMigrationService {
             }
 
             // Verify save was successful
-            if keychain.hasAPIKey(for: provider) {
+            if keychain.containsAPIKeyItem(for: provider) {
                 // Successfully migrated, remove from UserDefaults
                 AppSettings.removeValue(forKey: oldKey)
                 migratedThisRun += 1

@@ -39,11 +39,16 @@ class KeychainManager {
     
     /// Save API key to keychain
     func saveAPIKey(_ key: String, for provider: String) throws {
-        // Try to update existing item first
-        if let _ = getAPIKey(for: provider) {
+        do {
             try updateAPIKey(key, for: provider)
-        } else {
-            try addAPIKey(key, for: provider)
+        } catch KeychainError.itemNotFound {
+            do {
+                try addAPIKey(key, for: provider)
+            } catch KeychainError.duplicateItem {
+                try updateAPIKey(key, for: provider)
+            }
+        } catch {
+            throw error
         }
     }
     
@@ -110,7 +115,31 @@ class KeychainManager {
     
     /// Check if API key exists
     func hasAPIKey(for provider: String) -> Bool {
-        return getAPIKey(for: provider) != nil
+        guard let key = getAPIKey(for: provider), !key.isEmpty else {
+            return false
+        }
+        return true
+    }
+
+    /// Check if a Keychain item exists without reading the secret value.
+    func containsAPIKeyItem(for provider: String) -> Bool {
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: provider,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecReturnData as String: kCFBooleanFalse as Any
+        ]
+
+        if let accessGroup = accessGroup {
+            query[kSecAttrAccessGroup as String] = accessGroup
+        }
+
+        let status = SecItemCopyMatching(query as CFDictionary, nil)
+        if status != errSecSuccess && status != errSecItemNotFound {
+            AppLogger.storage.error("Keychain existence check error: \(status)")
+        }
+        return status == errSecSuccess
     }
     
     /// Get all stored providers

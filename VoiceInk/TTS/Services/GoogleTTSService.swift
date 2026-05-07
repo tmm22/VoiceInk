@@ -88,7 +88,6 @@ class GoogleTTSService: TTSProvider {
         self.authorizationService = authorizationService ?? AuthorizationService(
             managedProvisioningClient: resolvedManagedProvisioningClient
         )
-        self.apiKey = self.authorizationService.storedAPIKey(for: "Google")
     }
     
     // MARK: - API Key Management

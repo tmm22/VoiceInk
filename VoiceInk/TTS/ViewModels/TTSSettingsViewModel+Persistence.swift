@@ -131,15 +131,5 @@ extension TTSSettingsViewModel {
 
         playback.applyPlaybackSettings()
         ensureFormatSupportedForSelectedProvider()
-
-        if let elevenLabsKey = getAPIKey(for: .elevenLabs) {
-            elevenLabs.updateAPIKey(elevenLabsKey)
-        }
-        if let openAIKey = getAPIKey(for: .openAI) {
-            openAI.updateAPIKey(openAIKey)
-        }
-        if let googleKey = getAPIKey(for: .google) {
-            googleTTS.updateAPIKey(googleKey)
-        }
     }
 }
