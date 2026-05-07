@@ -178,12 +178,20 @@ struct CustomProviderSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            TextField("API Endpoint URL", text: $aiService.customBaseURL)
+            TextField(
+                "API Endpoint URL",
+                text: $aiService.customBaseURL,
+                prompt: Text("e.g. https://api.example.com/v1/chat/completions")
+            )
                 .textFieldStyle(.roundedBorder)
 
             Divider()
 
-            TextField("Model Name", text: $aiService.customModel)
+            TextField(
+                "Model Name",
+                text: $aiService.customModel,
+                prompt: Text("e.g. provider-model-name")
+            )
                 .textFieldStyle(.roundedBorder)
 
             Divider()
@@ -204,10 +212,18 @@ struct CustomProviderSection: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 if !aiService.isAPIKeyValid {
-                    TextField("API Endpoint URL (e.g., https://api.example.com/v1/chat/completions)", text: $aiService.customBaseURL)
+                    TextField(
+                        "API Endpoint URL",
+                        text: $aiService.customBaseURL,
+                        prompt: Text("e.g. https://api.example.com/v1/chat/completions")
+                    )
                         .textFieldStyle(.roundedBorder)
 
-                    TextField("Model Name (e.g., gpt-4o-mini, claude-3-5-sonnet-20240620)", text: $aiService.customModel)
+                    TextField(
+                        "Model Name",
+                        text: $aiService.customModel,
+                        prompt: Text("e.g. provider-model-name")
+                    )
                         .textFieldStyle(.roundedBorder)
                 } else {
                     APIKeyValueGroup(title: "API Endpoint URL", value: aiService.customBaseURL)

@@ -51,6 +51,12 @@ class MiniRecorderShortcutManager: ObservableObject {
         setupCancelHandlerOnce()
 
         NotificationCenter.default.addObserver(self, selector: #selector(settingsDidChange), name: .AppSettingsDidChange, object: nil)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(powerModeConfigurationsDidChange),
+            name: NSNotification.Name("PowerModeConfigurationsDidChange"),
+            object: nil
+        )
     }
     
     @objc private func settingsDidChange() {
@@ -62,7 +68,15 @@ class MiniRecorderShortcutManager: ObservableObject {
                 } else {
                     self.removeEnhancementShortcut()
                 }
+                self.refreshPowerModeShortcuts()
             }
+        }
+    }
+
+    @objc private func powerModeConfigurationsDidChange() {
+        Task { [weak self] in
+            guard let self = self, self.whisperState.isMiniRecorderVisible else { return }
+            self.refreshPowerModeShortcuts()
         }
     }
 
@@ -80,7 +94,7 @@ class MiniRecorderShortcutManager: ObservableObject {
                         self.removeEnhancementShortcut()
                     }
                     self.setupPromptShortcuts()
-                    self.setupPowerModeShortcuts()
+                    self.refreshPowerModeShortcuts()
                 } else {
                     self.deactivateEscapeShortcut()
                     self.deactivateCancelShortcut()
@@ -90,6 +104,15 @@ class MiniRecorderShortcutManager: ObservableObject {
                 }
             }
         }
+    }
+
+    private var canUsePowerModeShortcuts: Bool {
+        (AppSettings.General.powerModeUIFlag ?? false) &&
+            !PowerModeManager.shared.enabledConfigurations.isEmpty
+    }
+
+    private func refreshPowerModeShortcuts() {
+        canUsePowerModeShortcuts ? setupPowerModeShortcuts() : removePowerModeShortcuts()
     }
     
     // Setup escape handler once
@@ -176,6 +199,11 @@ class MiniRecorderShortcutManager: ObservableObject {
     }
     
     private func setupPowerModeShortcuts() {
+        guard canUsePowerModeShortcuts else {
+            removePowerModeShortcuts()
+            return
+        }
+
         KeyboardShortcuts.setShortcut(.init(.one, modifiers: .option), for: .selectPowerMode1)
         KeyboardShortcuts.setShortcut(.init(.two, modifiers: .option), for: .selectPowerMode2)
         KeyboardShortcuts.setShortcut(.init(.three, modifiers: .option), for: .selectPowerMode3)
@@ -204,18 +232,17 @@ class MiniRecorderShortcutManager: ObservableObject {
         KeyboardShortcuts.onKeyDown(for: shortcutName) { [weak self] in
             Task { @MainActor in
                 guard let self = self,
-                      self.whisperState.isMiniRecorderVisible else { return }
+                      self.whisperState.isMiniRecorderVisible,
+                      self.canUsePowerModeShortcuts else { return }
                 
                 let powerModeManager = PowerModeManager.shared
+                let availableConfigurations = powerModeManager.enabledConfigurations
                 
-                if !powerModeManager.enabledConfigurations.isEmpty {
-                    let availableConfigurations = powerModeManager.enabledConfigurations
-                    if index < availableConfigurations.count {
-                        let selectedConfig = availableConfigurations[index]
-                        powerModeManager.setActiveConfiguration(selectedConfig)
-                        await PowerModeSessionManager.shared.beginSession(with: selectedConfig)
-                    }
-                }
+                guard index < availableConfigurations.count else { return }
+
+                let selectedConfig = availableConfigurations[index]
+                powerModeManager.setActiveConfiguration(selectedConfig)
+                await PowerModeSessionManager.shared.beginSession(with: selectedConfig)
             }
         }
     }

@@ -2,6 +2,21 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-05-05
+
+### Upstream Sync
+- Selectively reviewed recent `Beingpax/VoiceInk` upstream commits through `60bc7a07` and ported low-risk fixes that preserve the community fork's settings layout, branding, release flow, and `WhisperState` architecture.
+- Improved dictionary word replacements so comma-separated variants and overlapping replacements apply longest-first, with safer boundary matching for punctuation-heavy terms.
+- Improved paste reliability by waiting for the paste command to post before auto-send, increasing the auto-send delay for terminal reliability, and using the existing AppleScript paste setting key consistently.
+- Added support for keyboard layouts that switch to QWERTY while Command is held when using AppleScript paste.
+- Gated mini-recorder Power Mode number shortcuts behind Power Mode availability so they are only registered when the feature is enabled and configurations exist.
+- Delayed system mute after recording starts so custom start sounds are less likely to be clipped.
+- Expanded support diagnostics with recorder, middle-click, clipboard, and feedback settings, and improved support email composition fallback behavior.
+- Added custom API endpoint/model placeholder hints and refreshed the Parakeet V3 model description.
+
+### Tests
+- Added focused coverage for word replacement ordering and boundary behavior.
+
 ## 2026-05-01
 
 ### Release Preparation

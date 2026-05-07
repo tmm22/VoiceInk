@@ -16,24 +16,31 @@ class WordReplacementService {
             return modifiedText // No custom replacements to apply
         }
         
+        // Apply longest keys first so specific triggers win over shorter overlaps.
+        let sortedReplacements = replacements.sorted {
+            $0.key.count > $1.key.count
+        }
+
         // Apply replacements (case-insensitive)
-        for replacement in replacements {
+        for replacement in sortedReplacements {
             let originalGroup = replacement.key
             let replacementText = replacement.value
 
-            // Split comma-separated originals at apply time only
             let variants = originalGroup
                 .split(separator: ",")
                 .map { String($0).trimmingCharacters(in: CharacterSet.whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
+                .sorted { $0.count > $1.count }
 
             for original in variants {
                 let usesBoundaries = usesWordBoundaries(for: original)
 
                 if usesBoundaries {
-                    // Word-boundary regex for full original string
-                    let pattern = "\\b\(NSRegularExpression.escapedPattern(for: original))\\b"
-                    if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+                    // Lookarounds handle punctuation-heavy terms like "C++" better than \b.
+                    let escaped = NSRegularExpression.escapedPattern(for: original)
+                    let pattern = "(?<![\\p{L}\\p{N}])\(escaped)(?![\\p{L}\\p{N}])"
+                    do {
+                        let regex = try NSRegularExpression(pattern: pattern, options: .caseInsensitive)
                         let range = NSRange(modifiedText.startIndex..., in: modifiedText)
                         modifiedText = regex.stringByReplacingMatches(
                             in: modifiedText,
@@ -41,6 +48,8 @@ class WordReplacementService {
                             range: range,
                             withTemplate: replacementText
                         )
+                    } catch {
+                        AppLogger.transcription.error("Failed to compile word replacement pattern: \(AppLogger.errorMetadata(error), privacy: .public)")
                     }
                 } else {
                     // Fallback substring replace for non-spaced scripts

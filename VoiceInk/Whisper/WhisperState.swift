@@ -441,13 +441,21 @@ class WhisperState: NSObject, ObservableObject {
 
         if let textToPaste = finalPastedText, transcription.transcriptionStatus == TranscriptionStatus.completed.rawValue {
             Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 50_000_000)
-                CursorPaster.pasteAtCursor(textToPaste + " ")
+                do {
+                    try await Task.sleep(nanoseconds: 50_000_000)
+                } catch {
+                    return
+                }
+                await CursorPaster.pasteAtCursorAndWaitUntilPosted(textToPaste + " ")
 
                 let powerMode = PowerModeManager.shared
                 if let activeConfig = powerMode.currentActiveConfiguration, activeConfig.isAutoSendEnabled {
-                    // Slight delay to ensure the paste operation completes
-                    try? await Task.sleep(nanoseconds: 200_000_000)
+                    // Give terminal emulators time to process pasted text before Enter.
+                    do {
+                        try await Task.sleep(nanoseconds: 500_000_000)
+                    } catch {
+                        return
+                    }
                     CursorPaster.pressEnter()
                 }
             }

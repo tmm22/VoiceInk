@@ -16,6 +16,7 @@ class Recorder: NSObject, ObservableObject {
     private var audioLevelCheckTask: Task<Void, Never>?
     private var audioMeterUpdateTimer: DispatchSourceTimer?
     private let audioMeterQueue = DispatchQueue(label: "com.prakashjoshipax.voiceink.audiometer", qos: .userInteractive)
+    private var audioMuteTask: Task<Void, Never>?
     private var audioRestorationTask: Task<Void, Never>?
     private var hasDetectedAudioInCurrentSession = false
     /// Dedicated serial queue for hardware setup.
@@ -95,6 +96,19 @@ class Recorder: NSObject, ObservableObject {
         }
     }
 
+    func scheduleSystemMute(afterDelayNanoseconds delay: UInt64 = 250_000_000) {
+        audioMuteTask?.cancel()
+        audioMuteTask = Task { [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: delay)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled, let self else { return }
+            _ = await self.mediaController.muteSystemAudio()
+        }
+    }
+
     func startRecording(toOutputFile url: URL) async throws {
         logger.notice("startRecording called")
         deviceManager.isRecordingActive = true
@@ -139,8 +153,8 @@ class Recorder: NSObject, ObservableObject {
             Task { [weak self] in
                 guard let self = self else { return }
                 await self.playbackController.pauseMedia()
-                _ = await self.mediaController.muteSystemAudio()
             }
+            scheduleSystemMute()
 
             audioLevelCheckTask?.cancel()
             audioMeterUpdateTimer?.cancel()
@@ -174,6 +188,8 @@ class Recorder: NSObject, ObservableObject {
 
     func stopRecording() {
         logger.notice("stopRecording called")
+        audioMuteTask?.cancel()
+        audioMuteTask = nil
         audioLevelCheckTask?.cancel()
         audioMeterUpdateTimer?.cancel()
         audioMeterUpdateTimer = nil
@@ -272,6 +288,7 @@ class Recorder: NSObject, ObservableObject {
     deinit {
         audioLevelCheckTask?.cancel()
         audioMeterUpdateTimer?.cancel()
+        audioMuteTask?.cancel()
         audioRestorationTask?.cancel()
         if let observer = deviceSwitchObserver {
             NotificationCenter.default.removeObserver(observer)

@@ -1,8 +1,53 @@
 # Upstream Integration Progress
 
 **Date Started:** December 8, 2025
-**Date Updated:** March 25, 2026
+**Date Updated:** May 5, 2026
 **Objective:** Incorporate upstream fixes from `Beingpax/VoiceInk` into VoiceLink Community fork
+
+---
+
+## Session 6: May 5, 2026
+
+**Objective:** Review recent upstream commits through `60bc7a07` and selectively port compatible fixes/features without regressing community-fork decisions.
+
+### Sync Result
+
+- Fetched `upstream/main` from `44225b6e` to `60bc7a07`.
+- Kept this as a selective manual integration rather than a merge/rebase because upstream has diverged into broad engine, settings, sliding-panel, statistics, and cloud-provider changes that overlap with fork-specific behavior.
+
+### What Was Adopted
+
+- Word replacement ordering and boundary matching from upstream `620a843`, adapted to this fork's `AppSettings.Dictionary.wordReplacements` storage.
+- AppleScript paste handling for keyboard layouts that switch to QWERTY on Command from upstream `dededd43`, while preserving the fork's automatic non-QWERTY fallback.
+- Paste/auto-send timing improvements from upstream `a75ef6f5`/`6a21b578`, adapted to the current `WhisperState` pipeline.
+- Power Mode recorder shortcut availability gating from upstream `7654b1c5`, adapted to the fork's category-based settings flag.
+- Recording mute timing from upstream `6249a02`, adapted to the fork's async `Recorder` flow and custom audio feedback setup.
+- Custom API endpoint/model field hints from upstream `acda4c77`, generalized to avoid stale provider-specific example names.
+- Support diagnostics/email composition improvements from upstream `30d1d359`, preserving the community support subject/branding.
+- Parakeet V3 description copy update from upstream `3a7593e4`.
+
+### What Was Explicitly Preserved
+
+- The category-based Settings layout and navigation.
+- Community branding, release/distribution policy, and app storage identifiers.
+- Current filler-word defaults and Quick Rules behavior.
+- The fork's existing `WhisperState`/service-registry transcription architecture.
+- Existing custom cloud transcription model management and provider structure.
+
+### Upstream Commits Reviewed But Not Ported Wholesale
+
+- Recorder/session metrics and SwiftData stats-store work, because this fork does not currently carry the same upstream stats store.
+- Native Apple Speech asset-management UI, because the fork has a smaller forward-compatible native Apple transcription service without the upstream asset-control screens.
+- Broad transcription engine, provider registry, streaming, and sliding-panel refactors, because those would replace active fork architecture/UX choices.
+- Cloud provider additions such as Cartesia/Speechmatics/xAI streaming support, pending a fork-specific provider and settings decision.
+- Filler-word default changes, because the fork previously chose to retain its current defaults.
+
+### Validation
+
+- Added focused `WordReplacementServiceTests` coverage for punctuation-heavy replacements, comma-separated longest-match behavior, and alphanumeric boundary protection.
+- `git diff --check` passed.
+- A focused `xcodebuild test -only-testing:VoiceInkTests/WordReplacementServiceTests` attempt was blocked by the local Xcode/CoreSimulator mismatch (`CoreSimulator` 1051.49.0 older than Xcode's expected 1051.50.0) and hung before compiling tests.
+- Verified the updated ICU word-boundary regex compiles and handles the `C++`/`C++17` case with the Xcode toolchain's `swiftc`.
 
 ---
 
