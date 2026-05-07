@@ -2,6 +2,16 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-05-08
+
+### Privacy & Permissions
+- Reduced repeated macOS Keychain access prompts after upgrades by avoiding eager TTS credential reads, using metadata-only Keychain existence checks for model availability and migration verification, and preserving non-empty credential validation for runtime provider use.
+- Added an in-app permission recovery flow under `Settings > Permissions` so users can reset stale macOS privacy records after unsigned community updates without finding the reset script manually.
+- Improved `reset_permissions.sh` to accept an optional bundle identifier, surface `tccutil`/`defaults` failures, and print the exact manual reset command when needed.
+
+### Documentation
+- Updated the release template, README, unsigned-release guide, and maintainer release docs with the post-update permission reset guidance for Microphone, Accessibility, Screen Recording, and related macOS privacy permissions.
+
 ## 2026-05-05
 
 ### Upstream Sync
