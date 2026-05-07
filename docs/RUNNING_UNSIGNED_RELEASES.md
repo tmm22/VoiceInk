@@ -39,6 +39,29 @@ You can also use Finder:
 - If a checksum or release hash is published, verify it before opening the app.
 - If you need Intel support or are unsure, build the app yourself from source instead.
 
+## Permissions After Updating
+
+Unsigned community builds are ad-hoc signed during packaging. After replacing the app with a newer version, macOS may keep stale Privacy & Security records for Microphone, Accessibility, Screen Recording, Apple Events, or Calendar access.
+
+If permissions show as enabled but recording, pasting, or screen context stops working:
+
+1. Open `VoiceInk > Settings > Permissions`.
+2. Click `Reset Permission Records`.
+3. Quit and reopen VoiceInk.
+4. Grant the macOS permission prompts again.
+
+You can also run the bundled reset script from the repository:
+
+```bash
+./reset_permissions.sh
+```
+
+Or run the underlying macOS command directly:
+
+```bash
+tccutil reset All com.tmm22.VoiceLinkCommunity
+```
+
 ## Build Instead
 
 If you would rather avoid running a prebuilt unsigned release, use the local build flow in [Building from Source](development/BUILDING.md).

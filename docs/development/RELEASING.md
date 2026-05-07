@@ -28,6 +28,8 @@ The repository currently lives under Desktop in some local setups, which can cau
 
 Public GitHub/community releases in this repository are intentionally unsigned. That is a maintainer/project constraint, not an accidental omission: this project does not assume an Apple Developer subscription or paid signing/notarization workflow.
 
+Because those artifacts are ad-hoc signed, macOS TCC privacy records may not survive every update. If users report that Microphone, Accessibility, or Screen Recording stops working after an upgrade, direct them to `Settings > Permissions > Reset Permission Records` or `./reset_permissions.sh`.
+
 Available scripts:
 
 - `./scripts/build-release-artifact.sh`

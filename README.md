@@ -56,6 +56,8 @@ You can also Control-click the app in Finder, choose `Open`, then confirm `Open`
 
 Only bypass Gatekeeper for builds you downloaded from this repository. If you need an Intel build, or if you prefer, you can also [build the app from source](docs/development/BUILDING.md).
 
+If Microphone, Accessibility, or Screen Recording stops working after updating an unsigned release, open `VoiceInk > Settings > Permissions`, click `Reset Permission Records`, then quit and reopen the app. See [Running Unsigned Releases](docs/RUNNING_UNSIGNED_RELEASES.md) for the Terminal reset command and background.
+
 ## Requirements
 
 - macOS 14.4 or later

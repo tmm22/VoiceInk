@@ -1,24 +1,33 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Reset all VoiceInk permissions
+set -u
 
 echo "═══════════════════════════════════════════════════════════"
 echo "  Resetting VoiceInk Permissions"
 echo "═══════════════════════════════════════════════════════════"
 echo ""
 
-BUNDLE_ID="com.tmm22.VoiceLinkCommunity"
+BUNDLE_ID="${1:-com.tmm22.VoiceLinkCommunity}"
 
 echo "Resetting all permissions for: $BUNDLE_ID"
 echo ""
 
 # Reset all permissions
-tccutil reset All $BUNDLE_ID 2>/dev/null
+if tccutil reset All "$BUNDLE_ID"; then
+    reset_status=0
+else
+    reset_status=$?
+fi
 
 # Reset onboarding flag
-defaults write $BUNDLE_ID hasCompletedOnboarding -bool false 2>/dev/null
+if defaults write "$BUNDLE_ID" hasCompletedOnboarding -bool false; then
+    defaults_status=0
+else
+    defaults_status=$?
+fi
 
-if [ $? -eq 0 ]; then
+if [ "$reset_status" -eq 0 ] && [ "$defaults_status" -eq 0 ]; then
     echo "✅ All permissions reset successfully"
     echo "✅ Onboarding flag reset"
     echo ""
@@ -28,8 +37,11 @@ if [ $? -eq 0 ]; then
     echo "3. You'll see the full onboarding flow with permission prompts"
 else
     echo "⚠️  Some permissions may require manual reset"
+    echo "tccutil status: $reset_status"
+    echo "defaults status: $defaults_status"
     echo ""
     echo "To reset manually:"
+    echo "0. Run: tccutil reset All \"$BUNDLE_ID\""
     echo "1. Open System Settings"
     echo "2. Privacy & Security"
     echo "3. Find VoiceInk in:"

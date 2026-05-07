@@ -9,6 +9,8 @@ class PermissionManager: ObservableObject {
     @Published var isAccessibilityEnabled = false
     @Published var isScreenRecordingEnabled = false
     @Published var isKeyboardShortcutSet = false
+    @Published var isResettingPrivacyPermissions = false
+    @Published var privacyPermissionResetMessage: String?
     
     init() {
         // Start observing system events that might indicate permission changes
@@ -76,6 +78,40 @@ class PermissionManager: ObservableObject {
     func checkKeyboardShortcut() {
         // No need for DispatchQueue.main.async - this class is already @MainActor
         self.isKeyboardShortcutSet = KeyboardShortcuts.getShortcut(for: .toggleMiniRecorder) != nil
+    }
+
+    func resetPrivacyPermissions() {
+        guard !isResettingPrivacyPermissions else { return }
+
+        isResettingPrivacyPermissions = true
+        privacyPermissionResetMessage = nil
+
+        Task { [weak self] in
+            let outcome = await PermissionResetService.resetCurrentBundlePermissions()
+            guard let self else { return }
+
+            self.isResettingPrivacyPermissions = false
+            self.privacyPermissionResetMessage = outcome.message
+
+            switch outcome {
+            case .succeeded:
+                AppSettings.setValue(false, forKey: "hasCompletedOnboarding")
+                self.checkAllPermissions()
+            case .failed(_, let command, _):
+                self.copyToPasteboard(command)
+            }
+        }
+    }
+
+    func copyPermissionResetCommand() {
+        let command = PermissionResetService.resetCommand
+        copyToPasteboard(command)
+        privacyPermissionResetMessage = "Permission reset command copied. Paste it into Terminal, then quit and reopen VoiceInk."
+    }
+
+    private func copyToPasteboard(_ value: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(value, forType: .string)
     }
 }
 
@@ -211,6 +247,8 @@ struct PermissionsView: View {
                 }
                 .padding(.vertical, 40)
                 .frame(maxWidth: .infinity)
+
+                permissionRepairCard
                 
                 // Permission Cards
                 VStack(spacing: 16) {
@@ -292,6 +330,60 @@ struct PermissionsView: View {
         .onAppear {
             permissionManager.checkAllPermissions()
         }
+    }
+
+    private var permissionRepairCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "wrench.and.screwdriver.fill")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(.blue)
+                    .frame(width: 32, height: 32)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Permissions stopped working after an update?")
+                        .font(.headline)
+                    Text("Unsigned community updates can leave stale macOS privacy records behind. Reset the records, then quit and reopen VoiceInk to grant Microphone, Accessibility, Screen Recording, and other permissions again.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    permissionManager.resetPrivacyPermissions()
+                } label: {
+                    if permissionManager.isResettingPrivacyPermissions {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Label("Reset Permission Records", systemImage: "arrow.clockwise")
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(permissionManager.isResettingPrivacyPermissions)
+
+                Button {
+                    permissionManager.copyPermissionResetCommand()
+                } label: {
+                    Label("Copy Terminal Command", systemImage: "doc.on.doc")
+                }
+                .buttonStyle(.bordered)
+            }
+
+            if let message = permissionManager.privacyPermissionResetMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding()
+        .background(CardBackground(isSelected: false))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.05), radius: 5, y: 2)
     }
 }
 
