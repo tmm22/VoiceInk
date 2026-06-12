@@ -32,7 +32,10 @@ final class APIKeyManager {
     private let keychain: any KeychainStoring
     private let userDefaults: UserDefaults
 
-    private let migrationCompletedKey = "APIKeyMigrationToKeychainCompleted_v2"
+    /// v3: re-runs migration once for users whose v2 flag was set even though some
+    /// Keychain saves failed (the old code marked migration complete unconditionally,
+    /// which would strand legacy plaintext keys now that runtime fallback is removed).
+    private let migrationCompletedKey = "APIKeyMigrationToKeychainCompleted_v3"
 
     /// Provider to Keychain identifier mapping (iOS compatible for iCloud sync).
     private static let providerToKeychainKey: [String: String] = [
@@ -160,6 +163,12 @@ final class APIKeyManager {
 
         for (oldKey, newKey) in Self.userDefaultsToKeychainMapping {
             if let value = userDefaults.string(forKey: oldKey), !value.isEmpty {
+                // The Keychain is the source of truth: if a (possibly newer) value
+                // already exists there, keep it and just drop the legacy plaintext copy.
+                if let existing = keychain.getString(forKey: newKey), !existing.isEmpty {
+                    userDefaults.removeObject(forKey: oldKey)
+                    continue
+                }
                 if keychain.save(value, forKey: newKey) {
                     // Only remove the legacy key after the Keychain save succeeded
                     userDefaults.removeObject(forKey: oldKey)
@@ -200,11 +209,18 @@ final class APIKeyManager {
             var allSucceeded = true
             for model in legacyModels where !model.apiKey.isEmpty {
                 let keyIdentifier = customModelKeyIdentifier(for: model.id)
+                // Keychain is the source of truth; never overwrite an existing value.
+                if let existing = keychain.getString(forKey: keyIdentifier), !existing.isEmpty {
+                    continue
+                }
                 if !keychain.save(model.apiKey, forKey: keyIdentifier) {
                     allSucceeded = false
                     logger.error("Failed to migrate custom model API key; will retry on next launch")
                 }
             }
+            // Note: the plaintext `customCloudModels` blob itself is rewritten without
+            // embedded API keys by CustomModelManager.loadCustomModels() on its first
+            // load, so the keys are stripped from disk as soon as custom models are used.
             return allSucceeded
         } catch {
             logger.error("Failed to decode legacy custom models: \(AppLogger.errorMetadata(error), privacy: .public)")

@@ -30,7 +30,8 @@ private final class MockKeychain: KeychainStoring {
 final class APIKeyManagerTests: XCTestCase {
 
     private let suiteName = "com.test.VoiceInk.APIKeyManagerTests"
-    private let migrationCompletedKey = "APIKeyMigrationToKeychainCompleted_v2"
+    private let migrationCompletedKey = "APIKeyMigrationToKeychainCompleted_v3"
+    private let legacyMigrationCompletedKey = "APIKeyMigrationToKeychainCompleted_v2"
 
     private var defaults: UserDefaults!
     private var keychain: MockKeychain!
@@ -122,5 +123,29 @@ final class APIKeyManagerTests: XCTestCase {
         _ = APIKeyManager(keychain: keychain, userDefaults: defaults)
 
         XCTAssertTrue(keychain.storage.isEmpty, "Migration must not run again once the flag is set")
+    }
+
+    func testV3MigrationRescuesKeysStrandedByBuggyV2Completion() {
+        // Old builds set the v2 flag even when Keychain saves failed,
+        // leaving plaintext keys stranded in UserDefaults.
+        defaults.set(true, forKey: legacyMigrationCompletedKey)
+        defaults.set("stranded-key", forKey: "GROQAPIKey")
+
+        let manager = APIKeyManager(keychain: keychain, userDefaults: defaults)
+
+        XCTAssertEqual(manager.getAPIKey(forProvider: "groq"), "stranded-key", "v3 migration must rescue keys stranded by the buggy v2 completion flag")
+        XCTAssertNil(defaults.string(forKey: "GROQAPIKey"), "Rescued key should be removed from UserDefaults")
+        XCTAssertTrue(defaults.bool(forKey: migrationCompletedKey))
+    }
+
+    func testMigrationPrefersExistingKeychainValueOverLegacyCopy() {
+        keychain.storage["groqAPIKey"] = "current-keychain-key"
+        defaults.set("stale-legacy-key", forKey: "GROQAPIKey")
+
+        let manager = APIKeyManager(keychain: keychain, userDefaults: defaults)
+
+        XCTAssertEqual(manager.getAPIKey(forProvider: "groq"), "current-keychain-key", "Existing Keychain value must never be overwritten by a legacy copy")
+        XCTAssertNil(defaults.string(forKey: "GROQAPIKey"), "Stale legacy copy should still be cleaned up")
+        XCTAssertTrue(defaults.bool(forKey: migrationCompletedKey))
     }
 }
