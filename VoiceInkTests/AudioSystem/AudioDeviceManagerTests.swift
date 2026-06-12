@@ -144,7 +144,7 @@ final class AudioDeviceManagerTests: XCTestCase {
         let expectation = expectation(description: "Device change notification")
         
         let observer = NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("AudioDeviceChanged"),
+            forName: .audioDeviceChanged,
             object: nil,
             queue: .main
         ) { _ in

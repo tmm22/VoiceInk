@@ -154,7 +154,7 @@ final class RecorderTests: XCTestCase {
         
         // Simulate device change notification
         NotificationCenter.default.post(
-            name: NSNotification.Name("AudioDeviceChanged"),
+            name: .audioDeviceChanged,
             object: nil
         )
         
@@ -238,7 +238,7 @@ final class RecorderTests: XCTestCase {
         
         // Monitor for notification
         let observer = NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("NoAudioDetected"),
+            forName: .noAudioDetected,
             object: nil,
             queue: .main
         ) { _ in
@@ -365,7 +365,7 @@ final class RecorderTests: XCTestCase {
         
         // Post notification - should not crash
         NotificationCenter.default.post(
-            name: NSNotification.Name("AudioDeviceChanged"),
+            name: .audioDeviceChanged,
             object: nil
         )
     }

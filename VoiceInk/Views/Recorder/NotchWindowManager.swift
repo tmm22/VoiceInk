@@ -16,7 +16,7 @@ class NotchWindowManager: ObservableObject {
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleHideNotification),
-            name: NSNotification.Name("HideNotchRecorder"),
+            name: .hideNotchRecorder,
             object: nil
         )
     }

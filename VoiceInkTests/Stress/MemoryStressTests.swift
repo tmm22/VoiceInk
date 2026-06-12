@@ -334,7 +334,7 @@ final class MemoryStressTests: XCTestCase {
         
         // Post notification - should not crash
         NotificationCenter.default.post(
-            name: NSNotification.Name("AudioDeviceChanged"),
+            name: .audioDeviceChanged,
             object: nil
         )
         

@@ -119,7 +119,7 @@ final class WorkflowIntegrationTests: XCTestCase {
         
         // Simulate device change
         NotificationCenter.default.post(
-            name: NSNotification.Name("AudioDeviceChanged"),
+            name: .audioDeviceChanged,
             object: nil
         )
         
