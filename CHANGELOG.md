@@ -2,6 +2,14 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## Unreleased
+
+### Security & Privacy
+- API key retrieval is now strictly Keychain-only: removed a runtime fallback that could read legacy plaintext keys from app preferences. One-time migration of legacy keys still runs at launch.
+- Hardened the legacy API key migration so it only marks itself complete when every key was safely stored in the Keychain; any key that fails to migrate stays in place and is retried on the next launch instead of being stranded.
+- License activation/validation logs no longer include raw server responses; only the HTTP status code and response size are recorded.
+- AI enhancement requests now validate the provider endpoint before sending credentials, rejecting insecure `http://` URLs for custom providers (local Ollama over `http://localhost` remains supported).
+
 ## 2026-05-08
 
 ### Release Preparation
