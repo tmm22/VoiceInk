@@ -51,6 +51,10 @@ class AudioTranscriptionManager: ObservableObject {
     }
     
     private init() {}
+
+    deinit {
+        currentTask?.cancel()
+    }
     
     func startProcessing(url: URL, modelContext: ModelContext, whisperState: WhisperState) {
         // Cancel any existing processing

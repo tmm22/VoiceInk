@@ -276,8 +276,8 @@ class AIEnhancementService: ObservableObject {
     }
 
     func captureClipboardContext() {
-        Task {
-            await contextBuilder.captureImmediateContext()
+        Task { [weak self] in
+            await self?.contextBuilder.captureImmediateContext()
         }
     }
     

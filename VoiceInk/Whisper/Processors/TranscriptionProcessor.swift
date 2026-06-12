@@ -31,6 +31,10 @@ class TranscriptionProcessor: ObservableObject, TranscriptionProcessorProtocol {
         initializeDependencies()
     }
 
+    deinit {
+        currentTask?.cancel()
+    }
+
     private func initializeDependencies() {
         self.audioPreprocessor = AudioPreprocessor()
         self.resultProcessor = TranscriptionResultProcessor()
@@ -83,7 +87,8 @@ class TranscriptionProcessor: ObservableObject, TranscriptionProcessorProtocol {
             throw TranscriptionProcessorError.alreadyProcessing
         }
 
-        let task = Task {
+        let task = Task { [weak self] in
+            guard let self else { throw CancellationError() }
             do {
                 isProcessing = true
                 defer { isProcessing = false }

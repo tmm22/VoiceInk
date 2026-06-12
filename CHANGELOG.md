@@ -2,6 +2,11 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## Unreleased
+
+### Internal
+- Hardened Task and closure lifecycle management across the recording/transcription pipeline: stored Tasks and long-lived closures now use `[weak self]`, and classes holding Task properties (`InferenceCoordinator`, `TranscriptionProcessor`, `MediaController`, `AudioTranscriptionManager`, `ParakeetTranscriptionService`) cancel them in `deinit` to prevent retain cycles and leaked background work.
+
 ## 2026-05-08
 
 ### Release Preparation
