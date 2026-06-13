@@ -39,10 +39,13 @@ extension AIService {
             }
             
             let models = dataArray.compactMap { $0["id"] as? String }
-            self.setOpenRouterModels(models.sorted())
+            let sortedModels = models.sorted()
+            self.setOpenRouterModels(sortedModels)
             self.saveOpenRouterModels() // Save to UserDefaults
-            if self.selectedProvider == .openRouter && self.currentModel == self.selectedProvider.defaultModel && !models.isEmpty {
-                self.selectModel(models.sorted().first!)
+            if self.selectedProvider == .openRouter,
+               self.currentModel == self.selectedProvider.defaultModel,
+               let firstModel = sortedModels.first {
+                self.selectModel(firstModel)
             }
             self.objectWillChange.send()
             logger.info("Successfully fetched \(models.count) OpenRouter models.")

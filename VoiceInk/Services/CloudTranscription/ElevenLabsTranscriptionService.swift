@@ -3,12 +3,16 @@ import OSLog
 
 class ElevenLabsTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProvider {
     let supportedProvider: ModelProvider = .elevenLabs
-    private let apiURL = URL(string: "https://api.elevenlabs.io/v1/speech-to-text")!
+    private let apiURLString = "https://api.elevenlabs.io/v1/speech-to-text"
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "ElevenLabsTranscriptionService")
 
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         guard let apiKey = APIKeyManager.shared.getAPIKey(forProvider: "ElevenLabs"), !apiKey.isEmpty else {
             throw CloudTranscriptionError.missingAPIKey
+        }
+
+        guard let apiURL = URL(string: apiURLString) else {
+            throw CloudTranscriptionError.dataEncodingError
         }
 
         var request = URLRequest(url: apiURL)

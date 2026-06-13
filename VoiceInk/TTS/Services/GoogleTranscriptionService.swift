@@ -64,7 +64,7 @@ final class GoogleTranscriptionService: AudioTranscribing {
     private let session: URLSession
     private let keychain: KeychainManager
     private let model = "chirp"
-    private let endpoint = URL(string: "https://speech.googleapis.com/v1/speech:recognize")!
+    private let endpoint = "https://speech.googleapis.com/v1/speech:recognize"
 
     init(session: URLSession = SecureURLSession.makeEphemeral(),
          keychain: KeychainManager = KeychainManager()) {
@@ -100,7 +100,7 @@ final class GoogleTranscriptionService: AudioTranscribing {
         defer {
             try? FileManager.default.removeItem(at: bodyURL)
         }
-        guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false) else {
+        guard var components = URLComponents(string: endpoint) else {
             throw TTSError.apiError("Invalid transcription endpoint")
         }
 

@@ -55,7 +55,9 @@ class DeepgramTranscriptionService: CloudTranscriptionBase, CloudTranscriptionPr
         }
 
         // Build the URL with query parameters
-        var components = URLComponents(string: "https://api.deepgram.com/v1/listen")!
+        guard var components = URLComponents(string: "https://api.deepgram.com/v1/listen") else {
+            throw CloudTranscriptionError.dataEncodingError
+        }
         var queryItems: [URLQueryItem] = []
 
         // Add language parameter if not auto-detect
