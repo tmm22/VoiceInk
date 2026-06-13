@@ -28,8 +28,8 @@ final class AudioDeviceManagerTests: XCTestCase {
         // Test that manager handles empty device list gracefully
         // This simulates the case where no audio devices are available
         
-        // Even with no user-added devices, there should be a fallback
-        XCTAssertNotNil(deviceManager.fallbackDeviceID, "Should have fallback device")
+        // Even with no user-added devices, there should be a system default to fall back to
+        XCTAssertNotNil(deviceManager.getSystemDefaultDevice(), "Should have fallback device")
     }
     
     func testAvailableDevicesLoaded() {
@@ -40,7 +40,7 @@ final class AudioDeviceManagerTests: XCTestCase {
         
         // If we're on a Mac with audio hardware, we should have devices
         if deviceManager.availableDevices.isEmpty {
-            XCTAssertNotNil(deviceManager.fallbackDeviceID, "Should have fallback even with no devices")
+            XCTAssertNotNil(deviceManager.getSystemDefaultDevice(), "Should have fallback even with no devices")
         }
     }
     
@@ -111,7 +111,7 @@ final class AudioDeviceManagerTests: XCTestCase {
         wait(for: [expectation], timeout: 1.0)
         
         // Should fall back to default device
-        XCTAssertNotNil(newManager.fallbackDeviceID, "Should have fallback device")
+        XCTAssertNotNil(newManager.getSystemDefaultDevice(), "Should have fallback device")
         
         // Cleanup
         UserDefaults.standard.removeObject(forKey: "selectedAudioDeviceUID")
@@ -272,8 +272,8 @@ final class AudioDeviceManagerTests: XCTestCase {
         
         let currentDevice = deviceManager.getCurrentDevice()
         
-        // Should return fallback device
-        XCTAssertEqual(currentDevice, deviceManager.fallbackDeviceID ?? 0)
+        // Should return the system default device as the fallback
+        XCTAssertEqual(currentDevice, deviceManager.getSystemDefaultDevice() ?? 0)
     }
     
     func testSelectNonexistentDevice() {
