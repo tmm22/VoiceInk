@@ -68,8 +68,9 @@ public final class AppleScriptManager {
         do {
             let result = try await runAppleScript(scriptInfo.script, timeout: scriptInfo.timeout)
 
-            // Log execution with script name
-            logInfo("Executed script '\(scriptInfo.name)': \(result ?? "no output")")
+            // Privacy: script output can contain selected text or browser content,
+            // so log only the script name and output size.
+            logInfo("Executed script '\(scriptInfo.name)'. Output character count: \(result?.count ?? 0)")
 
             return result
         } catch {
