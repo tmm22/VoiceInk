@@ -390,15 +390,15 @@ final class CustomModelManagerTests: XCTestCase {
     func testAddCustomModel() {
         let initialCount = manager.customModels.count
         
-        let model = CustomCloudModel(
+        var model = CustomCloudModel(
             name: "Test Model",
             displayName: "Test Display Name",
             description: "Test Description",
             apiEndpoint: "https://api.example.com/v1/audio/transcriptions",
-            apiKey: "test-api-key",
             modelName: "test-model-v1",
             isMultilingual: true
         )
+        model.transientApiKey = "test-api-key"
         manager.addCustomModel(model)
         
         XCTAssertEqual(manager.customModels.count, initialCount + 1)
@@ -414,15 +414,15 @@ final class CustomModelManagerTests: XCTestCase {
     
     func testDeleteCustomModel() {
         // Add a model first
-        let model = CustomCloudModel(
+        var model = CustomCloudModel(
             name: "Model To Delete",
             displayName: "Delete Me",
             description: "Will be deleted",
             apiEndpoint: "https://api.example.com/v1/audio/transcriptions",
-            apiKey: "test-key",
             modelName: "delete-model",
             isMultilingual: false
         )
+        model.transientApiKey = "test-key"
         manager.addCustomModel(model)
         
         let countAfterAdd = manager.customModels.count
@@ -439,33 +439,33 @@ final class CustomModelManagerTests: XCTestCase {
     
     func testUpdateCustomModel() {
         // Add a model first
-        let model = CustomCloudModel(
+        var model = CustomCloudModel(
             name: "Original Name",
             displayName: "Original Display",
             description: "Original Description",
             apiEndpoint: "https://api.example.com/v1/audio/transcriptions",
-            apiKey: "original-key",
             modelName: "original-model",
             isMultilingual: true
         )
+        model.transientApiKey = "original-key"
         manager.addCustomModel(model)
         
-        guard var modelToUpdate = manager.customModels.last else {
+        guard let modelToUpdate = manager.customModels.last else {
             XCTFail("Model should exist after adding")
             return
         }
         
         // Create updated model with same ID
-        let updatedModel = CustomCloudModel(
+        var updatedModel = CustomCloudModel(
             id: modelToUpdate.id,
             name: "Updated Name",
             displayName: "Updated Display",
             description: "Updated Description",
             apiEndpoint: "https://api.updated.com/v1/audio/transcriptions",
-            apiKey: "updated-key",
             modelName: "updated-model",
             isMultilingual: false
         )
+        updatedModel.transientApiKey = "updated-key"
         
         manager.updateCustomModel(updatedModel)
         
@@ -485,15 +485,15 @@ final class CustomModelManagerTests: XCTestCase {
     func testCustomModelAPIKeyStoredInKeychain() {
         let testAPIKey = "secure-test-api-key-\(UUID().uuidString)"
         
-        let model = CustomCloudModel(
+        var model = CustomCloudModel(
             name: "Keychain Test Model",
             displayName: "Keychain Test",
             description: "Tests keychain storage",
             apiEndpoint: "https://api.example.com/v1/audio/transcriptions",
-            apiKey: testAPIKey,
             modelName: "keychain-test",
             isMultilingual: true
         )
+        model.transientApiKey = testAPIKey
         manager.addCustomModel(model)
         
         guard let addedModel = manager.customModels.last else {
@@ -508,15 +508,15 @@ final class CustomModelManagerTests: XCTestCase {
     }
     
     func testCustomModelProviderIsAlwaysCustom() {
-        let model = CustomCloudModel(
+        var model = CustomCloudModel(
             name: "Provider Test",
             displayName: "Provider Test",
             description: "Tests provider",
             apiEndpoint: "https://api.example.com/v1/audio/transcriptions",
-            apiKey: "test-key",
             modelName: "provider-test",
             isMultilingual: true
         )
+        model.transientApiKey = "test-key"
         manager.addCustomModel(model)
         
         guard let model = manager.customModels.last else {
