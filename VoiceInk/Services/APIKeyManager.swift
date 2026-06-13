@@ -1,15 +1,41 @@
 import Foundation
 import os
 
+/// Abstraction over Keychain storage so API key handling can be unit tested.
+protocol KeychainStoring: AnyObject {
+    @discardableResult
+    func save(_ value: String, forKey key: String) -> Bool
+    func getString(forKey key: String) -> String?
+    @discardableResult
+    func delete(forKey key: String) -> Bool
+}
+
+extension KeychainService: KeychainStoring {
+    func save(_ value: String, forKey key: String) -> Bool {
+        save(value, forKey: key, syncable: true)
+    }
+
+    func getString(forKey key: String) -> String? {
+        getString(forKey: key, syncable: true)
+    }
+
+    func delete(forKey key: String) -> Bool {
+        delete(forKey: key, syncable: true)
+    }
+}
+
 /// Manages API keys using secure Keychain storage with automatic migration from UserDefaults.
 final class APIKeyManager {
     static let shared = APIKeyManager()
 
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "APIKeyManager")
-    private let keychain = KeychainService.shared
-    private let userDefaults = UserDefaults.standard
+    private let keychain: any KeychainStoring
+    private let userDefaults: UserDefaults
 
-    private let migrationCompletedKey = "APIKeyMigrationToKeychainCompleted_v2"
+    /// v3: re-runs migration once for users whose v2 flag was set even though some
+    /// Keychain saves failed (the old code marked migration complete unconditionally,
+    /// which would strand legacy plaintext keys now that runtime fallback is removed).
+    private let migrationCompletedKey = "APIKeyMigrationToKeychainCompleted_v3"
 
     /// Provider to Keychain identifier mapping (iOS compatible for iCloud sync).
     private static let providerToKeychainKey: [String: String] = [
@@ -39,7 +65,11 @@ final class APIKeyManager {
         "OpenRouterAPIKey": "openRouterAPIKey"
     ]
 
-    private init() {
+    /// Internal initializer allows dependency injection for unit tests.
+    /// Production code must use `APIKeyManager.shared`.
+    init(keychain: any KeychainStoring = KeychainService.shared, userDefaults: UserDefaults = .standard) {
+        self.keychain = keychain
+        self.userDefaults = userDefaults
         migrateFromUserDefaultsIfNeeded()
     }
 
@@ -58,20 +88,12 @@ final class APIKeyManager {
         return success
     }
 
-    /// Retrieves an API key for a provider.
+    /// Retrieves an API key for a provider. Retrieval is Keychain-only;
+    /// legacy UserDefaults keys are handled exclusively by the migration path.
     func getAPIKey(forProvider provider: String) -> String? {
         let keyIdentifier = keychainIdentifier(forProvider: provider)
 
-        // First try Keychain with new identifier
         if let key = keychain.getString(forKey: keyIdentifier), !key.isEmpty {
-            return key
-        }
-
-        let oldKey = oldUserDefaultsKey(forProvider: provider)
-        if let key = userDefaults.string(forKey: oldKey), !key.isEmpty {
-            logger.info("Migrating \(oldKey, privacy: .public) to Keychain")
-            keychain.save(key, forKey: keyIdentifier)
-            userDefaults.removeObject(forKey: oldKey)
             return key
         }
 
@@ -128,6 +150,8 @@ final class APIKeyManager {
     // MARK: - Migration
 
     /// Migrates API keys from UserDefaults to Keychain on first run.
+    /// The completion flag is only set when every key migrated successfully,
+    /// so failed keys remain in UserDefaults and are retried on the next launch.
     private func migrateFromUserDefaultsIfNeeded() {
         if userDefaults.bool(forKey: migrationCompletedKey) {
             return
@@ -135,27 +159,44 @@ final class APIKeyManager {
 
         logger.info("Starting API key migration")
         var migratedCount = 0
+        var allSucceeded = true
 
         for (oldKey, newKey) in Self.userDefaultsToKeychainMapping {
             if let value = userDefaults.string(forKey: oldKey), !value.isEmpty {
+                // The Keychain is the source of truth: if a (possibly newer) value
+                // already exists there, keep it and just drop the legacy plaintext copy.
+                if let existing = keychain.getString(forKey: newKey), !existing.isEmpty {
+                    userDefaults.removeObject(forKey: oldKey)
+                    continue
+                }
                 if keychain.save(value, forKey: newKey) {
+                    // Only remove the legacy key after the Keychain save succeeded
                     userDefaults.removeObject(forKey: oldKey)
                     migratedCount += 1
                 } else {
-                    logger.error("Failed to migrate \(oldKey, privacy: .public)")
+                    allSucceeded = false
+                    logger.error("Failed to migrate \(oldKey, privacy: .public); will retry on next launch")
                 }
             }
         }
 
-        migrateCustomModelAPIKeys()
-        userDefaults.set(true, forKey: migrationCompletedKey)
-        logger.info("Migration completed. Migrated \(migratedCount, privacy: .public) API keys.")
+        if !migrateCustomModelAPIKeys() {
+            allSucceeded = false
+        }
+
+        if allSucceeded {
+            userDefaults.set(true, forKey: migrationCompletedKey)
+            logger.info("Migration completed. Migrated \(migratedCount, privacy: .public) API keys.")
+        } else {
+            logger.error("Migration incomplete (\(migratedCount, privacy: .public) keys migrated); will retry on next launch")
+        }
     }
 
     /// Migrates custom model API keys from UserDefaults.
-    private func migrateCustomModelAPIKeys() {
+    /// - Returns: `true` when every Keychain save succeeded (or there was nothing to migrate).
+    private func migrateCustomModelAPIKeys() -> Bool {
         guard let data = userDefaults.data(forKey: "customCloudModels") else {
-            return
+            return true
         }
 
         struct LegacyCustomCloudModel: Codable {
@@ -165,12 +206,27 @@ final class APIKeyManager {
 
         do {
             let legacyModels = try JSONDecoder().decode([LegacyCustomCloudModel].self, from: data)
+            var allSucceeded = true
             for model in legacyModels where !model.apiKey.isEmpty {
                 let keyIdentifier = customModelKeyIdentifier(for: model.id)
-                keychain.save(model.apiKey, forKey: keyIdentifier)
+                // Keychain is the source of truth; never overwrite an existing value.
+                if let existing = keychain.getString(forKey: keyIdentifier), !existing.isEmpty {
+                    continue
+                }
+                if !keychain.save(model.apiKey, forKey: keyIdentifier) {
+                    allSucceeded = false
+                    logger.error("Failed to migrate custom model API key; will retry on next launch")
+                }
             }
+            // Note: the plaintext `customCloudModels` blob itself is rewritten without
+            // embedded API keys by CustomModelManager.loadCustomModels() on its first
+            // load, so the keys are stripped from disk as soon as custom models are used.
+            return allSucceeded
         } catch {
             logger.error("Failed to decode legacy custom models: \(AppLogger.errorMetadata(error), privacy: .public)")
+            // Decoding failures are permanent; retrying would fail identically,
+            // so they do not block migration completion.
+            return true
         }
     }
 
