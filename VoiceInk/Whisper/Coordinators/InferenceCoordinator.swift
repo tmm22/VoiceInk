@@ -22,6 +22,10 @@ class InferenceCoordinator: ObservableObject {
         self.contextManager = contextManager
     }
 
+    deinit {
+        currentTask?.cancel()
+    }
+
     // MARK: - Public Methods
 
     /// Queue an inference operation
@@ -90,7 +94,9 @@ class InferenceCoordinator: ObservableObject {
         logger.info("Starting inference for model: \(operation.modelName)")
 
         do {
-            currentTask = Task {
+            currentTask = Task { [weak self] in
+                guard let self else { throw CancellationError() }
+
                 // Update progress
                 currentProgress = 0.1
                 currentOperation = "Loading model \(operation.modelName)"

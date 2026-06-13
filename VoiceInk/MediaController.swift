@@ -30,6 +30,10 @@ class MediaController: ObservableObject {
             AppSettings.Audio.audioResumptionDelay = 0
         }
     }
+
+    deinit {
+        currentMuteTask?.cancel()
+    }
     
     /// Mutes system audio during recording
     func muteSystemAudio() async -> Bool {

@@ -39,9 +39,10 @@ class AIService: ObservableObject {
                 self.apiKey = ""
                 self.isAPIKeyValid = true
                 if selectedProvider == .ollama {
-                    Task {
-                        await ollamaService.checkConnection()
-                        await ollamaService.refreshModels()
+                    Task { [weak self] in
+                        guard let self else { return }
+                        await self.ollamaService.checkConnection()
+                        await self.ollamaService.refreshModels()
                     }
                 }
             }
@@ -153,8 +154,12 @@ class AIService: ObservableObject {
 
         apiKey = ""
         isAPIKeyValid = false
-        // Best-effort cleanup; key may already be missing.
-        try? keychain.deleteAPIKey(for: selectedProvider.rawValue)
+        do {
+            try keychain.deleteAPIKey(for: selectedProvider.rawValue)
+        } catch {
+            // Key may already be missing; log so a failed removal is visible.
+            logger.error("Failed to delete API key for \(self.selectedProvider.rawValue, privacy: .public): \(AppLogger.errorMetadata(error), privacy: .public)")
+        }
         updateConnectedProviderCache(for: selectedProvider, isConnected: false)
         NotificationCenter.default.post(name: .aiProviderKeyChanged, object: nil)
     }
