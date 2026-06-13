@@ -41,7 +41,6 @@ final class MemoryStressTests: XCTestCase {
             do {
                 let recorder = Recorder()
                 _ = recorder.audioMeter
-                _ = recorder.recordingDuration
             }
             
             try? await Task.sleep(nanoseconds: 10_000_000)
