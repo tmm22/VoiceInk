@@ -306,13 +306,21 @@ VoiceInk/
 - ✅ Files MUST NOT exceed **1,000 lines** of code without explicit justification
 - ⛔ Never let a file grow beyond 2,000 lines - refactor immediately
 
-**Current inventory snapshot (2026-04-03):**
+**Current inventory snapshot (2026-06-13):**
 - `>=500` source files are currently concentrated in tests:
-  - `VoiceInkTests/TTS/TTSServiceTests.swift` (~765)
-  - `VoiceInkTests/TTS/TTSViewModelTests.swift` (~609)
-  - `VoiceInkTests/Services/CloudTranscriptionServiceTests.swift` (~529)
-  - `VoiceInkTests/Transcription/WhisperStateTests.swift` (~517)
-- `VoiceInk/` production sources are currently below 500, but maintain a watchlist for files in the 400-499 range (for example `VoiceInk.swift`, `WhisperState.swift`, and large feature views/services).
+ - `VoiceInkTests/TTS/TTSServiceTests.swift` (~765)
+ - `VoiceInkTests/TTS/TTSViewModelTests.swift` (~609)
+ - `VoiceInkTests/Services/CloudTranscriptionServiceTests.swift` (~529)
+ - `VoiceInkTests/Transcription/WhisperStateTests.swift` (~517)
+- `VoiceInk/` production sources are currently below 500, but eight files sit in the 450-499 watch band and should be split before new feature scope is added:
+ - `Views/KeyboardShortcutsListView.swift` (~494; extract `ShortcutCard` + badge components)
+ - `VoiceInk.swift` (~488; extract ModelContainer helpers and `UpdaterViewModel`)
+ - `Whisper/WhisperState.swift` (~482; extract recording lifecycle / transcription pipeline)
+ - `Views/History/TranscriptionHistoryView.swift` (~473; extract sidebars + pagination)
+ - `Views/Metrics/PerformanceAnalysisView.swift` (~468; extract card subviews)
+ - `TTS/Services/ElevenLabsTTSService.swift` (~468)
+ - `Views/Onboarding/OnboardingPermissionsView.swift` (~462)
+ - `Whisper/WhisperState+LocalModelManager.swift` (~450; move `WhisperModel` + `TaskDelegate` out)
 
 **Split trigger guidance:**
 - If a test file exceeds 500, split by provider/feature area when touching it next.
@@ -474,6 +482,25 @@ logger.notice("Transcript: \(text, privacy: .public)")
 logger.notice("System prompt: \(systemMessage, privacy: .public)")
 logger.debug("Current URL: \(output, privacy: .public)")
 ```
+
+**API/license response bodies are sensitive too.** Never log raw HTTP response
+bodies from license or provider APIs (success *or* error paths) — they can echo
+submitted key material, license identifiers, or activation metadata. Log the
+HTTP status code and response byte count instead.
+
+```swift
+// ✅ Good: status + size only
+logger.info("License validation response: status \(status, privacy: .public), \(data.count, privacy: .public) bytes")
+
+// ⛔ Bad: raw body at any privacy level
+logger.error("License validation failed: \(errorBody, privacy: .public)")
+```
+
+**Vendored packages must follow the same rules.** Code under `Packages/`
+(for example `SelectedTextKit`) runs inside VoiceInk's process and writes to
+the same unified log. When vendoring or updating a package, audit its logging
+for selected text, pasteboard contents, pasted text, and AppleScript output,
+and reduce those to metadata-only before shipping.
 
 ### Localization
 
@@ -917,6 +944,14 @@ func getAPIKey() -> String {
 keychain.save(apiKey, forKey: keyIdentifier, syncable: false)
 ```
 
+**Migration completion flags (critical):**
+
+> **Context:** The 2026-06-13 review found the UserDefaults→Keychain key migration marked itself complete even when individual Keychain saves failed. Once the runtime UserDefaults fallback was removed, that combination would have permanently stranded users' keys.
+
+- Only set a migration-completed flag when **every** item migrated successfully; failed items must stay in place and be retried on the next launch.
+- The durable store (Keychain) is the source of truth: never overwrite an existing Keychain value with a legacy plaintext copy, but do clean the stale copy up.
+- If older builds may have set the flag prematurely, **version-bump the flag key** (e.g. `_v2` → `_v3`) so migration re-runs once for affected users.
+
 **CustomCloudModel API key rule (critical):**
 
 - Keep exactly **one** `apiKey` computed property on `CustomCloudModel`.
@@ -980,9 +1015,11 @@ let (data, response) = try await URLSession.shared.upload(for: request, from: au
 
 ### 3. URL Validation for Custom Providers
 
-> **Context:** The 2025-12-03 code review found custom provider URLs were not validated for HTTPS, meaning credentials could be sent over unencrypted connections.
+> **Context:** The 2025-12-03 code review found custom provider URLs were not validated for HTTPS, meaning credentials could be sent over unencrypted connections. The 2026-06-13 review found a second variant: URLs validated when the user *saved* the configuration were still used unvalidated at *request* time, so a value edited or imported later bypassed the check.
 
 **Rule: Validate URL scheme for ALL user-provided URLs that will carry credentials.**
+
+**Rule: Validate at request-construction time, not only at configuration time.** Whatever helper builds the actual `URLRequest` that carries credentials must itself enforce HTTPS (reusing `AIProvider.validateSecureURL` or equivalent), regardless of any validation done when the setting was saved. Local Ollama over `http://localhost` is the only sanctioned exception.
 
 ```swift
 // ✅ Good: Validate URL scheme before use
@@ -2008,6 +2045,12 @@ Task { @MainActor [weak self] in
 
 ## Version History
 
+- **v1.13** (2026-06-13) - Autonomous Review Pass Lessons
+ - Refreshed the file-size inventory snapshot (eight production files now in the 450-499 watch band, with split recommendations)
+ - Added rule: never log raw license/provider API response bodies; log status code + byte count only
+ - Added rule: vendored packages under `Packages/` must follow the same sensitive-data logging policy
+ - Added rule: HTTPS validation for credentialed URLs must happen at request-construction time, not only at configuration time
+ - Added migration-completion-flag rules (set only on full success, Keychain precedence, version-bump the flag to rescue prematurely-flagged users)
 - **v1.12** (2026-03-10) - Release Automation and Synced-Workspace Build Lessons
   - Added build-location rule to avoid release packaging from Desktop/iCloud-backed working copies
   - Documented the `xcodebuild` pre-compilation hang symptom and its `NSFileCoordinator`-style mitigation path
@@ -2056,7 +2099,7 @@ To keep this guide maintainable and reduce drift:
 
 ---
 
-**Last Updated:** March 10, 2026
+**Last Updated:** June 13, 2026
 **Maintained By:** VoiceInk Community
 **License:** GPL v3 (same as project)
 
