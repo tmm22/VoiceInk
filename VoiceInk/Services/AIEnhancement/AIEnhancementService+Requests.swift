@@ -181,8 +181,16 @@ extension AIEnhancementService {
         systemMessage: String,
         modelOverride: String? = nil
     ) async throws -> String {
-        guard let url = URL(string: aiService.selectedProvider.baseURL) else {
-            throw NSError(domain: "AIEnhancementService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid API URL"])
+        // Validate the endpoint at request time: a bearer token is attached below,
+        // so user-configured base URLs (e.g. the .custom provider) must be HTTPS.
+        // Ollama is the intentional exception and may use http://localhost.
+        let provider = aiService.selectedProvider
+        let url: URL
+        do {
+            url = try AIProvider.validateSecureURL(provider.baseURL, allowLocalhost: provider == .ollama)
+        } catch {
+            logger.error("Rejected insecure or invalid base URL for provider \(provider.rawValue, privacy: .public)")
+            throw EnhancementError.customError(error.localizedDescription)
         }
         
         var request = URLRequest(url: url)
