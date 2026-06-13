@@ -28,7 +28,7 @@ This document provides comprehensive guidance for AI coding assistants (Claude, 
 
 ### Core Principles
 
-1. **Privacy First**: 100% offline processing, no data leaves the device
+1. **Privacy First**: Local-first processing — transcription and AI enhancement run fully offline by default; data only leaves the device when the user explicitly opts into a cloud provider
 2. **Native Performance**: Built with SwiftUI for optimal macOS integration
 3. **Accessibility Focus**: Designed for users with disabilities and diverse needs
 4. **Modular Architecture**: Clean separation of concerns for maintainability
@@ -612,7 +612,7 @@ func saveAPIKey(_ key: String) throws {
     do {
         try keychain.save(key, for: provider)
     } catch {
-        AppLogger.security.error("Failed to save API key: \(error)")
+        AppLogger.storage.error("Failed to save API key: \(error)")
         throw SettingsError.keychainSaveFailed(error)
     }
 }
@@ -622,7 +622,7 @@ func loadCachedTranscription() -> Transcription? {
     do {
         return try cache.load()
     } catch {
-        AppLogger.cache.info("Cache miss: \(error.localizedDescription)")
+        AppLogger.storage.info("Cache miss: \(error.localizedDescription)")
         return nil  // Fallback: will fetch fresh data
     }
 }
@@ -1453,7 +1453,7 @@ This resets TCC permissions and the onboarding flag for bundle ID `com.tmm22.Voi
 
 The built app will be located at:
 ```
-~/Library/Developer/Xcode/DerivedData/VoiceInk-*/Build/Products/Debug/VoiceLink Community.app
+~/Library/Developer/Xcode/DerivedData/VoiceInk-*/Build/Products/Debug/VoiceInk.app
 ```
 
 **See `docs/development/BUILDING.md` for detailed build instructions.**
@@ -1500,7 +1500,7 @@ class NewProviderService: TTSProvider {
 **Authorization headers (required):**
 - TTS providers must use the centralized authorization helper [`AuthorizationService`](VoiceInk/TTS/Utilities/AuthorizationService.swift:5).
 - Do **not** add per-provider `authorizationHeader()` helpers (avoid duplicated header logic and inconsistent managed-credential fallback).
-- Request headers via [`AuthorizationService.authorizationHeader(for:headerType:)`](VoiceInk/TTS/Utilities/AuthorizationService.swift:22) using the appropriate [`HeaderType`](VoiceInk/TTS/Utilities/AuthorizationService.swift:69) (see convenience cases in [`HeaderType` extension](VoiceInk/TTS/Utilities/AuthorizationService.swift:90)).
+- Request headers via [`AuthorizationService.authorizationHeader(for:headerType:)`](VoiceInk/TTS/Utilities/AuthorizationService.swift:22) using the appropriate [`HeaderType`](VoiceInk/TTS/Utilities/AuthorizationService.swift:97) (see convenience cases in [`HeaderType` extension](VoiceInk/TTS/Utilities/AuthorizationService.swift:118)).
 
 2. **Update Provider Enum**
 
@@ -2051,6 +2051,7 @@ Task { @MainActor [weak self] in
  - Added rule: vendored packages under `Packages/` must follow the same sensitive-data logging policy
  - Added rule: HTTPS validation for credentialed URLs must happen at request-construction time, not only at configuration time
  - Added migration-completion-flag rules (set only on full success, Keychain precedence, version-bump the flag to rescue prematurely-flagged users)
+ - Corrected factual drift: Debug app bundle is `VoiceInk.app` (not `VoiceLink Community.app`), logging examples use real `AppLogger` categories, `HeaderType` line references updated, and the privacy principle now accurately describes local-first processing with opt-in cloud providers
 - **v1.12** (2026-03-10) - Release Automation and Synced-Workspace Build Lessons
   - Added build-location rule to avoid release packaging from Desktop/iCloud-backed working copies
   - Documented the `xcodebuild` pre-compilation hang symptom and its `NSFileCoordinator`-style mitigation path
