@@ -43,7 +43,7 @@ class FocusedElementService {
                     
                     let result = AXUIElementCopyAttributeValue(systemWideElement, kAXFocusedUIElementAttribute as CFString, &focusedElement)
                     
-                    guard result == .success, let element = focusedElement as! AXUIElement? else {
+                    guard result == .success, let element = Self.axUIElement(from: focusedElement) else {
                         self.logger.debug("No focused element found.")
                         return nil
                     }
@@ -75,7 +75,7 @@ class FocusedElementService {
         var focusedElement: AnyObject?
         let result = AXUIElementCopyAttributeValue(systemWideElement, kAXFocusedUIElementAttribute as CFString, &focusedElement)
         
-        guard result == .success, let element = focusedElement as! AXUIElement? else { return nil }
+        guard result == .success, let element = Self.axUIElement(from: focusedElement) else { return nil }
         return extractInfo(from: element)
     }
     
@@ -146,7 +146,8 @@ class FocusedElementService {
         if result == .success,
            let valueRef,
            CFGetTypeID(valueRef) == AXValueGetTypeID() {
-            let axValue = valueRef as! AXValue
+            // Safe: CFGetTypeID confirmed this is an AXValue; CF types do not support `as?`.
+            let axValue = unsafeDowncast(valueRef, to: AXValue.self)
             if AXValueGetType(axValue) == .cfRange {
                 var range = CFRange()
                 if AXValueGetValue(axValue, .cfRange, &range) {
@@ -161,9 +162,7 @@ class FocusedElementService {
         var parentRef: AnyObject?
         let result = AXUIElementCopyAttributeValue(element, kAXParentAttribute as CFString, &parentRef)
         
-        guard result == .success, let parentRef else { return [] }
-        guard CFGetTypeID(parentRef) == AXUIElementGetTypeID() else { return [] }
-        let parent = parentRef as! AXUIElement
+        guard result == .success, let parent = Self.axUIElement(from: parentRef) else { return [] }
         
         var childrenRef: AnyObject?
         let childrenResult = AXUIElementCopyAttributeValue(parent, kAXChildrenAttribute as CFString, &childrenRef)
@@ -181,6 +180,13 @@ class FocusedElementService {
             }
             return nil
         }
+    }
+    
+    /// Safely converts an accessibility attribute value to AXUIElement.
+    /// CF types reject `as?` downcasts, so we compare CFTypeIDs before downcasting.
+    private static func axUIElement(from value: AnyObject?) -> AXUIElement? {
+        guard let value, CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
+        return unsafeDowncast(value, to: AXUIElement.self)
     }
     
     private func getStringAttribute(_ element: AXUIElement, attribute: String) -> String? {

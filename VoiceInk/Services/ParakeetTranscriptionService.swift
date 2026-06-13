@@ -12,6 +12,10 @@ class ParakeetTranscriptionService: TranscriptionService {
     private var loadingTask: (version: AsrModelVersion, task: Task<AsrModels, Error>)?
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink.parakeet", category: "ParakeetTranscriptionService")
 
+    deinit {
+        loadingTask?.task.cancel()
+    }
+
     private func version(for model: any TranscriptionModel) -> AsrModelVersion {
         model.name.lowercased().contains("v2") ? .v2 : .v3
     }

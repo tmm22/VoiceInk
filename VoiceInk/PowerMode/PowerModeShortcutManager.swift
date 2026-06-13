@@ -14,7 +14,7 @@ class PowerModeShortcutManager {
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(powerModeConfigurationsDidChange),
-            name: NSNotification.Name("PowerModeConfigurationsDidChange"),
+            name: .powerModeConfigurationsDidChange,
             object: nil
         )
     }

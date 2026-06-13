@@ -23,7 +23,7 @@ class MiniWindowManager: ObservableObject {
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleHideNotification),
-            name: NSNotification.Name("HideMiniRecorder"),
+            name: .hideMiniRecorder,
             object: nil
         )
     }

@@ -10,6 +10,9 @@ All notable changes to the VoiceLink Community application are documented here.
 - License activation/validation logs no longer include raw server responses; only the HTTP status code and response size are recorded.
 - AI enhancement requests now validate the provider endpoint before sending credentials, rejecting insecure `http://` URLs for custom providers (local Ollama over `http://localhost` remains supported).
 
+### Internal
+- Hardened Task and closure lifecycle management across the recording/transcription pipeline: stored Tasks and long-lived closures now use `[weak self]`, and classes holding Task properties (`InferenceCoordinator`, `TranscriptionProcessor`, `MediaController`, `AudioTranscriptionManager`, `ParakeetTranscriptionService`) cancel them in `deinit` to prevent retain cycles and leaked background work.
+
 ## 2026-05-08
 
 ### Release Preparation

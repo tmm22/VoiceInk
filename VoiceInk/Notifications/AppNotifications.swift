@@ -20,4 +20,14 @@ extension Notification.Name {
     static let showShortcutCheatSheet = Notification.Name("showShortcutCheatSheet")
     static let audioDeviceChanged = Notification.Name("AudioDeviceChanged")
     static let audioDeviceSwitchRequired = Notification.Name("audioDeviceSwitchRequired")
+    // Distinct from `powerModeConfigurationApplied`: fires when the set of configurations changes (add/remove/save).
+    static let powerModeConfigurationsDidChange = Notification.Name("PowerModeConfigurationsDidChange")
+    // Note: Observed by MiniWindowManager; no in-repo post sites found. Kept for external/system events.
+    static let hideMiniRecorder = Notification.Name("HideMiniRecorder")
+    // Note: Observed by NotchWindowManager; no in-repo post sites found. Kept for external/system events.
+    static let hideNotchRecorder = Notification.Name("HideNotchRecorder")
+    // Note: Posted by CustomSoundManager; no in-repo observers found. Kept for external/system listeners.
+    static let customSoundsChanged = Notification.Name("CustomSoundsChanged")
+    // Note: Observed in RecorderTests; no in-repo post sites found. Kept so the test wiring stays intact.
+    static let noAudioDetected = Notification.Name("NoAudioDetected")
 }

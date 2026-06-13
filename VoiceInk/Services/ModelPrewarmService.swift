@@ -43,18 +43,18 @@ final class ModelPrewarmService: ObservableObject {
     /// Trigger on app launch (cold start)
     private func schedulePrewarmOnAppLaunch() {
         logger.notice("🌅 App launched, scheduling prewarm")
-        Task {
+        Task { [weak self] in
             try? await Task.sleep(for: .seconds(3))
-            await performPrewarm()
+            await self?.performPrewarm()
         }
     }
 
     /// Trigger on wake from sleep or screen unlock
     @objc private func schedulePrewarm() {
         logger.notice("🌅 Mac activity detected (wake/unlock), scheduling prewarm")
-        Task {
+        Task { [weak self] in
             try? await Task.sleep(for: .seconds(3))
-            await performPrewarm()
+            await self?.performPrewarm()
         }
     }
 

@@ -34,7 +34,8 @@ public final class AXManager: NSObject {
             throw AXError.noValue
         }
 
-        logInfo("Selected text via AX: \(selectedText)")
+        // Privacy: never log the selected text itself, only metadata.
+        logInfo("Selected text via AX. Character count: \(selectedText.count)")
         return selectedText
     }
 }

@@ -154,7 +154,7 @@ final class RecorderTests: XCTestCase {
         
         // Simulate device change notification
         NotificationCenter.default.post(
-            name: NSNotification.Name("AudioDeviceChanged"),
+            name: .audioDeviceChanged,
             object: nil
         )
         
@@ -238,7 +238,7 @@ final class RecorderTests: XCTestCase {
         
         // Monitor for notification
         let observer = NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("NoAudioDetected"),
+            forName: .noAudioDetected,
             object: nil,
             queue: .main
         ) { _ in
@@ -276,24 +276,6 @@ final class RecorderTests: XCTestCase {
         
         // Should not crash
         XCTAssertNotNil(recorder)
-    }
-    
-    // MARK: - Recording Duration Tests
-    
-    func testRecordingDurationUpdates() async throws {
-        let outputFile = testDirectory.appendingPathComponent("duration_test.wav")
-        
-        try await recorder.startRecording(toOutputFile: outputFile)
-        
-        // Check duration updates
-        let initialDuration = recorder.recordingDuration
-        try await Task.sleep(nanoseconds: 500_000_000) // 0.5s
-        let laterDuration = recorder.recordingDuration
-        
-        recorder.stopRecording()
-        
-        XCTAssertGreaterThan(laterDuration, initialDuration, "Duration should increase")
-        XCTAssertGreaterThan(laterDuration, 0.4, "Should record for ~0.5s")
     }
     
     // MARK: - Delegate Callback Tests
@@ -365,7 +347,7 @@ final class RecorderTests: XCTestCase {
         
         // Post notification - should not crash
         NotificationCenter.default.post(
-            name: NSNotification.Name("AudioDeviceChanged"),
+            name: .audioDeviceChanged,
             object: nil
         )
     }

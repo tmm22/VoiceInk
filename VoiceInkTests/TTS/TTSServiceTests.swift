@@ -188,6 +188,7 @@ final class TTSServiceTests: XCTestCase {
         XCTAssertFalse(localService.defaultVoice.id.hasPrefix("pocket-tts:"))
     }
 
+    @MainActor
     func testLocalTTSPocketVoiceHelpers() {
         XCTAssertTrue(LocalTTSService.isPocketVoiceID("pocket-tts:alba"))
         XCTAssertFalse(LocalTTSService.isPocketVoiceID("com.apple.speech.synthesis.voice.samantha"))

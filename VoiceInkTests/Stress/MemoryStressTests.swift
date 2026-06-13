@@ -41,7 +41,6 @@ final class MemoryStressTests: XCTestCase {
             do {
                 let recorder = Recorder()
                 _ = recorder.audioMeter
-                _ = recorder.recordingDuration
             }
             
             try? await Task.sleep(nanoseconds: 10_000_000)
@@ -334,7 +333,7 @@ final class MemoryStressTests: XCTestCase {
         
         // Post notification - should not crash
         NotificationCenter.default.post(
-            name: NSNotification.Name("AudioDeviceChanged"),
+            name: .audioDeviceChanged,
             object: nil
         )
         

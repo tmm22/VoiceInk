@@ -169,7 +169,11 @@ class WhisperState: NSObject, ObservableObject {
                         transcriptionStatus: .pending
                     )
                     modelContext.insert(transcription)
-                    try? modelContext.save()
+                    do {
+                        try modelContext.save()
+                    } catch {
+                        logger.error("Failed to save pending transcription: \(AppLogger.errorMetadata(error), privacy: .public)")
+                    }
                     NotificationCenter.default.post(name: .transcriptionCreated, object: transcription)
 
                     await transcribeAudio(on: transcription)
@@ -197,9 +201,11 @@ class WhisperState: NSObject, ObservableObject {
             }
             shouldCancelRecording = false
             partialTranscript = ""
-            requestRecordPermission { [self] granted in
+            requestRecordPermission { [weak self] granted in
+                guard let self else { return }
                 if granted {
-                    Task {
+                    Task { [weak self] in
+                        guard let self else { return }
                         do {
                             // --- Prepare permanent file URL ---
                             let fileName = "\(UUID().uuidString).wav"
@@ -305,7 +311,11 @@ class WhisperState: NSObject, ObservableObject {
             recordingState = .idle
             transcription.text = "Transcription Failed: Invalid audio file URL"
             transcription.transcriptionStatus = TranscriptionStatus.failed.rawValue
-            try? modelContext.save()
+            do {
+                try modelContext.save()
+            } catch {
+                logger.error("Failed to save failed-transcription state: \(AppLogger.errorMetadata(error), privacy: .public)")
+            }
             return
         }
 
@@ -328,8 +338,8 @@ class WhisperState: NSObject, ObservableObject {
 
         defer {
             if shouldCancelRecording {
-                Task {
-                    await cleanupModelResources()
+                Task { [weak self] in
+                    await self?.cleanupModelResources()
                 }
             }
         }
