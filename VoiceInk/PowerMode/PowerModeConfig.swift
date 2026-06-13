@@ -163,7 +163,7 @@ class PowerModeManager: ObservableObject {
         } catch {
             AppLogger.storage.error("Failed to encode Power Mode configs: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
-        NotificationCenter.default.post(name: NSNotification.Name("PowerModeConfigurationsDidChange"), object: nil)
+        NotificationCenter.default.post(name: .powerModeConfigurationsDidChange, object: nil)
     }
 
     func addConfiguration(_ config: PowerModeConfig) {
