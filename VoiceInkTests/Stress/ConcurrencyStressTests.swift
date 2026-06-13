@@ -343,7 +343,6 @@ final class ConcurrencyStressTests: XCTestCase {
             for _ in 0..<50 {
                 group.addTask { @MainActor in
                     _ = recorder.audioMeter
-                    _ = recorder.recordingDuration
                 }
             }
             

@@ -475,7 +475,6 @@ final class WhisperStateTests: XCTestCase {
         
         // Recorder should be usable
         _ = whisperState.recorder.audioMeter
-        _ = whisperState.recorder.recordingDuration
         
         XCTAssertNotNil(whisperState, "Should integrate with Recorder")
     }

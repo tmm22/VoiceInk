@@ -278,24 +278,6 @@ final class RecorderTests: XCTestCase {
         XCTAssertNotNil(recorder)
     }
     
-    // MARK: - Recording Duration Tests
-    
-    func testRecordingDurationUpdates() async throws {
-        let outputFile = testDirectory.appendingPathComponent("duration_test.wav")
-        
-        try await recorder.startRecording(toOutputFile: outputFile)
-        
-        // Check duration updates
-        let initialDuration = recorder.recordingDuration
-        try await Task.sleep(nanoseconds: 500_000_000) // 0.5s
-        let laterDuration = recorder.recordingDuration
-        
-        recorder.stopRecording()
-        
-        XCTAssertGreaterThan(laterDuration, initialDuration, "Duration should increase")
-        XCTAssertGreaterThan(laterDuration, 0.4, "Should record for ~0.5s")
-    }
-    
     // MARK: - Delegate Callback Tests
     
     func testDelegateCallbacksOnCorrectThread() async throws {
