@@ -2,7 +2,10 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
-## Unreleased
+## 2026-07-11
+
+### Release Preparation
+- Bumped the community build metadata to version `1.72` (`v1.72-community` release target) for the current GitHub release on `tmm22/VoiceInk`.
 
 ### Upstream Sync
 - Reviewed upstream changes through `052cb75b` and selectively ported compatible reliability fixes while preserving the community fork's TTS, Power Mode, settings, model, licensing, and release architecture.
