@@ -4,6 +4,11 @@ All notable changes to the VoiceLink Community application are documented here.
 
 ## Unreleased
 
+### Upstream Sync
+- Reviewed upstream changes through `052cb75b` and selectively ported compatible reliability fixes while preserving the community fork's TTS, Power Mode, settings, model, licensing, and release architecture.
+- Added an `AVAssetReader` fallback for audio containers that `AVAudioFile` cannot decode, improving transcription compatibility with some MP4/M4A recordings.
+- Constrained flow-layout content to the available width so long chips and labels no longer overflow their containers.
+
 ### Security & Privacy
 - API key retrieval is now strictly Keychain-only: removed a runtime fallback that could read legacy plaintext keys from app preferences. One-time migration of legacy keys still runs at launch.
 - Hardened the legacy API key migration so it only marks itself complete when every key was safely stored in the Keychain; any key that fails to migrate stays in place and is retried on the next launch instead of being stranded.

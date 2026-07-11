@@ -35,6 +35,17 @@ class AudioProcessor {
     }
     
     func processAudioToSamples(_ url: URL) async throws -> [Float] {
+        do {
+            return try readUsingAudioFile(url)
+        } catch {
+            logger.warning(
+                "AVAudioFile pipeline failed for \(url.lastPathComponent, privacy: .public): \(AppLogger.errorMetadata(error), privacy: .public). Falling back to AVAssetReader."
+            )
+            return try await readUsingAssetReader(url)
+        }
+    }
+
+    private func readUsingAudioFile(_ url: URL) throws -> [Float] {
         guard let audioFile = try? AVAudioFile(forReading: url) else {
             throw AudioProcessingError.invalidAudioFile
         }
@@ -107,6 +118,109 @@ class AudioProcessor {
         }
         
         return allSamples
+    }
+
+    private func readUsingAssetReader(_ url: URL) async throws -> [Float] {
+        let asset = AVURLAsset(url: url)
+        guard let track = try await asset.loadTracks(withMediaType: .audio).first else {
+            throw AudioProcessingError.invalidAudioFile
+        }
+
+        let reader = try AVAssetReader(asset: asset)
+        let outputSettings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVSampleRateKey: AudioFormat.targetSampleRate,
+            AVNumberOfChannelsKey: AudioFormat.targetChannels,
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
+            AVLinearPCMIsBigEndianKey: false,
+            AVLinearPCMIsNonInterleaved: false
+        ]
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: outputSettings)
+        output.alwaysCopiesSampleData = false
+
+        guard reader.canAdd(output) else {
+            throw AudioProcessingError.conversionFailed
+        }
+        reader.add(output)
+
+        guard reader.startReading() else {
+            throw reader.error ?? AudioProcessingError.sampleExtractionFailed
+        }
+
+        var samples: [Float] = []
+        do {
+            while let sampleBuffer = output.copyNextSampleBuffer() {
+                try Task.checkCancellation()
+                try validateAssetReaderOutputFormat(sampleBuffer)
+
+                guard let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else { continue }
+                let byteCount = CMBlockBufferGetDataLength(blockBuffer)
+                guard byteCount >= MemoryLayout<Float>.size else { continue }
+
+                var chunk = [Float](repeating: 0, count: byteCount / MemoryLayout<Float>.size)
+                let status = chunk.withUnsafeMutableBytes { destination in
+                    guard let baseAddress = destination.baseAddress else {
+                        return OSStatus(kCMBlockBufferBadLengthParameterErr)
+                    }
+                    return CMBlockBufferCopyDataBytes(
+                        blockBuffer,
+                        atOffset: 0,
+                        dataLength: destination.count,
+                        destination: baseAddress
+                    )
+                }
+                guard status == kCMBlockBufferNoErr else {
+                    throw AudioProcessingError.sampleExtractionFailed
+                }
+                samples.append(contentsOf: chunk)
+            }
+        } catch {
+            reader.cancelReading()
+            throw error
+        }
+
+        if reader.status == .failed {
+            throw reader.error ?? AudioProcessingError.sampleExtractionFailed
+        }
+        if reader.status == .cancelled {
+            throw CancellationError()
+        }
+        guard !samples.isEmpty else {
+            throw AudioProcessingError.sampleExtractionFailed
+        }
+
+        let maxSample = samples.map(abs).max() ?? 1
+        if maxSample > 0 {
+            samples = samples.map { $0 / maxSample }
+        }
+        return samples
+    }
+
+    private func validateAssetReaderOutputFormat(_ sampleBuffer: CMSampleBuffer) throws {
+        guard
+            let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer),
+            let streamDescription = CMAudioFormatDescriptionGetStreamBasicDescription(formatDescription)
+        else {
+            throw AudioProcessingError.sampleExtractionFailed
+        }
+
+        let format = streamDescription.pointee
+        let isFloat = (format.mFormatFlags & kAudioFormatFlagIsFloat) != 0
+        let isBigEndian = (format.mFormatFlags & kAudioFormatFlagIsBigEndian) != 0
+        let isNonInterleaved = (format.mFormatFlags & kAudioFormatFlagIsNonInterleaved) != 0
+
+        guard
+            format.mFormatID == kAudioFormatLinearPCM,
+            abs(format.mSampleRate - AudioFormat.targetSampleRate) < 1.0,
+            format.mChannelsPerFrame == AudioFormat.targetChannels,
+            format.mBitsPerChannel == 32,
+            isFloat,
+            !isBigEndian,
+            format.mChannelsPerFrame == 1 || !isNonInterleaved
+        else {
+            throw AudioProcessingError.conversionFailed
+        }
     }
     
     private func convertToWhisperFormat(_ buffer: AVAudioPCMBuffer) -> [Float] {
