@@ -266,5 +266,7 @@ func measureTime(block: () -> Void) {
     let nanoseconds = endTime.uptimeNanoseconds - startTime.uptimeNanoseconds
     let milliseconds = Double(nanoseconds) / 1_000_000
 
+    #if DEBUG
     print("Execution time: \(milliseconds) ms")
+    #endif
 }

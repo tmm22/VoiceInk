@@ -35,9 +35,12 @@ class MiniWindowManager: ObservableObject {
     func show() {
         if isVisible { return }
 
-        let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
+        guard let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens.first else {
+            AppLogger.ui.error("Unable to show mini recorder because no display is available")
+            return
+        }
         if miniPanel == nil || screenIdentifier(for: miniPanel?.screen) != screenIdentifier(for: activeScreen) {
-            initializeWindow(screen: activeScreen)
+            guard initializeWindow(screen: activeScreen) else { return }
         }
         self.isVisible = true
         miniPanel?.show()
@@ -50,7 +53,13 @@ class MiniWindowManager: ObservableObject {
         miniPanel?.orderOut(nil)
     }
 
-    private func initializeWindow(screen: NSScreen) {
+    @discardableResult
+    private func initializeWindow(screen: NSScreen) -> Bool {
+        guard let enhancementService = whisperState.enhancementService else {
+            AppLogger.ui.error("Unable to initialize mini recorder because the enhancement service is unavailable")
+            return false
+        }
+
         deinitializeWindow()
 
         let metrics = MiniRecorderPanel.calculateWindowMetrics()
@@ -58,7 +67,7 @@ class MiniWindowManager: ObservableObject {
 
         let miniRecorderView = MiniRecorderView(whisperState: whisperState, recorder: recorder)
             .environmentObject(self)
-            .environmentObject(whisperState.enhancementService!)
+            .environmentObject(enhancementService)
 
         let hostingController = NSHostingController(rootView: miniRecorderView)
         panel.contentView = hostingController.view
@@ -67,6 +76,7 @@ class MiniWindowManager: ObservableObject {
         self.windowController = NSWindowController(window: panel)
 
         panel.orderFrontRegardless()
+        return true
     }
 
     private func deinitializeWindow() {

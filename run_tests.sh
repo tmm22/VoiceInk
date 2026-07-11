@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 echo "🚀 Starting Tests..."
 
@@ -12,25 +12,44 @@ if [ ! -d "VoiceInk.xcodeproj" ]; then
     exit 1
 fi
 
-# Run tests using xcodebuild
-# Explicitly selecting the VoiceInkTests target to avoid running UI tests that require code signing
-xcodebuild build-for-testing test-without-building \
-    -project VoiceInk.xcodeproj \
-    -scheme VoiceInk \
-    -destination 'platform=macOS' \
-    -resultBundlePath TestResults \
-    -only-testing:VoiceInkTests \
-    CODE_SIGN_IDENTITY="" \
-    CODE_SIGNING_REQUIRED=NO \
-    | xcbeautify || true
-
-# Note: piped to xcbeautify if available, otherwise just runs. 
-# The '|| true' ensures the pipe doesn't fail the script if xcbeautify isn't installed,
-# but we actually want to see the output. If xcbeautify isn't there, it might fail the pipe.
-# Better approach for CI/scripts without external dependencies:
-
-if command -v xcbeautify &> /dev/null; then
+# Run tests using xcodebuild. Explicitly select VoiceInkTests to avoid running UI
+# tests that require code signing.
+if command -v xcbeautify >/dev/null 2>&1; then
     echo "✨ Using xcbeautify for output"
+
+    # Capture both statuses so formatter failures cannot hide an xcodebuild failure.
+    set +e
+    xcodebuild build-for-testing test-without-building \
+        -project VoiceInk.xcodeproj \
+        -scheme VoiceInk \
+        -destination 'platform=macOS' \
+        -resultBundlePath TestResults \
+        -only-testing:VoiceInkTests \
+        CODE_SIGN_IDENTITY="" \
+        CODE_SIGNING_REQUIRED=NO \
+        | xcbeautify
+    pipeline_status=("${PIPESTATUS[@]}")
+    set -e
+
+    xcodebuild_status="${pipeline_status[0]}"
+    xcbeautify_status="${pipeline_status[1]}"
+
+    if (( xcodebuild_status != 0 )); then
+        echo "❌ xcodebuild failed with status ${xcodebuild_status}"
+        exit "${xcodebuild_status}"
+    fi
+
+    if (( xcbeautify_status != 0 )); then
+        echo "⚠️ xcbeautify failed with status ${xcbeautify_status}; tests still passed"
+    fi
 else
     echo "⚠️ xcbeautify not found, using raw xcodebuild output"
+    xcodebuild build-for-testing test-without-building \
+        -project VoiceInk.xcodeproj \
+        -scheme VoiceInk \
+        -destination 'platform=macOS' \
+        -resultBundlePath TestResults \
+        -only-testing:VoiceInkTests \
+        CODE_SIGN_IDENTITY="" \
+        CODE_SIGNING_REQUIRED=NO
 fi

@@ -205,8 +205,13 @@ extension CoreAudioRecorder {
 
         audioFile = fileRef
 
+        guard let fileRef else {
+            logger.error("Audio file creation succeeded without returning a file reference")
+            throw CoreAudioRecorderError.failedToCreateFile(status: paramErr)
+        }
+
         status = ExtAudioFileSetProperty(
-            fileRef!,
+            fileRef,
             kExtAudioFileProperty_ClientDataFormat,
             UInt32(MemoryLayout<AudioStreamBasicDescription>.size),
             &outputFormat

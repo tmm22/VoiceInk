@@ -43,8 +43,7 @@ class SonioxTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProv
             throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
         }
         if !(200...299).contains(httpResponse.statusCode) {
-            let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
+            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: APIErrorSanitizer.statusMessage(statusCode: httpResponse.statusCode))
         }
         do {
             let uploadResponse = try JSONDecoder().decode(FileUploadResponse.self, from: data)
@@ -90,8 +89,7 @@ class SonioxTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProv
             throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
         }
         if !(200...299).contains(httpResponse.statusCode) {
-            let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
+            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: APIErrorSanitizer.statusMessage(statusCode: httpResponse.statusCode))
         }
         do {
             let createResponse = try JSONDecoder().decode(CreateTranscriptionResponse.self, from: data)
@@ -116,8 +114,7 @@ class SonioxTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProv
                 throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
             }
             if !(200...299).contains(httpResponse.statusCode) {
-                let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-                throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
+                throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: APIErrorSanitizer.statusMessage(statusCode: httpResponse.statusCode))
             }
             do {
                 let status = try JSONDecoder().decode(TranscriptionStatusResponse.self, from: data)
@@ -151,8 +148,7 @@ class SonioxTranscriptionService: CloudTranscriptionBase, CloudTranscriptionProv
             throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
         }
         if !(200...299).contains(httpResponse.statusCode) {
-            let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
+            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: APIErrorSanitizer.statusMessage(statusCode: httpResponse.statusCode))
         }
         if let decoded = try? JSONDecoder().decode(TranscriptResponse.self, from: data) {
             return decoded.text

@@ -5,11 +5,11 @@ extension TTSSettingsView {
     @ViewBuilder
     func apiKeysSection() -> some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("API Keys")
+            Text(Localization.TTS.apiKeys)
                 .font(.title2)
                 .fontWeight(.semibold)
             
-            Text("Your API keys are stored securely in the macOS Keychain.")
+            Text(Localization.TTS.keychainStorageDescription)
                 .font(.caption)
                 .foregroundColor(.secondary)
             
@@ -38,19 +38,21 @@ extension TTSSettingsView {
                 HStack {
                     Image(systemName: "waveform")
                         .foregroundColor(.orange)
-                    Text("ElevenLabs")
+                    Text(Localization.TTS.elevenLabs)
                         .fontWeight(.medium)
                     Spacer()
-                    Link("Get API Key", destination: URL(string: "https://elevenlabs.io")!)
-                        .font(.caption)
+                    if let destination = URL(string: "https://elevenlabs.io") {
+                        Link(Localization.TTS.getAPIKey, destination: destination)
+                            .font(.caption)
+                    }
                 }
                 
                 HStack {
                     if showElevenLabsKey {
-                        TextField("Enter your ElevenLabs API key", text: $elevenLabsKey)
+                        TextField(Localization.TTS.elevenLabsKeyPlaceholder, text: $elevenLabsKey)
                             .textFieldStyle(.roundedBorder)
                     } else {
-                        SecureField("Enter your ElevenLabs API key", text: $elevenLabsKey)
+                        SecureField(Localization.TTS.elevenLabsKeyPlaceholder, text: $elevenLabsKey)
                             .textFieldStyle(.roundedBorder)
                     }
                     
@@ -61,7 +63,7 @@ extension TTSSettingsView {
                 }
                 
                 if !elevenLabsKey.isEmpty {
-                    Text("Key: \(elevenLabsKey.maskedAPIKey)")
+                    Text(String(format: Localization.TTS.maskedKeyFormat, elevenLabsKey.maskedAPIKey))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -77,19 +79,21 @@ extension TTSSettingsView {
                 HStack {
                     Image(systemName: "cpu")
                         .foregroundColor(.green)
-                    Text("OpenAI")
+                    Text(Localization.TTS.openAI)
                         .fontWeight(.medium)
                     Spacer()
-                    Link("Get API Key", destination: URL(string: "https://platform.openai.com/api-keys")!)
-                        .font(.caption)
+                    if let destination = URL(string: "https://platform.openai.com/api-keys") {
+                        Link(Localization.TTS.getAPIKey, destination: destination)
+                            .font(.caption)
+                    }
                 }
                 
                 HStack {
                     if showOpenAIKey {
-                        TextField("Enter your OpenAI API key", text: $openAIKey)
+                        TextField(Localization.TTS.openAIKeyPlaceholder, text: $openAIKey)
                             .textFieldStyle(.roundedBorder)
                     } else {
-                        SecureField("Enter your OpenAI API key", text: $openAIKey)
+                        SecureField(Localization.TTS.openAIKeyPlaceholder, text: $openAIKey)
                             .textFieldStyle(.roundedBorder)
                     }
                     
@@ -100,7 +104,7 @@ extension TTSSettingsView {
                 }
                 
                 if !openAIKey.isEmpty {
-                    Text("Key: \(openAIKey.maskedAPIKey)")
+                    Text(String(format: Localization.TTS.maskedKeyFormat, openAIKey.maskedAPIKey))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -116,19 +120,21 @@ extension TTSSettingsView {
                 HStack {
                     Image(systemName: "cloud")
                         .foregroundColor(.blue)
-                    Text("Google Cloud TTS")
+                    Text(Localization.TTS.googleCloudTTS)
                         .fontWeight(.medium)
                     Spacer()
-                    Link("Get API Key", destination: URL(string: "https://console.cloud.google.com")!)
-                        .font(.caption)
+                    if let destination = URL(string: "https://console.cloud.google.com") {
+                        Link(Localization.TTS.getAPIKey, destination: destination)
+                            .font(.caption)
+                    }
                 }
                 
                 HStack {
                     if showGoogleKey {
-                        TextField("Enter your Google Cloud API key", text: $googleKey)
+                        TextField(Localization.TTS.googleKeyPlaceholder, text: $googleKey)
                             .textFieldStyle(.roundedBorder)
                     } else {
-                        SecureField("Enter your Google Cloud API key", text: $googleKey)
+                        SecureField(Localization.TTS.googleKeyPlaceholder, text: $googleKey)
                             .textFieldStyle(.roundedBorder)
                     }
                     
@@ -139,7 +145,7 @@ extension TTSSettingsView {
                 }
                 
                 if !googleKey.isEmpty {
-                    Text("Key: \(googleKey.maskedAPIKey)")
+                    Text(String(format: Localization.TTS.maskedKeyFormat, googleKey.maskedAPIKey))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -155,26 +161,28 @@ extension TTSSettingsView {
                 HStack {
                     Image(systemName: "lock.shield")
                         .foregroundColor(.purple)
-                    Text("Managed Provisioning")
+                    Text(Localization.TTS.managedProvisioning)
                         .fontWeight(.medium)
                     Spacer()
                     if let snapshot = settings.managedAccountSnapshot {
-                        Text("Plan: \(snapshot.planTier.capitalized) • Status: \(snapshot.billingStatus.capitalized)")
+                        Text(String(format: Localization.TTS.managedAccountStatusFormat,
+                                    snapshot.planTier.capitalized,
+                                    snapshot.billingStatus.capitalized))
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                 }
 
-                Toggle("Enable managed credentials", isOn: $managedProvisioningEnabledToggle)
+                Toggle(Localization.TTS.enableManagedCredentials, isOn: $managedProvisioningEnabledToggle)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    TextField("Base URL", text: $managedBaseURL)
+                    TextField(Localization.TTS.baseURL, text: $managedBaseURL)
                         .textFieldStyle(.roundedBorder)
-                    TextField("Account ID", text: $managedAccountId)
+                    TextField(Localization.TTS.accountID, text: $managedAccountId)
                         .textFieldStyle(.roundedBorder)
-                    TextField("Plan Tier", text: $managedPlanTier)
+                    TextField(Localization.TTS.planTier, text: $managedPlanTier)
                         .textFieldStyle(.roundedBorder)
-                    TextField("Plan Status", text: $managedPlanStatus)
+                    TextField(Localization.TTS.planStatus, text: $managedPlanStatus)
                         .textFieldStyle(.roundedBorder)
                 }
 
@@ -185,12 +193,12 @@ extension TTSSettingsView {
                 }
 
                 HStack {
-                    Button("Refresh Account") {
+                    Button(Localization.TTS.refreshAccount) {
                         Task { await settings.refreshManagedAccountSnapshot(silently: false) }
                     }
                     .disabled(!managedProvisioningEnabledToggle || managedBaseURL.isEmpty || managedAccountId.isEmpty)
 
-                    Button("Clear", role: .destructive) {
+                    Button(Localization.TTS.clear, role: .destructive) {
                         settings.clearManagedProvisioning()
                         loadManagedProvisioning()
                     }

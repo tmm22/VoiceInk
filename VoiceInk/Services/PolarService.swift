@@ -69,9 +69,8 @@ class PolarService {
         
         if let httpResponse = httpResponse as? HTTPURLResponse {
             if !(200...299).contains(httpResponse.statusCode) {
-                let errorMsg = String(data: data, encoding: .utf8) ?? "Unknown error"
                 logger.notice("🔑 License validation failed [HTTP \(httpResponse.statusCode, privacy: .public)], response bytes: \(data.count, privacy: .public)")
-                throw LicenseError.validationFailed(errorMsg)
+                throw LicenseError.validationFailed(APIErrorSanitizer.statusMessage(statusCode: httpResponse.statusCode))
             }
         }
         
@@ -113,12 +112,12 @@ class PolarService {
                 
                 // Check for specific error messages
                 if errorMsg.contains("activation limit") || errorMsg.contains("maximum activations") {
-                    throw LicenseError.activationLimitReached(errorMsg)
+                    throw LicenseError.activationLimitReached(APIErrorSanitizer.statusMessage(statusCode: httpResponse.statusCode))
                 }
                 if errorMsg.contains("License key does not require activation") {
                     throw LicenseError.activationNotRequired
                 }
-                throw LicenseError.activationFailed(errorMsg)
+                throw LicenseError.activationFailed(APIErrorSanitizer.statusMessage(statusCode: httpResponse.statusCode))
             }
         }
         
@@ -147,9 +146,8 @@ class PolarService {
         
         if let httpResponse = httpResponse as? HTTPURLResponse {
             if !(200...299).contains(httpResponse.statusCode) {
-                let errorMsg = String(data: data, encoding: .utf8) ?? "Unknown error"
                 logger.notice("🔑 License validation with activation failed [HTTP \(httpResponse.statusCode, privacy: .public)], response bytes: \(data.count, privacy: .public)")
-                throw LicenseError.validationFailed(errorMsg)
+                throw LicenseError.validationFailed(APIErrorSanitizer.statusMessage(statusCode: httpResponse.statusCode))
             }
         }
         

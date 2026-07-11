@@ -18,7 +18,7 @@ struct PlaybackControlsView: View {
                     Button(action: {
                         playback.skipBackward()
                     }) {
-                        Label("Skip backward 10 seconds", systemImage: "gobackward.10")
+                        Label(Localization.TTS.skipBackward, systemImage: "gobackward.10")
                             .labelStyle(.iconOnly)
                             .font(.system(size: settings.isMinimalistMode ? 16 : 20))
                             .frame(width: 28, height: 28)
@@ -27,14 +27,14 @@ struct PlaybackControlsView: View {
                     .buttonStyle(.borderless)
                     .disabled(!viewModel.hasGeneratedAudio || playback.duration <= 0)
                     .keyboardShortcut(.leftArrow, modifiers: .command)
-                    .accessibilityLabel("Skip backward 10 seconds")
-                    .help("Skip backward 10 seconds (⌘←)")
+                    .accessibilityLabel(Localization.TTS.skipBackward)
+                    .help(Localization.TTS.skipBackwardHelp)
                     
                     // Play/Pause
                     Button(action: {
                         playback.togglePlayPause()
                     }) {
-                        Label(playback.isPlaying ? "Pause" : "Play", systemImage: playback.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                        Label(playback.isPlaying ? Localization.TTS.pause : Localization.TTS.play, systemImage: playback.isPlaying ? "pause.circle.fill" : "play.circle.fill")
                             .labelStyle(.iconOnly)
                             .font(.system(size: settings.isMinimalistMode ? 32 : 44))
                             .foregroundColor(.accentColor)
@@ -46,14 +46,14 @@ struct PlaybackControlsView: View {
                     .buttonStyle(.borderless)
                     .disabled(!viewModel.hasGeneratedAudio)
                     .keyboardShortcut(.space, modifiers: [])
-                    .accessibilityLabel(playback.isPlaying ? "Pause" : "Play")
-                    .help("Play/Pause (Space)")
+                    .accessibilityLabel(playback.isPlaying ? Localization.TTS.pause : Localization.TTS.play)
+                    .help(Localization.TTS.playPauseHelp)
                     
                     // Skip forward
                     Button(action: {
                         playback.skipForward()
                     }) {
-                        Label("Skip forward 10 seconds", systemImage: "goforward.10")
+                        Label(Localization.TTS.skipForward, systemImage: "goforward.10")
                             .labelStyle(.iconOnly)
                             .font(.system(size: settings.isMinimalistMode ? 16 : 20))
                             .frame(width: 28, height: 28)
@@ -62,12 +62,12 @@ struct PlaybackControlsView: View {
                     .buttonStyle(.borderless)
                     .disabled(!viewModel.hasGeneratedAudio)
                     .keyboardShortcut(.rightArrow, modifiers: .command)
-                    .accessibilityLabel("Skip forward 10 seconds")
-                    .help("Skip forward 10 seconds (⌘→)")
+                    .accessibilityLabel(Localization.TTS.skipForward)
+                    .help(Localization.TTS.skipForwardHelp)
                     
                     // Stop
                     Button(action: playback.stop) {
-                        Label("Stop", systemImage: "stop.circle")
+                        Label(Localization.TTS.stop, systemImage: "stop.circle")
                             .labelStyle(.iconOnly)
                             .font(.system(size: settings.isMinimalistMode ? 16 : 20))
                             .frame(width: 28, height: 28)
@@ -76,8 +76,8 @@ struct PlaybackControlsView: View {
                     .buttonStyle(.borderless)
                     .disabled(!viewModel.hasGeneratedAudio || !playback.isPlaying)
                     .keyboardShortcut(".", modifiers: .command)
-                    .accessibilityLabel("Stop")
-                    .help("Stop playback (⌘.)")
+                    .accessibilityLabel(Localization.TTS.stop)
+                    .help(Localization.TTS.stopHelp)
                 }
                 
                 Divider()
@@ -102,8 +102,10 @@ struct PlaybackControlsView: View {
                             playback.seek(to: temporaryTime)
                         }
                     }
-                    .accessibilityLabel("Playback position")
-                    .accessibilityValue("\(formatTime(isDraggingSlider ? temporaryTime : playback.currentTime)) of \(formatTime(playback.duration))")
+                    .accessibilityLabel(Localization.TTS.playbackPosition)
+                    .accessibilityValue(String(format: Localization.TTS.playbackPositionValueFormat,
+                                               formatTime(isDraggingSlider ? temporaryTime : playback.currentTime),
+                                               formatTime(playback.duration)))
                     .disabled(!viewModel.hasGeneratedAudio || playback.duration <= 0)
                     
                     Text(formatTime(playback.duration))
@@ -124,18 +126,18 @@ struct PlaybackControlsView: View {
                                     Image(systemName: "speedometer")
                                         .foregroundColor(.secondary)
                                     
-                                    Text("Speed:")
+                                    Text(Localization.TTS.speed)
                                         .font(.system(size: 13))
                                         .foregroundColor(.secondary)
                                     
-                                    Picker("Playback speed", selection: $playback.playbackSpeed) {
-                                        Text("0.5×").tag(0.5)
-                                        Text("0.75×").tag(0.75)
-                                        Text("1.0×").tag(1.0)
-                                        Text("1.25×").tag(1.25)
-                                        Text("1.5×").tag(1.5)
-                                        Text("1.75×").tag(1.75)
-                                        Text("2.0×").tag(2.0)
+                                    Picker(Localization.TTS.playbackSpeed, selection: $playback.playbackSpeed) {
+                                        Text(Localization.TTS.speedHalf).tag(0.5)
+                                        Text(Localization.TTS.speedThreeQuarters).tag(0.75)
+                                        Text(Localization.TTS.speedNormal).tag(1.0)
+                                        Text(Localization.TTS.speedOneAndQuarter).tag(1.25)
+                                        Text(Localization.TTS.speedOneAndHalf).tag(1.5)
+                                        Text(Localization.TTS.speedOneAndThreeQuarters).tag(1.75)
+                                        Text(Localization.TTS.speedDouble).tag(2.0)
                                     }
                                     .pickerStyle(MenuPickerStyle())
                                     .labelsHidden()
@@ -149,30 +151,30 @@ struct PlaybackControlsView: View {
                                         Button(action: {
                                             playback.playbackSpeed = max(0.5, playback.playbackSpeed - 0.25)
                                         }) {
-                                            Label("Decrease speed", systemImage: "minus.circle")
+                                            Label(Localization.TTS.decreaseSpeed, systemImage: "minus.circle")
                                                 .labelStyle(.iconOnly)
                                                 .font(.system(size: 14))
                                                 .frame(width: 24, height: 24)
                                                 .contentShape(Rectangle())
                                         }
                                         .buttonStyle(.borderless)
-                                        .accessibilityLabel("Decrease speed")
+                                        .accessibilityLabel(Localization.TTS.decreaseSpeed)
                                         .keyboardShortcut("[", modifiers: .command)
-                                        .help("Decrease speed (⌘[)")
+                                        .help(Localization.TTS.decreaseSpeedHelp)
                                         
                                         Button(action: {
                                             playback.playbackSpeed = min(2.0, playback.playbackSpeed + 0.25)
                                         }) {
-                                            Label("Increase speed", systemImage: "plus.circle")
+                                            Label(Localization.TTS.increaseSpeed, systemImage: "plus.circle")
                                                 .labelStyle(.iconOnly)
                                                 .font(.system(size: 14))
                                                 .frame(width: 24, height: 24)
                                                 .contentShape(Rectangle())
                                         }
                                         .buttonStyle(.borderless)
-                                        .accessibilityLabel("Increase speed")
+                                        .accessibilityLabel(Localization.TTS.increaseSpeed)
                                         .keyboardShortcut("]", modifiers: .command)
-                                        .help("Increase speed (⌘])")
+                                        .help(Localization.TTS.increaseSpeedHelp)
                                     }
                                 }
                                 
@@ -185,7 +187,7 @@ struct PlaybackControlsView: View {
                                         .foregroundColor(.secondary)
                                         .frame(width: 20)
                                     
-                                    Text("Volume:")
+                                    Text(Localization.TTS.volume)
                                         .font(.system(size: 13))
                                         .foregroundColor(.secondary)
                                     
@@ -198,10 +200,10 @@ struct PlaybackControlsView: View {
                                         playback.applyPlaybackVolume()
                                     }
                                     .frame(width: 150)
-                                    .accessibilityLabel("Volume")
-                                    .accessibilityValue("\(Int(playback.volume * 100)) percent")
+                                    .accessibilityLabel(Localization.TTS.volumeAccessibility)
+                                    .accessibilityValue(String(format: Localization.TTS.percentFormat, Int(playback.volume * 100)))
                                     
-                                    Text("\(Int(playback.volume * 100))%")
+                                    Text(String(format: Localization.TTS.compactPercentFormat, Int(playback.volume * 100)))
                                         .font(.system(size: 12, design: .monospaced))
                                         .foregroundColor(.secondary)
                                         .frame(width: 40, alignment: .trailing)
@@ -215,15 +217,15 @@ struct PlaybackControlsView: View {
                                         }
                                         playback.applyPlaybackVolume(save: true)
                                     }) {
-                                        Label(playback.volume == 0 ? "Unmute" : "Mute", systemImage: playback.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                                        Label(playback.volume == 0 ? Localization.TTS.unmute : Localization.TTS.mute, systemImage: playback.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
                                             .labelStyle(.iconOnly)
                                             .font(.system(size: 14))
                                             .frame(width: 24, height: 24)
                                             .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.borderless)
-                                    .accessibilityLabel(playback.volume == 0 ? "Unmute" : "Mute")
-                                    .help("Toggle mute")
+                                    .accessibilityLabel(playback.volume == 0 ? Localization.TTS.unmute : Localization.TTS.mute)
+                                    .help(Localization.TTS.toggleMuteHelp)
                                 }
                                 
                                 Spacer()
@@ -234,7 +236,7 @@ struct PlaybackControlsView: View {
                                         Image(systemName: "waveform")
                                             .font(.system(size: 12))
                                             .foregroundColor(.secondary)
-                                        Text("Audio Ready")
+                                        Text(Localization.TTS.audioReady)
                                             .font(.system(size: 11))
                                             .foregroundColor(.secondary)
                                     }

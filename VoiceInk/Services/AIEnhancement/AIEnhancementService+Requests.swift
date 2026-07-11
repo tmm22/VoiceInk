@@ -289,14 +289,13 @@ extension AIEnhancementService {
                 return try parseResponse(data)
             } else if httpResponse.statusCode == 429 {
                 throw EnhancementError.rateLimitExceeded(
-                    message: rateLimitMessage(from: data, response: httpResponse),
+                    message: rateLimitMessage(response: httpResponse),
                     retryAfter: retryAfterInterval(from: httpResponse)
                 )
             } else if (500...599).contains(httpResponse.statusCode) {
                 throw EnhancementError.serverError
             } else {
-                let errorString = String(data: data, encoding: .utf8) ?? "Could not decode error response."
-                throw EnhancementError.customError("HTTP \(httpResponse.statusCode): \(errorString)")
+                throw EnhancementError.customError(APIErrorSanitizer.statusMessage(statusCode: httpResponse.statusCode))
             }
 
         } catch let error as EnhancementError {
@@ -419,34 +418,12 @@ extension AIEnhancementService {
         return nil
     }
 
-    private func rateLimitMessage(from data: Data, response: HTTPURLResponse) -> String? {
-        let providerMessage = providerErrorMessage(from: data)
-
+    private func rateLimitMessage(response: HTTPURLResponse) -> String? {
         if let retryAfter = retryAfterInterval(from: response), retryAfter > 0 {
             let seconds = Int(ceil(retryAfter))
-            if let providerMessage, !providerMessage.isEmpty {
-                return "\(providerMessage) Retry in about \(seconds) seconds."
-            }
             return "Rate limit exceeded. Please try again in about \(seconds) seconds."
         }
 
-        return providerMessage
-    }
-
-    private func providerErrorMessage(from data: Data) -> String? {
-        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            if let error = json["error"] as? [String: Any],
-               let message = error["message"] as? String,
-               !message.isEmpty {
-                return message
-            }
-
-            if let message = json["message"] as? String, !message.isEmpty {
-                return message
-            }
-        }
-
-        let raw = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return raw?.isEmpty == false ? raw : nil
+        return nil
     }
 }

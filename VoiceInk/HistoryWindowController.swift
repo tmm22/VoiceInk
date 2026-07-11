@@ -24,17 +24,22 @@ class HistoryWindowController: NSObject, NSWindowDelegate {
             return
         }
 
-        let window = createHistoryWindow(modelContainer: modelContainer, whisperState: whisperState)
+        guard let window = createHistoryWindow(modelContainer: modelContainer, whisperState: whisperState) else {
+            AppLogger.ui.error("Unable to open transcription history because the enhancement service is unavailable")
+            return
+        }
         historyWindow = window
         window.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
-    private func createHistoryWindow(modelContainer: ModelContainer, whisperState: WhisperState) -> NSWindow {
+    private func createHistoryWindow(modelContainer: ModelContainer, whisperState: WhisperState) -> NSWindow? {
+        guard let enhancementService = whisperState.enhancementService else { return nil }
+
         let historyView = TranscriptionHistoryView()
             .modelContainer(modelContainer)
             .environmentObject(whisperState)
-            .environmentObject(whisperState.enhancementService!)
+            .environmentObject(enhancementService)
             .frame(minWidth: 1000, minHeight: 700)
 
         let hostingController = NSHostingController(rootView: historyView)
