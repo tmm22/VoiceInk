@@ -119,7 +119,13 @@ class ParakeetTranscriptionService: TranscriptionService {
             speechAudio += [Float](repeating: 0, count: trailingSilenceSamples)
         }
 
-        let result = try await asrManager.transcribe(speechAudio)
+        var decoderState = TdtDecoderState.make(
+            decoderLayers: await asrManager.decoderLayerCount
+        )
+        let result = try await asrManager.transcribe(
+            speechAudio,
+            decoderState: &decoderState
+        )
 
         return result.text
     }
