@@ -4,6 +4,21 @@ All notable changes to the VoiceLink Community application are documented here.
 
 ## 2026-07-11
 
+### Release Preparation
+- Bumped the community build metadata to version `1.73` (`v1.73-community`) for the production-readiness remediation release.
+
+### Reliability & Security
+- Fixed the test runner so Xcode build and unit-test failures propagate correctly instead of being masked by output formatting.
+- Removed crash-prone force unwraps from recorder/history window setup, inference coordination, audio-file creation, model import configuration, and reviewed TTS links.
+- Sanitized provider, transcription, API-key verification, and license failures so raw response bodies cannot reach user-facing errors or diagnostics.
+
+### Accessibility & Maintenance
+- Localized the reviewed TTS composer, credential settings, playback controls, and editor strings, including accessibility labels and help text.
+- Hardened vendored SelectedTextKit logging and aligned its Swift package metadata with the APIs it uses.
+- Added focused regression coverage for sanitized API error messages.
+
+## 2026-07-11
+
 ### Reliability & Review Remediation
 - Fixed the test runner so Xcode build and unit-test failures propagate correctly instead of being masked by output formatting.
 - Removed crash-prone force unwraps from recorder/history window setup, inference coordination, audio-file creation, and model import configuration.

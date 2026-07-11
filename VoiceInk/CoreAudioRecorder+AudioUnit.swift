@@ -207,7 +207,7 @@ extension CoreAudioRecorder {
 
         guard let fileRef else {
             logger.error("Audio file creation succeeded without returning a file reference")
-            throw CoreAudioRecorderError.failedToCreateFile(status: paramErr)
+            throw CoreAudioRecorderError.failedToCreateFile(status: OSStatus(paramErr))
         }
 
         status = ExtAudioFileSetProperty(
