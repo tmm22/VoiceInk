@@ -9,6 +9,11 @@ All notable changes to the VoiceLink Community application are documented here.
 - Added an `AVAssetReader` fallback for audio containers that `AVAudioFile` cannot decode, improving transcription compatibility with some MP4/M4A recordings.
 - Constrained flow-layout content to the available width so long chips and labels no longer overflow their containers.
 
+### Dependencies
+- Updated the Swift package graph to the latest available releases and branch revisions as of 2026-07-11, including FluidAudio 0.15.5, KeyboardShortcuts 3.0.1, Sparkle 2.9.4, swift-atomics 1.3.1, LLMkit, and mediaremote-adapter.
+- Raised project package requirements to match the resolved dependency floor and aligned the mediaremote-adapter source with the upstream-maintained fork.
+- Updated the Parakeet streaming startup sequence for FluidAudio's current model-loading and streaming APIs.
+
 ### Security & Privacy
 - API key retrieval is now strictly Keychain-only: removed a runtime fallback that could read legacy plaintext keys from app preferences. One-time migration of legacy keys still runs at launch.
 - Hardened the legacy API key migration so it only marks itself complete when every key was safely stored in the Keychain; any key that fails to migrate stays in place and is retried on the next launch instead of being stranded.

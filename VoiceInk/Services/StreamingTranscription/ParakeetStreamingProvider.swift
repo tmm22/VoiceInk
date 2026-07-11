@@ -30,7 +30,8 @@ final class ParakeetStreamingProvider: StreamingTranscriptionProvider {
         let models = try await parakeetService.getOrLoadModels(for: version)
 
         let manager = SlidingWindowAsrManager(config: .streaming)
-        try await manager.start(models: models)
+        try await manager.loadModels(models)
+        try await manager.startStreaming()
         self.streamingManager = manager
 
         eventsContinuation?.yield(.sessionStarted)

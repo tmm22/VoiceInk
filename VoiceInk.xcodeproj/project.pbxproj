@@ -666,7 +666,7 @@
 			repositoryURL = "https://github.com/FluidInference/FluidAudio";
 			requirement = {
 				kind = upToNextMinorVersion;
-				minimumVersion = 0.13.5;
+				minimumVersion = 0.15.5;
 			};
 		};
 		E1342C1D2EB4844800CED8A2 /* XCRemoteSwiftPackageReference "swift-atomics" */ = {
@@ -674,7 +674,7 @@
 			repositoryURL = "https://github.com/apple/swift-atomics.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 1.3.0;
+				minimumVersion = 1.3.1;
 			};
 		};
 		E1438ED02F3F3D5E00DBE2A1 /* XCRemoteSwiftPackageReference "LLMkit" */ = {
@@ -690,7 +690,7 @@
 			repositoryURL = "https://github.com/sindresorhus/KeyboardShortcuts";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 2.3.0;
+				minimumVersion = 3.0.1;
 			};
 		};
 		E1ADD4582CC5352A00303ECB /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */ = {
@@ -706,7 +706,7 @@
 			repositoryURL = "https://github.com/sparkle-project/Sparkle";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 2.7.0;
+				minimumVersion = 2.9.4;
 			};
 		};
 		E1BBBDCA2EB0DF6700C3ABFE /* XCLocalSwiftPackageReference "SelectedTextKit" */ = {
@@ -715,7 +715,7 @@
 		};
 		E1D7EF972E35E16C00640029 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/ejbills/mediaremote-adapter";
+			repositoryURL = "https://github.com/Beingpax/mediaremote-adapter";
 			requirement = {
 				branch = master;
 				kind = branch;
@@ -734,7 +734,7 @@
 			repositoryURL = "https://github.com/microsoft/onnxruntime-swift-package-manager";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 1.20.0;
+				minimumVersion = 1.24.2;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
