@@ -114,7 +114,10 @@ class InferenceCoordinator: ObservableObject {
                 return result
             }
 
-            let result = try await currentTask!.value
+            guard let currentTask else {
+                throw InferenceCoordinatorError.operationCancelled
+            }
+            let result = try await currentTask.value
 
             // Mark operation as completed
             operation.status = .completed

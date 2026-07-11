@@ -105,13 +105,11 @@ extension AIService {
                 let isValid = httpResponse.statusCode == 200
                 
                 if !isValid {
-                    if let data = data, let exactAPIError = String(data: data, encoding: .utf8) {
+                    if let data {
                         self.logger.notice(
                             "🔑 API key verification failed for \(providerName, privacy: .public). \(AppLogger.responseMetadata(statusCode: httpResponse.statusCode, responseSize: data.count), privacy: .public)"
                         )
-                        // Truncate error message to 500 characters to prevent UI overflow
-                        let truncatedError = exactAPIError.count > 500 ? String(exactAPIError.prefix(500)) + "..." : exactAPIError
-                        completion(false, truncatedError)
+                        completion(false, APIErrorSanitizer.statusMessage(statusCode: httpResponse.statusCode))
                     } else {
                         self.logger.notice("🔑 API key verification failed for \(providerName, privacy: .public) - Status: \(httpResponse.statusCode)")
                         completion(false, "Verification failed with status code \(httpResponse.statusCode)")
@@ -170,7 +168,7 @@ extension AIService {
             return
         }
         
-        session.dataTask(with: request) { data, response, error in
+        session.dataTask(with: request) { _, response, error in
             if let error = error {
                 completion(false, error.localizedDescription)
                 return
@@ -180,13 +178,7 @@ extension AIService {
                 if httpResponse.statusCode == 200 {
                     completion(true, nil)
                 } else {
-                    if let data = data, let responseString = String(data: data, encoding: .utf8) {
-                        // Truncate error message to 500 characters to prevent UI overflow
-                        let truncatedError = responseString.count > 500 ? String(responseString.prefix(500)) + "..." : responseString
-                        completion(false, truncatedError)
-                    } else {
-                        completion(false, "Verification failed with status code \(httpResponse.statusCode)")
-                    }
+                    completion(false, APIErrorSanitizer.statusMessage(statusCode: httpResponse.statusCode))
                 }
             } else {
                 completion(false, "Invalid response from server")
@@ -213,20 +205,21 @@ extension AIService {
                 return
             }
             
-            let isValid = (response as? HTTPURLResponse)?.statusCode == 200
+            guard let httpResponse = response as? HTTPURLResponse else {
+                completion(false, "Invalid response from server")
+                return
+            }
 
-            if let data = data, let body = String(data: data, encoding: .utf8) {
-                if let statusCode = (response as? HTTPURLResponse)?.statusCode {
-                    self.logger.info(
-                        "ElevenLabs verification completed. \(AppLogger.responseMetadata(statusCode: statusCode, responseSize: data.count), privacy: .public)"
-                    )
-                }
-                if !isValid {
-                    // Truncate error message to 500 characters to prevent UI overflow
-                    let truncatedError = body.count > 500 ? String(body.prefix(500)) + "..." : body
-                    completion(false, truncatedError)
-                    return
-                }
+            let isValid = httpResponse.statusCode == 200
+
+            if let data {
+                self.logger.info(
+                    "ElevenLabs verification completed. \(AppLogger.responseMetadata(statusCode: httpResponse.statusCode, responseSize: data.count), privacy: .public)"
+                )
+            }
+            if !isValid {
+                completion(false, APIErrorSanitizer.statusMessage(statusCode: httpResponse.statusCode))
+                return
             }
 
             completion(isValid, nil)
@@ -256,13 +249,11 @@ extension AIService {
                 if httpResponse.statusCode == 200 {
                     completion(true, nil)
                 } else {
-                    if let data = data, let body = String(data: data, encoding: .utf8) {
+                    if let data {
                         self.logger.error(
                             "Mistral API key verification failed. \(AppLogger.responseMetadata(statusCode: httpResponse.statusCode, responseSize: data.count), privacy: .public)"
                         )
-                        // Truncate error message to 500 characters to prevent UI overflow
-                        let truncatedError = body.count > 500 ? String(body.prefix(500)) + "..." : body
-                        completion(false, truncatedError)
+                        completion(false, APIErrorSanitizer.statusMessage(statusCode: httpResponse.statusCode))
                     } else {
                         self.logger.error("Mistral API key verification failed with status code \(httpResponse.statusCode) and no response body.")
                         completion(false, "Verification failed with status code \(httpResponse.statusCode)")
@@ -298,13 +289,7 @@ extension AIService {
                 if httpResponse.statusCode == 200 {
                     completion(true, nil)
                 } else {
-                    if let data = data, let responseString = String(data: data, encoding: .utf8) {
-                        // Truncate error message to 500 characters to prevent UI overflow
-                        let truncatedError = responseString.count > 500 ? String(responseString.prefix(500)) + "..." : responseString
-                        completion(false, truncatedError)
-                    } else {
-                        completion(false, "Verification failed with status code \(httpResponse.statusCode)")
-                    }
+                    completion(false, APIErrorSanitizer.statusMessage(statusCode: httpResponse.statusCode))
                 }
             } else {
                 completion(false, "Invalid response from server")
@@ -335,13 +320,7 @@ extension AIService {
                 if httpResponse.statusCode == 200 {
                     completion(true, nil)
                 } else {
-                    if let data = data, let responseString = String(data: data, encoding: .utf8) {
-                        // Truncate error message to 500 characters to prevent UI overflow
-                        let truncatedError = responseString.count > 500 ? String(responseString.prefix(500)) + "..." : responseString
-                        completion(false, truncatedError)
-                    } else {
-                        completion(false, "Verification failed with status code \(httpResponse.statusCode)")
-                    }
+                    completion(false, APIErrorSanitizer.statusMessage(statusCode: httpResponse.statusCode))
                 }
             } else {
                 completion(false, "Invalid response from server")
@@ -375,13 +354,11 @@ extension AIService {
                 if isValid {
                     completion(true, nil)
                 } else {
-                    if let data = data, let body = String(data: data, encoding: .utf8) {
+                    if let data {
                         self.logger.error(
                             "AssemblyAI API key verification failed. \(AppLogger.responseMetadata(statusCode: httpResponse.statusCode, responseSize: data.count), privacy: .public)"
                         )
-                        // Truncate error message to 500 characters to prevent UI overflow
-                        let truncatedError = body.count > 500 ? String(body.prefix(500)) + "..." : body
-                        completion(false, truncatedError)
+                        completion(false, APIErrorSanitizer.statusMessage(statusCode: httpResponse.statusCode))
                     } else {
                         completion(false, "Verification failed with status code \(httpResponse.statusCode)")
                     }

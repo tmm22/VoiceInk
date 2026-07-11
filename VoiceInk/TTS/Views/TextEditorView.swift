@@ -45,7 +45,7 @@ struct TextEditorView: View {
             
             // Placeholder text
             if viewModel.inputText.isEmpty {
-                Text("Enter text to convert to speech...")
+                Text(Localization.TTS.editorPlaceholder)
                     .font(.system(size: 14))
                     .foregroundColor(.secondary)
                     .padding(.horizontal, 12)
@@ -74,7 +74,7 @@ struct TextEditorView: View {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(viewModel.inputText, forType: .string)
             }) {
-                Label("Copy All", systemImage: "doc.on.doc")
+                Label(Localization.TTS.copyAll, systemImage: "doc.on.doc")
             }
             .disabled(viewModel.inputText.isEmpty)
             
@@ -83,7 +83,7 @@ struct TextEditorView: View {
                     viewModel.inputText = string
                 }
             }) {
-                Label("Paste", systemImage: "doc.on.clipboard")
+                Label(Localization.TTS.paste, systemImage: "doc.on.clipboard")
             }
             
             Divider()
@@ -91,39 +91,23 @@ struct TextEditorView: View {
             Button(action: {
                 viewModel.inputText = ""
             }) {
-                Label("Clear", systemImage: "trash")
+                Label(Localization.TTS.clear, systemImage: "trash")
             }
             .disabled(viewModel.inputText.isEmpty)
             
             Divider()
             
-            Menu("Insert Sample Text") {
-                Button("Short Sample") {
-                    viewModel.inputText = "Hello! This is a sample text to demonstrate the text-to-speech functionality. The app supports multiple providers and voices, allowing you to create natural-sounding speech from any text."
+            Menu(Localization.TTS.insertSampleText) {
+                Button(Localization.TTS.shortSample) {
+                    viewModel.inputText = Localization.TTS.shortSampleText
                 }
                 
-                Button("Medium Sample") {
-                    viewModel.inputText = """
-                    Welcome to the Text-to-Speech Converter! This powerful application transforms your written text into natural-sounding speech using advanced AI technology.
-                    
-                    You can choose from multiple providers including OpenAI, ElevenLabs, and Google Cloud Text-to-Speech. Each provider offers unique voices with different characteristics and languages.
-                    
-                    The app features comprehensive playback controls, allowing you to play, pause, adjust speed, and control volume. You can also export the generated audio in various formats for use in your projects.
-                    """
+                Button(Localization.TTS.mediumSample) {
+                    viewModel.inputText = Localization.TTS.mediumSampleText
                 }
                 
-                Button("Long Sample") {
-                    viewModel.inputText = """
-                    The art of text-to-speech synthesis has evolved dramatically over the past decade. What once sounded robotic and unnatural has transformed into voices that are nearly indistinguishable from human speech.
-                    
-                    Modern TTS systems use deep learning models trained on vast amounts of human speech data. These neural networks learn the subtle patterns of human vocalization, including intonation, rhythm, and emotional expression.
-                    
-                    The applications are endless: from accessibility tools for the visually impaired, to audiobook narration, virtual assistants, and content creation. Educational institutions use TTS to make learning materials more accessible, while businesses employ it for customer service automation.
-                    
-                    As we look to the future, the boundary between synthetic and human speech continues to blur. Voice cloning technology can now recreate specific voices with remarkable accuracy, opening new possibilities for preserving voices and creating personalized experiences.
-                    
-                    This convergence of technology and human expression represents not just a technical achievement, but a fundamental shift in how we interact with information and each other in the digital age.
-                    """
+                Button(Localization.TTS.longSample) {
+                    viewModel.inputText = Localization.TTS.longSampleText
                 }
             }
         }

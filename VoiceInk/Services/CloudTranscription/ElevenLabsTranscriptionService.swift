@@ -31,8 +31,7 @@ class ElevenLabsTranscriptionService: CloudTranscriptionBase, CloudTranscription
         }
 
         if !(200...299).contains(httpResponse.statusCode) {
-            let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
+            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: APIErrorSanitizer.statusMessage(statusCode: httpResponse.statusCode))
         }
 
         do {

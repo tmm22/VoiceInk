@@ -118,9 +118,7 @@ extension UIElement {
                    let title = try element.title(),
                     isMenuTitleMatching(title, for: menuItemType)
                 {
-                    logInfo(
-                        "Found \(menuItemType) title item in menu: \(try element.title()!), identifier: \(identifier)"
-                    )
+                    logInfo("Found \(menuItemType) item by matching its expected title and shortcut")
                     return true
                 }
 

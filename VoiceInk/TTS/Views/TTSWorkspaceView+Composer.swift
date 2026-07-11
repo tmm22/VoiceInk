@@ -87,7 +87,7 @@ struct ContextShelfView: View {
             if let translation = viewModel.translationResult, viewModel.translationKeepOriginal {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Label("Translation", systemImage: "globe")
+                        Label(Localization.TTS.translation, systemImage: "globe")
                             .font(.subheadline)
                             .fontWeight(.semibold)
                         Spacer()
@@ -102,14 +102,14 @@ struct ContextShelfView: View {
                         .lineLimit(3)
 
                     HStack {
-                        Button("Use Translation") {
+                        Button(Localization.TTS.useTranslation) {
                             viewModel.adoptTranslationAsInput()
                         }
                         .buttonStyle(.bordered)
 
                         Spacer()
 
-                        Button("View Details") {
+                        Button(Localization.TTS.viewDetails) {
                             showingTranslationDetail = true
                         }
                         .buttonStyle(.borderless)
@@ -124,7 +124,7 @@ struct ContextShelfView: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Label("Cost Estimate", systemImage: "dollarsign.circle")
+                    Label(Localization.TTS.costEstimate, systemImage: "dollarsign.circle")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                     Spacer()
@@ -139,7 +139,7 @@ struct ContextShelfView: View {
                         .foregroundColor(.secondary)
                         .lineLimit(3)
                 } else {
-                    Text("Estimate reflects your current provider and text length.")
+                    Text(Localization.TTS.costEstimateDescription)
                         .font(.system(size: 13))
                         .foregroundColor(.secondary)
                         .lineLimit(3)
@@ -147,7 +147,7 @@ struct ContextShelfView: View {
 
                 HStack {
                     Spacer()
-                    Button("Open Inspector") {
+                    Button(Localization.TTS.openInspector) {
                         focusInspector()
                     }
                     .buttonStyle(.bordered)
@@ -173,7 +173,7 @@ struct ArticleSummaryCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Label("Smart Import", systemImage: "sparkles")
+                Label(Localization.TTS.smartImport, systemImage: "sparkles")
                     .font(.subheadline)
                     .fontWeight(.semibold)
                 Spacer()
@@ -188,7 +188,7 @@ struct ArticleSummaryCard: View {
                 HStack(spacing: 8) {
                     ProgressView()
                         .progressViewStyle(.circular)
-                    Text("Cleaning the article with AI…")
+                    Text(Localization.TTS.cleaningArticle)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -202,7 +202,7 @@ struct ArticleSummaryCard: View {
                     .font(.caption)
                     .foregroundColor(.red)
             } else {
-                Text("Use Import to pull a web article and see an AI summary here.")
+                Text(Localization.TTS.importArticleHint)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -214,13 +214,13 @@ struct ArticleSummaryCard: View {
             }
 
             HStack {
-                Button("Use Concise Article") {
+                Button(Localization.TTS.useConciseArticle) {
                     importExport.replaceEditorWithCondensedImport()
                 }
                 .buttonStyle(.bordered)
                 .disabled(!importExport.canAdoptCondensedImport)
 
-                Button("Insert Summary") {
+                Button(Localization.TTS.insertSummary) {
                     importExport.insertSummaryIntoEditor()
                 }
                 .buttonStyle(.bordered)
@@ -228,7 +228,7 @@ struct ArticleSummaryCard: View {
 
                 Spacer()
 
-                Button("Speak Summary") {
+                Button(Localization.TTS.speakSummary) {
                     Task {
                         await importExport.speakSummaryOfImportedArticle()
                     }
@@ -260,7 +260,7 @@ struct GenerationStatusFooter: View {
                 HStack(spacing: 6) {
                     ProgressView(value: generation.generationProgress)
                         .frame(width: 100)
-                    Text("Generating…")
+                    Text(Localization.TTS.generating)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -280,7 +280,7 @@ struct GenerationStatusFooter: View {
                 .foregroundColor(.secondary)
             }
             .buttonStyle(.plain)
-            .help("View detailed cost estimate")
+            .help(Localization.TTS.detailedCostEstimateHelp)
         }
         .padding(.vertical, 4)
     }
