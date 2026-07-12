@@ -9,6 +9,7 @@ This guide describes the live production architecture as of July 12, 2026.
 | Web UI and API | Cloudflare Workers | `voiceink-web` |
 | Speech recognition | Cloudflare Workers + Workers AI | `voiceink-asr` |
 | Transcript database | Convex Cloud | Supplied at deployment time |
+| Optional authentication | Clerk | User accounts and cross-device ownership |
 | ASR model | Cloudflare Workers AI | `@cf/openai/whisper-large-v3-turbo` |
 
 The public entry point is the URL returned by the `voiceink-web` deployment. The ASR Worker is reached from the web Worker through the `ASR` service binding. Do not replace this with a fetch to its public `workers.dev` hostname: same-account Worker subrequests can fail at Cloudflare routing, and the service binding is private and does not add another request charge.
@@ -44,13 +45,37 @@ NEXT_PUBLIC_CONVEX_URL=https://<your-convex-deployment>.convex.cloud
 
 `npx convex deploy` validates and uploads `convex/schema.ts`, the indexes, and functions. It also regenerates `convex/_generated/`; commit generated bindings when they change.
 
+The deployed Convex cron runs every five minutes. It deletes anonymous transcripts after one hour. Signed-in transcripts have an authenticated `ownerId` and do not receive an anonymous expiry timestamp.
+
 After changing Convex functions:
 
 ```bash
 npx convex deploy --typecheck enable --message "Describe the change"
 ```
 
-## 2. Deploy the Workers AI service
+## 2. Optional: enable Clerk accounts
+
+Create a Clerk application and activate its Convex integration. Configure the Convex JWT issuer in both Convex development and production; do not paste credentials into tracked files:
+
+```bash
+npx convex env set CLERK_JWT_ISSUER_DOMAIN 'https://<your-clerk-issuer>'
+npx convex env set --prod CLERK_JWT_ISSUER_DOMAIN 'https://<your-clerk-issuer>'
+cp convex/auth.config.example.ts convex/auth.config.ts
+npx convex deploy --typecheck enable --message "Enable Clerk authentication"
+```
+
+Set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` in the Cloudflare build environment, then include it when producing the deployed client bundle. The publishable key is intentionally not committed:
+
+```bash
+NEXT_PUBLIC_CONVEX_URL=https://<your-convex-deployment>.convex.cloud \
+NEXT_PUBLIC_SITE_URL=https://<your-web-worker>.<your-subdomain>.workers.dev \
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_<your-publishable-key> \
+npm run build
+```
+
+This client-only integration does not require `CLERK_SECRET_KEY`. Add a secret key only if future server-side Clerk APIs require it, and store it with Wrangler or the Cloudflare dashboard—not in source control. Account history is keyed exclusively from Convex's verified identity token, never from a browser-supplied user ID.
+
+## 3. Deploy the Workers AI service
 
 ```bash
 cd cloudflare-asr
@@ -62,7 +87,7 @@ cd ..
 
 The Worker receives multipart audio and invokes `@cf/openai/whisper-large-v3-turbo` through its `AI` binding. Its public hostname exists for health checks, but the production application reaches it through a service binding.
 
-## 3. Create the shared internal secret
+## 4. Create the shared internal secret
 
 The ASR Worker checks `ASR_API_KEY`. The web Worker sends the same value from its legacy `PARAKEET_API_KEY` secret.
 
@@ -84,7 +109,7 @@ unset ASR_KEY
 
 Wrangler expects the terminating newline. Omitting it can result in a secret value that does not authenticate correctly.
 
-## 4. Build and deploy the web Worker
+## 5. Build and deploy the web Worker
 
 The public Convex and site URLs are embedded in the client build, so set them explicitly during a production build:
 
@@ -109,7 +134,7 @@ npx wrangler deploy \
 
 For a brand-new `voiceink-web` Worker, deploy it once before running `wrangler secret put`, then deploy again after the secret is installed.
 
-## 5. Verify production
+## 6. Verify production
 
 Check the site:
 
@@ -143,6 +168,8 @@ Then confirm a record appears in the `transcriptions` table in the Convex dashbo
 | --- | --- | --- | --- |
 | `NEXT_PUBLIC_CONVEX_URL` | Build and web Worker | No | Convex production client URL |
 | `NEXT_PUBLIC_SITE_URL` | Build and web Worker | No | Canonical production URL |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Build and web Worker | No | Enables Clerk sign-in in the browser |
+| `CLERK_JWT_ISSUER_DOMAIN` | Convex environment | No | Validates Clerk-issued Convex JWTs |
 | `PARAKEET_API_URL` | Web Worker | No | Legacy fallback URL for ASR |
 | `PARAKEET_API_KEY` | Web Worker | Yes | Credential sent to ASR Worker |
 | `ASR_API_KEY` | ASR Worker | Yes | Credential checked by ASR Worker |
@@ -166,6 +193,8 @@ Common failures:
 - `502` from `/api/transcribe`: inspect `upstreamStatus` and tail both Workers.
 - Demo transcript returned: `PARAKEET_API_URL` was unavailable in the web runtime.
 - Transcript succeeds but is not saved: verify the production Convex URL and inspect Convex function logs.
+- Sign-in is not visible: the client bundle was built without `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`.
+- Clerk signs in but history fails: verify the Clerk Convex integration and `CLERK_JWT_ISSUER_DOMAIN`, then redeploy Convex with `auth.config.ts` enabled.
 
 ## Rollback
 

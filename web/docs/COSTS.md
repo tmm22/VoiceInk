@@ -49,7 +49,7 @@ Starter overage rates shown by Convex include $2.20 per additional million funct
 
 Source: [Convex pricing](https://www.convex.dev/pricing)
 
-This prototype stores transcript text and metadata only. It does not store audio, so database and egress consumption should remain modest at early usage levels.
+This prototype stores transcript text and metadata only. It does not store audio, so database and egress consumption should remain modest at early usage levels. Anonymous transcript rows are automatically deleted after one hour; signed-in history is retained for the account.
 
 ## Estimated combined monthly cost
 
@@ -81,7 +81,7 @@ monthly cost ≈ $5 + (audio minutes × $0.0005) + Convex overages + Worker over
 - No external ASR provider
 - No cloud TTS charges; current text-to-speech uses device/browser voices
 - No AI enhancement model
-- No authentication provider
+- No authentication-provider charge while Clerk remains unconfigured; review Clerk's current plan limits before enabling accounts publicly
 - No custom domain requirement
 
 The unused `parakeet-service/` reference would create a materially different cost profile if deployed. Production currently uses managed Workers AI instead.
@@ -90,11 +90,11 @@ The unused `parakeet-service/` reference would create a materially different cos
 
 The public transcription endpoint can currently be invoked without a user account. Before broader distribution, add:
 
-1. Authentication and per-user ownership in Convex.
-2. Per-user daily audio-minute quotas.
-3. Cloudflare rate limiting on `/api/transcribe`.
-4. Maximum recording duration in the browser in addition to the 24 MB server limit.
-5. Cloudflare billing alerts and Workers AI usage alerts.
-6. A hard failure when the configured monthly quota is reached.
+1. Enable the implemented Clerk integration before broader account-based distribution.
+2. Add per-user daily audio-minute quotas.
+3. Add Cloudflare rate limiting on `/api/transcribe`.
+4. Add a maximum recording duration in the browser in addition to the 24 MB server limit.
+5. Configure Cloudflare billing alerts and Workers AI usage alerts.
+6. Add a hard failure when the configured monthly quota is reached.
 
 Without these controls, a third party could consume Workers AI credits through the public endpoint.

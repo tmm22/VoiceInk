@@ -33,7 +33,7 @@ voiceink-asr Cloudflare Worker
 Whisper Large V3 Turbo
 ```
 
-Audio is forwarded in memory and is not stored by this application. The returned transcript is saved to Convex after a successful transcription.
+Audio is forwarded in memory and is not stored by this application. The returned transcript is saved to Convex after a successful transcription. Anonymous history expires after one hour and a scheduled Convex cleanup removes it. When Clerk is configured, signed-in history is owned by the authenticated Clerk identity and persists across browsers and devices.
 
 Recording is intentionally one-step: pressing Stop immediately uploads the captured audio, runs transcription, stores the completed transcript in Convex, and refreshes the on-page history. If transcription fails, the in-memory recording remains available for retry.
 
@@ -55,6 +55,8 @@ npm install
 npx convex dev
 npm run dev
 ```
+
+Clerk is optional during development. Without `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, the app runs anonymously and applies the one-hour retention policy. See the deployment guide before enabling accounts.
 
 The web interface returns a clearly marked demo transcript when no inference endpoint is configured. To use the deployed ASR Worker locally, provide its URL and the matching Worker secret in `.env.local`.
 
@@ -81,9 +83,10 @@ curl --fail \
 
 ## Current prototype limitations
 
-- No user authentication or account ownership checks
+- Clerk account support requires a Clerk application and production environment configuration before it becomes visible
 - No per-user quotas or public-endpoint rate limiting
-- History is stored against a browser-generated client ID
+- Anonymous history is associated with a browser-generated client ID and retained for no more than one hour
+- Account history persists until an account-data deletion flow or retention policy is added
 - Batch transcription only; no live partial transcript stream
 - System/device voices only for the initial TTS integration; cloud TTS adapters are not yet connected
 - Audio uploads are limited to 24 MB by the ASR Worker

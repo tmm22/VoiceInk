@@ -24,16 +24,25 @@ function clientId() {
   return created;
 }
 
-export async function saveTranscription(value: SavedTranscription) {
-  if (!convexUrl || typeof window === "undefined") return;
+function convexClient(token?: string | null) {
+  if (!convexUrl) return null;
   const client = new ConvexHttpClient(convexUrl);
+  if (token) client.setAuth(token);
+  return client;
+}
+
+export async function saveTranscription(value: SavedTranscription, token?: string | null) {
+  if (!convexUrl || typeof window === "undefined") return;
+  const client = convexClient(token);
+  if (!client) return;
   const save = makeFunctionReference<"mutation">("transcriptions:save");
   await client.mutation(save, { ...value, clientId: clientId() });
 }
 
-export async function listTranscriptions(): Promise<TranscriptionHistoryItem[]> {
+export async function listTranscriptions(token?: string | null): Promise<TranscriptionHistoryItem[]> {
   if (!convexUrl || typeof window === "undefined") return [];
-  const client = new ConvexHttpClient(convexUrl);
+  const client = convexClient(token);
+  if (!client) return [];
   const list = makeFunctionReference<"query">("transcriptions:list");
   return client.query(list, { clientId: clientId() }) as Promise<TranscriptionHistoryItem[]>;
 }

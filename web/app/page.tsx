@@ -11,6 +11,7 @@ import {
   loadBrowserVoices,
   type BrowserVoice,
 } from "../lib/browserSpeech";
+import { AccountControls, useAccountAuth } from "./providers";
 
 type Status = "idle" | "recording" | "transcribing" | "done" | "error";
 type Theme = "editorial" | "mac";
@@ -19,6 +20,7 @@ const demoTranscript =
   "VoiceInk Web keeps the recording workflow focused: capture your voice, transcribe it with Parakeet, then copy or refine the result.";
 
 export default function Home() {
+  const account = useAccountAuth();
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
   const ticker = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -59,6 +61,10 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    if (account.isLoaded) void refreshHistory();
+  }, [account.identityKey, account.isLoaded]);
+
   function selectTheme(nextTheme: Theme) {
     setTheme(nextTheme);
     document.documentElement.dataset.theme = nextTheme;
@@ -67,7 +73,8 @@ export default function Home() {
 
   async function refreshHistory() {
     try {
-      setHistory(await listTranscriptions());
+      const token = await account.getConvexToken();
+      setHistory(await listTranscriptions(token));
     } finally {
       setHistoryLoading(false);
     }
@@ -122,11 +129,12 @@ export default function Home() {
       if (!response.ok) throw new Error("Transcription failed");
       const result = (await response.json()) as { text: string };
       setTranscript(result.text || demoTranscript);
+      const token = await account.getConvexToken();
       await saveTranscription({
         text: result.text || demoTranscript,
         durationSeconds,
         model: "whisper-large-v3-turbo",
-      });
+      }, token);
       await refreshHistory();
       setStatus("done");
     } catch {
@@ -185,6 +193,7 @@ export default function Home() {
           <span className="brand-mark">V</span><span>VoiceInk <em>web</em></span>
         </a>
         <div className="header-actions">
+          <AccountControls />
           <div className="theme-switch" aria-label="Appearance" role="group">
             <button className={theme === "editorial" ? "active" : ""} onClick={() => selectTheme("editorial")} aria-pressed={theme === "editorial"}>Original</button>
             <button className={theme === "mac" ? "active" : ""} onClick={() => selectTheme("mac")} aria-pressed={theme === "mac"}>Mac</button>
@@ -263,7 +272,7 @@ export default function Home() {
 
       <section className="history-card">
         <div className="history-head">
-          <div><small>RECENT HISTORY</small><span>Saved automatically in Convex</span></div>
+          <div><small>RECENT HISTORY</small><span>{account.isSignedIn ? "Synced to your account across devices" : "Anonymous history expires after one hour"}</span></div>
           <button onClick={refreshHistory} disabled={historyLoading}>{historyLoading ? "Loading…" : "Refresh"}</button>
         </div>
         {history.length ? (
