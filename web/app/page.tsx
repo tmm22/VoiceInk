@@ -6,6 +6,11 @@ import {
   saveTranscription,
   type TranscriptionHistoryItem,
 } from "../lib/convex";
+import {
+  getBrowserSpeechController,
+  loadBrowserVoices,
+  type BrowserVoice,
+} from "../lib/browserSpeech";
 
 type Status = "idle" | "recording" | "transcribing" | "done" | "error";
 
@@ -25,12 +30,24 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [history, setHistory] = useState<TranscriptionHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [voices, setVoices] = useState<BrowserVoice[]>([]);
+  const [voiceId, setVoiceId] = useState("");
+  const [speechRate, setSpeechRate] = useState(1);
+  const [speechPitch, setSpeechPitch] = useState(1);
+  const [speechVolume, setSpeechVolume] = useState(0.8);
+  const [playback, setPlayback] = useState<"idle" | "playing" | "paused">("idle");
+  const [speechError, setSpeechError] = useState("");
 
   useEffect(() => {
     void refreshHistory();
+    void loadBrowserVoices().then((available) => {
+      setVoices(available);
+      setVoiceId(available.find((voice) => voice.isDefault)?.id ?? available[0]?.id ?? "");
+    });
     return () => {
       if (ticker.current) clearInterval(ticker.current);
       recorder.current?.stream.getTracks().forEach((track) => track.stop());
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     };
   }, []);
 
@@ -110,6 +127,41 @@ export default function Home() {
     setTimeout(() => setCopied(false), 1500);
   }
 
+  async function playTranscript() {
+    if (!transcript.trim()) return;
+    setSpeechError("");
+    setPlayback("playing");
+    try {
+      await getBrowserSpeechController().speak({
+        text: transcript,
+        voiceId,
+        rate: speechRate,
+        pitch: speechPitch,
+        volume: speechVolume,
+      });
+      setPlayback("idle");
+    } catch (speechFailure) {
+      const message = speechFailure instanceof Error ? speechFailure.message : "Speech playback failed";
+      if (message !== "canceled" && message !== "interrupted") setSpeechError(message);
+      setPlayback("idle");
+    }
+  }
+
+  function pauseSpeech() {
+    getBrowserSpeechController().pause();
+    setPlayback("paused");
+  }
+
+  function resumeSpeech() {
+    getBrowserSpeechController().resume();
+    setPlayback("playing");
+  }
+
+  function stopSpeech() {
+    getBrowserSpeechController().cancel();
+    setPlayback("idle");
+  }
+
   const time = `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
 
   return (
@@ -157,6 +209,32 @@ export default function Home() {
       <section className="transcript-card">
         <div className="transcript-head"><div><small>TRANSCRIPT</small><span>{transcript ? `${transcript.split(/\s+/).length} words` : "Waiting for audio"}</span></div>{transcript && <button onClick={copyTranscript}>{copied ? "Copied" : "Copy text"}</button>}</div>
         <textarea aria-label="Transcript text" value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="Your transcription will appear here…" />
+      </section>
+
+      <section className="tts-card">
+        <div className="tts-head">
+          <div><small>TEXT TO SPEECH</small><span>System voices · runs on this device</span></div>
+          <span className="local-pill">No API key</span>
+        </div>
+        <div className="tts-grid">
+          <label className="voice-field">
+            <span>Voice</span>
+            <select value={voiceId} onChange={(event) => setVoiceId(event.target.value)} disabled={!voices.length}>
+              {!voices.length && <option>Loading system voices…</option>}
+              {voices.map((voice) => <option key={voice.id} value={voice.id}>{voice.name} · {voice.language}{voice.isLocal ? " · local" : ""}</option>)}
+            </select>
+          </label>
+          <label><span>Speed <b>{speechRate.toFixed(1)}×</b></span><input type="range" min="0.5" max="2" step="0.1" value={speechRate} onChange={(event) => setSpeechRate(Number(event.target.value))} /></label>
+          <label><span>Pitch <b>{speechPitch.toFixed(1)}</b></span><input type="range" min="0.5" max="2" step="0.1" value={speechPitch} onChange={(event) => setSpeechPitch(Number(event.target.value))} /></label>
+          <label><span>Volume <b>{Math.round(speechVolume * 100)}%</b></span><input type="range" min="0" max="1" step="0.05" value={speechVolume} onChange={(event) => setSpeechVolume(Number(event.target.value))} /></label>
+        </div>
+        <div className="playback-buttons">
+          {playback === "idle" && <button className="play" onClick={playTranscript} disabled={!transcript.trim() || !voices.length}>▶ Read transcript</button>}
+          {playback === "playing" && <button onClick={pauseSpeech}>Ⅱ Pause</button>}
+          {playback === "paused" && <button className="play" onClick={resumeSpeech}>▶ Resume</button>}
+          {playback !== "idle" && <button onClick={stopSpeech}>■ Stop</button>}
+        </div>
+        {speechError && <p className="error" role="alert">{speechError}</p>}
       </section>
 
       <section className="history-card">

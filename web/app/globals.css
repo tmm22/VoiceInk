@@ -17,7 +17,7 @@ main { width:min(1100px, calc(100% - 36px)); margin:auto; position:relative; pad
 .hero h1 { margin:0; font-family:Georgia,serif; font-size:clamp(52px,8vw,92px); line-height:.95; letter-spacing:-5px; font-weight:500; }
 .hero h1 span { color:var(--green); font-style:italic; }
 .hero p { width:min(590px,100%); margin:28px auto 0; color:#5f6d66; line-height:1.65; font-size:16px; }
-.recorder-card,.transcript-card,.history-card { background:rgba(255,255,255,.76); border:1px solid var(--line); box-shadow:0 18px 60px rgba(22,44,34,.06); }
+.recorder-card,.transcript-card,.history-card,.tts-card { background:rgba(255,255,255,.76); border:1px solid var(--line); box-shadow:0 18px 60px rgba(22,44,34,.06); }
 .recorder-card { border-radius:22px; padding:28px 34px 34px; transition:.25s; }
 .recorder-card.is-recording { border-color:#72d9ad; box-shadow:0 18px 70px rgba(25,195,125,.12); }
 .card-header,.transcript-head { display:flex; justify-content:space-between; align-items:flex-start; }
@@ -47,6 +47,21 @@ small { display:block; font-size:9px; letter-spacing:1.8px; font-weight:800; col
 .transcript-head button { border:0; background:transparent; color:#168958; font-weight:800; font-size:11px; cursor:pointer; }
 textarea { width:100%; min-height:145px; border:0; resize:vertical; padding:24px; background:transparent; color:var(--ink); font:17px/1.65 Georgia,serif; outline:none; }
 textarea::placeholder { color:#a4afa9; }
+.tts-card { border-radius:16px; margin-top:18px; overflow:hidden; }
+.tts-head { display:flex; align-items:center; justify-content:space-between; padding:17px 20px; border-bottom:1px solid var(--line); }
+.tts-head > div { display:flex; align-items:center; gap:12px; }
+.tts-head > div > span { color:#839088; font-size:10px; }
+.local-pill { padding:6px 9px; border-radius:100px; background:rgba(25,195,125,.1); color:#168958; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.8px; }
+.tts-grid { display:grid; grid-template-columns:2fr repeat(3,1fr); gap:20px; padding:22px 20px; }
+.tts-grid label { display:grid; align-content:start; gap:9px; color:#64736b; font-size:10px; font-weight:700; }
+.tts-grid label > span { display:flex; justify-content:space-between; }
+.tts-grid b { color:var(--ink); }
+.tts-grid select { width:100%; min-width:0; border:1px solid var(--line); border-radius:8px; padding:9px 10px; background:#fff; color:var(--ink); }
+.tts-grid input[type="range"] { width:100%; accent-color:var(--green); }
+.playback-buttons { display:flex; gap:9px; padding:0 20px 22px; }
+.playback-buttons button { border:1px solid var(--line); border-radius:9px; padding:10px 14px; background:#fff; color:var(--ink); font-weight:800; cursor:pointer; }
+.playback-buttons button.play { border-color:var(--ink); background:var(--ink); color:#fff; }
+.playback-buttons button:disabled { opacity:.45; cursor:not-allowed; }
 .history-card { border-radius:16px; margin-top:18px; overflow:hidden; }
 .history-head { display:flex; align-items:center; justify-content:space-between; padding:17px 20px; border-bottom:1px solid var(--line); }
 .history-head div { display:flex; align-items:center; gap:12px; }
@@ -61,4 +76,4 @@ textarea::placeholder { color:#a4afa9; }
 .history-empty { margin:0; padding:28px 20px; color:#839088; font:15px Georgia,serif; text-align:center; }
 footer { display:flex; justify-content:center; gap:35px; margin-top:27px; color:#819087; font-size:9px; letter-spacing:1.2px; text-transform:uppercase; }
 footer span:before { content:"✓"; color:var(--green); margin-right:7px; font-weight:900; }
-@media(max-width:650px){ main{width:min(100% - 22px,1100px)} .topbar{height:72px}.model-pill b{display:none}.hero{padding:52px 0 36px}.hero h1{letter-spacing:-3px}.recorder-card{padding:22px 18px 28px}.privacy{display:none}.wave{height:90px;gap:3px}.history-head span{display:none}.history-item{align-items:flex-start;flex-direction:column;gap:7px}footer{gap:12px;flex-wrap:wrap}.brand em{display:none} }
+@media(max-width:650px){ main{width:min(100% - 22px,1100px)} .topbar{height:72px}.model-pill b{display:none}.hero{padding:52px 0 36px}.hero h1{letter-spacing:-3px}.recorder-card{padding:22px 18px 28px}.privacy{display:none}.wave{height:90px;gap:3px}.tts-head > div > span{display:none}.tts-grid{grid-template-columns:1fr}.history-head span{display:none}.history-item{align-items:flex-start;flex-direction:column;gap:7px}footer{gap:12px;flex-wrap:wrap}.brand em{display:none} }

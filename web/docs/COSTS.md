@@ -79,6 +79,7 @@ monthly cost ≈ $5 + (audio minutes × $0.0005) + Convex overages + Worker over
 - No R2 audio storage
 - No D1 database
 - No external ASR provider
+- No cloud TTS charges; current text-to-speech uses device/browser voices
 - No AI enhancement model
 - No authentication provider
 - No custom domain requirement

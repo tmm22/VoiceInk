@@ -2,6 +2,8 @@
 
 VoiceInk Web is a browser-based transcription prototype deployed entirely through Cloudflare, with transcript persistence in Convex.
 
+It also includes device-local text-to-speech adapted from the proven browser speech controller in [`tmm22/untitled-folder-2`](https://github.com/tmm22/untitled-folder-2). Completed or historical transcripts can be read aloud with the voices installed in the current browser or operating system.
+
 ## Production
 
 - Web app: the `voiceink-web` Worker in the target Cloudflare account
@@ -36,6 +38,7 @@ Recording is intentionally one-step: pressing Stop immediately uploads the captu
 ## Repository layout
 
 - `app/` — browser recorder, automatic transcription workflow, history interface, and transcription proxy
+- `lib/browserSpeech.ts` — reused system-voice discovery and playback controller
 - `cloudflare-asr/` — secured Workers AI transcription Worker
 - `convex/` — schema, queries, mutations, and generated bindings
 - `wrangler.production.jsonc` — production web Worker and service binding
@@ -80,6 +83,7 @@ curl --fail \
 - No per-user quotas or public-endpoint rate limiting
 - History is stored against a browser-generated client ID
 - Batch transcription only; no live partial transcript stream
+- System/device voices only for the initial TTS integration; cloud TTS adapters are not yet connected
 - Audio uploads are limited to 24 MB by the ASR Worker
 - `PARAKEET_API_URL` and `PARAKEET_API_KEY` are legacy configuration names; production inference uses Whisper Large V3 Turbo
 

@@ -15,6 +15,8 @@ The public entry point is the URL returned by the `voiceink-web` deployment. The
 
 When a user stops recording, the browser automatically uploads the in-memory audio to `/api/transcribe`. A successful result is written to Convex and the history list is refreshed. Audio bytes are not stored by the application.
 
+Text-to-speech runs through the browser's `speechSynthesis` API and requires no Cloudflare binding, provider secret, or deployment step. The controller is adapted from `tmm22/untitled-folder-2`; available voices differ by browser and operating system.
+
 ## Prerequisites
 
 - Node.js 22 LTS
