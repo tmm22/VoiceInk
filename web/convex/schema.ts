@@ -7,6 +7,7 @@ export default defineSchema({
     ownerId: v.optional(v.string()),
     model: v.string(),
     text: v.string(),
+    summary: v.optional(v.string()),
     durationSeconds: v.number(),
     status: v.union(v.literal("processing"), v.literal("complete"), v.literal("failed")),
     createdAt: v.number(),

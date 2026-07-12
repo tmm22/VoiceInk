@@ -6,6 +6,7 @@ import {
   getRetention,
   listTranscriptions,
   saveTranscription,
+  saveTranscriptionSummary,
   setRetention,
   type RetentionDays,
   type TranscriptionHistoryItem,
@@ -17,9 +18,11 @@ import {
 } from "../lib/browserSpeech";
 import { downloadTranscript } from "../lib/transcriptExport";
 import { AccountControls, useAccountAuth } from "./providers";
+import { HistoryView } from "./history-view";
 
 type Status = "idle" | "recording" | "transcribing" | "done" | "error";
 type Theme = "editorial" | "mac";
+type WorkspaceTab = "studio" | "history";
 
 const demoTranscript =
   "VoiceInk Web keeps the recording workflow focused: capture your voice, transcribe it with Parakeet, then copy or refine the result.";
@@ -51,6 +54,7 @@ export default function Home() {
   const [audio, setAudio] = useState<Blob | null>(null);
   const [transcript, setTranscript] = useState("");
   const [transcriptDuration, setTranscriptDuration] = useState(0);
+  const [activeTranscriptionId, setActiveTranscriptionId] = useState<string | null>(null);
   const [summary, setSummary] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState("");
@@ -70,7 +74,7 @@ export default function Home() {
   const [importStatus, setImportStatus] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const [theme, setTheme] = useState<Theme>("editorial");
-  const [historySearch, setHistorySearch] = useState("");
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>("studio");
   const [retentionDays, setRetentionDays] = useState<RetentionDays>(90);
   const [retentionSaving, setRetentionSaving] = useState(false);
   const [retentionStatus, setRetentionStatus] = useState("");
@@ -142,6 +146,7 @@ export default function Home() {
     try {
       setError("");
       setTranscript("");
+      setActiveTranscriptionId(null);
       setSummary("");
       setAudio(null);
       setElapsed(0);
@@ -190,11 +195,12 @@ export default function Home() {
       setTranscript(result.text || demoTranscript);
       setTranscriptDuration(durationSeconds);
       const token = await account.getConvexToken();
-      await saveTranscription({
+      const savedId = await saveTranscription({
         text: result.text || demoTranscript,
         durationSeconds,
         model: "whisper-large-v3-turbo",
       }, token);
+      setActiveTranscriptionId(savedId ?? null);
       await refreshHistory();
       setStatus("done");
     } catch {
@@ -210,6 +216,7 @@ export default function Home() {
     }
     setError("");
     setTranscript("");
+    setActiveTranscriptionId(null);
     setSummary("");
     setSummaryError("");
     setAudio(file);
@@ -235,7 +242,7 @@ export default function Home() {
     setTimeout(() => setCopied(false), 1500);
   }
 
-  async function summarizeText(value = transcript) {
+  async function summarizeText(value = transcript, transcriptionId = activeTranscriptionId) {
     if (!value.trim() || summaryLoading) return;
     setSummaryLoading(true);
     setSummaryError("");
@@ -248,7 +255,13 @@ export default function Home() {
       });
       const result = await response.json() as { summary?: string; error?: string };
       if (!response.ok || !result.summary) throw new Error(result.error ?? "Summary generation failed");
-      setSummary(result.summary);
+      const generatedSummary = result.summary;
+      setSummary(generatedSummary);
+      if (transcriptionId) {
+        const token = await account.getConvexToken();
+        await saveTranscriptionSummary(transcriptionId, generatedSummary, token);
+        setHistory((items) => items.map((item) => item._id === transcriptionId ? { ...item, summary: generatedSummary } : item));
+      }
     } catch {
       setSummaryError("The AI summary could not be generated. Please try again.");
     } finally {
@@ -316,7 +329,14 @@ export default function Home() {
   }
 
   const time = `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
-  const visibleHistory = history.filter((item) => item.text.toLowerCase().includes(historySearch.trim().toLowerCase()));
+  function openHistoryItem(item: TranscriptionHistoryItem) {
+    setTranscript(item.text);
+    setTranscriptDuration(item.durationSeconds);
+    setActiveTranscriptionId(item._id);
+    setSummary(item.summary ?? "");
+    setSummaryError("");
+    setActiveTab("studio");
+  }
 
   return (
     <main>
@@ -325,6 +345,10 @@ export default function Home() {
           <span className="brand-mark">V</span><span>VoiceInk <em>web</em></span>
         </a>
         <div className="header-actions">
+          <nav className="workspace-tabs" aria-label="Workspace">
+            <button className={activeTab === "studio" ? "active" : ""} onClick={() => setActiveTab("studio")} aria-current={activeTab === "studio" ? "page" : undefined}>Studio</button>
+            <button className={activeTab === "history" ? "active" : ""} onClick={() => setActiveTab("history")} aria-current={activeTab === "history" ? "page" : undefined}>History</button>
+          </nav>
           <AccountControls />
           <div className="theme-switch" aria-label="Appearance" role="group">
             <button className={theme === "editorial" ? "active" : ""} onClick={() => selectTheme("editorial")} aria-pressed={theme === "editorial"}>Original</button>
@@ -334,6 +358,7 @@ export default function Home() {
         </div>
       </header>
 
+      {activeTab === "studio" ? <>
       <section className="hero">
         <div className="eyebrow"><i /> PRIVATE-BY-DESIGN TRANSCRIPTION</div>
         <h1>Your voice, <span>made clear.</span></h1>
@@ -422,25 +447,7 @@ export default function Home() {
         {speechError && <p className="error" role="alert">{speechError}</p>}
       </section>
 
-      <section className="history-card">
-        <div className="history-head">
-          <div><small>RECENT HISTORY</small><span>{account.isSignedIn ? "Synced to your account across devices" : "Anonymous history expires after one hour"}</span></div>
-          <div className="history-actions"><input aria-label="Search transcript history" type="search" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="Search history" /><button onClick={refreshHistory} disabled={historyLoading}>{historyLoading ? "Loading…" : "Refresh"}</button></div>
-        </div>
-        {account.isSignedIn && <div className="retention-settings"><label htmlFor="retention-days">Automatically delete history after</label><select id="retention-days" value={retentionDays} disabled={retentionSaving} onChange={(event) => void changeRetention(Number(event.target.value) as RetentionDays)}><option value={7}>7 days</option><option value={30}>30 days</option><option value={90}>90 days</option><option value={365}>1 year</option><option value={0}>Never automatically</option></select>{retentionSaving && <span>Saving…</span>}{retentionStatus && <span>{retentionStatus}</span>}</div>}
-        {visibleHistory.length ? (
-          <div className="history-list">
-            {visibleHistory.map((item) => (
-              <div className="history-item" key={item._id}>
-                <button className="history-text" onClick={() => { setTranscript(item.text); setTranscriptDuration(item.durationSeconds); }}><span>{item.text}</span><small>{new Date(item.createdAt).toLocaleString()} · {item.durationSeconds}s</small></button>
-                <div className="history-item-tools"><button onClick={() => { setTranscript(item.text); setTranscriptDuration(item.durationSeconds); void summarizeText(item.text); }}>Summarize</button><button onClick={() => setSpeechText(item.text)}>Narrate</button><button onClick={() => downloadTranscript(item.text, "txt")}>TXT</button><button className="delete" onClick={() => void removeHistoryItem(item._id)}>Delete</button></div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="history-empty">{historySearch ? "No transcripts match your search." : "Your completed recordings will appear here automatically."}</p>
-        )}
-      </section>
+      </> : <HistoryView history={history} loading={historyLoading} isSignedIn={account.isSignedIn} retentionDays={retentionDays} retentionSaving={retentionSaving} retentionStatus={retentionStatus} onRefresh={() => void refreshHistory()} onRetentionChange={(days) => void changeRetention(days)} onOpen={openHistoryItem} onNarrate={setSpeechText} onSummarize={(item) => { setTranscript(item.text); setTranscriptDuration(item.durationSeconds); setActiveTranscriptionId(item._id); void summarizeText(item.text, item._id); }} onDelete={(id) => void removeHistoryItem(id)} />}
 
       <footer><span>Cloudflare edge</span><span>Convex realtime data</span><span>Whisper V3 Turbo</span></footer>
     </main>

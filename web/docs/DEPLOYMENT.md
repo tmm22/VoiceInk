@@ -15,7 +15,7 @@ This guide describes the live production architecture as of July 12, 2026.
 
 The public entry point is the URL returned by the `voiceink-web` deployment. The ASR Worker is reached from the web Worker through the `ASR` service binding. Do not replace this with a fetch to its public `workers.dev` hostname: same-account Worker subrequests can fail at Cloudflare routing, and the service binding is private and does not add another request charge.
 
-When a user stops recording, the browser automatically uploads the in-memory audio to `/api/transcribe`. A successful result is written to Convex and the history list is refreshed. Audio bytes are not stored by the application.
+When a user stops recording, the browser automatically uploads the in-memory audio to `/api/transcribe`. A successful result is written to Convex and the dedicated History workspace is refreshed. Audio bytes are not stored by the application. Any subsequently generated AI summary is attached to the matching transcription record.
 
 Text-to-speech runs through the browser's `speechSynthesis` API and requires no Cloudflare binding, provider secret, or deployment step. The controller is adapted from `tmm22/untitled-folder-2`; available voices differ by browser and operating system.
 
@@ -89,7 +89,7 @@ cd ..
 
 The Worker receives multipart audio and invokes `@cf/openai/whisper-large-v3-turbo` through its `AI` binding. Its public hostname exists for health checks, but the production application reaches it through a service binding.
 
-The same private Worker handles `/v1/summaries` with Llama 3.2 3B. The public web Worker exposes `/api/summarize`, forwards transcript text through the private service binding, and returns the generated summary without storing it.
+The same private Worker handles `/v1/summaries` with Llama 3.2 3B. The public web Worker exposes `/api/summarize` and forwards transcript text through the private service binding. After a successful response, the browser stores the summary on the matching transcription through an ownership-checked Convex mutation, so both share the same retention window.
 
 ## 4. Create the shared internal secret
 

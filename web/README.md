@@ -39,9 +39,9 @@ Audio is forwarded in memory and is not stored by this application. The returned
 
 Recording is intentionally one-step: pressing Stop immediately uploads the captured audio, runs transcription, stores the completed transcript in Convex, and refreshes the on-page history. If transcription fails, the in-memory recording remains available for retry.
 
-Existing audio can also be uploaded into the same transcription pipeline. Completed transcripts can be downloaded as plain text, SRT, or WebVTT. History supports search, loading a transcript back into the editor, sending it to narration, and ownership-checked deletion.
+Existing audio can also be uploaded into the same transcription pipeline. Completed transcripts can be downloaded as plain text, SRT, or WebVTT. A dedicated History workspace supports search across transcripts and summaries, loading an item back into the studio, sending it to narration, and ownership-checked deletion.
 
-Completed transcripts can be summarized on demand with Cloudflare Workers AI using `@cf/meta/llama-3.2-3b-instruct`. Summaries are editable, copyable, and can be sent to the narration workspace. They are generated only when requested and are not persisted in Convex.
+Completed transcripts can be summarized on demand with Cloudflare Workers AI using `@cf/meta/llama-3.2-3b-instruct`. Summaries are editable, copyable, and can be sent to the narration workspace. Generated summaries are stored on their matching Convex transcription record and follow that record's retention policy.
 
 Transcript content is sent inside explicit transcript delimiters. If the model incorrectly claims that no transcript was supplied, the Worker replaces that response with a deterministic extractive summary so users never see a false missing-transcript message.
 

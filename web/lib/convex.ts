@@ -11,6 +11,7 @@ export type RetentionDays = 0 | 7 | 30 | 90 | 365;
 
 export type TranscriptionHistoryItem = SavedTranscription & {
   _id: string;
+  summary?: string;
   status: "processing" | "complete" | "failed";
   createdAt: number;
 };
@@ -38,7 +39,7 @@ export async function saveTranscription(value: SavedTranscription, token?: strin
   const client = convexClient(token);
   if (!client) return;
   const save = makeFunctionReference<"mutation">("transcriptions:save");
-  await client.mutation(save, { ...value, clientId: clientId() });
+  return client.mutation(save, { ...value, clientId: clientId() }) as Promise<string>;
 }
 
 export async function listTranscriptions(token?: string | null): Promise<TranscriptionHistoryItem[]> {
@@ -55,6 +56,14 @@ export async function deleteTranscription(id: string, token?: string | null) {
   if (!client) return;
   const remove = makeFunctionReference<"mutation">("transcriptions:remove");
   await client.mutation(remove, { id, clientId: clientId() });
+}
+
+export async function saveTranscriptionSummary(id: string, summary: string, token?: string | null) {
+  if (!convexUrl || typeof window === "undefined") return;
+  const client = convexClient(token);
+  if (!client) return;
+  const saveSummary = makeFunctionReference<"mutation">("transcriptions:saveSummary");
+  await client.mutation(saveSummary, { id, summary, clientId: clientId() });
 }
 
 export async function getRetention(token?: string | null): Promise<RetentionDays | null> {

@@ -75,3 +75,16 @@ export const remove = mutation({
     await ctx.db.delete(id);
   },
 });
+
+export const saveSummary = mutation({
+  args: { id: v.id("transcriptions"), clientId: v.string(), summary: v.string() },
+  handler: async (ctx, { id, clientId, summary }) => {
+    const item = await ctx.db.get(id);
+    if (!item) throw new Error("Transcription not found.");
+    const identity = await ctx.auth.getUserIdentity();
+    const ownsAccountItem = identity && item.ownerId === identity.tokenIdentifier;
+    const ownsAnonymousItem = !identity && item.clientId === clientId && !item.ownerId;
+    if (!ownsAccountItem && !ownsAnonymousItem) throw new Error("Not authorized to update this transcription.");
+    await ctx.db.patch(id, { summary: summary.trim().slice(0, 20_000) });
+  },
+});
