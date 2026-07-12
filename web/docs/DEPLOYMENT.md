@@ -163,6 +163,8 @@ Expected response shape:
 
 Then confirm a record appears in the `transcriptions` table in the Convex dashboard.
 
+The same endpoint accepts audio selected through the browser's **Upload audio file** control. Uploads share the ASR Worker's 24 MB maximum. Verify TXT, SRT, and VTT downloads from the transcript toolbar and confirm that history deletion removes only records owned by the current account or anonymous browser identity.
+
 Verify article importing:
 
 ```bash

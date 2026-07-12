@@ -46,3 +46,11 @@ export async function listTranscriptions(token?: string | null): Promise<Transcr
   const list = makeFunctionReference<"query">("transcriptions:list");
   return client.query(list, { clientId: clientId() }) as Promise<TranscriptionHistoryItem[]>;
 }
+
+export async function deleteTranscription(id: string, token?: string | null) {
+  if (!convexUrl || typeof window === "undefined") return;
+  const client = convexClient(token);
+  if (!client) return;
+  const remove = makeFunctionReference<"mutation">("transcriptions:remove");
+  await client.mutation(remove, { id, clientId: clientId() });
+}

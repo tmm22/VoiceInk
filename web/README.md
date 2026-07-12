@@ -39,9 +39,12 @@ Audio is forwarded in memory and is not stored by this application. The returned
 
 Recording is intentionally one-step: pressing Stop immediately uploads the captured audio, runs transcription, stores the completed transcript in Convex, and refreshes the on-page history. If transcription fails, the in-memory recording remains available for retry.
 
+Existing audio can also be uploaded into the same transcription pipeline. Completed transcripts can be downloaded as plain text, SRT, or WebVTT. History supports search, loading a transcript back into the editor, sending it to narration, and ownership-checked deletion.
+
 ## Repository layout
 
-- `app/` — browser recorder, automatic transcription workflow, history interface, and transcription proxy
+- `app/` — browser recorder, audio upload, automatic transcription workflow, history interface, and transcription proxy
+- `lib/transcriptExport.ts` — TXT, SRT, and WebVTT transcript downloads adapted from the source project
 - `lib/browserSpeech.ts` — reused system-voice discovery and playback controller
 - `cloudflare-asr/` — secured Workers AI transcription Worker
 - `convex/` — schema, queries, mutations, and generated bindings

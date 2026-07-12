@@ -41,3 +41,16 @@ export const save = mutation({
     });
   },
 });
+
+export const remove = mutation({
+  args: { id: v.id("transcriptions"), clientId: v.string() },
+  handler: async (ctx, { id, clientId }) => {
+    const item = await ctx.db.get(id);
+    if (!item) return;
+    const identity = await ctx.auth.getUserIdentity();
+    const ownsAccountItem = identity && item.ownerId === identity.tokenIdentifier;
+    const ownsAnonymousItem = !identity && item.clientId === clientId && !item.ownerId;
+    if (!ownsAccountItem && !ownsAnonymousItem) throw new Error("Not authorized to delete this transcription.");
+    await ctx.db.delete(id);
+  },
+});

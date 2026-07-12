@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
+  deleteTranscription,
   listTranscriptions,
   saveTranscription,
   type TranscriptionHistoryItem,
@@ -11,6 +12,7 @@ import {
   loadBrowserVoices,
   type BrowserVoice,
 } from "../lib/browserSpeech";
+import { downloadTranscript } from "../lib/transcriptExport";
 import { AccountControls, useAccountAuth } from "./providers";
 
 type Status = "idle" | "recording" | "transcribing" | "done" | "error";
@@ -19,16 +21,33 @@ type Theme = "editorial" | "mac";
 const demoTranscript =
   "VoiceInk Web keeps the recording workflow focused: capture your voice, transcribe it with Parakeet, then copy or refine the result.";
 
+async function readAudioDuration(file: File) {
+  const url = URL.createObjectURL(file);
+  try {
+    return await new Promise<number>((resolve) => {
+      const audio = new Audio();
+      audio.preload = "metadata";
+      audio.onloadedmetadata = () => resolve(Number.isFinite(audio.duration) ? Math.round(audio.duration) : 0);
+      audio.onerror = () => resolve(0);
+      audio.src = url;
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export default function Home() {
   const account = useAccountAuth();
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
   const ticker = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioFileInput = useRef<HTMLInputElement | null>(null);
   const elapsedRef = useRef(0);
   const [status, setStatus] = useState<Status>("idle");
   const [elapsed, setElapsed] = useState(0);
   const [audio, setAudio] = useState<Blob | null>(null);
   const [transcript, setTranscript] = useState("");
+  const [transcriptDuration, setTranscriptDuration] = useState(0);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [history, setHistory] = useState<TranscriptionHistoryItem[]>([]);
@@ -45,6 +64,7 @@ export default function Home() {
   const [importStatus, setImportStatus] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const [theme, setTheme] = useState<Theme>("editorial");
+  const [historySearch, setHistorySearch] = useState("");
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("voiceink-theme");
@@ -132,6 +152,7 @@ export default function Home() {
       if (!response.ok) throw new Error("Transcription failed");
       const result = (await response.json()) as { text: string };
       setTranscript(result.text || demoTranscript);
+      setTranscriptDuration(durationSeconds);
       const token = await account.getConvexToken();
       await saveTranscription({
         text: result.text || demoTranscript,
@@ -143,6 +164,30 @@ export default function Home() {
     } catch {
       setError("The transcription service could not be reached. Your recording is still available to retry.");
       setStatus("error");
+    }
+  }
+
+  async function uploadAudio(file: File) {
+    if (file.size > 24 * 1024 * 1024) {
+      setError("Audio files must be smaller than 24 MB.");
+      return;
+    }
+    setError("");
+    setTranscript("");
+    setAudio(file);
+    const duration = await readAudioDuration(file);
+    elapsedRef.current = duration;
+    setElapsed(duration);
+    await transcribe(file, duration);
+  }
+
+  async function removeHistoryItem(id: string) {
+    try {
+      const token = await account.getConvexToken();
+      await deleteTranscription(id, token);
+      setHistory((items) => items.filter((item) => item._id !== id));
+    } catch {
+      setError("That history item could not be deleted.");
     }
   }
 
@@ -212,6 +257,7 @@ export default function Home() {
   }
 
   const time = `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
+  const visibleHistory = history.filter((item) => item.text.toLowerCase().includes(historySearch.trim().toLowerCase()));
 
   return (
     <main>
@@ -253,6 +299,16 @@ export default function Home() {
           )}
           <div><strong>{status === "recording" ? time : status === "transcribing" ? "Uploading automatically…" : "Press to record"}</strong><small>{status === "recording" ? "Stop to upload and transcribe" : status === "transcribing" ? "The transcript will be saved to history" : "Microphone access stays in this tab"}</small></div>
         </div>
+        <div className="audio-upload">
+          <span>or</span>
+          <button type="button" onClick={() => audioFileInput.current?.click()} disabled={status === "recording" || status === "transcribing"}>Upload audio file</button>
+          <small>MP3, WAV, M4A, WebM and other browser-supported audio · 24 MB maximum</small>
+          <input ref={audioFileInput} type="file" accept="audio/*" hidden onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void uploadAudio(file);
+            event.target.value = "";
+          }} />
+        </div>
 
         {audio && status === "error" && (
           <button className="primary" onClick={() => transcribe(audio, elapsedRef.current)}>
@@ -263,7 +319,7 @@ export default function Home() {
       </section>
 
       <section className="transcript-card">
-        <div className="transcript-head"><div><small>TRANSCRIPT</small><span>{transcript ? `${transcript.split(/\s+/).length} words` : "Waiting for audio"}</span></div>{transcript && <button onClick={copyTranscript}>{copied ? "Copied" : "Copy text"}</button>}</div>
+        <div className="transcript-head"><div><small>TRANSCRIPT</small><span>{transcript ? `${transcript.split(/\s+/).length} words` : "Waiting for audio"}</span></div>{transcript && <div className="transcript-tools"><button onClick={copyTranscript}>{copied ? "Copied" : "Copy"}</button><button onClick={() => downloadTranscript(transcript, "txt")}>TXT</button><button onClick={() => downloadTranscript(transcript, "srt", transcriptDuration * 1000)}>SRT</button><button onClick={() => downloadTranscript(transcript, "vtt", transcriptDuration * 1000)}>VTT</button></div>}</div>
         <textarea aria-label="Transcript text" value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="Your transcription will appear here…" />
       </section>
 
@@ -308,19 +364,19 @@ export default function Home() {
       <section className="history-card">
         <div className="history-head">
           <div><small>RECENT HISTORY</small><span>{account.isSignedIn ? "Synced to your account across devices" : "Anonymous history expires after one hour"}</span></div>
-          <button onClick={refreshHistory} disabled={historyLoading}>{historyLoading ? "Loading…" : "Refresh"}</button>
+          <div className="history-actions"><input aria-label="Search transcript history" type="search" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="Search history" /><button onClick={refreshHistory} disabled={historyLoading}>{historyLoading ? "Loading…" : "Refresh"}</button></div>
         </div>
-        {history.length ? (
+        {visibleHistory.length ? (
           <div className="history-list">
-            {history.map((item) => (
-              <button className="history-item" key={item._id} onClick={() => setTranscript(item.text)}>
-                <span>{item.text}</span>
-                <small>{new Date(item.createdAt).toLocaleString()} · {item.durationSeconds}s</small>
-              </button>
+            {visibleHistory.map((item) => (
+              <div className="history-item" key={item._id}>
+                <button className="history-text" onClick={() => { setTranscript(item.text); setTranscriptDuration(item.durationSeconds); }}><span>{item.text}</span><small>{new Date(item.createdAt).toLocaleString()} · {item.durationSeconds}s</small></button>
+                <div className="history-item-tools"><button onClick={() => setSpeechText(item.text)}>Narrate</button><button onClick={() => downloadTranscript(item.text, "txt")}>TXT</button><button className="delete" onClick={() => void removeHistoryItem(item._id)}>Delete</button></div>
+              </div>
             ))}
           </div>
         ) : (
-          <p className="history-empty">Your completed recordings will appear here automatically.</p>
+          <p className="history-empty">{historySearch ? "No transcripts match your search." : "Your completed recordings will appear here automatically."}</p>
         )}
       </section>
 
