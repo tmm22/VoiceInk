@@ -13,6 +13,7 @@ import {
 } from "../lib/browserSpeech";
 
 type Status = "idle" | "recording" | "transcribing" | "done" | "error";
+type Theme = "editorial" | "mac";
 
 const demoTranscript =
   "VoiceInk Web keeps the recording workflow focused: capture your voice, transcribe it with Parakeet, then copy or refine the result.";
@@ -37,8 +38,14 @@ export default function Home() {
   const [speechVolume, setSpeechVolume] = useState(0.8);
   const [playback, setPlayback] = useState<"idle" | "playing" | "paused">("idle");
   const [speechError, setSpeechError] = useState("");
+  const [theme, setTheme] = useState<Theme>("editorial");
 
   useEffect(() => {
+    const savedTheme = window.localStorage.getItem("voiceink-theme");
+    if (savedTheme === "mac" || savedTheme === "editorial") {
+      setTheme(savedTheme);
+      document.documentElement.dataset.theme = savedTheme;
+    }
     void refreshHistory();
     void loadBrowserVoices().then((available) => {
       setVoices(available);
@@ -50,6 +57,12 @@ export default function Home() {
       if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     };
   }, []);
+
+  function selectTheme(nextTheme: Theme) {
+    setTheme(nextTheme);
+    document.documentElement.dataset.theme = nextTheme;
+    window.localStorage.setItem("voiceink-theme", nextTheme);
+  }
 
   async function refreshHistory() {
     try {
@@ -170,7 +183,13 @@ export default function Home() {
         <a className="brand" href="#" aria-label="VoiceInk Web home">
           <span className="brand-mark">V</span><span>VoiceInk <em>web</em></span>
         </a>
-        <div className="model-pill"><span /> Whisper V3 Turbo <b>multilingual</b></div>
+        <div className="header-actions">
+          <div className="theme-switch" aria-label="Appearance" role="group">
+            <button className={theme === "editorial" ? "active" : ""} onClick={() => selectTheme("editorial")} aria-pressed={theme === "editorial"}>Original</button>
+            <button className={theme === "mac" ? "active" : ""} onClick={() => selectTheme("mac")} aria-pressed={theme === "mac"}>Mac</button>
+          </div>
+          <div className="model-pill"><span /> Whisper V3 Turbo <b>multilingual</b></div>
+        </div>
       </header>
 
       <section className="hero">

@@ -4,6 +4,8 @@ VoiceInk Web is a browser-based transcription prototype deployed entirely throug
 
 It also includes device-local text-to-speech adapted from the proven browser speech controller in [`tmm22/untitled-folder-2`](https://github.com/tmm22/untitled-folder-2). Completed or historical transcripts can be read aloud with the voices installed in the current browser or operating system.
 
+Users can switch between the original editorial theme and a native macOS-inspired appearance from the header. The original design remains the default, and the preference is stored only in the current browser.
+
 ## Production
 
 - Web app: the `voiceink-web` Worker in the target Cloudflare account
