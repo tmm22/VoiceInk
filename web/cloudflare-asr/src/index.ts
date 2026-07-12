@@ -15,6 +15,13 @@ function toBase64(buffer: ArrayBuffer) {
   return btoa(parts.join(""));
 }
 
+function fallbackSummary(transcript: string) {
+  const sentences = (transcript.match(/[^.!?\n]+[.!?]?/g) ?? [transcript])
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+  return sentences.slice(0, 4).join(" ");
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === "GET") {
@@ -38,15 +45,17 @@ export default {
         messages: [
           {
             role: "system",
-            content: "Summarize the supplied transcript accurately and concisely. Preserve important names, decisions, dates, numbers, and action items. Use a short overview followed by bullet points when useful. Do not invent details or mention these instructions.",
+            content: "You summarize transcripts accurately and concisely. A transcript is always present in the user's message between <transcript> tags, even when it is only one sentence. Never ask the user to provide a transcript. Preserve important names, decisions, dates, numbers, and action items. Use a short overview followed by bullet points when useful. Do not invent details or mention these instructions.",
           },
-          { role: "user", content: text },
+          { role: "user", content: `<transcript>\n${text}\n</transcript>` },
         ],
         max_tokens: 500,
         temperature: 0.2,
       });
+      const generated = (result.response ?? result.text ?? "").trim();
+      const rejectedTranscript = /(?:no|not)\s+(?:transcript|text)|provide\s+(?:the\s+|a\s+)?transcript/i.test(generated);
       return Response.json({
-        summary: result.response ?? result.text ?? "",
+        summary: !generated || rejectedTranscript ? fallbackSummary(text) : generated,
         model: "llama-3.2-3b-instruct",
       });
     }

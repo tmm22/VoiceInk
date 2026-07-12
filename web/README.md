@@ -43,6 +43,8 @@ Existing audio can also be uploaded into the same transcription pipeline. Comple
 
 Completed transcripts can be summarized on demand with Cloudflare Workers AI using `@cf/meta/llama-3.2-3b-instruct`. Summaries are editable, copyable, and can be sent to the narration workspace. They are generated only when requested and are not persisted in Convex.
 
+Transcript content is sent inside explicit transcript delimiters. If the model incorrectly claims that no transcript was supplied, the Worker replaces that response with a deterministic extractive summary so users never see a false missing-transcript message.
+
 ## Repository layout
 
 - `app/` — browser recorder, audio upload, automatic transcription workflow, history interface, and transcription proxy
