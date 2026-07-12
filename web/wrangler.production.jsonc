@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "voiceink-web",
+  "main": "dist/server/index.js",
+  "compatibility_date": "2026-05-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "no_bundle": true,
+  "assets": {
+    "directory": "dist/client"
+  },
+  "rules": [
+    { "type": "ESModule", "globs": ["**/*.js", "**/*.mjs"] }
+  ],
+  "services": [
+    { "binding": "ASR", "service": "voiceink-asr" }
+  ],
+  "vars": {
+    "PARAKEET_API_URL": "https://voiceink-asr.paul-2eb.workers.dev",
+    "NEXT_PUBLIC_CONVEX_URL": "https://bold-swan-844.convex.cloud",
+    "NEXT_PUBLIC_SITE_URL": "https://voiceink-web.paul-2eb.workers.dev"
+  },
+  "observability": { "enabled": true }
+}
