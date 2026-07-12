@@ -8,10 +8,10 @@ This guide describes the live production architecture as of July 12, 2026.
 | --- | --- | --- |
 | Web UI and API | Cloudflare Workers | `voiceink-web` |
 | Speech recognition | Cloudflare Workers + Workers AI | `voiceink-asr` |
-| Transcript database | Convex Cloud | `bold-swan-844` |
+| Transcript database | Convex Cloud | Supplied at deployment time |
 | ASR model | Cloudflare Workers AI | `@cf/openai/whisper-large-v3-turbo` |
 
-The public entry point is <https://voiceink-web.paul-2eb.workers.dev>. The ASR Worker is reached from the web Worker through the `ASR` service binding. Do not replace this with a fetch to its public `workers.dev` hostname: same-account Worker subrequests can fail at Cloudflare routing, and the service binding is private and does not add another request charge.
+The public entry point is the URL returned by the `voiceink-web` deployment. The ASR Worker is reached from the web Worker through the `ASR` service binding. Do not replace this with a fetch to its public `workers.dev` hostname: same-account Worker subrequests can fail at Cloudflare routing, and the service binding is private and does not add another request charge.
 
 When a user stops recording, the browser automatically uploads the in-memory audio to `/api/transcribe`. A successful result is written to Convex and the history list is refreshed. Audio bytes are not stored by the application.
 
@@ -37,7 +37,7 @@ npx convex deploy
 The production deployment used by this project is:
 
 ```text
-NEXT_PUBLIC_CONVEX_URL=https://bold-swan-844.convex.cloud
+NEXT_PUBLIC_CONVEX_URL=https://<your-convex-deployment>.convex.cloud
 ```
 
 `npx convex deploy` validates and uploads `convex/schema.ts`, the indexes, and functions. It also regenerates `convex/_generated/`; commit generated bindings when they change.
@@ -87,8 +87,8 @@ Wrangler expects the terminating newline. Omitting it can result in a secret val
 The public Convex and site URLs are embedded in the client build, so set them explicitly during a production build:
 
 ```bash
-NEXT_PUBLIC_CONVEX_URL=https://bold-swan-844.convex.cloud \
-NEXT_PUBLIC_SITE_URL=https://voiceink-web.paul-2eb.workers.dev \
+NEXT_PUBLIC_CONVEX_URL=https://<your-convex-deployment>.convex.cloud \
+NEXT_PUBLIC_SITE_URL=https://<your-web-worker>.<your-subdomain>.workers.dev \
 npm run build
 
 npx wrangler deploy \
@@ -112,7 +112,7 @@ For a brand-new `voiceink-web` Worker, deploy it once before running `wrangler s
 Check the site:
 
 ```bash
-curl --fail --head https://voiceink-web.paul-2eb.workers.dev
+curl --fail --head "https://<your-web-worker>.<your-subdomain>.workers.dev"
 ```
 
 Run a real transcription:
@@ -121,7 +121,7 @@ Run a real transcription:
 curl --fail \
   -F "audio=@sample.wav" \
   -F "model=whisper-large-v3-turbo" \
-  https://voiceink-web.paul-2eb.workers.dev/api/transcribe
+  "https://<your-web-worker>.<your-subdomain>.workers.dev/api/transcribe"
 ```
 
 Expected response shape:

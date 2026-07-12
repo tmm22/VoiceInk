@@ -13,7 +13,7 @@ export type TranscriptionHistoryItem = SavedTranscription & {
   createdAt: number;
 };
 
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL ?? "https://bold-swan-844.convex.cloud";
+const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 
 function clientId() {
   const key = "voiceink-client-id";

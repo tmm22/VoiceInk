@@ -4,9 +4,9 @@ VoiceInk Web is a browser-based transcription prototype deployed entirely throug
 
 ## Production
 
-- Web app: <https://voiceink-web.paul-2eb.workers.dev>
+- Web app: the `voiceink-web` Worker in the target Cloudflare account
 - Transcription: Cloudflare Workers AI using `@cf/openai/whisper-large-v3-turbo`
-- Database: Convex production deployment `bold-swan-844`
+- Database: the Convex deployment supplied through the build environment
 - Region: Convex US East (N. Virginia)
 
 The earlier `chatgpt.site` URL is only a private design preview. It is not the production Cloudflare deployment.
@@ -47,7 +47,6 @@ Use Node.js 22 LTS or another version satisfying `package.json`.
 
 ```bash
 npm install
-cp .env.example .env.local
 npx convex dev
 npm run dev
 ```
@@ -67,7 +66,7 @@ For a production smoke test with a local audio file:
 curl --fail \
   -F "audio=@sample.wav" \
   -F "model=whisper-large-v3-turbo" \
-  https://voiceink-web.paul-2eb.workers.dev/api/transcribe
+  "https://<your-web-worker>.<your-subdomain>.workers.dev/api/transcribe"
 ```
 
 ## Deployment and costs

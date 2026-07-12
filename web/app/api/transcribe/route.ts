@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   const apiKey = process.env.PARAKEET_API_KEY;
   const bindings = env as unknown as { ASR?: Fetcher };
 
-  if (!endpoint) {
+  if (!endpoint && !bindings.ASR) {
     await new Promise((resolve) => setTimeout(resolve, 900));
     return Response.json({
       text: "VoiceInk Web keeps the recording workflow focused: capture your voice, transcribe it with Parakeet, then copy or refine the result.",
@@ -17,7 +17,9 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData();
-  const target = `${endpoint.replace(/\/$/, "")}/v1/transcriptions`;
+  const target = endpoint
+    ? `${endpoint.replace(/\/$/, "")}/v1/transcriptions`
+    : "https://asr.internal/v1/transcriptions";
   const init: RequestInit = {
     method: "POST",
     headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined,
