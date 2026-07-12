@@ -99,19 +99,32 @@ final class AIServiceTests: XCTestCase {
         XCTAssertTrue(service.isAPIKeyValid, "Ollama should be valid without key")
     }
 
-    func testOpenAIModelCatalogIncludesGPT55Variants() {
+    func testOpenAIModelCatalogIncludesLatestGPTVariants() {
         let models = AIProvider.openAI.availableModels
 
-        XCTAssertEqual(AIProvider.openAI.defaultModel, "gpt-5.5")
+        XCTAssertEqual(AIProvider.openAI.defaultModel, "gpt-5.6")
+        XCTAssertTrue(models.contains("gpt-5.6"))
+        XCTAssertTrue(models.contains("gpt-5.6-terra"))
+        XCTAssertTrue(models.contains("gpt-5.6-luna"))
         XCTAssertTrue(models.contains("gpt-5.5"))
         XCTAssertTrue(models.contains("gpt-5.5-pro"))
+        XCTAssertTrue(models.contains("gpt-5.4-mini"))
+        XCTAssertTrue(models.contains("gpt-5.4-nano"))
         XCTAssertLessThan(
-            models.firstIndex(of: "gpt-5.5") ?? Int.max,
-            models.firstIndex(of: "gpt-5.4") ?? Int.max
+            models.firstIndex(of: "gpt-5.6") ?? Int.max,
+            models.firstIndex(of: "gpt-5.5") ?? Int.max
         )
     }
 
-    func testGPT55ModelsSupportReasoningEffort() {
+    func testLatestGPTModelsSupportReasoningEffort() {
+        XCTAssertEqual(
+            ReasoningConfig.getReasoningParameter(for: "gpt-5.6", userPreference: .low),
+            ReasoningEffort.low.rawValue
+        )
+        XCTAssertEqual(
+            ReasoningConfig.getReasoningParameter(for: "gpt-5.6-terra", userPreference: .high),
+            ReasoningEffort.high.rawValue
+        )
         XCTAssertEqual(
             ReasoningConfig.getReasoningParameter(for: "gpt-5.5", userPreference: .low),
             ReasoningEffort.low.rawValue

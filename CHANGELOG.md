@@ -2,6 +2,16 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-07-12
+
+### Release Preparation
+- Bumped the community build metadata to version `1.74` (`v1.74-community`) for the latest OpenAI model update.
+
+### AI Enhancement
+- Added GPT-5.6, GPT-5.6 Terra, and GPT-5.6 Luna to the OpenAI enhancement model catalog, with GPT-5.6 as the new default.
+- Added GPT-5.4 mini and GPT-5.4 nano as current lower-cost enhancement options.
+- Enabled reasoning-effort controls for the newly added OpenAI models and added focused regression coverage for the catalog ordering and defaults.
+
 ## 2026-07-11
 
 ### Release Preparation
