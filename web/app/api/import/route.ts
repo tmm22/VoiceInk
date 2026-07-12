@@ -1,4 +1,5 @@
 import { extractReadableArticle } from "../../../lib/imports/readability";
+import { enforceRateLimit, rejectCrossOrigin } from "../../../lib/server/requestSecurity";
 
 export const runtime = "edge";
 
@@ -27,7 +28,7 @@ function validateUrl(value: string) {
   const url = new URL(value);
   const hostname = url.hostname.toLowerCase();
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error("Only HTTP and HTTPS URLs can be imported.");
-  if (blockedHosts.has(hostname) || hostname.endsWith(".local") || hostname.endsWith(".internal") || isPrivateIPv4(hostname)) {
+  if (hostname.includes(":") || /^\d+$/.test(hostname) || blockedHosts.has(hostname) || hostname.endsWith(".local") || hostname.endsWith(".internal") || isPrivateIPv4(hostname)) {
     throw new Error("That address cannot be imported.");
   }
   return url;
@@ -57,6 +58,10 @@ async function fetchWithSafeRedirects(initialUrl: URL) {
 
 export async function POST(request: Request) {
   try {
+    const originError = rejectCrossOrigin(request);
+    if (originError) return originError;
+    const rateError = await enforceRateLimit(request, "IMPORT_RATE_LIMITER");
+    if (rateError) return rateError;
     const body = await request.json() as { url?: string };
     if (!body.url?.trim()) return Response.json({ error: "Enter a URL to import." }, { status: 400 });
 

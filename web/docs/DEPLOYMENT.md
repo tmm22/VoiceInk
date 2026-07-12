@@ -48,6 +48,8 @@ NEXT_PUBLIC_CONVEX_URL=https://<your-convex-deployment>.convex.cloud
 
 The deployed Convex cron runs every five minutes. It deletes anonymous transcripts after one hour and account transcripts after the user's selected retention period. Account retention defaults to 90 days and can be changed to 7, 30, 90, or 365 days, or disabled. Changing the selection reapplies the policy to the user's existing history.
 
+Retention changes are applied in paginated background mutations, so the policy covers the complete account history rather than only the first page of records.
+
 After changing Convex functions:
 
 ```bash
@@ -74,6 +76,14 @@ npm run build
 ```
 
 This client-only integration does not require `CLERK_SECRET_KEY`. Add a secret key only if future server-side Clerk APIs require it, and store it with Wrangler or the Cloudflare dashboard—not in source control. Account history is keyed exclusively from Convex's verified identity token, never from a browser-supplied user ID.
+
+### Production abuse protection
+
+The web Worker defines independent Cloudflare rate-limit bindings for AI inference, webpage imports, and history writes. API routes also reject cross-origin browser requests. Anonymous history writes pass through `/api/history` and require a shared `CONVEX_WEB_API_SECRET` configured in both the web Worker and the production Convex deployment. Never expose or commit this value.
+
+The ASR Worker requires `ASR_API_KEY` for every inference request and fails closed if the secret is missing. Its unauthenticated `GET` endpoint exposes health and model metadata only.
+
+Production responses include CSP, HSTS, clickjacking protection, MIME-sniffing protection, a restrictive permissions policy, and a strict referrer policy.
 
 The current `workers.dev` prototype is built with a Clerk development publishable key. Clerk production instances require DNS records for their frontend API domain; because the assigned `workers.dev` zone is not controlled by this project, production Clerk keys should be activated only after attaching a custom domain whose DNS records you can edit. Until then, the account flow works in Clerk development mode and is subject to Clerk's development limits.
 
@@ -192,6 +202,7 @@ curl --fail \
 | --- | --- | --- | --- |
 | `NEXT_PUBLIC_CONVEX_URL` | Build and web Worker | No | Convex production client URL |
 | `NEXT_PUBLIC_SITE_URL` | Build and web Worker | No | Canonical production URL |
+| `CONVEX_WEB_API_SECRET` | Web Worker and Convex | Yes | Authorizes brokered anonymous history creation |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Build and web Worker | No | Enables Clerk sign-in in the browser |
 | `CLERK_JWT_ISSUER_DOMAIN` | Convex environment | No | Validates Clerk-issued Convex JWTs |
 | `PARAKEET_API_URL` | Web Worker | No | Legacy fallback URL for ASR |

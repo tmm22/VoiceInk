@@ -1,6 +1,31 @@
 import { internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { v } from "convex/values";
 
 const anonymousRetentionMs = 60 * 60 * 1000;
+const dayMs = 24 * 60 * 60 * 1000;
+
+export const applyRetentionPage = internalMutation({
+  args: {
+    ownerId: v.string(),
+    days: v.union(v.literal(0), v.literal(7), v.literal(30), v.literal(90), v.literal(365)),
+    cursor: v.union(v.string(), v.null()),
+  },
+  handler: async (ctx, { ownerId, days, cursor }) => {
+    const page = await ctx.db
+      .query("transcriptions")
+      .withIndex("by_owner_created", (q) => q.eq("ownerId", ownerId))
+      .paginate({ cursor, numItems: 50 });
+    for (const item of page.page) {
+      await ctx.db.patch(item._id, { expiresAt: days === 0 ? undefined : item.createdAt + days * dayMs });
+    }
+    if (!page.isDone) await ctx.scheduler.runAfter(0, internal.cleanup.applyRetentionPage, {
+      ownerId,
+      days,
+      cursor: page.continueCursor,
+    });
+  },
+});
 
 export const deleteExpiredTranscriptions = internalMutation({
   args: {},

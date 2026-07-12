@@ -31,11 +31,21 @@ export const list = query({
 export const save = mutation({
   args: {
     clientId: v.string(), model: v.string(), text: v.string(), durationSeconds: v.number(),
+    serviceSecret: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
+    if (!identity && (!process.env.CONVEX_WEB_API_SECRET || args.serviceSecret !== process.env.CONVEX_WEB_API_SECRET)) {
+      throw new Error("Anonymous history writes must use the web service.");
+    }
+    const text = args.text.trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(args.clientId)) throw new Error("Invalid client identifier.");
+    if (!text || text.length > 200_000) throw new Error("Transcript length is invalid.");
+    if (args.model !== "whisper-large-v3-turbo") throw new Error("Unsupported transcription model.");
+    if (!Number.isFinite(args.durationSeconds) || args.durationSeconds < 0 || args.durationSeconds > 21_600) throw new Error("Invalid recording duration.");
     const createdAt = Date.now();
-    const { clientId, ...transcription } = args;
+    const { clientId } = args;
+    const transcription = { model: args.model, text: args.text, durationSeconds: args.durationSeconds };
     let accountRetentionDays = defaultRetentionDays;
     if (identity) {
       const setting = await ctx.db
@@ -51,6 +61,7 @@ export const save = mutation({
     }
     return ctx.db.insert("transcriptions", {
       ...transcription,
+      text,
       ...(identity
         ? {
             ownerId: identity.tokenIdentifier,

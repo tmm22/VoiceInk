@@ -36,10 +36,17 @@ function convexClient(token?: string | null) {
 
 export async function saveTranscription(value: SavedTranscription, token?: string | null) {
   if (!convexUrl || typeof window === "undefined") return;
-  const client = convexClient(token);
-  if (!client) return;
-  const save = makeFunctionReference<"mutation">("transcriptions:save");
-  return client.mutation(save, { ...value, clientId: clientId() }) as Promise<string>;
+  const response = await fetch("/api/history", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ ...value, clientId: clientId() }),
+  });
+  if (!response.ok) throw new Error("History could not be saved.");
+  const result = await response.json() as { id: string };
+  return result.id;
 }
 
 export async function listTranscriptions(token?: string | null): Promise<TranscriptionHistoryItem[]> {

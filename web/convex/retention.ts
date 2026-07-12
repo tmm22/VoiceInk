@@ -1,9 +1,9 @@
 import { mutationGeneric as mutation, queryGeneric as query } from "convex/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 
 const retentionDays = v.union(v.literal(0), v.literal(7), v.literal(30), v.literal(90), v.literal(365));
 const defaultRetentionDays = 90 as const;
-const dayMs = 24 * 60 * 60 * 1000;
 
 export const get = query({
   args: {},
@@ -31,15 +31,7 @@ export const set = mutation({
     if (existing) await ctx.db.patch(existing._id, { days, updatedAt: Date.now() });
     else await ctx.db.insert("retentionSettings", { ownerId, days, updatedAt: Date.now() });
 
-    const history = await ctx.db
-      .query("transcriptions")
-      .withIndex("by_owner_created", (q) => q.eq("ownerId", ownerId))
-      .take(100);
-    for (const item of history) {
-      await ctx.db.patch(item._id, {
-        expiresAt: days === 0 ? undefined : item.createdAt + days * dayMs,
-      });
-    }
-    return { days, updated: history.length };
+    await ctx.scheduler.runAfter(0, internal.cleanup.applyRetentionPage, { ownerId, days, cursor: null });
+    return { days };
   },
 });

@@ -80,9 +80,10 @@ export default function Home() {
   const [retentionStatus, setRetentionStatus] = useState("");
 
   useEffect(() => {
+    let themeUpdate: number | undefined;
     const savedTheme = window.localStorage.getItem("voiceink-theme");
     if (savedTheme === "mac" || savedTheme === "editorial") {
-      setTheme(savedTheme);
+      themeUpdate = window.setTimeout(() => setTheme(savedTheme), 0);
       document.documentElement.dataset.theme = savedTheme;
     }
     void refreshHistory();
@@ -91,6 +92,7 @@ export default function Home() {
       setVoiceId(available.find((voice) => voice.isDefault)?.id ?? available[0]?.id ?? "");
     });
     return () => {
+      if (themeUpdate !== undefined) window.clearTimeout(themeUpdate);
       if (ticker.current) clearInterval(ticker.current);
       recorder.current?.stream.getTracks().forEach((track) => track.stop());
       if ("speechSynthesis" in window) window.speechSynthesis.cancel();

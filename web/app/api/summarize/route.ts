@@ -1,8 +1,13 @@
 import { env } from "cloudflare:workers";
+import { enforceRateLimit, rejectCrossOrigin } from "../../../lib/server/requestSecurity";
 
 export const runtime = "edge";
 
 export async function POST(request: Request) {
+  const originError = rejectCrossOrigin(request);
+  if (originError) return originError;
+  const rateError = await enforceRateLimit(request, "AI_RATE_LIMITER");
+  if (rateError) return rateError;
   const apiKey = process.env.PARAKEET_API_KEY;
   const bindings = env as unknown as { ASR?: Fetcher };
   if (!bindings.ASR) return Response.json({ error: "Summarization is unavailable" }, { status: 503 });

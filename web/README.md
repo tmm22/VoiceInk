@@ -43,6 +43,8 @@ Existing audio can also be uploaded into the same transcription pipeline. Comple
 
 Completed transcripts can be summarized on demand with Cloudflare Workers AI using `@cf/meta/llama-3.2-3b-instruct`. Summaries are editable, copyable, and can be sent to the narration workspace. Generated summaries are stored on their matching Convex transcription record and follow that record's retention policy.
 
+Production API routes enforce same-origin browser requests and separate Cloudflare rate limits for AI inference, content imports, and history writes. Anonymous history creation is brokered by the web Worker with a server-only secret; clients cannot write anonymous records directly to Convex. The private ASR Worker also fails closed when its shared secret is absent.
+
 Transcript content is sent inside explicit transcript delimiters. If the model incorrectly claims that no transcript was supplied, the Worker replaces that response with a deterministic extractive summary so users never see a false missing-transcript message.
 
 ## Repository layout

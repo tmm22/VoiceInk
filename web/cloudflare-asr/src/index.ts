@@ -32,12 +32,14 @@ export default {
       return Response.json({ error: "Method not allowed" }, { status: 405 });
     }
 
-    if (env.ASR_API_KEY && request.headers.get("authorization") !== `Bearer ${env.ASR_API_KEY}`) {
+    if (!env.ASR_API_KEY || request.headers.get("authorization") !== `Bearer ${env.ASR_API_KEY}`) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     if (new URL(request.url).pathname === "/v1/summaries") {
-      const body = await request.json() as { text?: string };
+      let body: { text?: string };
+      try { body = await request.json() as { text?: string }; }
+      catch { return Response.json({ error: "Valid JSON is required" }, { status: 400 }); }
       const text = body.text?.trim();
       if (!text) return Response.json({ error: "Transcript text is required" }, { status: 400 });
       if (text.length > 60_000) return Response.json({ error: "Transcript is too long to summarize" }, { status: 413 });
@@ -60,7 +62,12 @@ export default {
       });
     }
 
-    const form = await request.formData();
+    if (new URL(request.url).pathname !== "/v1/transcriptions") {
+      return Response.json({ error: "Not found" }, { status: 404 });
+    }
+    let form: FormData;
+    try { form = await request.formData(); }
+    catch { return Response.json({ error: "A valid audio upload is required" }, { status: 400 }); }
     const audio = form.get("audio");
     if (!(audio instanceof File) || audio.size === 0) {
       return Response.json({ error: "An audio file is required" }, { status: 400 });

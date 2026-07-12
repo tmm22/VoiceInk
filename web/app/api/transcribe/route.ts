@@ -1,22 +1,23 @@
 import { env } from "cloudflare:workers";
+import { enforceRateLimit, rejectCrossOrigin } from "../../../lib/server/requestSecurity";
 
 export const runtime = "edge";
 
 export async function POST(request: Request) {
+  const originError = rejectCrossOrigin(request);
+  if (originError) return originError;
+  const rateError = await enforceRateLimit(request, "AI_RATE_LIMITER");
+  if (rateError) return rateError;
   const endpoint = process.env.PARAKEET_API_URL;
   const apiKey = process.env.PARAKEET_API_KEY;
   const bindings = env as unknown as { ASR?: Fetcher };
 
   if (!endpoint && !bindings.ASR) {
-    await new Promise((resolve) => setTimeout(resolve, 900));
-    return Response.json({
-      text: "VoiceInk Web keeps the recording workflow focused: capture your voice, transcribe it with Parakeet, then copy or refine the result.",
-      model: "whisper-large-v3-turbo",
-      mode: "prototype",
-    });
+    return Response.json({ error: "Transcription is unavailable." }, { status: 503 });
   }
-
-  const formData = await request.formData();
+  let formData: FormData;
+  try { formData = await request.formData(); }
+  catch { return Response.json({ error: "A valid audio upload is required." }, { status: 400 }); }
   const target = endpoint
     ? `${endpoint.replace(/\/$/, "")}/v1/transcriptions`
     : "https://asr.internal/v1/transcriptions";
