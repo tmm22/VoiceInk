@@ -38,6 +38,7 @@ export default function Home() {
   const [speechVolume, setSpeechVolume] = useState(0.8);
   const [playback, setPlayback] = useState<"idle" | "playing" | "paused">("idle");
   const [speechError, setSpeechError] = useState("");
+  const [speechText, setSpeechText] = useState("");
   const [theme, setTheme] = useState<Theme>("editorial");
 
   useEffect(() => {
@@ -140,13 +141,13 @@ export default function Home() {
     setTimeout(() => setCopied(false), 1500);
   }
 
-  async function playTranscript() {
-    if (!transcript.trim()) return;
+  async function playSpeechText() {
+    if (!speechText.trim()) return;
     setSpeechError("");
     setPlayback("playing");
     try {
       await getBrowserSpeechController().speak({
-        text: transcript,
+        text: speechText,
         voiceId,
         rate: speechRate,
         pitch: speechPitch,
@@ -232,9 +233,13 @@ export default function Home() {
 
       <section className="tts-card">
         <div className="tts-head">
-          <div><small>TEXT TO SPEECH</small><span>System voices · runs on this device</span></div>
-          <span className="local-pill">No API key</span>
+          <div><small>TEXT TO SPEECH</small><span>{speechText ? `${speechText.length.toLocaleString()} characters` : "Paste or type anything to read aloud"}</span></div>
+          <div className="tts-tools">
+            {transcript && <button onClick={() => setSpeechText(transcript)}>Use transcript</button>}
+            <span className="local-pill">No API key</span>
+          </div>
         </div>
+        <textarea className="tts-text-editor" aria-label="Text to read aloud" value={speechText} onChange={(event) => setSpeechText(event.target.value)} placeholder="Paste or type text here. This editor is separate from your transcription…" />
         <div className="tts-grid">
           <label className="voice-field">
             <span>Voice</span>
@@ -248,7 +253,7 @@ export default function Home() {
           <label><span>Volume <b>{Math.round(speechVolume * 100)}%</b></span><input type="range" min="0" max="1" step="0.05" value={speechVolume} onChange={(event) => setSpeechVolume(Number(event.target.value))} /></label>
         </div>
         <div className="playback-buttons">
-          {playback === "idle" && <button className="play" onClick={playTranscript} disabled={!transcript.trim() || !voices.length}>▶ Read transcript</button>}
+          {playback === "idle" && <button className="play" onClick={playSpeechText} disabled={!speechText.trim() || !voices.length}>▶ Read text</button>}
           {playback === "playing" && <button onClick={pauseSpeech}>Ⅱ Pause</button>}
           {playback === "paused" && <button className="play" onClick={resumeSpeech}>▶ Resume</button>}
           {playback !== "idle" && <button onClick={stopSpeech}>■ Stop</button>}

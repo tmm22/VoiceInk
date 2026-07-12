@@ -2,7 +2,7 @@
 
 VoiceInk Web is a browser-based transcription prototype deployed entirely through Cloudflare, with transcript persistence in Convex.
 
-It also includes device-local text-to-speech adapted from the proven browser speech controller in [`tmm22/untitled-folder-2`](https://github.com/tmm22/untitled-folder-2). Completed or historical transcripts can be read aloud with the voices installed in the current browser or operating system.
+It also includes a separate device-local text-to-speech workspace adapted from the proven browser speech controller in [`tmm22/untitled-folder-2`](https://github.com/tmm22/untitled-folder-2). Users can paste or type independent narration text, or explicitly copy in a completed transcript, then read it aloud with voices installed in the current browser or operating system.
 
 Users can switch between the original editorial theme and a native macOS-inspired appearance from the header. The original design remains the default, and the preference is stored only in the current browser.
 
