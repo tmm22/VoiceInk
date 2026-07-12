@@ -68,7 +68,7 @@ Set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` in the Cloudflare build environment, the
 
 ```bash
 NEXT_PUBLIC_CONVEX_URL=https://<your-convex-deployment>.convex.cloud \
-NEXT_PUBLIC_SITE_URL=https://<your-web-worker>.<your-subdomain>.workers.dev \
+NEXT_PUBLIC_SITE_URL=https://v.paul.im \
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_<your-publishable-key> \
 npm run build
 ```
@@ -119,7 +119,7 @@ The public Convex and site URLs are embedded in the client build, so set them ex
 
 ```bash
 NEXT_PUBLIC_CONVEX_URL=https://<your-convex-deployment>.convex.cloud \
-NEXT_PUBLIC_SITE_URL=https://<your-web-worker>.<your-subdomain>.workers.dev \
+NEXT_PUBLIC_SITE_URL=https://v.paul.im \
 npm run build
 
 npx wrangler deploy \

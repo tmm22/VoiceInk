@@ -4,6 +4,7 @@
   "main": "dist/server/index.js",
   "compatibility_date": "2026-05-15",
   "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
   "no_bundle": true,
   "assets": {
     "directory": "dist/client"
@@ -13,6 +14,9 @@
   ],
   "services": [
     { "binding": "ASR", "service": "voiceink-asr" }
+  ],
+  "routes": [
+    { "pattern": "v.paul.im", "custom_domain": true }
   ],
   "observability": { "enabled": true }
 }
