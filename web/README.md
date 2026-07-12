@@ -41,6 +41,8 @@ Recording is intentionally one-step: pressing Stop immediately uploads the captu
 
 Existing audio can also be uploaded into the same transcription pipeline. Completed transcripts can be downloaded as plain text, SRT, or WebVTT. History supports search, loading a transcript back into the editor, sending it to narration, and ownership-checked deletion.
 
+Completed transcripts can be summarized on demand with Cloudflare Workers AI using `@cf/meta/llama-3.2-3b-instruct`. Summaries are editable, copyable, and can be sent to the narration workspace. They are generated only when requested and are not persisted in Convex.
+
 ## Repository layout
 
 - `app/` — browser recorder, audio upload, automatic transcription workflow, history interface, and transcription proxy

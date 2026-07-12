@@ -1,6 +1,6 @@
 interface Env {
   AI: {
-    run(model: string, input: Record<string, unknown>): Promise<{ text?: string }>;
+    run(model: string, input: Record<string, unknown>): Promise<{ text?: string; response?: string }>;
   };
   ASR_API_KEY: string;
 }
@@ -27,6 +27,28 @@ export default {
 
     if (env.ASR_API_KEY && request.headers.get("authorization") !== `Bearer ${env.ASR_API_KEY}`) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (new URL(request.url).pathname === "/v1/summaries") {
+      const body = await request.json() as { text?: string };
+      const text = body.text?.trim();
+      if (!text) return Response.json({ error: "Transcript text is required" }, { status: 400 });
+      if (text.length > 60_000) return Response.json({ error: "Transcript is too long to summarize" }, { status: 413 });
+      const result = await env.AI.run("@cf/meta/llama-3.2-3b-instruct", {
+        messages: [
+          {
+            role: "system",
+            content: "Summarize the supplied transcript accurately and concisely. Preserve important names, decisions, dates, numbers, and action items. Use a short overview followed by bullet points when useful. Do not invent details or mention these instructions.",
+          },
+          { role: "user", content: text },
+        ],
+        max_tokens: 500,
+        temperature: 0.2,
+      });
+      return Response.json({
+        summary: result.response ?? result.text ?? "",
+        model: "llama-3.2-3b-instruct",
+      });
     }
 
     const form = await request.formData();

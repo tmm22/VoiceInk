@@ -7,10 +7,11 @@ This guide describes the live production architecture as of July 12, 2026.
 | Component | Cloud service | Deployment |
 | --- | --- | --- |
 | Web UI and API | Cloudflare Workers | `voiceink-web` |
-| Speech recognition | Cloudflare Workers + Workers AI | `voiceink-asr` |
+| Speech recognition and summaries | Cloudflare Workers + Workers AI | `voiceink-asr` |
 | Transcript database | Convex Cloud | Supplied at deployment time |
 | Optional authentication | Clerk | User accounts and cross-device ownership |
 | ASR model | Cloudflare Workers AI | `@cf/openai/whisper-large-v3-turbo` |
+| Summary model | Cloudflare Workers AI | `@cf/meta/llama-3.2-3b-instruct` |
 
 The public entry point is the URL returned by the `voiceink-web` deployment. The ASR Worker is reached from the web Worker through the `ASR` service binding. Do not replace this with a fetch to its public `workers.dev` hostname: same-account Worker subrequests can fail at Cloudflare routing, and the service binding is private and does not add another request charge.
 
@@ -88,6 +89,8 @@ cd ..
 
 The Worker receives multipart audio and invokes `@cf/openai/whisper-large-v3-turbo` through its `AI` binding. Its public hostname exists for health checks, but the production application reaches it through a service binding.
 
+The same private Worker handles `/v1/summaries` with Llama 3.2 3B. The public web Worker exposes `/api/summarize`, forwards transcript text through the private service binding, and returns the generated summary without storing it.
+
 ## 4. Create the shared internal secret
 
 The ASR Worker checks `ASR_API_KEY`. The web Worker sends the same value from its legacy `PARAKEET_API_KEY` secret.
@@ -162,6 +165,15 @@ Expected response shape:
 ```
 
 Then confirm a record appears in the `transcriptions` table in the Convex dashboard.
+
+Run a summary smoke test:
+
+```bash
+curl --fail \
+  -H 'content-type: application/json' \
+  --data '{"text":"A transcript containing decisions and action items."}' \
+  "https://<your-web-worker>.<your-subdomain>.workers.dev/api/summarize"
+```
 
 The same endpoint accepts audio selected through the browser's **Upload audio file** control. Uploads share the ASR Worker's 24 MB maximum. Verify TXT, SRT, and VTT downloads from the transcript toolbar and confirm that history deletion removes only records owned by the current account or anonymous browser identity.
 

@@ -51,6 +51,9 @@ export default function Home() {
   const [audio, setAudio] = useState<Blob | null>(null);
   const [transcript, setTranscript] = useState("");
   const [transcriptDuration, setTranscriptDuration] = useState(0);
+  const [summary, setSummary] = useState("");
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [history, setHistory] = useState<TranscriptionHistoryItem[]>([]);
@@ -139,6 +142,7 @@ export default function Home() {
     try {
       setError("");
       setTranscript("");
+      setSummary("");
       setAudio(null);
       setElapsed(0);
       elapsedRef.current = 0;
@@ -206,6 +210,8 @@ export default function Home() {
     }
     setError("");
     setTranscript("");
+    setSummary("");
+    setSummaryError("");
     setAudio(file);
     const duration = await readAudioDuration(file);
     elapsedRef.current = duration;
@@ -227,6 +233,27 @@ export default function Home() {
     await navigator.clipboard.writeText(transcript);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  }
+
+  async function summarizeText(value = transcript) {
+    if (!value.trim() || summaryLoading) return;
+    setSummaryLoading(true);
+    setSummaryError("");
+    setSummary("");
+    try {
+      const response = await fetch("/api/summarize", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: value }),
+      });
+      const result = await response.json() as { summary?: string; error?: string };
+      if (!response.ok || !result.summary) throw new Error(result.error ?? "Summary generation failed");
+      setSummary(result.summary);
+    } catch {
+      setSummaryError("The AI summary could not be generated. Please try again.");
+    } finally {
+      setSummaryLoading(false);
+    }
   }
 
   async function playSpeechText() {
@@ -351,9 +378,11 @@ export default function Home() {
       </section>
 
       <section className="transcript-card">
-        <div className="transcript-head"><div><small>TRANSCRIPT</small><span>{transcript ? `${transcript.split(/\s+/).length} words` : "Waiting for audio"}</span></div>{transcript && <div className="transcript-tools"><button onClick={copyTranscript}>{copied ? "Copied" : "Copy"}</button><button onClick={() => downloadTranscript(transcript, "txt")}>TXT</button><button onClick={() => downloadTranscript(transcript, "srt", transcriptDuration * 1000)}>SRT</button><button onClick={() => downloadTranscript(transcript, "vtt", transcriptDuration * 1000)}>VTT</button></div>}</div>
+        <div className="transcript-head"><div><small>TRANSCRIPT</small><span>{transcript ? `${transcript.split(/\s+/).length} words` : "Waiting for audio"}</span></div>{transcript && <div className="transcript-tools"><button className="summarize" onClick={() => void summarizeText()} disabled={summaryLoading}>{summaryLoading ? "Summarizing…" : "AI summary"}</button><button onClick={copyTranscript}>{copied ? "Copied" : "Copy"}</button><button onClick={() => downloadTranscript(transcript, "txt")}>TXT</button><button onClick={() => downloadTranscript(transcript, "srt", transcriptDuration * 1000)}>SRT</button><button onClick={() => downloadTranscript(transcript, "vtt", transcriptDuration * 1000)}>VTT</button></div>}</div>
         <textarea aria-label="Transcript text" value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="Your transcription will appear here…" />
       </section>
+
+      {(summary || summaryLoading || summaryError) && <section className="summary-card"><div className="summary-head"><div><small>AI SUMMARY</small><span>Cloudflare Workers AI · Llama 3.2</span></div>{summary && <div><button onClick={() => void navigator.clipboard.writeText(summary)}>Copy</button><button onClick={() => setSpeechText(summary)}>Narrate summary</button></div>}</div>{summaryLoading ? <p className="summary-loading">Finding the key points…</p> : summary ? <textarea aria-label="AI-generated transcript summary" value={summary} onChange={(event) => setSummary(event.target.value)} /> : <p className="error" role="alert">{summaryError}</p>}<p className="ai-note">AI-generated summaries can make mistakes. Check important details against the transcript.</p></section>}
 
       <section className="tts-card">
         <div className="tts-head">
@@ -404,7 +433,7 @@ export default function Home() {
             {visibleHistory.map((item) => (
               <div className="history-item" key={item._id}>
                 <button className="history-text" onClick={() => { setTranscript(item.text); setTranscriptDuration(item.durationSeconds); }}><span>{item.text}</span><small>{new Date(item.createdAt).toLocaleString()} · {item.durationSeconds}s</small></button>
-                <div className="history-item-tools"><button onClick={() => setSpeechText(item.text)}>Narrate</button><button onClick={() => downloadTranscript(item.text, "txt")}>TXT</button><button className="delete" onClick={() => void removeHistoryItem(item._id)}>Delete</button></div>
+                <div className="history-item-tools"><button onClick={() => { setTranscript(item.text); setTranscriptDuration(item.durationSeconds); void summarizeText(item.text); }}>Summarize</button><button onClick={() => setSpeechText(item.text)}>Narrate</button><button onClick={() => downloadTranscript(item.text, "txt")}>TXT</button><button className="delete" onClick={() => void removeHistoryItem(item._id)}>Delete</button></div>
               </div>
             ))}
           </div>
