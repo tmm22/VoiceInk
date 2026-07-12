@@ -10,6 +10,7 @@
 
 import type * as cleanup from "../cleanup.js";
 import type * as crons from "../crons.js";
+import type * as retention from "../retention.js";
 import type * as transcriptions from "../transcriptions.js";
 
 import type {
@@ -21,6 +22,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   cleanup: typeof cleanup;
   crons: typeof crons;
+  retention: typeof retention;
   transcriptions: typeof transcriptions;
 }>;
 

@@ -49,7 +49,7 @@ Starter overage rates shown by Convex include $2.20 per additional million funct
 
 Source: [Convex pricing](https://www.convex.dev/pricing)
 
-This prototype stores transcript text and metadata only. It does not store audio, so database and egress consumption should remain modest at early usage levels. Anonymous transcript rows are automatically deleted after one hour; signed-in history is retained for the account.
+This prototype stores transcript text and metadata only. It does not store audio, so database and egress consumption should remain modest at early usage levels. Anonymous transcript rows are automatically deleted after one hour. Signed-in history defaults to 90 days, with user-selectable 7-day, 30-day, 90-day, one-year, or indefinite retention.
 
 ## Estimated combined monthly cost
 

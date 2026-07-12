@@ -3,8 +3,11 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   deleteTranscription,
+  getRetention,
   listTranscriptions,
   saveTranscription,
+  setRetention,
+  type RetentionDays,
   type TranscriptionHistoryItem,
 } from "../lib/convex";
 import {
@@ -65,6 +68,9 @@ export default function Home() {
   const [isImporting, setIsImporting] = useState(false);
   const [theme, setTheme] = useState<Theme>("editorial");
   const [historySearch, setHistorySearch] = useState("");
+  const [retentionDays, setRetentionDays] = useState<RetentionDays>(90);
+  const [retentionSaving, setRetentionSaving] = useState(false);
+  const [retentionStatus, setRetentionStatus] = useState("");
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("voiceink-theme");
@@ -85,7 +91,10 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (account.isLoaded) void refreshHistory();
+    if (account.isLoaded) {
+      void refreshHistory();
+      void refreshRetention();
+    }
   }, [account.identityKey, account.isLoaded]);
 
   function selectTheme(nextTheme: Theme) {
@@ -100,6 +109,29 @@ export default function Home() {
       setHistory(await listTranscriptions(token));
     } finally {
       setHistoryLoading(false);
+    }
+  }
+
+  async function refreshRetention() {
+    if (!account.isSignedIn) return;
+    const token = await account.getConvexToken();
+    const days = await getRetention(token);
+    if (days !== null) setRetentionDays(days);
+  }
+
+  async function changeRetention(days: RetentionDays) {
+    setRetentionDays(days);
+    setRetentionSaving(true);
+    setRetentionStatus("");
+    try {
+      const token = await account.getConvexToken();
+      await setRetention(days, token);
+      await refreshHistory();
+      setRetentionStatus(days === 0 ? "History will be kept until you delete it." : `History older than ${days} days will be deleted automatically.`);
+    } catch {
+      setRetentionStatus("Retention could not be updated.");
+    } finally {
+      setRetentionSaving(false);
     }
   }
 
@@ -366,6 +398,7 @@ export default function Home() {
           <div><small>RECENT HISTORY</small><span>{account.isSignedIn ? "Synced to your account across devices" : "Anonymous history expires after one hour"}</span></div>
           <div className="history-actions"><input aria-label="Search transcript history" type="search" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="Search history" /><button onClick={refreshHistory} disabled={historyLoading}>{historyLoading ? "Loading…" : "Refresh"}</button></div>
         </div>
+        {account.isSignedIn && <div className="retention-settings"><label htmlFor="retention-days">Automatically delete history after</label><select id="retention-days" value={retentionDays} disabled={retentionSaving} onChange={(event) => void changeRetention(Number(event.target.value) as RetentionDays)}><option value={7}>7 days</option><option value={30}>30 days</option><option value={90}>90 days</option><option value={365}>1 year</option><option value={0}>Never automatically</option></select>{retentionSaving && <span>Saving…</span>}{retentionStatus && <span>{retentionStatus}</span>}</div>}
         {visibleHistory.length ? (
           <div className="history-list">
             {visibleHistory.map((item) => (

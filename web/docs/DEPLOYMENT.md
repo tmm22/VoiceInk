@@ -45,7 +45,7 @@ NEXT_PUBLIC_CONVEX_URL=https://<your-convex-deployment>.convex.cloud
 
 `npx convex deploy` validates and uploads `convex/schema.ts`, the indexes, and functions. It also regenerates `convex/_generated/`; commit generated bindings when they change.
 
-The deployed Convex cron runs every five minutes. It deletes anonymous transcripts after one hour. Signed-in transcripts have an authenticated `ownerId` and do not receive an anonymous expiry timestamp.
+The deployed Convex cron runs every five minutes. It deletes anonymous transcripts after one hour and account transcripts after the user's selected retention period. Account retention defaults to 90 days and can be changed to 7, 30, 90, or 365 days, or disabled. Changing the selection reapplies the policy to the user's existing history.
 
 After changing Convex functions:
 

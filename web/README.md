@@ -35,7 +35,7 @@ voiceink-asr Cloudflare Worker
 Whisper Large V3 Turbo
 ```
 
-Audio is forwarded in memory and is not stored by this application. The returned transcript is saved to Convex after a successful transcription. Anonymous history expires after one hour and a scheduled Convex cleanup removes it. When Clerk is configured, signed-in history is owned by the authenticated Clerk identity and persists across browsers and devices.
+Audio is forwarded in memory and is not stored by this application. The returned transcript is saved to Convex after a successful transcription. Anonymous history expires after one hour and a scheduled Convex cleanup removes it. Signed-in history is owned by the authenticated Clerk identity and persists across browsers and devices. Account holders can choose automatic deletion after 7, 30, 90, or 365 days, or keep history until they delete it; the default is 90 days.
 
 Recording is intentionally one-step: pressing Stop immediately uploads the captured audio, runs transcription, stores the completed transcript in Convex, and refreshes the on-page history. If transcription fails, the in-memory recording remains available for retry.
 
@@ -91,7 +91,7 @@ curl --fail \
 - The live prototype uses Clerk development mode and its associated usage limits until a custom domain is available for Clerk production DNS
 - No per-user quotas or public-endpoint rate limiting
 - Anonymous history is associated with a browser-generated client ID and retained for no more than one hour
-- Account history persists until an account-data deletion flow or retention policy is added
+- Account history uses the signed-in user's configurable Convex retention policy, defaulting to 90 days
 - Batch transcription only; no live partial transcript stream
 - System/device voices only for the initial TTS integration; cloud TTS adapters are not yet connected
 - Audio uploads are limited to 24 MB by the ASR Worker

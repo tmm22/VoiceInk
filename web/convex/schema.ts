@@ -13,5 +13,11 @@ export default defineSchema({
     expiresAt: v.optional(v.number()),
   })
     .index("by_client_created", ["clientId", "createdAt"])
-    .index("by_owner_created", ["ownerId", "createdAt"]),
+    .index("by_owner_created", ["ownerId", "createdAt"])
+    .index("by_expires_at", ["expiresAt"]),
+  retentionSettings: defineTable({
+    ownerId: v.string(),
+    days: v.union(v.literal(0), v.literal(7), v.literal(30), v.literal(90), v.literal(365)),
+    updatedAt: v.number(),
+  }).index("by_owner", ["ownerId"]),
 });

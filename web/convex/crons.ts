@@ -4,9 +4,9 @@ import { internal } from "./_generated/api";
 const crons = cronJobs();
 
 crons.interval(
-  "delete expired anonymous transcripts",
+  "delete expired transcripts",
   { minutes: 5 },
-  internal.cleanup.deleteExpiredAnonymousTranscriptions,
+  internal.cleanup.deleteExpiredTranscriptions,
 );
 
 export default crons;

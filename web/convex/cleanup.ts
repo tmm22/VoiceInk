@@ -2,23 +2,30 @@ import { internalMutation } from "./_generated/server";
 
 const anonymousRetentionMs = 60 * 60 * 1000;
 
-export const deleteExpiredAnonymousTranscriptions = internalMutation({
+export const deleteExpiredTranscriptions = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    const anonymous = await ctx.db
+    const expired = await ctx.db
       .query("transcriptions")
-      .filter((q) => q.eq(q.field("ownerId"), undefined))
+      .withIndex("by_expires_at", (q) => q.gt("expiresAt", 0).lte("expiresAt", now))
+      .take(100);
+    for (const item of expired) await ctx.db.delete(item._id);
+
+    const legacyAnonymous = await ctx.db
+      .query("transcriptions")
+      .filter((q) => q.and(
+        q.eq(q.field("ownerId"), undefined),
+        q.eq(q.field("expiresAt"), undefined),
+      ))
       .order("asc")
       .take(100);
-
-    let deleted = 0;
-    for (const item of anonymous) {
-      const expiresAt = item.expiresAt ?? item.createdAt + anonymousRetentionMs;
-      if (expiresAt > now) break;
+    let legacyDeleted = 0;
+    for (const item of legacyAnonymous) {
+      if (item.createdAt + anonymousRetentionMs > now) break;
       await ctx.db.delete(item._id);
-      deleted += 1;
+      legacyDeleted += 1;
     }
-    return { deleted };
+    return { deleted: expired.length + legacyDeleted };
   },
 });
