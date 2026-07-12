@@ -5,6 +5,22 @@ All notable changes to the VoiceLink Community application are documented here.
 ## 2026-07-12
 
 ### Release Preparation
+- Bumped the community build metadata to version `1.75` (`v1.75-community`) for the resource-efficiency and reliability audit release.
+
+### Performance & Resource Usage
+- Bounded audio tap and streaming-startup buffers so sustained recording cannot grow memory without limit, with explicit full-recording fallback when streaming startup exceeds its budget.
+- Reduced recorder UI CPU usage by coalescing meter publication, removing duplicate animation timelines, narrowing partial-transcript observation, and replacing shortcut polling with notifications.
+- Moved recording cleanup and large PCM file reads away from the main actor, added incremental Parakeet audio loading, and confined cleanup deletion to the resolved recordings directory.
+- Consolidated local Whisper inference onto a single context owner with generation-safe load coalescing and deferred release while inference is active.
+
+### Reliability & Security
+- Made custom-model credential migration and import transactional, distinguishing absent Keychain values from read failures and preserving recoverable metadata when rollback cannot complete.
+- Removed unreachable duplicate Whisper model-management and polling coordinator implementations, reducing architectural drift and production code size.
+- Added focused regression coverage for bounded audio buffering, streaming handoff, cleanup path confinement, and custom-model credential rollback.
+
+## 2026-07-12
+
+### Release Preparation
 - Bumped the community build metadata to version `1.74` (`v1.74-community`) for the latest OpenAI model update.
 
 ### AI Enhancement
