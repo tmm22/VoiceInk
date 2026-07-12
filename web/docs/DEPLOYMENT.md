@@ -53,14 +53,13 @@ After changing Convex functions:
 npx convex deploy --typecheck enable --message "Describe the change"
 ```
 
-## 2. Optional: enable Clerk accounts
+## 2. Enable Clerk accounts
 
 Create a Clerk application and activate its Convex integration. Configure the Convex JWT issuer in both Convex development and production; do not paste credentials into tracked files:
 
 ```bash
 npx convex env set CLERK_JWT_ISSUER_DOMAIN 'https://<your-clerk-issuer>'
 npx convex env set --prod CLERK_JWT_ISSUER_DOMAIN 'https://<your-clerk-issuer>'
-cp convex/auth.config.example.ts convex/auth.config.ts
 npx convex deploy --typecheck enable --message "Enable Clerk authentication"
 ```
 
@@ -74,6 +73,8 @@ npm run build
 ```
 
 This client-only integration does not require `CLERK_SECRET_KEY`. Add a secret key only if future server-side Clerk APIs require it, and store it with Wrangler or the Cloudflare dashboard—not in source control. Account history is keyed exclusively from Convex's verified identity token, never from a browser-supplied user ID.
+
+The current `workers.dev` prototype is built with a Clerk development publishable key. Clerk production instances require DNS records for their frontend API domain; because the assigned `workers.dev` zone is not controlled by this project, production Clerk keys should be activated only after attaching a custom domain whose DNS records you can edit. Until then, the account flow works in Clerk development mode and is subject to Clerk's development limits.
 
 ## 3. Deploy the Workers AI service
 
@@ -161,6 +162,15 @@ Expected response shape:
 ```
 
 Then confirm a record appears in the `transcriptions` table in the Convex dashboard.
+
+Verify article importing:
+
+```bash
+curl --fail \
+  -H 'content-type: application/json' \
+  --data '{"url":"https://example.com/"}' \
+  "https://<your-web-worker>.<your-subdomain>.workers.dev/api/import"
+```
 
 ## Configuration reference
 

@@ -4,6 +4,8 @@ VoiceInk Web is a browser-based transcription prototype deployed entirely throug
 
 It also includes a separate device-local text-to-speech workspace adapted from the proven browser speech controller in [`tmm22/untitled-folder-2`](https://github.com/tmm22/untitled-folder-2). Users can paste or type independent narration text, or explicitly copy in a completed transcript, then read it aloud with voices installed in the current browser or operating system.
 
+The text-to-speech workspace can also import a public article URL. The Cloudflare Worker fetches the page with redirect, size, timeout, and private-address safeguards, extracts readable article text, and loads it directly into the narration editor.
+
 Users can switch between the original editorial theme and a native macOS-inspired appearance from the header. The original design remains the default, and the preference is stored only in the current browser.
 
 ## Production
@@ -56,7 +58,7 @@ npx convex dev
 npm run dev
 ```
 
-Clerk is optional during development. Without `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, the app runs anonymously and applies the one-hour retention policy. See the deployment guide before enabling accounts.
+Clerk is optional during development. Without `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, the app runs anonymously and applies the one-hour retention policy. The live prototype currently uses a Clerk development instance; move to production keys after attaching a custom domain and completing Clerk's DNS setup.
 
 The web interface returns a clearly marked demo transcript when no inference endpoint is configured. To use the deployed ASR Worker locally, provide its URL and the matching Worker secret in `.env.local`.
 
@@ -83,7 +85,7 @@ curl --fail \
 
 ## Current prototype limitations
 
-- Clerk account support requires a Clerk application and production environment configuration before it becomes visible
+- The live prototype uses Clerk development mode and its associated usage limits until a custom domain is available for Clerk production DNS
 - No per-user quotas or public-endpoint rate limiting
 - Anonymous history is associated with a browser-generated client ID and retained for no more than one hour
 - Account history persists until an account-data deletion flow or retention policy is added

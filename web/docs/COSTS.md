@@ -81,7 +81,7 @@ monthly cost ≈ $5 + (audio minutes × $0.0005) + Convex overages + Worker over
 - No external ASR provider
 - No cloud TTS charges; current text-to-speech uses device/browser voices
 - No AI enhancement model
-- No authentication-provider charge while Clerk remains unconfigured; review Clerk's current plan limits before enabling accounts publicly
+- No authentication-provider charge at current prototype usage; the live site uses Clerk development mode, which has usage limits and is not the final production configuration
 - No custom domain requirement
 
 The unused `parakeet-service/` reference would create a materially different cost profile if deployed. Production currently uses managed Workers AI instead.

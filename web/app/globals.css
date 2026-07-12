@@ -61,6 +61,14 @@ textarea::placeholder { color:#a4afa9; }
 .tts-tools { display:flex; align-items:center; gap:10px; }
 .tts-tools button { border:0; background:transparent; color:#168958; font-size:11px; font-weight:800; cursor:pointer; }
 .local-pill { padding:6px 9px; border-radius:100px; background:rgba(25,195,125,.1); color:#168958; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.8px; }
+.import-content { padding:16px 20px; border-bottom:1px solid var(--line); background:rgba(245,243,235,.38); }
+.import-content > label { display:block; margin-bottom:8px; color:#64736b; font-size:10px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; }
+.import-content > div { display:flex; gap:8px; }
+.import-content input { flex:1; min-width:0; border:1px solid var(--line); border-radius:9px; padding:10px 12px; background:#fff; color:var(--ink); outline:none; }
+.import-content input:focus { border-color:var(--green); box-shadow:0 0 0 3px rgba(25,195,125,.12); }
+.import-content button { flex:none; border:0; border-radius:9px; padding:10px 14px; background:var(--ink); color:#fff; font-weight:800; cursor:pointer; }
+.import-content button:disabled { opacity:.55; cursor:wait; }
+.import-content p { margin:8px 0 0; color:#64736b; font-size:11px; }
 .tts-text-editor { min-height:130px; border-bottom:1px solid var(--line); font-family:Georgia,serif; }
 .tts-grid { display:grid; grid-template-columns:2fr repeat(3,1fr); gap:20px; padding:22px 20px; }
 .tts-grid label { display:grid; align-content:start; gap:9px; color:#64736b; font-size:10px; font-weight:700; }
@@ -123,10 +131,14 @@ html[data-theme="mac"] textarea { font-size:16px; line-height:1.55; }
 html[data-theme="mac"] .transcript-head button,html[data-theme="mac"] .history-head button { color:#007aff; }
 html[data-theme="mac"] .tts-tools button { color:#007aff; }
 html[data-theme="mac"] .local-pill { background:rgba(52,199,89,.12); color:#248a3d; }
+html[data-theme="mac"] .import-content { border-color:rgba(60,60,67,.13); background:rgba(248,248,250,.55); }
+html[data-theme="mac"] .import-content input { border-color:rgba(60,60,67,.2); border-radius:7px; }
+html[data-theme="mac"] .import-content input:focus { border-color:#007aff; box-shadow:0 0 0 3px rgba(0,122,255,.12); }
+html[data-theme="mac"] .import-content button { border-radius:7px; background:#007aff; }
 html[data-theme="mac"] .tts-text-editor { border-color:rgba(60,60,67,.13); font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif; }
 html[data-theme="mac"] .tts-grid select,html[data-theme="mac"] .playback-buttons button { border-color:rgba(60,60,67,.2); border-radius:7px; background:#fff; }
 html[data-theme="mac"] .tts-grid input[type="range"] { accent-color:#007aff; }
 html[data-theme="mac"] .history-item:hover { background:rgba(0,122,255,.055); }
 html[data-theme="mac"] footer span:before { color:#34c759; }
 
-@media(max-width:650px){ main{width:min(100% - 22px,1100px)} .topbar{height:72px}.header-actions{gap:6px}.model-pill b{display:none}.hero{padding:52px 0 36px}.hero h1{letter-spacing:-3px}.recorder-card{padding:22px 18px 28px}.privacy{display:none}.wave{height:90px;gap:3px}.tts-head > div:first-child > span{display:none}.tts-grid{grid-template-columns:1fr}.history-head span{display:none}.history-item{align-items:flex-start;flex-direction:column;gap:7px}footer{gap:12px;flex-wrap:wrap}.brand em{display:none}html[data-theme="mac"] .topbar{height:58px;margin-top:8px;padding:0 9px}html[data-theme="mac"] .model-pill{display:none} }
+@media(max-width:650px){ main{width:min(100% - 22px,1100px)} .topbar{height:72px}.header-actions{gap:6px}.model-pill b{display:none}.hero{padding:52px 0 36px}.hero h1{letter-spacing:-3px}.recorder-card{padding:22px 18px 28px}.privacy{display:none}.wave{height:90px;gap:3px}.tts-head > div:first-child > span{display:none}.import-content > div{flex-direction:column}.import-content button{width:100%}.tts-grid{grid-template-columns:1fr}.history-head span{display:none}.history-item{align-items:flex-start;flex-direction:column;gap:7px}footer{gap:12px;flex-wrap:wrap}.brand em{display:none}html[data-theme="mac"] .topbar{height:58px;margin-top:8px;padding:0 9px}html[data-theme="mac"] .model-pill{display:none} }

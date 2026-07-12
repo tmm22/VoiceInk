@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   listTranscriptions,
   saveTranscription,
@@ -41,6 +41,9 @@ export default function Home() {
   const [playback, setPlayback] = useState<"idle" | "playing" | "paused">("idle");
   const [speechError, setSpeechError] = useState("");
   const [speechText, setSpeechText] = useState("");
+  const [importUrl, setImportUrl] = useState("");
+  const [importStatus, setImportStatus] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
   const [theme, setTheme] = useState<Theme>("editorial");
 
   useEffect(() => {
@@ -184,6 +187,30 @@ export default function Home() {
     setPlayback("idle");
   }
 
+  async function importContent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!importUrl.trim()) return;
+    setIsImporting(true);
+    setImportStatus("Fetching readable content…");
+    try {
+      const response = await fetch("/api/import", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: importUrl.trim() }),
+      });
+      const result = await response.json() as { title?: string; content?: string; error?: string };
+      if (!response.ok || !result.content) throw new Error(result.error ?? "No readable content was found.");
+      stopSpeech();
+      setSpeechText(result.content);
+      setImportStatus(`${result.title ?? "Article"} loaded into the text-to-speech editor.`);
+      setImportUrl("");
+    } catch (importError) {
+      setImportStatus(importError instanceof Error ? importError.message : "The page could not be imported.");
+    } finally {
+      setIsImporting(false);
+    }
+  }
+
   const time = `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
 
   return (
@@ -248,6 +275,14 @@ export default function Home() {
             <span className="local-pill">No API key</span>
           </div>
         </div>
+        <form className="import-content" onSubmit={importContent}>
+          <label htmlFor="import-url">Import content from a webpage</label>
+          <div>
+            <input id="import-url" type="url" value={importUrl} onChange={(event) => setImportUrl(event.target.value)} placeholder="https://example.com/article" required />
+            <button type="submit" disabled={isImporting}>{isImporting ? "Importing…" : "Import article"}</button>
+          </div>
+          {importStatus && <p role="status">{importStatus}</p>}
+        </form>
         <textarea className="tts-text-editor" aria-label="Text to read aloud" value={speechText} onChange={(event) => setSpeechText(event.target.value)} placeholder="Paste or type text here. This editor is separate from your transcription…" />
         <div className="tts-grid">
           <label className="voice-field">
