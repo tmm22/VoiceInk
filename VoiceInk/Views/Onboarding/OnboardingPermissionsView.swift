@@ -13,6 +13,7 @@ struct OnboardingPermissionsView: View {
     @State private var scale: CGFloat = 0.8
     @State private var opacity: CGFloat = 0
     @State private var showModelDownload = false
+    @State private var permissionPollingTimer: Timer?
     
     private let permissions: [OnboardingPermission] = [
         OnboardingPermission(
@@ -227,6 +228,9 @@ struct OnboardingPermissionsView: View {
             // Ensure audio devices are loaded
             audioDeviceManager.loadAvailableDevices()
         }
+        .onDisappear {
+            stopPermissionPolling()
+        }
         .frame(minWidth: 720, minHeight: 560)
     }
     
@@ -308,7 +312,7 @@ struct OnboardingPermissionsView: View {
             AXIsProcessTrustedWithOptions(options)
             
             // Start checking for permission status
-            Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { timer in
+            startPermissionPolling { timer in
                 if AXIsProcessTrusted() {
                     timer.invalidate()
                     permissionStates[currentPermissionIndex] = true
@@ -328,7 +332,7 @@ struct OnboardingPermissionsView: View {
             }
             
             // Start checking for permission status
-            Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { timer in
+            startPermissionPolling { timer in
                 if CGPreflightScreenCaptureAccess() {
                     timer.invalidate()
                     permissionStates[currentPermissionIndex] = true
@@ -343,8 +347,23 @@ struct OnboardingPermissionsView: View {
             break
         }
     }
+
+    private func startPermissionPolling(_ check: @escaping (Timer) -> Void) {
+        stopPermissionPolling()
+        permissionPollingTimer = Timer.scheduledTimer(
+            withTimeInterval: 0.5,
+            repeats: true,
+            block: check
+        )
+    }
+
+    private func stopPermissionPolling() {
+        permissionPollingTimer?.invalidate()
+        permissionPollingTimer = nil
+    }
     
     private func moveToNext() {
+        stopPermissionPolling()
         if currentPermissionIndex < permissions.count - 1 {
             withAnimation {
                 currentPermissionIndex += 1

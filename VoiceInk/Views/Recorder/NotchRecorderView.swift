@@ -3,12 +3,19 @@ import SwiftUI
 struct NotchRecorderView: View {
     @ObservedObject var whisperState: WhisperState
     @ObservedObject var recorder: Recorder
+    @ObservedObject private var transcriptState: PartialTranscriptState
     @EnvironmentObject var windowManager: NotchWindowManager
     @State private var isHovering = false
     @State private var activePopover: ActivePopoverState = .none
     @ObservedObject private var powerModeManager = PowerModeManager.shared
 
     @EnvironmentObject private var enhancementService: AIEnhancementService
+
+    init(whisperState: WhisperState, recorder: Recorder) {
+        self.whisperState = whisperState
+        self.recorder = recorder
+        _transcriptState = ObservedObject(wrappedValue: whisperState.partialTranscriptState)
+    }
 
     private var menuBarHeight: CGFloat {
         if let screen = NSScreen.main {
@@ -79,28 +86,24 @@ struct NotchRecorderView: View {
     }
 
     private var bottomSection: some View {
-        // TimelineView polls transcript at 10Hz and controls visibility
-        // Same pattern as AudioVisualizer - no forced re-renders
-        TimelineView(.animation(minimumInterval: 0.1)) { context in
-            let hasText = whisperState.recordingState == .recording && !whisperState.partialTranscript.isEmpty
+        let hasText = whisperState.recordingState == .recording && !transcriptState.text.isEmpty
 
-            VStack(spacing: 0) {
-                Divider()
-                    .background(Color.white.opacity(0.15))
+        return VStack(spacing: 0) {
+            Divider()
+                .background(Color.white.opacity(0.15))
 
-                Text(whisperState.partialTranscript)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.8))
-                    .lineLimit(1)
-                    .truncationMode(.head)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 5)
-            }
-            .opacity(hasText ? 1 : 0)
-            .frame(height: hasText ? nil : 0)
-            .clipped()
+            Text(transcriptState.text)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.white.opacity(0.8))
+                .lineLimit(1)
+                .truncationMode(.head)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 5)
         }
+        .opacity(hasText ? 1 : 0)
+        .frame(height: hasText ? nil : 0)
+        .clipped()
     }
 
     private var topCornerRadius: CGFloat {

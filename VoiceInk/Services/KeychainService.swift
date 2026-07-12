@@ -55,6 +55,24 @@ final class KeychainService {
         return String(data: data, encoding: .utf8)
     }
 
+    func readString(forKey key: String, syncable: Bool = true) -> KeychainReadResult {
+        let effectiveSyncable = resolvedSyncable(syncable)
+        var query = baseQuery(forKey: key, syncable: effectiveSyncable)
+        query[kSecReturnData as String] = kCFBooleanTrue
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+        if status == errSecItemNotFound { return .absent }
+        guard status == errSecSuccess,
+              let data = result as? Data,
+              let value = String(data: data, encoding: .utf8) else {
+            logger.error("Failed to retrieve keychain item for key: \(key, privacy: .public), status: \(status, privacy: .public)")
+            return .failed
+        }
+        return .present(value)
+    }
+
     /// Retrieves data from Keychain.
     func getData(forKey key: String, syncable: Bool = true) -> Data? {
         let effectiveSyncable = resolvedSyncable(syncable)

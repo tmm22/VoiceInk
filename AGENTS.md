@@ -237,6 +237,8 @@ VoiceInk/
 │   ├── AppSettings.swift             # Centralized settings wrapper
 │   └── AuthorizationHeader.swift     # Shared auth header struct
 ├── Services/                   # Business logic
+│   ├── BoundedAudioBufferDispatcher.swift # Fixed-capacity tap-buffer handoff
+│   ├── AudioFileCleanupWorker.swift        # Off-main-actor, root-confined cleanup
 │   ├── TranscriptionService.swift
 │   ├── AIEnhancementService.swift
 │   ├── AudioDeviceManager.swift
@@ -247,7 +249,7 @@ VoiceInk/
 │   └── CloudSyncService.swift  # iCloud Sync integration
 ├── Whisper/                    # Local Whisper integration (SOLID architecture)
 │   ├── WhisperState.swift      # Main coordinator (backward compatible)
-│   ├── ModelManager.swift      # Model coordination with Combine bindings
+│   ├── PartialTranscriptState.swift # Narrow observation for streaming UI
 │   ├── RecordingState.swift    # Recording state enum
 │   ├── LibWhisper.swift        # C bindings to whisper.cpp
 │   ├── WhisperState+*.swift    # Feature extensions (UI, Recording, Parakeet, etc.)
@@ -257,7 +259,6 @@ VoiceInk/
 │   │   ├── TranscriptionProcessorProtocol.swift
 │   │   └── UIManagerProtocol.swift
 │   ├── Providers/              # Model provider implementations
-│   │   ├── LocalModelProvider.swift      # Whisper.cpp models
 │   │   └── ParakeetModelProvider.swift   # Parakeet models
 │   ├── Managers/               # State and resource managers
 │   │   ├── RecordingSessionManager.swift
@@ -268,9 +269,7 @@ VoiceInk/
 │   │   ├── AudioPreprocessor.swift
 │   │   └── TranscriptionResultProcessor.swift
 │   ├── Actors/                 # Thread-safe actors
-│   │   └── WhisperContextManager.swift   # @globalActor for Whisper ops
-│   ├── Coordinators/           # Workflow coordination
-│   │   └── InferenceCoordinator.swift    # Priority queue with cancellation
+│   │   └── WhisperContextManager.swift   # Sole Whisper context owner
 │   └── Models/                 # Data models
 │       └── WhisperContextWrapper.swift
 ├── TTS/                        # Text-to-Speech workspace
@@ -306,21 +305,35 @@ VoiceInk/
 - ✅ Files MUST NOT exceed **1,000 lines** of code without explicit justification
 - ⛔ Never let a file grow beyond 2,000 lines - refactor immediately
 
-**Current inventory snapshot (2026-06-13):**
+**Current inventory snapshot (2026-07-12):**
 - `>=500` source files are currently concentrated in tests:
  - `VoiceInkTests/TTS/TTSServiceTests.swift` (~765)
  - `VoiceInkTests/TTS/TTSViewModelTests.swift` (~609)
  - `VoiceInkTests/Services/CloudTranscriptionServiceTests.swift` (~529)
  - `VoiceInkTests/Transcription/WhisperStateTests.swift` (~517)
-- `VoiceInk/` production sources are currently below 500, but eight files sit in the 450-499 watch band and should be split before new feature scope is added:
- - `Views/KeyboardShortcutsListView.swift` (~494; extract `ShortcutCard` + badge components)
+- `VoiceInk/` production sources are currently below 500, but seven files sit in the 450-499 watch band and should be split before new feature scope is added:
+ - `Views/KeyboardShortcutsListView.swift` (~496; extract `ShortcutCard` + badge components)
  - `VoiceInk.swift` (~488; extract ModelContainer helpers and `UpdaterViewModel`)
- - `Whisper/WhisperState.swift` (~482; extract recording lifecycle / transcription pipeline)
+ - `Whisper/WhisperState.swift` (~488; extract recording lifecycle / transcription pipeline)
  - `Views/History/TranscriptionHistoryView.swift` (~473; extract sidebars + pagination)
  - `Views/Metrics/PerformanceAnalysisView.swift` (~468; extract card subviews)
  - `TTS/Services/ElevenLabsTTSService.swift` (~468)
- - `Views/Onboarding/OnboardingPermissionsView.swift` (~462)
- - `Whisper/WhisperState+LocalModelManager.swift` (~450; move `WhisperModel` + `TaskDelegate` out)
+ - `Views/Onboarding/OnboardingPermissionsView.swift` (~481)
+
+### Resource-Bounded Runtime Architecture
+
+The 2026-07-12 resource audit established these production invariants:
+
+- `WhisperContextManager.shared` is the **only** owner of local Whisper contexts. Do not reintroduce a second context cache or speculative local-model preload.
+- Concurrent requests for the same Whisper model must share the identity-tracked load operation. Unload must invalidate only that generation; an old completion must never remove a newer load.
+- A context removed during inference is retired immediately but its resources are released only after its final active inference completes.
+- Audio tap buffers are borrowed memory. Copy them into `BoundedAudioBufferDispatcher` before asynchronous processing, keep the pool fixed-capacity, and surface overflow instead of allocating without limit.
+- Streaming startup audio must pass through `PendingAudioChunkBuffer`. Its byte/chunk budgets are hard bounds; overflow falls back to the complete on-disk recording.
+- Audio meters should publish at a bounded UI rate (currently 30 Hz). Do not create one `Task`, timer, or view timeline per audio callback.
+- `PartialTranscriptState` is the narrow streaming-transcript observation source. Avoid publishing high-frequency partial text through all of `WhisperState`.
+- File inspection/deletion belongs in `AudioFileCleanupWorker`, off the main actor. Deletes must remain confined to the resolved recordings root and must reject symlink escapes.
+- Large PCM inputs should be read incrementally. Do not restore whole-file `Data(contentsOf:)` reads in transcription paths.
+- Prefer notifications or state changes over recurring UI polling. Do not add permanent `TimelineView` or timer refresh loops for values that already emit changes.
 
 **Split trigger guidance:**
 - If a test file exceeds 500, split by provider/feature area when touching it next.
@@ -957,6 +970,10 @@ keychain.save(apiKey, forKey: keyIdentifier, syncable: false)
 - Keep exactly **one** `apiKey` computed property on `CustomCloudModel`.
 - Resolve keys through `APIKeyManager` for custom model IDs.
 - Do not introduce competing keychain key formats or duplicate computed properties.
+- Treat Keychain reads as three states: present, absent, and failed. A failed read must never be interpreted as an absent credential.
+- Codable decoding must be side-effect free. Legacy plaintext credentials may be held only as transient migration input; decoding must not write to Keychain.
+- Custom-model import/replacement is transactional: snapshot every affected credential, reject duplicate IDs before mutation, delete credentials for removed models, and roll back all touched entries on failure.
+- If rollback is incomplete, preserve enough model metadata to retry safely and report a partial failure; never silently discard the only reference to a credential.
 
 ```swift
 // ✅ Good: Single source of truth with optional fallback for legacy key naming
@@ -2045,6 +2062,13 @@ Task { @MainActor [weak self] in
 
 ## Version History
 
+- **v1.14** (2026-07-12) - Resource and Concurrency Audit Architecture
+ - Documented the single-owner, generation-safe Whisper context lifecycle and removal of duplicate model-management/inference layers
+ - Added bounded audio tap and streaming-startup buffer rules, including explicit overflow behavior
+ - Documented narrow partial-transcript observation, bounded meter publication, and notification-driven UI updates
+ - Added off-main-actor, recordings-root-confined cleanup and incremental PCM file-reading rules
+ - Expanded custom-model credential guidance with tri-state reads, side-effect-free decoding, transactional replacement, and rollback preservation
+ - Refreshed the production file-size watch list; all production Swift files remain below 500 lines
 - **v1.13** (2026-06-13) - Autonomous Review Pass Lessons
  - Refreshed the file-size inventory snapshot (eight production files now in the 450-499 watch band, with split recommendations)
  - Added rule: never log raw license/provider API response bodies; log status code + byte count only
@@ -2100,7 +2124,6 @@ To keep this guide maintainable and reduce drift:
 
 ---
 
-**Last Updated:** June 13, 2026
+**Last Updated:** July 12, 2026
 **Maintained By:** VoiceInk Community
 **License:** GPL v3 (same as project)
-

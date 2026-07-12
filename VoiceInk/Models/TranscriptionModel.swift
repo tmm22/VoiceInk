@@ -144,10 +144,7 @@ struct CustomCloudModel: TranscriptionModel, Codable {
         isMultilingualModel = try container.decode(Bool.self, forKey: .isMultilingualModel)
         supportedLanguages = try container.decode([String: String].self, forKey: .supportedLanguages)
 
-        if let legacyApiKey = try container.decodeIfPresent(String.self, forKey: .apiKey), !legacyApiKey.isEmpty {
-            APIKeyManager.shared.saveCustomModelAPIKey(legacyApiKey, forModelId: id)
-        }
-        transientApiKey = nil
+        transientApiKey = try container.decodeIfPresent(String.self, forKey: .apiKey)
     }
 
     func encode(to encoder: Encoder) throws {

@@ -10,6 +10,10 @@ class AudioCleanupManager {
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "AudioCleanupManager")
     private var cleanupTimer: Timer?
     private var modelContext: ModelContext?
+    private let fileWorker = AudioFileCleanupWorker()
+    private let recordingsDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("com.prakashjoshipax.VoiceInk")
+        .appendingPathComponent("Recordings")
     
     // Default cleanup settings
     private let defaultRetentionDays = 7
@@ -67,32 +71,21 @@ class AudioCleanupManager {
 
             let transcriptions = try modelContext.fetch(descriptor)
 
-            // Calculate stats (can be done on any thread)
-            var fileCount = 0
-            var totalSize: Int64 = 0
-            var eligibleTranscriptions: [Transcription] = []
-
-            for transcription in transcriptions {
-                if let urlString = transcription.audioFileURL,
-                   let url = URL(string: urlString),
-                   FileManager.default.fileExists(atPath: url.path) {
-                    do {
-                        // Get file attributes to determine size
-                        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
-                        if let fileSize = attributes[.size] as? Int64 {
-                            totalSize += fileSize
-                            fileCount += 1
-                            eligibleTranscriptions.append(transcription)
-                        }
-                    } catch {
-                        logger.error("Failed to get audio file attributes: \(AppLogger.errorMetadata(error), privacy: .public)")
-                    }
+            let candidates = makeCandidates(from: transcriptions)
+            let inspections = await fileWorker.inspect(candidates)
+            let presentByID = inspections.reduce(into: [UUID: Int64]()) { result, inspection in
+                if case .present(let size) = inspection.inspection {
+                    result[inspection.candidate.id] = size
                 }
             }
+            let totalSize = presentByID.values.reduce(0, +)
+            let eligibleTranscriptions = transcriptions.filter { presentByID[$0.id] != nil }
+            let fileCount = eligibleTranscriptions.count
 
             logger.info("Found \(fileCount) files eligible for cleanup, totaling \(self.formatFileSize(totalSize))")
             return (fileCount, totalSize, eligibleTranscriptions)
         } catch {
+            logger.error("Failed to fetch audio cleanup information: \(AppLogger.errorMetadata(error), privacy: .public)")
             return (0, 0, [])
         }
     }
@@ -136,35 +129,17 @@ class AudioCleanupManager {
             let transcriptions = try modelContext.fetch(descriptor)
             logger.info("Found \(transcriptions.count) transcriptions with audio files to clean up")
 
-            var deletedCount = 0
-            var errorCount = 0
+            let results = await fileWorker.delete(makeCandidates(from: transcriptions), allowedRoot: recordingsDirectory)
+            let counts = reconcile(results, with: transcriptions)
+            let deletedCount = counts.deletedCount
+            let errorCount = counts.errorCount
 
-            for transcription in transcriptions {
-                if let urlString = transcription.audioFileURL,
-                   let url = URL(string: urlString),
-                   FileManager.default.fileExists(atPath: url.path) {
-                    do {
-                        // Delete the audio file
-                        try FileManager.default.removeItem(at: url)
-
-                        // Update the transcription to remove the audio file reference
-                        transcription.audioFileURL = nil
-
-                        deletedCount += 1
-                        logger.debug("Deleted audio file during cleanup")
-                    } catch {
-                        errorCount += 1
-                        logger.error("Failed to delete audio file during cleanup: \(AppLogger.errorMetadata(error), privacy: .public)")
-                    }
-                }
-            }
-
-            if deletedCount > 0 || errorCount > 0 {
+            if counts.referencesChanged > 0 || errorCount > 0 {
                 try modelContext.save()
                 logger.info("Cleanup complete. Deleted \(deletedCount) files. Failed: \(errorCount)")
             }
         } catch {
-            // Silently fail - cleanup is non-critical
+            logger.error("Automatic audio cleanup failed: \(AppLogger.errorMetadata(error), privacy: .public)")
         }
     }
     
@@ -178,30 +153,12 @@ class AudioCleanupManager {
     func runCleanupForTranscriptions(modelContext: ModelContext, transcriptions: [Transcription]) async -> (deletedCount: Int, errorCount: Int) {
         logger.info("Running cleanup for \(transcriptions.count) specific transcriptions")
         
-        var deletedCount = 0
-        var errorCount = 0
+        let results = await fileWorker.delete(makeCandidates(from: transcriptions), allowedRoot: recordingsDirectory)
+        let counts = reconcile(results, with: transcriptions)
+        let deletedCount = counts.deletedCount
+        let errorCount = counts.errorCount
 
-        for transcription in transcriptions {
-            if let urlString = transcription.audioFileURL,
-               let url = URL(string: urlString),
-               FileManager.default.fileExists(atPath: url.path) {
-                do {
-                    // Delete the audio file
-                    try FileManager.default.removeItem(at: url)
-
-                    // Update the transcription to remove the audio file reference
-                    transcription.audioFileURL = nil
-
-                    deletedCount += 1
-                    logger.debug("Deleted audio file during targeted cleanup")
-                } catch {
-                    errorCount += 1
-                    logger.error("Failed to delete audio file during targeted cleanup: \(AppLogger.errorMetadata(error), privacy: .public)")
-                }
-            }
-        }
-
-        if deletedCount > 0 || errorCount > 0 {
+        if counts.referencesChanged > 0 || errorCount > 0 {
             do {
                 try modelContext.save()
                 logger.info("Cleanup complete. Deleted \(deletedCount) files. Failed: \(errorCount)")
@@ -211,6 +168,49 @@ class AudioCleanupManager {
         }
 
         return (deletedCount, errorCount)
+    }
+
+    private func makeCandidates(from transcriptions: [Transcription]) -> [AudioFileCandidate] {
+        transcriptions.compactMap { transcription in
+            guard let urlString = transcription.audioFileURL,
+                  let url = URL(string: urlString) else { return nil }
+            return AudioFileCandidate(id: transcription.id, url: url)
+        }
+    }
+
+    private func reconcile(
+        _ results: [AudioFileDeletionResult],
+        with transcriptions: [Transcription]
+    ) -> (deletedCount: Int, errorCount: Int, referencesChanged: Int) {
+        var transcriptionsByID: [UUID: Transcription] = [:]
+        for transcription in transcriptions where transcriptionsByID[transcription.id] == nil {
+            transcriptionsByID[transcription.id] = transcription
+        }
+        var deletedCount = 0
+        var errorCount = 0
+        var referencesChanged = 0
+
+        for result in results {
+            switch result.deletion {
+            case .deleted:
+                let transcription = transcriptionsByID[result.candidate.id]
+                if transcription?.audioFileURL == result.candidate.url.absoluteString {
+                    transcription?.audioFileURL = nil
+                    deletedCount += 1
+                    referencesChanged += 1
+                }
+            case .missing:
+                let transcription = transcriptionsByID[result.candidate.id]
+                if transcription?.audioFileURL == result.candidate.url.absoluteString {
+                    transcription?.audioFileURL = nil
+                    referencesChanged += 1
+                }
+            case .failed(let message):
+                errorCount += 1
+                logger.error("Failed to delete audio file during cleanup: \(message, privacy: .private)")
+            }
+        }
+        return (deletedCount, errorCount, referencesChanged)
     }
     
     /// Format file size in human-readable form

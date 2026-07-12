@@ -146,8 +146,8 @@ extension WhisperState {
         // Always reload the prompt from UserDefaults to ensure we have the latest
         let currentPrompt = UserDefaults.standard.string(forKey: "TranscriptionPrompt") ?? whisperPrompt.transcriptionPrompt
 
-        if let context = whisperContext {
-            await context.setPrompt(currentPrompt)
+        if let modelName = loadedLocalModel?.name {
+            await WhisperContextManager.shared.updatePrompt(currentPrompt, for: modelName)
         }
     }
 }

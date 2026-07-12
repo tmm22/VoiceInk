@@ -18,6 +18,10 @@ private final class MockKeychain: KeychainStoring {
         storage[key]
     }
 
+    func readString(forKey key: String) -> KeychainReadResult {
+        storage[key].map(KeychainReadResult.present) ?? .absent
+    }
+
     @discardableResult
     func delete(forKey key: String) -> Bool {
         storage.removeValue(forKey: key)

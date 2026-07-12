@@ -18,10 +18,8 @@ class WhisperState: NSObject, ObservableObject {
     @Published var clipboardMessage = ""
     @Published var miniRecorderError: String?
     @Published var shouldCancelRecording = false
-    var partialTranscript: String = ""
+    let partialTranscriptState = PartialTranscriptState()
     var currentSession: TranscriptionSession?
-
-
     @Published var recorderType: String = UserDefaults.standard.string(forKey: "RecorderType") ?? "mini" {
         didSet {
             if isMiniRecorderVisible {
@@ -55,7 +53,6 @@ class WhisperState: NSObject, ObservableObject {
         }
     }
 
-    var whisperContext: WhisperContext?
     let recorder = Recorder()
     var recordedFile: URL? = nil
     let whisperPrompt = WhisperPrompt()
@@ -65,8 +62,10 @@ class WhisperState: NSObject, ObservableObject {
 
     let modelContext: ModelContext
 
-    internal var serviceRegistry: TranscriptionServiceRegistry!
-
+    internal lazy var serviceRegistry = TranscriptionServiceRegistry(
+        whisperState: self,
+        modelsDirectory: modelsDirectory
+    )
     private var modelUrl: URL? {
         let possibleURLs = [
             Bundle.main.url(forResource: "ggml-base.en", withExtension: "bin", subdirectory: "Models"),
@@ -103,7 +102,7 @@ class WhisperState: NSObject, ObservableObject {
     @Published var senseVoiceDownloadProgress: [String: Double] = [:]
 
     // Transcription services
-    var localTranscriptionService: LocalTranscriptionService? { serviceRegistry?.localTranscriptionService }
+    var localTranscriptionService: LocalTranscriptionService { serviceRegistry.localTranscriptionService }
     var cloudTranscriptionService: CloudTranscriptionService { serviceRegistry.cloudTranscriptionService }
     var nativeAppleTranscriptionService: NativeAppleTranscriptionService { serviceRegistry.nativeAppleTranscriptionService }
     var parakeetTranscriptionService: ParakeetTranscriptionService { serviceRegistry.parakeetTranscriptionService }
@@ -129,9 +128,6 @@ class WhisperState: NSObject, ObservableObject {
         if let enhancementService = enhancementService {
             PowerModeSessionManager.shared.configure(whisperState: self, enhancementService: enhancementService)
         }
-
-        // Initialize the transcription service registry
-        self.serviceRegistry = TranscriptionServiceRegistry(whisperState: self, modelsDirectory: self.modelsDirectory)
 
         setupNotifications()
         createModelsDirectoryIfNeeded()
@@ -212,10 +208,16 @@ class WhisperState: NSObject, ObservableObject {
                             let permanentURL = self.recordingsDirectory.appendingPathComponent(fileName)
                             self.recordedFile = permanentURL
 
-                            // Buffer chunks from the start; session created after Power Mode resolves
-                            let pendingChunks = OSAllocatedUnfairLock(initialState: [Data]())
+                            let pendingChunks = PendingAudioChunkBuffer()
+                            var didInstallSessionCallback = false
+                            defer {
+                                if !didInstallSessionCallback {
+                                    self.recorder.onAudioChunk = nil
+                                    pendingChunks.removeAll()
+                                }
+                            }
                             self.recorder.onAudioChunk = { data in
-                                pendingChunks.withLock { $0.append(data) }
+                                pendingChunks.append(data)
                             }
 
                             // Start recording immediately — no waiting for network
@@ -238,36 +240,30 @@ class WhisperState: NSObject, ObservableObject {
                                 let realCallback = try await session.prepare(model: model)
 
                                 if let realCallback = realCallback {
+                                    let droppedChunkCount = pendingChunks.handoff(to: realCallback)
+                                    guard droppedChunkCount == 0 else {
+                                        self.logger.warning(
+                                            "Streaming startup exceeded its audio buffer; using the complete on-disk recording instead"
+                                        )
+                                        session.cancel()
+                                        self.recorder.onAudioChunk = nil
+                                        return
+                                    }
                                     // Swap callback first so new chunks go straight to the session
                                     self.recorder.onAudioChunk = realCallback
-                                    // Then flush anything that was buffered before the swap
-                                    let buffered = pendingChunks.withLock { chunks -> [Data] in
-                                        let result = chunks
-                                        chunks.removeAll()
-                                        return result
-                                    }
-                                    for chunk in buffered { realCallback(chunk) }
+                                    didInstallSessionCallback = true
                                 } else {
                                     self.recorder.onAudioChunk = nil
-                                    pendingChunks.withLock { $0.removeAll() }
+                                    pendingChunks.removeAll()
                                 }
                             }
 
-                            // Load model and capture context in background without blocking
+                            // Capture enhancement context without blocking recording startup.
+                            // Local models are loaded once, on demand, by the transcription service.
                             Task.detached { [weak self] in
                                 guard let self = self else { return }
 
-                                // Only load model if it's a local model and not already loaded
-                                if let model = await self.currentTranscriptionModel, model.provider == .local {
-                                    if let localWhisperModel = await self.availableModels.first(where: { $0.name == model.name }),
-                                       await self.whisperContext == nil {
-                                        do {
-                                            try await self.loadModel(localWhisperModel)
-                                        } catch {
-                                            self.logger.error("❌ Model loading failed: \(AppLogger.errorMetadata(error), privacy: .public)")
-                                        }
-                                    }
-                                } else if let parakeetModel = await self.currentTranscriptionModel as? ParakeetModel {
+                                if let parakeetModel = await self.currentTranscriptionModel as? ParakeetModel {
                                     try? await self.serviceRegistry.parakeetTranscriptionService.loadModel(for: parakeetModel)
                                 }
 
@@ -441,9 +437,9 @@ class WhisperState: NSObject, ObservableObject {
             transcription.transcriptionStatus = TranscriptionStatus.failed.rawValue
         }
 
-        try? modelContext.save()
+        let didPersist = persistTranscription(transcription)
 
-        if transcription.transcriptionStatus == TranscriptionStatus.completed.rawValue {
+        if didPersist, transcription.transcriptionStatus == TranscriptionStatus.completed.rawValue {
             NotificationCenter.default.post(name: .transcriptionCompleted, object: transcription)
         }
 

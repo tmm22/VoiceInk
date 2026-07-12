@@ -16,6 +16,7 @@ enum StreamingTranscriptionError: LocalizedError {
     case serverError(String)
     case notConnected
     case audioConversionFailed
+    case audioBufferOverflow
 
     var errorDescription: String? {
         switch self {
@@ -31,6 +32,8 @@ enum StreamingTranscriptionError: LocalizedError {
             return "Not connected to streaming transcription service"
         case .audioConversionFailed:
             return "Failed to convert audio for streaming transcription"
+        case .audioBufferOverflow:
+            return "Streaming provider could not keep up with recorded audio"
         }
     }
 }

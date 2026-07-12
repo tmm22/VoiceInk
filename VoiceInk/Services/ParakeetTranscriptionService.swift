@@ -84,12 +84,13 @@ class ParakeetTranscriptionService: TranscriptionService {
             throw ASRError.notInitialized
         }
 
-        let audioSamples = try readAudioSamples(from: audioURL)
+        var speechAudio = try await Task.detached(priority: .userInitiated) {
+            try Self.readAudioSamples(from: audioURL)
+        }.value
 
-        let durationSeconds = Double(audioSamples.count) / 16000.0
+        let durationSeconds = Double(speechAudio.count) / 16000.0
         let isVADEnabled = UserDefaults.standard.bool(forKey: "IsVADEnabled")
 
-        var speechAudio = audioSamples
         if durationSeconds >= 20.0, isVADEnabled {
             let vadConfig = VadConfig(defaultThreshold: 0.7)
             if vadManager == nil {
@@ -103,11 +104,18 @@ class ParakeetTranscriptionService: TranscriptionService {
 
             if let vadManager {
                 do {
-                    let segments = try await vadManager.segmentSpeechAudio(audioSamples)
-                    speechAudio = segments.isEmpty ? audioSamples : segments.flatMap { $0 }
+                    let segments = try await vadManager.segmentSpeechAudio(speechAudio)
+                    if !segments.isEmpty {
+                        let sampleCount = segments.reduce(into: 0) { $0 += $1.count }
+                        var segmentedAudio: [Float] = []
+                        segmentedAudio.reserveCapacity(sampleCount)
+                        for segment in segments {
+                            segmentedAudio.append(contentsOf: segment)
+                        }
+                        speechAudio = segmentedAudio
+                    }
                 } catch {
                     logger.notice("VAD segmentation failed; using full audio: \(AppLogger.errorMetadata(error), privacy: .public)")
-                    speechAudio = audioSamples
                 }
             }
         }
@@ -116,7 +124,8 @@ class ParakeetTranscriptionService: TranscriptionService {
         let trailingSilenceSamples = 16_000
         let maxSingleChunkSamples = 240_000
         if speechAudio.count + trailingSilenceSamples <= maxSingleChunkSamples {
-            speechAudio += [Float](repeating: 0, count: trailingSilenceSamples)
+            speechAudio.reserveCapacity(speechAudio.count + trailingSilenceSamples)
+            speechAudio.append(contentsOf: repeatElement(0, count: trailingSilenceSamples))
         }
 
         var decoderState = TdtDecoderState.make(
@@ -130,25 +139,31 @@ class ParakeetTranscriptionService: TranscriptionService {
         return result.text
     }
 
-    private func readAudioSamples(from url: URL) throws -> [Float] {
+    private static func readAudioSamples(from url: URL) throws -> [Float] {
         do {
-            let data = try Data(contentsOf: url, options: .mappedIfSafe)
-            guard data.count > 44 else {
-                throw ASRError.invalidAudioData
+            let handle = try FileHandle(forReadingFrom: url)
+            defer {
+                // Best-effort close; the descriptor is also closed on deallocation.
+                try? handle.close()
             }
 
-            let sampleBytes = data.dropFirst(44)
-            let sampleCount = sampleBytes.count / 2
+            let fileSize = try handle.seekToEnd()
+            guard fileSize > 44 else {
+                throw ASRError.invalidAudioData
+            }
+            try handle.seek(toOffset: 44)
+
             var floats: [Float] = []
-            floats.reserveCapacity(sampleCount)
+            floats.reserveCapacity(Int((fileSize - 44) / 2))
 
-            sampleBytes.withUnsafeBytes { rawBuffer in
-                guard let bytes = rawBuffer.bindMemory(to: UInt8.self).baseAddress else { return }
-
-                for offset in stride(from: 0, to: sampleCount * 2, by: 2) {
-                    let sample = UInt16(bytes[offset]) | (UInt16(bytes[offset + 1]) << 8)
-                    let short = Int16(bitPattern: sample)
-                    floats.append(max(-1.0, min(Float(short) / 32767.0, 1.0)))
+            while let data = try handle.read(upToCount: 64 * 1_024), !data.isEmpty {
+                data.withUnsafeBytes { rawBuffer in
+                    let bytes = rawBuffer.bindMemory(to: UInt8.self)
+                    for offset in stride(from: 0, to: bytes.count - 1, by: 2) {
+                        let sample = UInt16(bytes[offset]) | (UInt16(bytes[offset + 1]) << 8)
+                        let short = Int16(bitPattern: sample)
+                        floats.append(max(-1.0, min(Float(short) / 32767.0, 1.0)))
+                    }
                 }
             }
 

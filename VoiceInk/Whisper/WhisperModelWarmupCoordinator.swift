@@ -39,41 +39,11 @@ final class WhisperModelWarmupCoordinator: ObservableObject {
         }
     }
 
-    /// Schedule warmup using LocalModelProvider (new interface)
-    func scheduleWarmup(for model: LocalModel, localProvider: LocalModelProvider) {
-        guard shouldWarmup(modelName: model.name),
-              !warmingModels.contains(model.name) else {
-            return
-        }
-
-        warmingModels.insert(model.name)
-
-        Task { [weak self] in
-            guard let self else { return }
-            do {
-                try await self.runWarmup(for: model, localProvider: localProvider)
-            } catch {
-                logger.error("Warmup failed for \(model.name): \(AppLogger.errorMetadata(error), privacy: .public)")
-            }
-
-            self.warmingModels.remove(model.name)
-        }
-    }
-
     private func runWarmup(for model: LocalModel, whisperState: WhisperState) async throws {
         guard let sampleURL = warmupSampleURL() else { return }
         let service = LocalTranscriptionService(
             modelsDirectory: whisperState.modelsDirectory,
             whisperState: whisperState
-        )
-        _ = try await service.transcribe(audioURL: sampleURL, model: model)
-    }
-
-    private func runWarmup(for model: LocalModel, localProvider: LocalModelProvider) async throws {
-        guard let sampleURL = warmupSampleURL() else { return }
-        let service = LocalTranscriptionService(
-            modelsDirectory: localProvider.modelsDirectory,
-            localProvider: localProvider
         )
         _ = try await service.transcribe(audioURL: sampleURL, model: model)
     }

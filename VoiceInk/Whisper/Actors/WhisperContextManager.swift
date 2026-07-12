@@ -9,10 +9,24 @@ import whisper
 /// Global actor for Whisper context management operations
 @globalActor
 actor WhisperContextManager {
+    private final class ContextLoad: @unchecked Sendable {
+        let task: Task<WhisperContext, Error>
+        var isInvalidated = false
+        var didReleaseResult = false
+
+        init(modelURL: URL) {
+            task = Task {
+                try await WhisperContext.createContext(path: modelURL.path)
+            }
+        }
+    }
+
     static let shared = WhisperContextManager()
 
     private var contexts: [String: WhisperContext] = [:]
-    private var loadingContexts: Set<String> = []
+    private var contextLoads: [String: ContextLoad] = [:]
+    private var activeInferenceCounts: [String: Int] = [:]
+    private var retiringContexts: [String: [WhisperContext]] = [:]
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "WhisperContextManager")
 
     private init() {}
@@ -25,22 +39,38 @@ actor WhisperContextManager {
             return existingContext
         }
 
-        // Check if currently loading
-        guard !loadingContexts.contains(modelName) else {
-            logger.warning("Context for model \(modelName) is already being loaded")
-            throw WhisperContextError.contextLoadingInProgress
+        let operation: ContextLoad
+        if let existingOperation = contextLoads[modelName] {
+            operation = existingOperation
+        } else {
+            operation = ContextLoad(modelURL: modelURL)
+            contextLoads[modelName] = operation
         }
-
-        // Mark as loading
-        loadingContexts.insert(modelName)
 
         do {
             logger.info("Loading Whisper context for model: \(modelName)")
-            let context = try await WhisperContext.createContext(path: modelURL.path)
+            let context = try await operation.task.value
+
+            if let existingContext = contexts[modelName], existingContext === context {
+                return existingContext
+            }
+
+            guard contextLoads[modelName] === operation, !operation.isInvalidated else {
+                if !operation.didReleaseResult {
+                    operation.didReleaseResult = true
+                    await context.releaseResources()
+                }
+                throw CancellationError()
+            }
+
             contexts[modelName] = context
+            contextLoads.removeValue(forKey: modelName)
             logger.info("Successfully loaded context for model: \(modelName)")
             return context
         } catch {
+            if contextLoads[modelName] === operation {
+                contextLoads.removeValue(forKey: modelName)
+            }
             logger.error("Failed to load context for model \(modelName): \(AppLogger.errorMetadata(error), privacy: .public)")
             throw error
         }
@@ -48,11 +78,11 @@ actor WhisperContextManager {
 
     /// Unload a Whisper context
     func unloadContext(for modelName: String) async {
-        if let context = contexts.removeValue(forKey: modelName) {
-            logger.info("Unloading context for model: \(modelName)")
-            await context.releaseResources()
+        if let operation = contextLoads.removeValue(forKey: modelName) {
+            operation.isInvalidated = true
+            operation.task.cancel()
         }
-        loadingContexts.remove(modelName)
+        await retireContext(for: modelName)
     }
 
     /// Perform inference with the specified model
@@ -63,25 +93,27 @@ actor WhisperContextManager {
         }
 
         logger.info("Starting inference for model: \(modelName)")
+        activeInferenceCounts[modelName, default: 0] += 1
 
-        // Read audio samples
-        let samples = try readAudioSamples(audioURL)
+        do {
+            let samples = try readAudioSamples(audioURL)
+            let currentPrompt = AppSettings.TranscriptionSettings.prompt ?? ""
+            await context.setPrompt(currentPrompt)
+            let success = await context.fullTranscribe(samples: samples)
 
-        // Set prompt if configured
-        let currentPrompt = AppSettings.TranscriptionSettings.prompt ?? ""
-        await context.setPrompt(currentPrompt)
+            guard success else {
+                throw WhisperContextError.transcriptionFailed
+            }
 
-        // Perform transcription
-        let success = await context.fullTranscribe(samples: samples)
-
-        guard success else {
+            let transcription = await context.getTranscription()
+            await finishInference(for: modelName)
+            logger.info("Inference completed for model: \(modelName)")
+            return transcription
+        } catch {
+            await finishInference(for: modelName)
             logger.error("Whisper transcription failed for model: \(modelName)")
-            throw WhisperContextError.transcriptionFailed
+            throw error
         }
-
-        let transcription = await context.getTranscription()
-        logger.info("Inference completed for model: \(modelName)")
-        return transcription
     }
 
     /// Get available contexts
@@ -94,15 +126,45 @@ actor WhisperContextManager {
         contexts[modelName] != nil
     }
 
+    func updatePrompt(_ prompt: String, for modelName: String) async {
+        await contexts[modelName]?.setPrompt(prompt)
+    }
+
     /// Unload all contexts
     func unloadAllContexts() async {
         logger.info("Unloading all Whisper contexts")
-        for (modelName, context) in contexts {
+        let loading = contextLoads.values
+        contextLoads.removeAll()
+        loading.forEach {
+            $0.isInvalidated = true
+            $0.task.cancel()
+        }
+        for modelName in Array(contexts.keys) {
+            await retireContext(for: modelName)
+        }
+    }
+
+    private func retireContext(for modelName: String) async {
+        guard let context = contexts.removeValue(forKey: modelName) else { return }
+        if activeInferenceCounts[modelName, default: 0] > 0 {
+            retiringContexts[modelName, default: []].append(context)
+        } else {
             await context.releaseResources()
             logger.info("Unloaded context for model: \(modelName)")
         }
-        contexts.removeAll()
-        loadingContexts.removeAll()
+    }
+
+    private func finishInference(for modelName: String) async {
+        let remaining = max(0, activeInferenceCounts[modelName, default: 1] - 1)
+        if remaining == 0 {
+            activeInferenceCounts.removeValue(forKey: modelName)
+            for context in retiringContexts.removeValue(forKey: modelName) ?? [] {
+                await context.releaseResources()
+                logger.info("Unloaded retired context for model: \(modelName)")
+            }
+        } else {
+            activeInferenceCounts[modelName] = remaining
+        }
     }
 
     private func readAudioSamples(_ url: URL) throws -> [Float] {
@@ -113,15 +175,12 @@ actor WhisperContextManager {
 // MARK: - Error Types
 enum WhisperContextError: LocalizedError {
     case contextNotLoaded
-    case contextLoadingInProgress
     case transcriptionFailed
 
     var errorDescription: String? {
         switch self {
         case .contextNotLoaded:
             return "Whisper context is not loaded"
-        case .contextLoadingInProgress:
-            return "Whisper context is currently being loaded"
         case .transcriptionFailed:
             return "Whisper transcription failed"
         }

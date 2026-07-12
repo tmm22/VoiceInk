@@ -4,11 +4,16 @@ import os
 
 /// Sendable source that bridges audio chunks from any thread into an AsyncStream.
 private final class AudioChunkSource: @unchecked Sendable {
+    private static let maximumBufferedChunks = 512
     let stream: AsyncStream<Data>
     private let continuation: AsyncStream<Data>.Continuation
+    private let droppedChunkCount = OSAllocatedUnfairLock(initialState: 0)
 
     init() {
-        let (stream, continuation) = AsyncStream.makeStream(of: Data.self, bufferingPolicy: .unbounded)
+        let (stream, continuation) = AsyncStream.makeStream(
+            of: Data.self,
+            bufferingPolicy: .bufferingNewest(Self.maximumBufferedChunks)
+        )
         self.stream = stream
         self.continuation = continuation
     }
@@ -18,7 +23,16 @@ private final class AudioChunkSource: @unchecked Sendable {
     }
 
     func send(_ data: Data) {
-        continuation.yield(data)
+        if case .dropped = continuation.yield(data) {
+            droppedChunkCount.withLock { $0 += 1 }
+        }
+    }
+
+    func takeDroppedChunkCount() -> Int {
+        droppedChunkCount.withLock { count in
+            defer { count = 0 }
+            return count
+        }
     }
 
     func finish() {
@@ -112,7 +126,7 @@ class StreamingTranscriptionService {
         state = .committing
 
         // Finish the chunk source so the send loop drains remaining chunks and exits naturally.
-        await drainRemainingChunks()
+        try await drainRemainingChunks()
 
         // Set up the commit signal BEFORE sending commit to avoid a race with the response.
         let (signalStream, signalContinuation) = AsyncStream.makeStream(of: Void.self)
@@ -201,10 +215,15 @@ class StreamingTranscriptionService {
     }
 
     /// Finishes the chunk source and waits for the send loop to process all remaining buffered chunks.
-    private func drainRemainingChunks() async {
+    private func drainRemainingChunks() async throws {
         chunkSource.finish()
         await sendTask?.value
         sendTask = nil
+        let droppedChunkCount = chunkSource.takeDroppedChunkCount()
+        if droppedChunkCount > 0 {
+            logger.warning("Dropped \(droppedChunkCount, privacy: .public) buffered audio chunks because the streaming provider could not keep up")
+            throw StreamingTranscriptionError.audioBufferOverflow
+        }
     }
 
     /// Consumes transcription events throughout the session, accumulating committed segments.

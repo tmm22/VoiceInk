@@ -182,8 +182,16 @@ class ImportExportService {
                     // Import Custom Models
                     if let modelsToImport = importedSettings.customCloudModels {
                         let customModelManager = CustomModelManager.shared
-                        customModelManager.customModels = modelsToImport
-                        customModelManager.saveCustomModels() // Ensure they are persisted
+                        switch customModelManager.replaceCustomModels(modelsToImport) {
+                        case .success:
+                            break
+                        case .failed:
+                            self.showAlert(title: "Import Error", message: "Custom model credentials could not be stored securely. No custom models were imported.")
+                            return
+                        case .partialFailure:
+                            self.showAlert(title: "Import Error", message: "Credential rollback was incomplete. Model metadata was retained so the operation can be retried safely.")
+                            return
+                        }
                         whisperState.refreshAllAvailableModels() // Refresh the UI
                         self.logger.info("Successfully imported \(modelsToImport.count) custom models.")
                     } else {

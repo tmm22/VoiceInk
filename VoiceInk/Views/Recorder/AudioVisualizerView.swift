@@ -11,46 +11,36 @@ struct AudioVisualizer: View {
     private let minHeight: CGFloat = 4
     private let maxHeight: CGFloat = 28
 
-    private let phases: [Double]
-
     init(audioMeter: AudioMeter, color: Color, isActive: Bool) {
         self.audioMeter = audioMeter
         self.color = color
         self.isActive = isActive
-
-        // Create smooth wave phases
-        self.phases = (0..<barCount).map { Double($0) * 0.4 }
     }
 
     var body: some View {
-        // TimelineView with 60Hz updates (native approach recommended by Apple WWDC 2021+)
-        TimelineView(.animation(minimumInterval: 0.016)) { context in
-            HStack(spacing: barSpacing) {
-                ForEach(0..<barCount, id: \.self) { index in
-                    RoundedRectangle(cornerRadius: barWidth / 2)
-                        .fill(color.opacity(0.85))
-                        .frame(width: barWidth, height: calculateHeight(for: index, at: context.date))
-                }
+        HStack(spacing: barSpacing) {
+            ForEach(0..<barCount, id: \.self) { index in
+                RoundedRectangle(cornerRadius: barWidth / 2)
+                    .fill(color.opacity(0.85))
+                    .frame(width: barWidth, height: calculateHeight(for: index))
             }
         }
     }
 
-    private func calculateHeight(for index: Int, at date: Date) -> CGFloat {
+    private func calculateHeight(for index: Int) -> CGFloat {
         guard isActive else { return minHeight }
 
-        let time = date.timeIntervalSince1970
         let level = audioMeter.averagePower
         let amplitude = max(0, min(1, level))
 
         // Boost lower levels for better visibility
         let boosted = pow(amplitude, 0.7)
 
-        // Wave calculation
-        let wave = sin(time * 8 + phases[index]) * 0.5 + 0.5
         let centerDistance = abs(Double(index) - Double(barCount) / 2) / Double(barCount / 2)
         let centerBoost = 1.0 - (centerDistance * 0.4)
+        let alternatingScale = index.isMultiple(of: 2) ? 1.0 : 0.72
 
-        let height = minHeight + CGFloat(boosted * wave * centerBoost) * (maxHeight - minHeight)
+        let height = minHeight + CGFloat(boosted * centerBoost * alternatingScale) * (maxHeight - minHeight)
         return max(minHeight, height)
     }
 }

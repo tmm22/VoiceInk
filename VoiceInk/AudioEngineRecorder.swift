@@ -16,6 +16,8 @@ class AudioEngineRecorder: ObservableObject {
 
     private var isRecording = false
     private var recordingURL: URL?
+    private var isTapInstalled = false
+    private var recordingGeneration: UUID?
 
     @Published var currentAveragePower: Float = 0.0
     @Published var currentPeakPower: Float = 0.0
@@ -23,8 +25,10 @@ class AudioEngineRecorder: ObservableObject {
     private let tapBufferSize: AVAudioFrameCount = 4096
     private let tapBusNumber: AVAudioNodeBus = 0
 
-    private let audioProcessingQueue = DispatchQueue(label: "com.tmm22.voicelinkcommunity.audioProcessing", qos: .userInitiated)
+    private var bufferDispatcher: BoundedAudioBufferDispatcher?
     private let fileWriteLock = NSLock()
+    private var meterTimer: Timer?
+    private let meterState = OSAllocatedUnfairLock(initialState: (average: Float(0), peak: Float(0), isDirty: false))
 
     // Callback to notify parent class of runtime recording errors
     var onRecordingError: ((Error) -> Void)?
@@ -43,15 +47,17 @@ class AudioEngineRecorder: ObservableObject {
     }
 
     @objc private func handleConfigurationChange(notification: Notification) {
+        let generation = recordingGeneration
         Task { @MainActor in
-            guard isRecording else { return }
+            guard isRecording, recordingGeneration == generation else { return }
             logger.info("⚠️ AVAudioEngine configuration change detected (e.g. sample rate change). Restarting engine...")
             do {
                 try restartRecordingPreservingFile()
             } catch {
                 logger.error("Failed to recover from configuration change: \(AppLogger.errorMetadata(error), privacy: .public)")
-                onRecordingError?(error)
+                let errorHandler = onRecordingError
                 stopRecording()
+                errorHandler?(error)
             }
         }
     }
@@ -84,6 +90,7 @@ class AudioEngineRecorder: ObservableObject {
         }
 
         recordingURL = url
+        recordingGeneration = UUID()
 
         let createdAudioFile: AVAudioFile
         do {
@@ -99,11 +106,13 @@ class AudioEngineRecorder: ObservableObject {
             )
         } catch {
             logger.error("Failed to create audio file: \(AppLogger.errorMetadata(error), privacy: .public)")
+            stopRecording()
             throw AudioEngineRecorderError.failedToCreateFile(error)
         }
 
         guard let audioConverter = AVAudioConverter(from: inputFormat, to: desiredFormat) else {
             logger.error("Failed to create audio format converter")
+            stopRecording()
             throw AudioEngineRecorderError.failedToCreateConverter
         }
 
@@ -114,40 +123,45 @@ class AudioEngineRecorder: ObservableObject {
         converter = audioConverter
         fileWriteLock.unlock()
 
-        input.installTap(onBus: tapBusNumber, bufferSize: tapBufferSize, format: inputFormat) { [weak self] (buffer, time) in
-            guard let self = self else { return }
-
-            self.audioProcessingQueue.async {
-                self.processAudioBuffer(buffer)
-            }
+        guard let dispatcher = makeBufferDispatcher(inputFormat: inputFormat) else {
+            stopRecording()
+            throw AudioEngineRecorderError.bufferConversionFailed
         }
+        bufferDispatcher = dispatcher
+        input.installTap(onBus: tapBusNumber, bufferSize: tapBufferSize, format: inputFormat) { [weak dispatcher] buffer, _ in
+            dispatcher?.submit(buffer)
+        }
+        isTapInstalled = true
 
         engine.prepare()
 
         do {
             try engine.start()
             isRecording = true
+            startMeterUpdates()
             logger.info("✅ Audio engine started successfully")
         } catch {
             logger.error("Failed to start audio engine: \(AppLogger.errorMetadata(error), privacy: .public)")
             input.removeTap(onBus: tapBusNumber)
+            isTapInstalled = false
+            bufferDispatcher?.stopAndDrain()
+            bufferDispatcher = nil
+            stopRecording()
             throw AudioEngineRecorderError.failedToStartEngine(error)
         }
     }
 
     func stopRecording() {
-        guard isRecording else {
-            return
-        }
-
-        if let input = inputNode {
+        if isTapInstalled, let input = inputNode {
             input.removeTap(onBus: tapBusNumber)
+            isTapInstalled = false
         }
 
         audioEngine?.stop()
 
-        // Wait for pending buffers to finish processing before clearing resources
-        audioProcessingQueue.sync { }
+        bufferDispatcher?.stopAndDrain()
+        bufferDispatcher = nil
+        stopMeterUpdates()
 
         fileWriteLock.lock()
         audioFile = nil
@@ -158,22 +172,26 @@ class AudioEngineRecorder: ObservableObject {
         audioEngine = nil
         inputNode = nil
         recordingURL = nil
+        recordingGeneration = nil
         isRecording = false
 
         currentAveragePower = 0.0
         currentPeakPower = 0.0
+        meterState.withLock { $0 = (0, 0, false) }
 
         logger.info("✅ Recording stopped and cleaned up")
     }
 
     private func restartRecordingPreservingFile() throws {
-        if let input = inputNode {
+        if isTapInstalled, let input = inputNode {
             input.removeTap(onBus: tapBusNumber)
+            isTapInstalled = false
         }
         audioEngine?.stop()
 
-        // Drain queue to prevent old-format buffers racing with new converter
-        audioProcessingQueue.sync { }
+        bufferDispatcher?.stopAndDrain()
+        bufferDispatcher = nil
+        recordingGeneration = UUID()
 
         let engine = AVAudioEngine()
         audioEngine = engine
@@ -200,46 +218,48 @@ class AudioEngineRecorder: ObservableObject {
         converter = newConverter
         fileWriteLock.unlock()
 
-        input.installTap(onBus: tapBusNumber, bufferSize: tapBufferSize, format: inputFormat) { [weak self] (buffer, time) in
-            guard let self = self else { return }
-            self.audioProcessingQueue.async {
-                self.processAudioBuffer(buffer)
-            }
+        guard let dispatcher = makeBufferDispatcher(inputFormat: inputFormat) else {
+            throw AudioEngineRecorderError.bufferConversionFailed
         }
+        bufferDispatcher = dispatcher
+        input.installTap(onBus: tapBusNumber, bufferSize: tapBufferSize, format: inputFormat) { [weak dispatcher] buffer, _ in
+            dispatcher?.submit(buffer)
+        }
+        isTapInstalled = true
 
         engine.prepare()
         try engine.start()
         logger.info("✅ Audio engine successfully restarted after configuration change")
     }
 
-    nonisolated private func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
+    nonisolated private func processAudioBuffer(_ buffer: AVAudioPCMBuffer) throws {
         updateMeters(from: buffer)
-        writeBufferToFile(buffer)
+        try writeBufferToFile(buffer)
     }
 
-    nonisolated private func writeBufferToFile(_ buffer: AVAudioPCMBuffer) {
+    nonisolated private func writeBufferToFile(_ buffer: AVAudioPCMBuffer) throws {
         fileWriteLock.lock()
         defer { fileWriteLock.unlock() }
         
         guard let audioFile = audioFile,
               let converter = converter,
               let format = recordingFormat else {
-            return
+            throw AudioEngineRecorderError.bufferConversionFailed
         }
 
         let inputSampleRate = buffer.format.sampleRate
         let outputSampleRate = format.sampleRate
         let ratio = outputSampleRate / inputSampleRate
-        let outputCapacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio)
+        let outputCapacity = AVAudioFrameCount(ceil(Double(buffer.frameLength) * ratio)) + 1
 
         guard let convertedBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: outputCapacity) else {
-            return
+            throw AudioEngineRecorderError.bufferConversionFailed
         }
 
         var error: NSError?
         var hasProvidedBuffer = false
 
-        converter.convert(to: convertedBuffer, error: &error) { inNumPackets, outStatus in
+        let status = converter.convert(to: convertedBuffer, error: &error) { _, outStatus in
             if hasProvidedBuffer {
                 outStatus.pointee = .noDataNow
                 return nil
@@ -250,15 +270,15 @@ class AudioEngineRecorder: ObservableObject {
             }
         }
 
-        if error != nil {
-            return
+        if let error {
+            throw AudioEngineRecorderError.audioConversionError(error)
+        }
+        guard status != .error, convertedBuffer.frameLength > 0 else {
+            throw AudioEngineRecorderError.bufferConversionFailed
         }
 
-        do {
-            try audioFile.write(from: convertedBuffer)
-        } catch {
-            // Silently handle write errors to avoid log spam
-        }
+        do { try audioFile.write(from: convertedBuffer) }
+        catch { throw AudioEngineRecorderError.fileWriteFailed(error) }
     }
 
     nonisolated private func updateMeters(from buffer: AVAudioPCMBuffer) {
@@ -290,10 +310,50 @@ class AudioEngineRecorder: ObservableObject {
         let averagePowerDb = 20.0 * log10(max(rms, 0.000001))
         let peakPowerDb = 20.0 * log10(max(peak, 0.000001))
 
-        Task { @MainActor in
-            self.currentAveragePower = averagePowerDb
-            self.currentPeakPower = peakPowerDb
+        meterState.withLock { $0 = (averagePowerDb, peakPowerDb, true) }
+    }
+
+    private func makeBufferDispatcher(inputFormat: AVAudioFormat) -> BoundedAudioBufferDispatcher? {
+        guard let generation = recordingGeneration else { return nil }
+        return BoundedAudioBufferDispatcher(
+            format: inputFormat,
+            frameCapacity: tapBufferSize,
+            processor: { [weak self] buffer in try self?.processAudioBuffer(buffer) },
+            failureHandler: { [weak self] error in
+                Task { @MainActor [weak self] in
+                    guard let self,
+                          self.isRecording,
+                          self.recordingGeneration == generation else { return }
+                    self.logger.error("Audio capture pipeline failed: \(AppLogger.errorMetadata(error), privacy: .public)")
+                    let errorHandler = self.onRecordingError
+                    self.stopRecording()
+                    errorHandler?(error)
+                }
+            }
+        )
+    }
+
+    private func startMeterUpdates() {
+        meterTimer?.invalidate()
+        meterTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                let update = self.meterState.withLock { state -> (Float, Float)? in
+                    guard state.isDirty else { return nil }
+                    state.isDirty = false
+                    return (state.average, state.peak)
+                }
+                if let update {
+                    self.currentAveragePower = update.0
+                    self.currentPeakPower = update.1
+                }
+            }
         }
+    }
+
+    private func stopMeterUpdates() {
+        meterTimer?.invalidate()
+        meterTimer = nil
     }
 
     var isCurrentlyRecording: Bool {
@@ -305,6 +365,8 @@ class AudioEngineRecorder: ObservableObject {
     }
 
     deinit {
+        meterTimer?.invalidate()
+        bufferDispatcher?.stopAndDrain()
         // Cannot call @MainActor methods from deinit
         // Direct cleanup is safe for these properties
         if isRecording {
@@ -326,6 +388,7 @@ enum AudioEngineRecorderError: LocalizedError {
     case bufferConversionFailed
     case audioConversionError(Error)
     case fileWriteFailed(Error)
+    case captureOverrun
 
     var errorDescription: String? {
         switch self {
@@ -345,6 +408,8 @@ enum AudioEngineRecorderError: LocalizedError {
             return "Audio format conversion failed: \(error.localizedDescription)"
         case .fileWriteFailed(let error):
             return "Failed to write audio data to file: \(error.localizedDescription)"
+        case .captureOverrun:
+            return "Audio processing could not keep up with recording"
         }
     }
 }

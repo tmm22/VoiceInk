@@ -35,11 +35,13 @@ struct Localization {
         static let retryFailed = NSLocalizedString("Retry failed: %@", comment: "Error message when retry fails")
         static let noModelSelected = NSLocalizedString("No transcription model selected", comment: "Error when no model is active")
         static let audioFileNotFound = NSLocalizedString("Cannot retry: Audio file not found", comment: "Error when audio file is missing")
+        static let saveFailed = NSLocalizedString("Transcription could not be saved", comment: "Error when a completed transcription cannot be persisted")
     }
     
     enum API {
         static let missingKey = NSLocalizedString("API Key is missing", comment: "Error when API key is not found")
         static let invalidKey = NSLocalizedString("Invalid API Key", comment: "Error when API key is invalid")
+        static let customModelDeleteFailed = NSLocalizedString("Could not securely delete the custom model", comment: "Error when custom model credential deletion fails")
     }
 
     enum Enhancement {

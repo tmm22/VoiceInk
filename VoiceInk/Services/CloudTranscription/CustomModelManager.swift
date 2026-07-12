@@ -1,66 +1,199 @@
 import Foundation
 import os
 
+protocol CustomModelCredentialStoring: AnyObject {
+    func saveCustomModelAPIKey(_ key: String, forModelId modelId: UUID) -> Bool
+    func readCustomModelAPIKey(forModelId modelId: UUID) -> KeychainReadResult
+    func deleteCustomModelAPIKey(forModelId modelId: UUID) -> Bool
+}
+
+extension APIKeyManager: CustomModelCredentialStoring {}
+
+enum CustomModelReplacementResult: Equatable {
+    case success
+    case failed
+    case partialFailure
+}
+
+protocol CustomModelDataStoring: AnyObject {
+    func data(forKey key: String) -> Data?
+    func set(_ data: Data, forKey key: String)
+}
+
+private final class AppSettingsCustomModelDataStore: CustomModelDataStoring {
+    func data(forKey key: String) -> Data? { AppSettings.data(forKey: key) }
+    func set(_ data: Data, forKey key: String) { AppSettings.setValue(data, forKey: key) }
+}
+
 @MainActor
 class CustomModelManager: ObservableObject {
-    static let shared = CustomModelManager()
+    static let shared = CustomModelManager(
+        credentialStore: APIKeyManager.shared,
+        dataStore: AppSettingsCustomModelDataStore(),
+        loadsStoredModels: true
+    )
     
     private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "CustomModelManager")
     private let customModelsKey = "customCloudModels"
+    private let credentialStore: any CustomModelCredentialStoring
+    private let dataStore: any CustomModelDataStoring
+    private let persistsChanges: Bool
     
     @Published var customModels: [CustomCloudModel] = []
     
-    private init() {
-        loadCustomModels()
+    init(
+        credentialStore: any CustomModelCredentialStoring,
+        dataStore: any CustomModelDataStoring = AppSettingsCustomModelDataStore(),
+        loadsStoredModels: Bool = false,
+        persistsChanges: Bool = false
+    ) {
+        self.credentialStore = credentialStore
+        self.dataStore = dataStore
+        self.persistsChanges = persistsChanges || loadsStoredModels
+        if loadsStoredModels { loadCustomModels() }
     }
     
     // MARK: - CRUD Operations
     
-    func addCustomModel(_ model: CustomCloudModel) {
+    @discardableResult
+    func addCustomModel(_ model: CustomCloudModel) -> Bool {
         // Save API key to Keychain if present in transient property
         if let apiKey = model.transientApiKey, !apiKey.isEmpty {
-            do {
-                try KeychainManager.shared.saveAPIKey(apiKey, for: "custom_model_\(model.id.uuidString)")
-            } catch {
-                logger.error("Failed to save API key for custom model: \(AppLogger.errorMetadata(error), privacy: .public)")
+            guard credentialStore.saveCustomModelAPIKey(apiKey, forModelId: model.id) else {
+                logger.error("Failed to save API key for custom model")
+                return false
             }
         }
         
-        customModels.append(model)
+        var sanitizedModel = model
+        sanitizedModel.transientApiKey = nil
+        customModels.append(sanitizedModel)
         saveCustomModels()
+        return true
     }
 
-    func removeCustomModel(withId id: UUID) {
+    @discardableResult
+    func removeCustomModel(withId id: UUID) -> Bool {
+        guard credentialStore.deleteCustomModelAPIKey(forModelId: id) else {
+            logger.error("Failed to delete API key for custom model; preserving model metadata")
+            return false
+        }
+
         customModels.removeAll { $0.id == id }
-        
-        // Remove API key from Keychain
-        // Best-effort cleanup; key may already be missing.
-        try? KeychainManager.shared.deleteAPIKey(for: "custom_model_\(id.uuidString)")
-        
         saveCustomModels()
-        APIKeyManager.shared.deleteCustomModelAPIKey(forModelId: id)
+
+        do {
+            // Best-effort removal of the obsolete pre-APIKeyManager account.
+            try KeychainManager.shared.deleteAPIKey(for: "custom_model_\(id.uuidString)")
+        } catch {
+            logger.warning("Failed to remove legacy custom-model credential: \(AppLogger.errorMetadata(error), privacy: .public)")
+        }
+        return true
     }
 
-    func updateCustomModel(_ updatedModel: CustomCloudModel) {
+    @discardableResult
+    func updateCustomModel(_ updatedModel: CustomCloudModel) -> Bool {
         if let index = customModels.firstIndex(where: { $0.id == updatedModel.id }) {
             // Update API key in Keychain if it was changed (present in transient)
             if let newKey = updatedModel.transientApiKey, !newKey.isEmpty {
-                do {
-                    try KeychainManager.shared.saveAPIKey(newKey, for: "custom_model_\(updatedModel.id.uuidString)")
-                } catch {
-                    logger.error("Failed to save updated API key for custom model: \(AppLogger.errorMetadata(error), privacy: .public)")
+                guard credentialStore.saveCustomModelAPIKey(newKey, forModelId: updatedModel.id) else {
+                    logger.error("Failed to save updated API key for custom model")
+                    return false
                 }
             }
             
-            customModels[index] = updatedModel
+            var sanitizedModel = updatedModel
+            sanitizedModel.transientApiKey = nil
+            customModels[index] = sanitizedModel
             saveCustomModels()
+            return true
+        }
+        return false
+    }
+
+    func replaceCustomModels(_ models: [CustomCloudModel]) -> CustomModelReplacementResult {
+        let incomingIDs = Set(models.map(\.id))
+        guard incomingIDs.count == models.count else {
+            logger.error("Refusing custom-model replacement with duplicate identifiers")
+            return .failed
+        }
+        let removedIDs = Set(customModels.map(\.id)).subtracting(incomingIDs)
+        let changedIDs = Set(models.compactMap { model in
+            model.transientApiKey?.isEmpty == false ? model.id : nil
+        })
+        let affectedIDs = changedIDs.union(removedIDs)
+        var credentialSnapshots: [UUID: KeychainReadResult] = [:]
+        for id in affectedIDs {
+            let snapshot = credentialStore.readCustomModelAPIKey(forModelId: id)
+            guard snapshot != .failed else {
+                logger.error("Unable to snapshot custom-model credential; replacement aborted")
+                return .failed
+            }
+            credentialSnapshots[id] = snapshot
+        }
+        var touchedIDs: [UUID] = []
+
+        for model in models {
+            guard let key = model.transientApiKey, !key.isEmpty else { continue }
+            touchedIDs.append(model.id)
+            guard credentialStore.saveCustomModelAPIKey(key, forModelId: model.id) else {
+                return handleReplacementFailure(models, snapshots: credentialSnapshots, touchedIDs: touchedIDs)
+            }
+        }
+
+        for id in removedIDs {
+            touchedIDs.append(id)
+            guard credentialStore.deleteCustomModelAPIKey(forModelId: id) else {
+                return handleReplacementFailure(models, snapshots: credentialSnapshots, touchedIDs: touchedIDs)
+            }
+        }
+
+        customModels = sanitized(models)
+        saveCustomModels()
+        return .success
+    }
+
+    private func handleReplacementFailure(
+        _ incomingModels: [CustomCloudModel],
+        snapshots: [UUID: KeychainReadResult],
+        touchedIDs: [UUID]
+    ) -> CustomModelReplacementResult {
+        var rollbackSucceeded = true
+        for id in touchedIDs.reversed() {
+            let restored: Bool
+            switch snapshots[id] {
+            case .present(let previous):
+                restored = credentialStore.saveCustomModelAPIKey(previous, forModelId: id)
+            case .absent:
+                restored = credentialStore.deleteCustomModelAPIKey(forModelId: id)
+            case .failed, .none:
+                restored = false
+            }
+            rollbackSucceeded = restored && rollbackSucceeded
+        }
+        guard !rollbackSucceeded else { return .failed }
+
+        logger.fault("Custom-model credential rollback failed; preserving metadata for retry")
+        var modelsByID: [UUID: CustomCloudModel] = [:]
+        for model in customModels { modelsByID[model.id] = model }
+        for model in sanitized(incomingModels) { modelsByID[model.id] = model }
+        customModels = Array(modelsByID.values)
+        saveCustomModels()
+        return .partialFailure
+    }
+
+    private func sanitized(_ models: [CustomCloudModel]) -> [CustomCloudModel] {
+        models.map { model in
+            var sanitized = model
+            sanitized.transientApiKey = nil
+            return sanitized
         }
     }
     
     // MARK: - Persistence
     
     private func loadCustomModels() {
-        guard let data = AppSettings.data(forKey: customModelsKey) else {
+        guard let data = dataStore.data(forKey: customModelsKey) else {
             logger.info("No custom models found in UserDefaults")
             return
         }
@@ -70,13 +203,12 @@ class CustomModelManager: ObservableObject {
             logger.info("Found legacy custom models. Migrating keys to Keychain...")
             
             var migratedModels: [CustomCloudModel] = []
+            var migrationSucceeded = true
             
             for legacy in legacyModels {
-                // Save key to Keychain
-                do {
-                    try KeychainManager.shared.saveAPIKey(legacy.apiKey, for: "custom_model_\(legacy.id.uuidString)")
-                } catch {
-                    logger.error("Failed to migrate custom model API key: \(AppLogger.errorMetadata(error), privacy: .public)")
+                if !credentialStore.saveCustomModelAPIKey(legacy.apiKey, forModelId: legacy.id) {
+                    migrationSucceeded = false
+                    logger.error("Failed to migrate custom model API key; legacy data will be preserved")
                 }
                 
                 // Create new model (apiKey property will now read from Keychain)
@@ -93,6 +225,7 @@ class CustomModelManager: ObservableObject {
                 migratedModels.append(newModel)
             }
             
+            guard migrationSucceeded else { return }
             self.customModels = migratedModels
             saveCustomModels() // Save in new format
             logger.info("Migration complete. \(migratedModels.count) models migrated.")
@@ -109,9 +242,10 @@ class CustomModelManager: ObservableObject {
     }
     
     func saveCustomModels() {
+        guard persistsChanges else { return }
         do {
             let data = try JSONEncoder().encode(customModels)
-            AppSettings.setValue(data, forKey: customModelsKey)
+            dataStore.set(data, forKey: customModelsKey)
         } catch {
             logger.error("Failed to encode custom models: \(AppLogger.errorMetadata(error), privacy: .public)")
         }

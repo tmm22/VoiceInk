@@ -16,13 +16,26 @@ extension TimeInterval {
 }
 
 final class WaveformGenerator {
-    private static let cache = NSCache<NSString, NSArray>()
+    private final class Samples: NSObject {
+        let values: [Float]
+
+        init(_ values: [Float]) {
+            self.values = values
+        }
+    }
+
+    private static let cache: NSCache<NSString, Samples> = {
+        let cache = NSCache<NSString, Samples>()
+        cache.countLimit = 128
+        cache.totalCostLimit = 2 * 1_024 * 1_024
+        return cache
+    }()
 
     static func generateWaveformSamples(from url: URL, sampleCount: Int = 200) async -> [Float] {
-        let cacheKey = url.absoluteString as NSString
+        let cacheKey = "\(url.absoluteString)#\(sampleCount)" as NSString
 
-        if let cachedSamples = cache.object(forKey: cacheKey) as? [Float] {
-            return cachedSamples
+        if let cachedSamples = cache.object(forKey: cacheKey) {
+            return cachedSamples.values
         }
 
         guard let audioFile = try? AVAudioFile(forReading: url) else { return [] }
@@ -57,7 +70,11 @@ final class WaveformGenerator {
                 normalizedSamples = maxValues
             }
 
-            cache.setObject(normalizedSamples as NSArray, forKey: cacheKey)
+            cache.setObject(
+                Samples(normalizedSamples),
+                forKey: cacheKey,
+                cost: normalizedSamples.count * MemoryLayout<Float>.stride
+            )
             return normalizedSamples
         } catch {
             AppLogger.audio.error("Waveform generation failed: \(AppLogger.errorMetadata(error), privacy: .public)")

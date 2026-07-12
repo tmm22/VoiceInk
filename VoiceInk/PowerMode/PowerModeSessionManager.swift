@@ -174,13 +174,6 @@ class PowerModeSessionManager {
         switch newModel.provider {
         case .local:
             await whisperState.cleanupModelResources()
-            if let localModel = whisperState.availableModels.first(where: { $0.name == newModel.name }) {
-                do {
-                    try await whisperState.loadModel(localModel)
-                } catch {
-                    AppLogger.powerMode.error("Failed to load Power Mode local model: \(AppLogger.errorMetadata(error), privacy: .public)")
-                }
-            }
         case .parakeet:
             await whisperState.cleanupModelResources()
 

@@ -103,36 +103,6 @@ extension WhisperState {
         }
     }
     
-    // MARK: - Model Loading
-    
-    func loadModel(_ model: WhisperModel) async throws {
-        if let loadedModel = loadedLocalModel,
-           loadedModel.name == model.name,
-           whisperContext != nil {
-            return
-        }
-
-        if whisperContext != nil {
-            await cleanupModelResources()
-        }
-        
-        isModelLoading = true
-        defer { isModelLoading = false }
-        
-        do {
-            whisperContext = try await WhisperContext.createContext(path: model.url.path)
-            
-            // Set the prompt from UserDefaults to ensure we have the latest
-            let currentPrompt = AppSettings.TranscriptionSettings.prompt ?? whisperPrompt.transcriptionPrompt
-            await whisperContext?.setPrompt(currentPrompt)
-            
-            isModelLoaded = true
-            loadedLocalModel = model
-        } catch {
-            throw WhisperStateError.modelLoadFailed
-        }
-    }
-    
     // MARK: - Model Download & Management
     
     /// Helper function to download a file from a URL with progress tracking
@@ -353,9 +323,9 @@ extension WhisperState {
     }
     
     func unloadModel() {
-        Task {
-            await whisperContext?.releaseResources()
-            whisperContext = nil
+        Task { [weak self] in
+            await WhisperContextManager.shared.unloadAllContexts()
+            guard let self else { return }
             isModelLoaded = false
             
             if let recordedFile = recordedFile {
@@ -381,8 +351,7 @@ extension WhisperState {
 
     func cleanupModelResources() async {
         logger.notice("cleanupModelResources: releasing model resources")
-        await whisperContext?.releaseResources()
-        whisperContext = nil
+        await WhisperContextManager.shared.unloadAllContexts()
         isModelLoaded = false
 
         parakeetTranscriptionService.cleanup()

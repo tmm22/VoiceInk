@@ -141,8 +141,14 @@ struct ModelManagementView: View {
                                     alertTitle = "Delete Custom Model"
                                     alertMessage = "Are you sure you want to delete the custom model '\(customModel.displayName)'?"
                                     deleteActionClosure = {
-                                        customModelManager.removeCustomModel(withId: customModel.id)
-                                        whisperState.refreshAllAvailableModels()
+                                        if customModelManager.removeCustomModel(withId: customModel.id) {
+                                            whisperState.refreshAllAvailableModels()
+                                        } else {
+                                            NotificationManager.shared.showNotification(
+                                                title: Localization.API.customModelDeleteFailed,
+                                                type: .error
+                                            )
+                                        }
                                     }
                                     isShowingDeleteAlert = true
                                 } else if let fastModel = model as? FastConformerModel {

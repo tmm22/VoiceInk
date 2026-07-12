@@ -1,11 +1,18 @@
 import Foundation
 import os
 
+enum KeychainReadResult: Equatable {
+    case present(String)
+    case absent
+    case failed
+}
+
 /// Abstraction over Keychain storage so API key handling can be unit tested.
 protocol KeychainStoring: AnyObject {
     @discardableResult
     func save(_ value: String, forKey key: String) -> Bool
     func getString(forKey key: String) -> String?
+    func readString(forKey key: String) -> KeychainReadResult
     @discardableResult
     func delete(forKey key: String) -> Bool
 }
@@ -17,6 +24,10 @@ extension KeychainService: KeychainStoring {
 
     func getString(forKey key: String) -> String? {
         getString(forKey: key, syncable: true)
+    }
+
+    func readString(forKey key: String) -> KeychainReadResult {
+        readString(forKey: key, syncable: true)
     }
 
     func delete(forKey key: String) -> Bool {
@@ -134,6 +145,10 @@ final class APIKeyManager {
     func getCustomModelAPIKey(forModelId modelId: UUID) -> String? {
         let keyIdentifier = customModelKeyIdentifier(for: modelId)
         return keychain.getString(forKey: keyIdentifier)
+    }
+
+    func readCustomModelAPIKey(forModelId modelId: UUID) -> KeychainReadResult {
+        keychain.readString(forKey: customModelKeyIdentifier(for: modelId))
     }
 
     /// Deletes an API key for a custom model.

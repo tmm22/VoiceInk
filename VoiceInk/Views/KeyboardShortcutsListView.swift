@@ -182,8 +182,10 @@ struct KeyboardShortcutsListView: View {
         .onAppear {
             loadShortcuts()
         }
-        .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
-            // Poll for shortcut changes every 0.5 seconds
+        .onReceive(NotificationCenter.default.publisher(for: .keyboardShortcutDidChange)) { _ in
+            loadShortcuts()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             loadShortcuts()
         }
     }
