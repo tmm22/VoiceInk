@@ -53,6 +53,8 @@ test("emits a restrictive browser security policy", async () => {
   assert.match(proxy, /object-src 'none'/);
   assert.match(proxy, /https:\/\/clerk\.paul\.im/);
   assert.match(proxy, /https:\/\/accounts\.paul\.im/);
+  assert.match(proxy, /frame-src[^;]*https:\/\/challenges\.cloudflare\.com/);
+  assert.match(proxy, /script-src[^;]*https:\/\/challenges\.cloudflare\.com/);
   assert.match(config, /"workers_dev": false/);
   assert.match(config, /"pattern": "v\.paul\.im"/);
 });
