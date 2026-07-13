@@ -3,7 +3,20 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const root = new URL("../", import.meta.url);
+const repositoryRoot = new URL("../../", import.meta.url);
 const source = (path) => readFile(new URL(path, root), "utf8");
+const repositorySource = (path) => readFile(new URL(path, repositoryRoot), "utf8");
+
+test("GitHub workflows use Node 24-compatible JavaScript actions", async () => {
+  const workflows = await Promise.all([
+    repositorySource(".github/workflows/upstream-sync.yml"),
+    repositorySource(".github/workflows/web-regression.yml"),
+  ]);
+  const combined = workflows.join("\n");
+  assert.doesNotMatch(combined, /actions\/(?:checkout|setup-node)@v[1-4]\b/);
+  assert.match(combined, /actions\/checkout@v6/);
+  assert.match(combined, /actions\/setup-node@v6/);
+});
 
 test("production configuration preserves required domains and bindings", async () => {
   const config = await source("wrangler.production.jsonc");
