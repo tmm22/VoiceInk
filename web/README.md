@@ -67,7 +67,7 @@ npx convex dev
 npm run dev
 ```
 
-Clerk is optional during local development. Without `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, the app runs anonymously and applies the one-hour retention policy. Production should use Clerk production keys and the `v.paul.im` domain.
+Clerk is optional during local development. Without `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, the app runs anonymously and applies the one-hour retention policy. Production uses Clerk's production environment and publishable key on the `v.paul.im` domain; the key is supplied only while building and is not committed.
 
 The web interface returns a service error when inference is unavailable and never substitutes demonstration text for a real transcript. To use the deployed ASR Worker locally, provide its URL and the matching Worker secret in `.env.local`.
 

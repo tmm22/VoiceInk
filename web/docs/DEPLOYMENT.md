@@ -9,7 +9,7 @@ This guide describes the live production architecture as of July 12, 2026.
 | Web UI and API | Cloudflare Workers | `voiceink-web` |
 | Speech recognition and summaries | Cloudflare Workers + Workers AI | `voiceink-asr` |
 | Transcript database | Convex Cloud | Supplied at deployment time |
-| Optional authentication | Clerk | User accounts and cross-device ownership |
+| Authentication | Clerk production | User accounts and cross-device ownership |
 | ASR model | Cloudflare Workers AI | `@cf/openai/whisper-large-v3-turbo` |
 | Summary model | Cloudflare Workers AI | `@cf/meta/llama-3.2-3b-instruct` |
 
@@ -58,11 +58,11 @@ npx convex deploy --typecheck enable --message "Describe the change"
 
 ## 2. Enable Clerk accounts
 
-Create a Clerk application and activate its Convex integration. Configure the Convex JWT issuer in both Convex development and production; do not paste credentials into tracked files:
+The live application uses Clerk's production environment on the `paul.im` primary domain. Its Frontend API is `clerk.paul.im`, the Account Portal is `accounts.paul.im`, and the Clerk Convex integration is enabled. Configure the Convex JWT issuer in both Convex development and production; do not paste credentials into tracked files:
 
 ```bash
-npx convex env set CLERK_JWT_ISSUER_DOMAIN 'https://<your-clerk-issuer>'
-npx convex env set --prod CLERK_JWT_ISSUER_DOMAIN 'https://<your-clerk-issuer>'
+npx convex env set CLERK_JWT_ISSUER_DOMAIN 'https://clerk.paul.im'
+npx convex env set --prod CLERK_JWT_ISSUER_DOMAIN 'https://clerk.paul.im'
 npx convex deploy --typecheck enable --message "Enable Clerk authentication"
 ```
 
@@ -85,7 +85,7 @@ The ASR Worker requires `ASR_API_KEY` for every inference request and fails clos
 
 Production responses include CSP, HSTS, clickjacking protection, MIME-sniffing protection, a restrictive permissions policy, and a strict referrer policy.
 
-The canonical site runs at `v.paul.im`. Configure Clerk with production keys and authorize this domain before broad public launch. The legacy `workers.dev` hostname remains a fallback and should also be included in Clerk's authorized origins while it is enabled.
+The canonical and only production site runs at `v.paul.im`. Clerk uses its production publishable key compiled into the client bundle. The `workers.dev` route is disabled so authentication is not exposed through a second, non-canonical origin.
 
 ## 3. Deploy the Workers AI service
 

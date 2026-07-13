@@ -37,7 +37,10 @@ test("keeps costly production routes behind edge controls", async () => {
 });
 
 test("emits a restrictive browser security policy", async () => {
-  const proxy = await source("proxy.ts");
+  const [proxy, config] = await Promise.all([
+    source("proxy.ts"),
+    source("wrangler.production.jsonc"),
+  ]);
   for (const header of [
     "Content-Security-Policy",
     "Strict-Transport-Security",
@@ -48,6 +51,10 @@ test("emits a restrictive browser security policy", async () => {
   ]) assert.match(proxy, new RegExp(header));
   assert.match(proxy, /frame-ancestors 'none'/);
   assert.match(proxy, /object-src 'none'/);
+  assert.match(proxy, /https:\/\/clerk\.paul\.im/);
+  assert.match(proxy, /https:\/\/accounts\.paul\.im/);
+  assert.match(config, /"workers_dev": false/);
+  assert.match(config, /"pattern": "v\.paul\.im"/);
 });
 
 test("enforces origin and declared body-size boundaries behaviorally", async () => {
