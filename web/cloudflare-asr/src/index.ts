@@ -37,6 +37,7 @@ export default {
     }
 
     if (new URL(request.url).pathname === "/v1/summaries") {
+      if (Number(request.headers.get("content-length") ?? 0) > 70_000) return Response.json({ error: "Request body is too large" }, { status: 413 });
       let body: { text?: string };
       try { body = await request.json() as { text?: string }; }
       catch { return Response.json({ error: "Valid JSON is required" }, { status: 400 }); }
@@ -66,11 +67,15 @@ export default {
       return Response.json({ error: "Not found" }, { status: 404 });
     }
     let form: FormData;
+    if (Number(request.headers.get("content-length") ?? 0) > 25 * 1024 * 1024) return Response.json({ error: "Request body is too large" }, { status: 413 });
     try { form = await request.formData(); }
     catch { return Response.json({ error: "A valid audio upload is required" }, { status: 400 }); }
     const audio = form.get("audio");
     if (!(audio instanceof File) || audio.size === 0) {
       return Response.json({ error: "An audio file is required" }, { status: 400 });
+    }
+    if (audio.type && !audio.type.toLowerCase().startsWith("audio/")) {
+      return Response.json({ error: "Only audio uploads are supported" }, { status: 415 });
     }
     if (audio.size > 24 * 1024 * 1024) {
       return Response.json({ error: "Audio must be smaller than 24 MB" }, { status: 413 });

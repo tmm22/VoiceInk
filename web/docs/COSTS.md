@@ -89,20 +89,21 @@ monthly cost ≈ $5 + (audio minutes × $0.0005) + summary token usage + Convex 
 - No external ASR provider
 - No cloud TTS charges; current text-to-speech uses device/browser voices
 - No AI enhancement model
-- No authentication-provider charge at current prototype usage; the live site uses Clerk development mode, which has usage limits and is not the final production configuration
-- No custom domain requirement
+- Authentication cost depends on the active Clerk production plan and monthly active users
+- The canonical custom domain is `v.paul.im`
 
 The unused `parakeet-service/` reference would create a materially different cost profile if deployed. Production currently uses managed Workers AI instead.
 
-## Cost and abuse controls recommended before launch
+## Active cost and abuse controls
 
-The public transcription endpoint can currently be invoked without a user account. Before broader distribution, add:
+Anonymous transcription remains available, but the following controls limit cost and storage abuse:
 
-1. Enable the implemented Clerk integration before broader account-based distribution.
-2. Add per-user daily audio-minute quotas.
-3. Add Cloudflare rate limiting on `/api/transcribe`.
-4. Add a maximum recording duration in the browser in addition to the 24 MB server limit.
-5. Configure Cloudflare billing alerts and Workers AI usage alerts.
-6. Add a hard failure when the configured monthly quota is reached.
+1. Cloudflare applies fail-closed limits to inference, imports, and history operations.
+2. All Convex history access is brokered through the protected web Worker.
+3. Convex independently enforces per-minute, daily, record-count, and stored-character account quotas.
+4. Anonymous history is limited to 30 active records and expires after one hour.
+5. Request, upload, transcript, summary, and imported-content sizes are bounded.
+6. The private ASR Worker requires its shared secret and rejects non-audio uploads.
+7. Retention updates are versioned and cleanup drains expired backlogs through continuations.
 
-Without these controls, a third party could consume Workers AI credits through the public endpoint.
+Configure Cloudflare billing alerts and Workers AI usage alerts as an additional operational safeguard.

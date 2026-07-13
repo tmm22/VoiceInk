@@ -1,11 +1,13 @@
 import { env } from "cloudflare:workers";
-import { enforceRateLimit, rejectCrossOrigin } from "../../../lib/server/requestSecurity";
+import { enforceRateLimit, rejectCrossOrigin, rejectOversizedRequest } from "../../../lib/server/requestSecurity";
 
 export const runtime = "edge";
 
 export async function POST(request: Request) {
   const originError = rejectCrossOrigin(request);
   if (originError) return originError;
+  const oversized = rejectOversizedRequest(request, 25 * 1024 * 1024);
+  if (oversized) return oversized;
   const rateError = await enforceRateLimit(request, "AI_RATE_LIMITER");
   if (rateError) return rateError;
   const endpoint = process.env.PARAKEET_API_URL;
@@ -33,7 +35,7 @@ export async function POST(request: Request) {
   if (!response.ok) {
     return Response.json(
       { error: "Transcription inference failed", upstreamStatus: response.status },
-      { status: 502 },
+      { status: response.status >= 400 && response.status < 500 ? response.status : 502 },
     );
   }
 

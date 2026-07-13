@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import {
   deleteTranscription,
   getRetention,
@@ -23,9 +23,8 @@ import { HistoryView } from "./history-view";
 type Status = "idle" | "recording" | "transcribing" | "done" | "error";
 type Theme = "editorial" | "mac";
 type WorkspaceTab = "studio" | "history";
-
-const demoTranscript =
-  "VoiceInk Web keeps the recording workflow focused: capture your voice, transcribe it with Parakeet, then copy or refine the result.";
+const maximumRecordingSeconds = 30 * 60;
+const maximumUploadSeconds = 2 * 60 * 60;
 
 async function readAudioDuration(file: File) {
   const url = URL.createObjectURL(file);
@@ -79,6 +78,22 @@ export default function Home() {
   const [retentionSaving, setRetentionSaving] = useState(false);
   const [retentionStatus, setRetentionStatus] = useState("");
 
+  const refreshHistory = useCallback(async () => {
+    try {
+      const token = await account.getConvexToken();
+      setHistory(await listTranscriptions(token));
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [account]);
+
+  const refreshRetention = useCallback(async () => {
+    if (!account.isSignedIn) return;
+    const token = await account.getConvexToken();
+    const days = await getRetention(token);
+    if (days !== null) setRetentionDays(days);
+  }, [account]);
+
   useEffect(() => {
     let themeUpdate: number | undefined;
     const savedTheme = window.localStorage.getItem("voiceink-theme");
@@ -86,7 +101,6 @@ export default function Home() {
       themeUpdate = window.setTimeout(() => setTheme(savedTheme), 0);
       document.documentElement.dataset.theme = savedTheme;
     }
-    void refreshHistory();
     void loadBrowserVoices().then((available) => {
       setVoices(available);
       setVoiceId(available.find((voice) => voice.isDefault)?.id ?? available[0]?.id ?? "");
@@ -101,31 +115,17 @@ export default function Home() {
 
   useEffect(() => {
     if (account.isLoaded) {
-      void refreshHistory();
-      void refreshRetention();
+      queueMicrotask(() => {
+        void refreshHistory();
+        void refreshRetention();
+      });
     }
-  }, [account.identityKey, account.isLoaded]);
+  }, [account.identityKey, account.isLoaded, refreshHistory, refreshRetention]);
 
   function selectTheme(nextTheme: Theme) {
     setTheme(nextTheme);
     document.documentElement.dataset.theme = nextTheme;
     window.localStorage.setItem("voiceink-theme", nextTheme);
-  }
-
-  async function refreshHistory() {
-    try {
-      const token = await account.getConvexToken();
-      setHistory(await listTranscriptions(token));
-    } finally {
-      setHistoryLoading(false);
-    }
-  }
-
-  async function refreshRetention() {
-    if (!account.isSignedIn) return;
-    const token = await account.getConvexToken();
-    const days = await getRetention(token);
-    if (days !== null) setRetentionDays(days);
   }
 
   async function changeRetention(days: RetentionDays) {
@@ -171,6 +171,11 @@ export default function Home() {
       ticker.current = setInterval(() => {
         elapsedRef.current += 1;
         setElapsed(elapsedRef.current);
+        if (elapsedRef.current >= maximumRecordingSeconds) {
+          if (ticker.current) clearInterval(ticker.current);
+          ticker.current = null;
+          recorder.current?.stop();
+        }
       }, 1000);
     } catch {
       setError("Microphone access is required to record a transcription.");
@@ -194,17 +199,23 @@ export default function Home() {
       const response = await fetch("/api/transcribe", { method: "POST", body: form });
       if (!response.ok) throw new Error("Transcription failed");
       const result = (await response.json()) as { text: string };
-      setTranscript(result.text || demoTranscript);
+      const transcribedText = result.text?.trim();
+      if (!transcribedText) throw new Error("No speech was detected");
+      setTranscript(transcribedText);
       setTranscriptDuration(durationSeconds);
-      const token = await account.getConvexToken();
-      const savedId = await saveTranscription({
-        text: result.text || demoTranscript,
-        durationSeconds,
-        model: "whisper-large-v3-turbo",
-      }, token);
-      setActiveTranscriptionId(savedId ?? null);
-      await refreshHistory();
       setStatus("done");
+      try {
+        const token = await account.getConvexToken();
+        const savedId = await saveTranscription({
+          text: transcribedText,
+          durationSeconds,
+          model: "whisper-large-v3-turbo",
+        }, token);
+        setActiveTranscriptionId(savedId ?? null);
+        await refreshHistory();
+      } catch {
+        setError("The transcript is ready, but it could not be saved to history. Check your quota or retention settings.");
+      }
     } catch {
       setError("The transcription service could not be reached. Your recording is still available to retry.");
       setStatus("error");
@@ -221,8 +232,12 @@ export default function Home() {
     setActiveTranscriptionId(null);
     setSummary("");
     setSummaryError("");
-    setAudio(file);
     const duration = await readAudioDuration(file);
+    if (duration > maximumUploadSeconds) {
+      setError("Audio files must be two hours or shorter.");
+      return;
+    }
+    setAudio(file);
     elapsedRef.current = duration;
     setElapsed(duration);
     await transcribe(file, duration);

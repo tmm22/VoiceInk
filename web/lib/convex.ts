@@ -1,6 +1,3 @@
-import { ConvexHttpClient } from "convex/browser";
-import { makeFunctionReference } from "convex/server";
-
 type SavedTranscription = {
   text: string;
   durationSeconds: number;
@@ -27,13 +24,6 @@ function clientId() {
   return created;
 }
 
-function convexClient(token?: string | null) {
-  if (!convexUrl) return null;
-  const client = new ConvexHttpClient(convexUrl);
-  if (token) client.setAuth(token);
-  return client;
-}
-
 export async function saveTranscription(value: SavedTranscription, token?: string | null) {
   if (!convexUrl || typeof window === "undefined") return;
   const response = await fetch("/api/history", {
@@ -51,41 +41,32 @@ export async function saveTranscription(value: SavedTranscription, token?: strin
 
 export async function listTranscriptions(token?: string | null): Promise<TranscriptionHistoryItem[]> {
   if (!convexUrl || typeof window === "undefined") return [];
-  const client = convexClient(token);
-  if (!client) return [];
-  const list = makeFunctionReference<"query">("transcriptions:list");
-  return client.query(list, { clientId: clientId() }) as Promise<TranscriptionHistoryItem[]>;
+  const response = await fetch(`/api/history?clientId=${encodeURIComponent(clientId())}`, { headers: token ? { authorization: `Bearer ${token}` } : {} });
+  if (!response.ok) throw new Error("History could not be loaded.");
+  return ((await response.json()) as { items: TranscriptionHistoryItem[] }).items;
 }
 
 export async function deleteTranscription(id: string, token?: string | null) {
   if (!convexUrl || typeof window === "undefined") return;
-  const client = convexClient(token);
-  if (!client) return;
-  const remove = makeFunctionReference<"mutation">("transcriptions:remove");
-  await client.mutation(remove, { id, clientId: clientId() });
+  const response = await fetch(`/api/history?id=${encodeURIComponent(id)}&clientId=${encodeURIComponent(clientId())}`, { method: "DELETE", headers: token ? { authorization: `Bearer ${token}` } : {} });
+  if (!response.ok) throw new Error("History item could not be deleted.");
 }
 
 export async function saveTranscriptionSummary(id: string, summary: string, token?: string | null) {
   if (!convexUrl || typeof window === "undefined") return;
-  const client = convexClient(token);
-  if (!client) return;
-  const saveSummary = makeFunctionReference<"mutation">("transcriptions:saveSummary");
-  await client.mutation(saveSummary, { id, summary, clientId: clientId() });
+  const response = await fetch("/api/history", { method: "PATCH", headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ id, summary, clientId: clientId() }) });
+  if (!response.ok) throw new Error("Summary could not be saved.");
 }
 
 export async function getRetention(token?: string | null): Promise<RetentionDays | null> {
   if (!convexUrl || typeof window === "undefined" || !token) return null;
-  const client = convexClient(token);
-  if (!client) return null;
-  const get = makeFunctionReference<"query">("retention:get");
-  const result = await client.query(get, {}) as { days: RetentionDays } | null;
-  return result?.days ?? null;
+  const response = await fetch(`/api/history?clientId=${encodeURIComponent(clientId())}`, { headers: { authorization: `Bearer ${token}` } });
+  if (!response.ok) return null;
+  return ((await response.json()) as { retentionDays: RetentionDays | null }).retentionDays;
 }
 
 export async function setRetention(days: RetentionDays, token?: string | null) {
   if (!convexUrl || typeof window === "undefined" || !token) return;
-  const client = convexClient(token);
-  if (!client) return;
-  const set = makeFunctionReference<"mutation">("retention:set");
-  await client.mutation(set, { days });
+  const response = await fetch("/api/history", { method: "PATCH", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ action: "retention", days }) });
+  if (!response.ok) throw new Error("Retention could not be updated.");
 }

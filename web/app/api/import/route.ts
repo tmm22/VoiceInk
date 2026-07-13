@@ -24,6 +24,27 @@ function isPrivateIPv4(hostname: string) {
     || (first === 100 && second >= 64 && second <= 127);
 }
 
+function isPrivateAddress(address: string) {
+  const normalized = address.toLowerCase().replace(/^\[|\]$/g, "");
+  if (isPrivateIPv4(normalized)) return true;
+  return normalized === "::" || normalized === "::1" || normalized.startsWith("fc") || normalized.startsWith("fd")
+    || /^fe[89ab]/.test(normalized) || normalized.startsWith("::ffff:10.") || normalized.startsWith("::ffff:127.")
+    || normalized.startsWith("::ffff:192.168.") || /^::ffff:172\.(1[6-9]|2\d|3[01])\./.test(normalized);
+}
+
+async function assertPublicDns(hostname: string) {
+  if (isPrivateAddress(hostname)) throw new Error("That address cannot be imported.");
+  for (const type of ["A", "AAAA"]) {
+    const response = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=${type}`, {
+      headers: { accept: "application/dns-json" },
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) throw new Error("The page address could not be verified.");
+    const result = await response.json() as { Answer?: Array<{ data: string }> };
+    if (result.Answer?.some((answer) => isPrivateAddress(answer.data))) throw new Error("That address cannot be imported.");
+  }
+}
+
 function validateUrl(value: string) {
   const url = new URL(value);
   const hostname = url.hostname.toLowerCase();
@@ -37,6 +58,7 @@ function validateUrl(value: string) {
 async function fetchWithSafeRedirects(initialUrl: URL) {
   let url = initialUrl;
   for (let redirect = 0; redirect <= 3; redirect += 1) {
+    await assertPublicDns(url.hostname);
     const response = await fetch(url, {
       redirect: "manual",
       headers: {
@@ -62,6 +84,8 @@ export async function POST(request: Request) {
     if (originError) return originError;
     const rateError = await enforceRateLimit(request, "IMPORT_RATE_LIMITER");
     if (rateError) return rateError;
+    const declaredRequestSize = Number(request.headers.get("content-length") ?? 0);
+    if (declaredRequestSize > 2_000) return Response.json({ error: "Request body is too large." }, { status: 413 });
     const body = await request.json() as { url?: string };
     if (!body.url?.trim()) return Response.json({ error: "Enter a URL to import." }, { status: 400 });
 
@@ -70,8 +94,23 @@ export async function POST(request: Request) {
     const declaredSize = Number(response.headers.get("content-length") ?? 0);
     if (declaredSize > maximumBytes) return Response.json({ error: "The page is too large to import." }, { status: 413 });
 
-    const bytes = await response.arrayBuffer();
-    if (bytes.byteLength > maximumBytes) return Response.json({ error: "The page is too large to import." }, { status: 413 });
+    const reader = response.body?.getReader();
+    if (!reader) return Response.json({ error: "The page returned no content." }, { status: 422 });
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      if (received > maximumBytes) {
+        await reader.cancel();
+        return Response.json({ error: "The page is too large to import." }, { status: 413 });
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
     const article = extractReadableArticle(new TextDecoder().decode(bytes));
     if (!article.content) return Response.json({ error: "No readable article content was found." }, { status: 422 });
     return Response.json(article);

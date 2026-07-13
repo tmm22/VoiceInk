@@ -1,11 +1,13 @@
 import { env } from "cloudflare:workers";
-import { enforceRateLimit, rejectCrossOrigin } from "../../../lib/server/requestSecurity";
+import { enforceRateLimit, rejectCrossOrigin, rejectOversizedRequest } from "../../../lib/server/requestSecurity";
 
 export const runtime = "edge";
 
 export async function POST(request: Request) {
   const originError = rejectCrossOrigin(request);
   if (originError) return originError;
+  const oversized = rejectOversizedRequest(request, 70_000);
+  if (oversized) return oversized;
   const rateError = await enforceRateLimit(request, "AI_RATE_LIMITER");
   if (rateError) return rateError;
   const apiKey = process.env.PARAKEET_API_KEY;

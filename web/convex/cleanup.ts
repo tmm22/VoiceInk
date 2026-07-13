@@ -10,8 +10,11 @@ export const applyRetentionPage = internalMutation({
     ownerId: v.string(),
     days: v.union(v.literal(0), v.literal(7), v.literal(30), v.literal(90), v.literal(365)),
     cursor: v.union(v.string(), v.null()),
+    revision: v.number(),
   },
-  handler: async (ctx, { ownerId, days, cursor }) => {
+  handler: async (ctx, { ownerId, days, cursor, revision }) => {
+    const setting = await ctx.db.query("retentionSettings").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).unique();
+    if (!setting || setting.updatedAt !== revision || setting.days !== days) return;
     const page = await ctx.db
       .query("transcriptions")
       .withIndex("by_owner_created", (q) => q.eq("ownerId", ownerId))
@@ -23,6 +26,7 @@ export const applyRetentionPage = internalMutation({
       ownerId,
       days,
       cursor: page.continueCursor,
+      revision,
     });
   },
 });
@@ -51,6 +55,7 @@ export const deleteExpiredTranscriptions = internalMutation({
       await ctx.db.delete(item._id);
       legacyDeleted += 1;
     }
+    if (expired.length === 100 || legacyAnonymous.length === 100) await ctx.scheduler.runAfter(0, internal.cleanup.deleteExpiredTranscriptions, {});
     return { deleted: expired.length + legacyDeleted };
   },
 });

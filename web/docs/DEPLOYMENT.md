@@ -85,7 +85,7 @@ The ASR Worker requires `ASR_API_KEY` for every inference request and fails clos
 
 Production responses include CSP, HSTS, clickjacking protection, MIME-sniffing protection, a restrictive permissions policy, and a strict referrer policy.
 
-The current `workers.dev` prototype is built with a Clerk development publishable key. Clerk production instances require DNS records for their frontend API domain; because the assigned `workers.dev` zone is not controlled by this project, production Clerk keys should be activated only after attaching a custom domain whose DNS records you can edit. Until then, the account flow works in Clerk development mode and is subject to Clerk's development limits.
+The canonical site runs at `v.paul.im`. Configure Clerk with production keys and authorize this domain before broad public launch. The legacy `workers.dev` hostname remains a fallback and should also be included in Clerk's authorized origins while it is enabled.
 
 ## 3. Deploy the Workers AI service
 

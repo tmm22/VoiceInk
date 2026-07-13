@@ -49,3 +49,32 @@ test("emits a restrictive browser security policy", async () => {
   assert.match(proxy, /frame-ancestors 'none'/);
   assert.match(proxy, /object-src 'none'/);
 });
+
+test("enforces origin and declared body-size boundaries behaviorally", async () => {
+  const { rejectCrossOrigin, rejectOversizedRequest } = await import("../lib/server/requestValidation.ts");
+  const allowed = new Request("https://v.paul.im/api/summarize", { headers: { origin: "https://v.paul.im", "content-length": "100" } });
+  assert.equal(rejectCrossOrigin(allowed), null);
+  assert.equal(rejectOversizedRequest(allowed, 100), null);
+  const crossOrigin = rejectCrossOrigin(new Request("https://v.paul.im/api/summarize", { headers: { origin: "https://evil.example" } }));
+  assert.equal(crossOrigin?.status, 403);
+  const oversized = rejectOversizedRequest(new Request("https://v.paul.im/api/summarize", { headers: { "content-length": "101" } }), 100);
+  assert.equal(oversized?.status, 413);
+});
+
+test("brokers Convex access and enforces quotas and race-safe retention", async () => {
+  const [transcriptions, retention, cleanup, client] = await Promise.all([
+    source("convex/transcriptions.ts"),
+    source("convex/retention.ts"),
+    source("convex/cleanup.ts"),
+    source("lib/convex.ts"),
+  ]);
+  assert.match(transcriptions, /requireServiceSecret\(args\.serviceSecret\)/);
+  assert.match(transcriptions, /Daily transcription limit reached/);
+  assert.match(transcriptions, /Account storage limit reached/);
+  assert.match(transcriptions, /history\.length >= 1000/);
+  assert.match(retention, /serviceSecret/);
+  assert.match(cleanup, /setting\.updatedAt !== revision/);
+  assert.match(cleanup, /internal\.cleanup\.deleteExpiredTranscriptions/);
+  assert.doesNotMatch(client, /client\.mutation/);
+  assert.doesNotMatch(client, /client\.query/);
+});

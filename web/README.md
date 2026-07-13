@@ -1,6 +1,6 @@
 # VoiceInk Web
 
-VoiceInk Web is a browser-based transcription prototype deployed entirely through Cloudflare, with transcript persistence in Convex.
+VoiceInk Web is a production browser-based transcription service deployed through Cloudflare, with transcript persistence in Convex.
 
 It also includes a separate device-local text-to-speech workspace adapted from the proven browser speech controller in [`tmm22/untitled-folder-2`](https://github.com/tmm22/untitled-folder-2). Users can paste or type independent narration text, or explicitly copy in a completed transcript, then read it aloud with voices installed in the current browser or operating system.
 
@@ -67,9 +67,9 @@ npx convex dev
 npm run dev
 ```
 
-Clerk is optional during development. Without `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, the app runs anonymously and applies the one-hour retention policy. The live prototype currently uses a Clerk development instance; move to production keys after attaching a custom domain and completing Clerk's DNS setup.
+Clerk is optional during local development. Without `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, the app runs anonymously and applies the one-hour retention policy. Production should use Clerk production keys and the `v.paul.im` domain.
 
-The web interface returns a clearly marked demo transcript when no inference endpoint is configured. To use the deployed ASR Worker locally, provide its URL and the matching Worker secret in `.env.local`.
+The web interface returns a service error when inference is unavailable and never substitutes demonstration text for a real transcript. To use the deployed ASR Worker locally, provide its URL and the matching Worker secret in `.env.local`.
 
 ## Validation
 
@@ -92,10 +92,11 @@ curl --fail \
 - [Deployment guide](docs/DEPLOYMENT.md)
 - [Operating costs](docs/COSTS.md)
 
-## Current prototype limitations
+## Production limits
 
-- The live prototype uses Clerk development mode and its associated usage limits until a custom domain is available for Clerk production DNS
-- No per-user quotas or public-endpoint rate limiting
+- Signed-in accounts are limited to 10 history writes per minute, 100 per day, 1,000 retained records, and 10 million stored transcript/summary characters
+- Anonymous browsers can retain at most 30 active one-hour history records
+- Cloudflare applies separate inference, import, and history rate limits; missing production bindings fail closed
 - Anonymous history is associated with a browser-generated client ID and retained for no more than one hour
 - Account history uses the signed-in user's configurable Convex retention policy, defaulting to 90 days
 - Batch transcription only; no live partial transcript stream
