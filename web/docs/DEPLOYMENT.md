@@ -150,6 +150,14 @@ For a brand-new `voiceink-web` Worker, deploy it once before running `wrangler s
 
 ## 6. Verify production
 
+Before every deployment, run:
+
+```bash
+npm run check
+```
+
+After deployment, run `npm run test:production`. This smoke suite checks production health and security contracts without invoking paid transcription or summarization. The repository's `web-regression.yml` workflow repeats local checks on every relevant push/PR and runs production smoke checks daily and on manual dispatch.
+
 Check the site:
 
 ```bash

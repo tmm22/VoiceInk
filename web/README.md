@@ -97,6 +97,12 @@ curl --fail \
 - Signed-in accounts are limited to 10 history writes per minute, 100 per day, 1,000 retained records, and 10 million stored transcript/summary characters
 - Anonymous browsers can retain at most 30 active one-hour history records
 - Cloudflare applies separate inference, import, and history rate limits; missing production bindings fail closed
+
+## Regression checks
+
+Run `npm run check` before deploying. It performs TypeScript validation, linting, a production build, unit and contract tests, a tracked-secret scan, and a production dependency audit. Run `npm run test:production` for safe live checks of the custom domain, security headers, cross-origin rejection, ASR health, and direct-ASR authentication; it deliberately avoids paid inference.
+
+GitHub Actions runs the complete local regression suite for every web-related push and pull request. A scheduled and manually dispatchable job runs the safe production smoke checks. Tests cover subtitle exports, readable article extraction, model/configuration consistency, removal of demo fallbacks, request-boundary behavior, Convex brokerage and quotas, retention race protection, CSP/security headers, and deployment bindings.
 - Anonymous history is associated with a browser-generated client ID and retained for no more than one hour
 - Account history uses the signed-in user's configurable Convex retention policy, defaulting to 90 days
 - Batch transcription only; no live partial transcript stream
