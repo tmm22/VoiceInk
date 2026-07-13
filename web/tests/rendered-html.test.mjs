@@ -6,11 +6,17 @@ const root = new URL("../", import.meta.url);
 const source = (path) => readFile(new URL(path, root), "utf8");
 
 test("ships the VoiceInk production interface instead of the starter preview", async () => {
-  const [page, layout] = await Promise.all([source("app/page.tsx"), source("app/layout.tsx")]);
+  const [page, layout, providers] = await Promise.all([
+    source("app/page.tsx"),
+    source("app/layout.tsx"),
+    source("app/providers.tsx"),
+  ]);
   assert.match(page, /Transcription Studio/i);
   assert.match(page, /History/);
   assert.match(page, /AI summary/i);
   assert.match(layout, /VoiceInk Web/);
+  assert.match(providers, /signInForceRedirectUrl=\{siteUrl\}/);
+  assert.match(providers, /signUpForceRedirectUrl=\{siteUrl\}/);
   assert.doesNotMatch(`${page}\n${layout}`, /codex-preview|SkeletonPreview|Your site is taking shape/);
   await assert.rejects(access(new URL("app/_sites-preview", root)));
 });

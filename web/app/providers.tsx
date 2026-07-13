@@ -24,6 +24,7 @@ const anonymousAuth: AccountAuth = {
 const AccountAuthContext = createContext<AccountAuth>(anonymousAuth);
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "/";
 const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
 
 function ClerkAuthBridge({ children }: { children: ReactNode }) {
@@ -45,7 +46,11 @@ export function AppProviders({ children }: { children: ReactNode }) {
   if (!clerkKey) return <ConvexProvider client={convex}>{children}</ConvexProvider>;
 
   return (
-    <ClerkProvider publishableKey={clerkKey}>
+    <ClerkProvider
+      publishableKey={clerkKey}
+      signInForceRedirectUrl={siteUrl}
+      signUpForceRedirectUrl={siteUrl}
+    >
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
         <ClerkAuthBridge>{children}</ClerkAuthBridge>
       </ConvexProviderWithClerk>

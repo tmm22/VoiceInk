@@ -77,6 +77,14 @@ npm run build
 
 This client-only integration does not require `CLERK_SECRET_KEY`. Add a secret key only if future server-side Clerk APIs require it, and store it with Wrangler or the Cloudflare dashboard—not in source control. Account history is keyed exclusively from Convex's verified identity token, never from a browser-supplied user ID.
 
+Google sign-in uses a dedicated public OAuth web client in the `VoiceInk Web` Google Cloud project. The only authorized production origin is `https://v.paul.im`, and Clerk's registered redirect URI is:
+
+```text
+https://clerk.paul.im/v1/oauth_callback
+```
+
+The Google Client ID and Client Secret are stored only in Clerk's production Google connection. Do not copy either credential into this repository, Cloudflare, Convex, or local environment files. The Google OAuth audience must remain External and published; Testing mode restricts sign-in to named test users. The Clerk provider forces both sign-in and sign-up callbacks back to `https://v.paul.im` so the root `paul.im` site never becomes an authentication landing page.
+
 ### Production abuse protection
 
 The web Worker defines independent Cloudflare rate-limit bindings for AI inference, webpage imports, and history writes. API routes also reject cross-origin browser requests. Anonymous history writes pass through `/api/history` and require a shared `CONVEX_WEB_API_SECRET` configured in both the web Worker and the production Convex deployment. Never expose or commit this value.
