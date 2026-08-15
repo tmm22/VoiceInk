@@ -7,11 +7,11 @@ This guide describes the live production architecture as of July 12, 2026.
 | Component | Cloud service | Deployment |
 | --- | --- | --- |
 | Web UI and API | Cloudflare Workers | `voiceink-web` |
-| Speech recognition and summaries | Cloudflare Workers + Workers AI | `voiceink-asr` |
+| Speech recognition, summaries, and text enhancement | Cloudflare Workers + Workers AI | `voiceink-asr` |
 | Transcript database | Convex Cloud | Supplied at deployment time |
 | Authentication | Clerk production | User accounts and cross-device ownership |
 | ASR model | Cloudflare Workers AI | `@cf/openai/whisper-large-v3-turbo` |
-| Summary model | Cloudflare Workers AI | `@cf/meta/llama-3.2-3b-instruct` |
+| Summary and enhancement model | Cloudflare Workers AI | `@cf/meta/llama-3.2-3b-instruct` |
 
 The public entry point is the URL returned by the `voiceink-web` deployment. The ASR Worker is reached from the web Worker through the `ASR` service binding. Do not replace this with a fetch to its public `workers.dev` hostname: same-account Worker subrequests can fail at Cloudflare routing, and the service binding is private and does not add another request charge.
 
@@ -107,7 +107,7 @@ cd ..
 
 The Worker receives multipart audio and invokes `@cf/openai/whisper-large-v3-turbo` through its `AI` binding. Its public hostname exists for health checks, but the production application reaches it through a service binding.
 
-The same private Worker handles `/v1/summaries` with Llama 3.2 3B. The public web Worker exposes `/api/summarize` and forwards transcript text through the private service binding. After a successful response, the browser stores the summary on the matching transcription through an ownership-checked Convex mutation, so both share the same retention window.
+The same private Worker handles `/v1/summaries` and `/v1/enhancements` with Llama 3.2 3B. The public web Worker exposes `/api/summarize` and `/api/enhance`, then forwards text through the private service binding. After a successful summary response, the browser stores the summary on the matching transcription through an ownership-checked Convex mutation, so both share the same retention window. Enhancement results remain browser-local unless the user explicitly replaces the transcript.
 
 ## 4. Create the shared internal secret
 
@@ -164,7 +164,7 @@ Before every deployment, run:
 npm run check
 ```
 
-After deployment, run `npm run test:production`. This smoke suite checks production health and security contracts without invoking paid transcription or summarization. The repository's `web-regression.yml` workflow repeats local checks on every relevant push/PR and runs production smoke checks daily and on manual dispatch.
+After deployment, run `npm run test:production -- --base-url https://v.paul.im`. This smoke suite checks production health and security contracts without invoking paid transcription, summarization, or enhancement. The repository's `web-regression.yml` workflow repeats local checks on every relevant push/PR and runs production smoke checks daily and on manual dispatch.
 
 Check the site:
 
@@ -200,6 +200,17 @@ curl --fail \
   --data '{"text":"A transcript containing decisions and action items."}' \
   "https://<your-web-worker>.<your-subdomain>.workers.dev/api/summarize"
 ```
+
+Run a minimal text-enhancement smoke test after changing the inference path:
+
+```bash
+curl --fail \
+  -H 'content-type: application/json' \
+  --data '{"text":"this is a short test transcript","mode":"clean"}' \
+  "https://v.paul.im/api/enhance"
+```
+
+Expected fields are `enhanced`, `mode`, and `model`. Do not print real transcripts in deployment logs.
 
 The same endpoint accepts audio selected through the browser's **Upload audio file** control. Uploads share the ASR Worker's 24 MB maximum. Verify TXT, SRT, and VTT downloads from the transcript toolbar and confirm that history deletion removes only records owned by the current account or anonymous browser identity.
 
@@ -242,6 +253,7 @@ Common failures:
 - `401` from ASR: the two Worker secrets do not match; rotate them together.
 - `404` from an upstream Worker fetch: verify the `ASR` service binding is present and do not use the public hostname for Worker-to-Worker traffic.
 - `502` from `/api/transcribe`: inspect `upstreamStatus` and tail both Workers.
+- `503` from `/api/summarize` or `/api/enhance`: verify the `ASR` binding and shared secret are present on the web Worker.
 - Demo transcript returned: `PARAKEET_API_URL` was unavailable in the web runtime.
 - Transcript succeeds but is not saved: verify the production Convex URL and inspect Convex function logs.
 - Sign-in is not visible: the client bundle was built without `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`.

@@ -24,6 +24,22 @@ test("production configuration preserves required domains and bindings", async (
   for (const binding of ["ASR", "AI_RATE_LIMITER", "IMPORT_RATE_LIMITER", "HISTORY_RATE_LIMITER"]) assert.match(config, new RegExp(`"${binding}"`));
 });
 
+test("AI enhancement is routed through the private AI service with product presets", async () => {
+  const [page, route, worker] = await Promise.all([
+    source("app/page.tsx"),
+    source("app/api/enhance/route.ts"),
+    source("cloudflare-asr/src/index.ts"),
+  ]);
+  assert.match(page, /AIEnhancementPanel/);
+  assert.match(route, /AI_RATE_LIMITER/);
+  assert.match(route, /\/v1\/enhancements/);
+  assert.match(route, /!bindings\.ASR \|\| !apiKey/);
+  assert.match(worker, /clean:/);
+  assert.match(worker, /concise:/);
+  assert.match(worker, /professional:/);
+  assert.match(worker, /notes:/);
+});
+
 test("the browser, public API, and private worker agree on the ASR model", async () => {
   const files = await Promise.all([source("app/page.tsx"), source("app/api/transcribe/route.ts"), source("cloudflare-asr/src/index.ts")]);
   assert.match(files[0], /whisper-large-v3-turbo/);

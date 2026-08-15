@@ -12,14 +12,14 @@ export async function POST(request: Request) {
   if (rateError) return rateError;
   const apiKey = process.env.PARAKEET_API_KEY;
   const bindings = env as unknown as { ASR?: Fetcher };
-  if (!bindings.ASR) return Response.json({ error: "Summarization is unavailable" }, { status: 503 });
+  if (!bindings.ASR || !apiKey) return Response.json({ error: "Summarization is unavailable" }, { status: 503 });
 
   const body = await request.text();
   const response = await bindings.ASR.fetch(new Request("https://asr.internal/v1/summaries", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
+      authorization: `Bearer ${apiKey}`,
     },
     body,
   }));

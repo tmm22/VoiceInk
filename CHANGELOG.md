@@ -4,6 +4,14 @@ All notable changes to the VoiceLink Community application are documented here.
 
 ## 2026-08-15
 
+### Release Preparation
+- Prepared community version `2.11` (`v2.11-community`) from the latest upstream-compatible integration.
+
+### Web App
+- Updated VoiceInk Web to version `2.11.0` and added on-demand AI text enhancement with clean-up, concise, professional, and structured-note presets.
+- Kept enhancement explicit and privacy-conscious: the original transcript remains untouched until replacement, private inference fails closed without its service binding and secret, and request sizes and rates remain bounded.
+- Documented desktop-to-web feature feasibility so future parity work preserves browser security boundaries and the community fork's local-first philosophy.
+
 ### Upstream Sync
 - Integrated upstream VoiceInk changes through `eb5d0b30`, including the current mode workflow, assistant experience, transcription architecture, local model support, dashboard, onboarding, and reliability improvements.
 - Preserved the community fork's unrestricted, local-first behavior, TTS workspace, dictionary and history tools, custom model support, branding, bundle identifiers, and shared dictionary compatibility.
