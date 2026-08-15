@@ -74,6 +74,7 @@ Set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` in the Cloudflare build environment, the
 NEXT_PUBLIC_CONVEX_URL=https://<your-convex-deployment>.convex.cloud \
 NEXT_PUBLIC_SITE_URL=https://v.paul.im \
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_<your-publishable-key> \
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=<your-turnstile-sitekey> \
 npm run build
 ```
 
@@ -123,6 +124,31 @@ The web Worker streams a validated raw audio body to the private Worker, which v
 
 The same private Worker handles `/v1/summaries` and `/v1/enhancements` with Llama 3.2 3B. The public web Worker exposes `/api/summarize` and `/api/enhance`, then forwards text through the private service binding. After a successful summary response, the browser stores the summary on the matching transcription through an ownership-checked Convex mutation, so both share the same retention window. Enhancement results remain browser-local unless the user explicitly replaces the transcript.
 
+The ASR Worker also owns the `SpendLedger` durable object (SQLite-backed, created by the `v1` migration on first deploy). Every inference call must reserve budget from it first; the daily ceilings are set in `cloudflare-asr/wrangler.jsonc` as `DAILY_SPEND_LIMIT_MICROS` (micro-dollars per UTC day, default 2000000 = $2.00) and `DAILY_CLIENT_AUDIO_SECONDS` (transcribed seconds per client IP per UTC day, default 7200). If the ledger is unreachable, inference is denied — fail closed is intentional.
+
+## 3b. Create the Turnstile widget
+
+`/api/transcribe` requires a Cloudflare Turnstile token whenever `TURNSTILE_SECRET_KEY` is configured on the web Worker. Production must configure it.
+
+Dashboard: Turnstile → Add site → name `voiceink-web`, mode Managed, domain `v.paul.im` only. The dialog returns a sitekey (public) and secret. Alternatively via API with a token holding the Turnstile Sites Write permission:
+
+```bash
+curl -X POST "https://api.cloudflare.com/client/v4/accounts/<account-id>/challenges/widgets" \
+  -H "Authorization: Bearer <api-token>" \
+  -H "Content-Type: application/json" \
+  --data '{"name":"voiceink-web","mode":"managed","domains":["v.paul.im"]}'
+```
+
+Install the secret on the web Worker and pass the sitekey at build time:
+
+```bash
+npx wrangler secret put TURNSTILE_SECRET_KEY \
+  --config wrangler.production.jsonc \
+  --name voiceink-web
+```
+
+For local development use the official test pair — sitekey `1x00000000000000000000AA` with secret `1x0000000000000000000000000000000AA` — which always passes on the identical code path; secret `2x0000000000000000000000000000000AA` exercises the failure branch. Without the sitekey the browser sends no token, and without the secret the Worker skips verification, so an unconfigured deployment keeps working while the docs and checklist require configuring production.
+
 ## 4. Create the shared internal secret
 
 The ASR Worker checks `ASR_API_KEY`. The web Worker sends the same value from its legacy `PARAKEET_API_KEY` secret.
@@ -153,6 +179,7 @@ The public Convex and site URLs are embedded in the client build, so set them ex
 NEXT_PUBLIC_CONVEX_URL=https://<your-convex-deployment>.convex.cloud \
 NEXT_PUBLIC_SITE_URL=https://v.paul.im \
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_<your-publishable-key> \
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=<your-turnstile-sitekey> \
 npm run build
 
 npx wrangler deploy \
@@ -245,8 +272,13 @@ curl --fail \
 | `CLERK_JWT_ISSUER_DOMAIN` | Convex environment | No | Validates Clerk-issued Convex JWTs |
 | `PARAKEET_API_KEY` | Web Worker | Yes | Credential sent to ASR Worker |
 | `ASR_API_KEY` | ASR Worker | Yes | Credential checked by ASR Worker |
+| `TURNSTILE_SECRET_KEY` | Web Worker | Yes | Server-side Turnstile verification for `/api/transcribe` |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Build | No | Renders the Turnstile widget in the browser |
+| `DAILY_SPEND_LIMIT_MICROS` | ASR Worker var | No | Global daily inference ceiling in micro-dollars |
+| `DAILY_CLIENT_AUDIO_SECONDS` | ASR Worker var | No | Per-client daily transcribed-audio cap |
 | `AI` | ASR Worker binding | Binding | Workers AI access |
 | `ASR` | Web Worker binding | Binding | Private Worker-to-Worker transport |
+| `SPEND_LEDGER` | ASR Worker binding | Binding | Durable object enforcing the daily spend ceiling |
 
 The `PARAKEET_API_KEY` name remains for compatibility with the prototype’s first inference adapter. There is no external URL fallback: production fails closed unless the private `ASR` binding and matching secret are both present.
 

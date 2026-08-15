@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { enhancementInstructions, isEnhancementMode } from "../cloudflare-asr/src/index.ts";
+import { enhancementInstructions, isEnhancementMode } from "../cloudflare-asr/src/enhancement.ts";
 
 test("AI enhancement exposes only the supported product presets", () => {
   for (const mode of ["clean", "concise", "professional", "notes"]) {

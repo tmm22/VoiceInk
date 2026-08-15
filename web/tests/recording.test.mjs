@@ -2,11 +2,38 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  ANONYMOUS_AUDIO_SECONDS,
   audioFileExtension,
   elapsedRecordingSeconds,
   readAudioDuration,
+  recordingLimitSeconds,
   selectRecorderMimeType,
+  SIGNED_IN_RECORDING_SECONDS,
+  SIGNED_IN_UPLOAD_SECONDS,
+  uploadDurationError,
+  uploadLimitSeconds,
+  uploadSizeError,
 } from "../lib/recording.ts";
+
+test("signed-in users keep full duration limits while guests get the trial tier", () => {
+  assert.equal(recordingLimitSeconds(true), SIGNED_IN_RECORDING_SECONDS);
+  assert.equal(recordingLimitSeconds(false), ANONYMOUS_AUDIO_SECONDS);
+  assert.equal(uploadLimitSeconds(true), SIGNED_IN_UPLOAD_SECONDS);
+  assert.equal(uploadLimitSeconds(false), ANONYMOUS_AUDIO_SECONDS);
+  assert.equal(SIGNED_IN_RECORDING_SECONDS, 30 * 60);
+  assert.equal(SIGNED_IN_UPLOAD_SECONDS, 2 * 60 * 60);
+  assert.equal(ANONYMOUS_AUDIO_SECONDS, 10 * 60);
+});
+
+test("upload validation reports tier-appropriate errors", () => {
+  assert.equal(uploadSizeError(10, 100), null);
+  assert.match(uploadSizeError(101, 100) ?? "", /24 MB/);
+  assert.equal(uploadDurationError(SIGNED_IN_UPLOAD_SECONDS, true), null);
+  assert.match(uploadDurationError(SIGNED_IN_UPLOAD_SECONDS + 1, true) ?? "", /two hours/);
+  assert.equal(uploadDurationError(ANONYMOUS_AUDIO_SECONDS, false), null);
+  assert.match(uploadDurationError(ANONYMOUS_AUDIO_SECONDS + 1, false) ?? "", /Sign in/);
+  assert.match(uploadDurationError(null, false) ?? "", /could not read/);
+});
 
 test("selects the first supported speech-efficient recording container", () => {
   assert.equal(selectRecorderMimeType((value) => value === "audio/ogg;codecs=opus"), "audio/ogg;codecs=opus");

@@ -13,18 +13,19 @@ import {
 import { downloadTranscript } from "../lib/transcriptExport";
 import {
   elapsedRecordingSeconds,
-  maximumRecordingSeconds,
-  maximumUploadSeconds,
   readAudioDuration,
+  recordingLimitSeconds,
   selectRecorderMimeType,
+  uploadDurationError,
+  uploadSizeError,
 } from "../lib/recording";
+import { requestTranscription, transcriptionFailureMessage } from "../lib/transcriptionRequest";
 import { AIEnhancementPanel } from "./ai-enhancement";
 import { AccountControls, useAccountAuth } from "./providers";
 import { HistoryView } from "./history-view";
 import { TTSWorkspace } from "./tts-workspace";
 import {
   MAXIMUM_AUDIO_BYTES,
-  parseTranscriptionResponse,
   TRANSCRIPTION_MODEL_NAME,
   type TranscriptionSegment,
 } from "../shared/transcriptionContract";
@@ -36,6 +37,8 @@ const transcriptionTimeoutMs = 5 * 60 * 1_000;
 
 export default function Home() {
   const account = useAccountAuth();
+  const isSignedInRef = useRef(account.isSignedIn);
+  isSignedInRef.current = account.isSignedIn;
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
   const ticker = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -244,7 +247,7 @@ export default function Home() {
       ticker.current = setInterval(() => {
         elapsedRef.current = elapsedRecordingSeconds(recordingStartedAt.current, performance.now());
         setElapsed(elapsedRef.current);
-        if (elapsedRef.current >= maximumRecordingSeconds) {
+        if (elapsedRef.current >= recordingLimitSeconds(isSignedInRef.current)) {
           if (ticker.current) clearInterval(ticker.current);
           ticker.current = null;
           recorder.current?.stop();
@@ -277,16 +280,7 @@ export default function Home() {
     setStatus("transcribing");
     setError("");
     try {
-      const response = await fetch("/api/transcribe", {
-        method: "POST",
-        headers: { "content-type": recording.type },
-        body: recording,
-        cache: "no-store",
-        signal: controller.signal,
-      });
-      if (!response.ok) throw new Error("Transcription failed");
-      const result = parseTranscriptionResponse(await response.json());
-      if (!result) throw new Error("No speech was detected");
+      const result = await requestTranscription(recording, controller.signal);
       const transcribedText = result.text;
       const effectiveDuration = result.durationSeconds ?? durationSeconds;
       if (activeTranscription.current?.id !== job.id) return;
@@ -310,14 +304,14 @@ export default function Home() {
       } catch {
         setError("The transcript is ready, but it could not be saved to history. Check your quota or retention settings.");
       }
-    } catch {
+    } catch (cause) {
       if (activeTranscription.current?.id !== job.id) return;
       if (controller.signal.aborted) {
         setError("Transcription timed out. Your recording is still available to retry.");
         setStatus("error");
         return;
       }
-      setError("The transcription service could not be reached. Your recording is still available to retry.");
+      setError(transcriptionFailureMessage(cause));
       setStatus("error");
     } finally {
       window.clearTimeout(timeout);
@@ -326,8 +320,9 @@ export default function Home() {
   }
 
   async function uploadAudio(file: File) {
-    if (file.size > MAXIMUM_AUDIO_BYTES) {
-      setError("Audio files must be smaller than 24 MB.");
+    const sizeError = uploadSizeError(file.size, MAXIMUM_AUDIO_BYTES);
+    if (sizeError) {
+      setError(sizeError);
       return;
     }
     const generation = ++operationGeneration.current;
@@ -343,13 +338,9 @@ export default function Home() {
     setSummaryError("");
     const duration = await readAudioDuration(file);
     if (generation !== operationGeneration.current) return;
-    if (duration === null) {
-      setError("The browser could not read this audio file or determine its duration.");
-      setStatus("error");
-      return;
-    }
-    if (duration > maximumUploadSeconds) {
-      setError("Audio files must be two hours or shorter.");
+    const durationError = uploadDurationError(duration, isSignedInRef.current);
+    if (durationError || duration === null) {
+      setError(durationError ?? "");
       setStatus("error");
       return;
     }
@@ -462,7 +453,7 @@ export default function Home() {
         <div className="audio-upload">
           <span>or</span>
           <button type="button" onClick={() => audioFileInput.current?.click()} disabled={status === "starting" || status === "recording" || status === "validating" || status === "transcribing"}>Upload audio file</button>
-          <small>MP3, WAV, M4A, WebM and other browser-supported audio · 24 MB maximum</small>
+          <small>MP3, WAV, M4A, WebM and other browser-supported audio · 24 MB maximum · {account.isSignedIn ? "up to 2 hours" : "up to 10 minutes for guests"}</small>
           <input ref={audioFileInput} type="file" accept="audio/*" hidden onChange={(event) => {
             const file = event.target.files?.[0];
             if (file) void uploadAudio(file);

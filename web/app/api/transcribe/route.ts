@@ -7,11 +7,14 @@ import {
 } from "../../../lib/server/requestSecurity";
 import {
   INTERNAL_BODY_LENGTH_HEADER,
+  INTERNAL_CLIENT_KEY_HEADER,
   isSupportedAudioMediaType,
   MAXIMUM_AUDIO_BYTES,
   normalizeAudioMediaType,
   parseTranscriptionResponse,
+  TURNSTILE_TOKEN_HEADER,
 } from "../../../shared/transcriptionContract";
+import { verifyTurnstileToken } from "../../../lib/server/turnstile";
 
 export const runtime = "edge";
 
@@ -29,6 +32,21 @@ export async function POST(request: Request) {
   const rateError = await enforceRateLimit(request, "TRANSCRIPTION_RATE_LIMITER");
   if (rateError) return rateError;
 
+  // Enforced whenever the secret is configured; production must configure it.
+  const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
+  if (turnstileSecret) {
+    const verification = await verifyTurnstileToken({
+      token: request.headers.get(TURNSTILE_TOKEN_HEADER),
+      secret: turnstileSecret,
+      remoteIp: request.headers.get("cf-connecting-ip"),
+      expectedHostname: new URL(request.url).hostname,
+      expectedAction: "transcribe",
+    });
+    if (!verification.ok) {
+      return jsonNoStore({ error: verification.error }, { status: verification.status });
+    }
+  }
+
   const apiKey = process.env.PARAKEET_API_KEY;
   const bindings = env as unknown as { ASR?: Fetcher };
   if (!bindings.ASR || !apiKey || !request.body) {
@@ -43,6 +61,7 @@ export async function POST(request: Request) {
         authorization: `Bearer ${apiKey}`,
         "content-type": mediaType,
         [INTERNAL_BODY_LENGTH_HEADER]: String(size.bytes),
+        [INTERNAL_CLIENT_KEY_HEADER]: request.headers.get("cf-connecting-ip") ?? "unknown",
       },
       body: request.body,
       signal: request.signal,

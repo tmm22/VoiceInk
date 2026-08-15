@@ -7,6 +7,8 @@ export const MAXIMUM_TRANSCRIPT_CHARACTERS = 200_000;
 export const MAXIMUM_TRANSCRIPTION_DURATION_SECONDS = 6 * 60 * 60;
 
 export const INTERNAL_BODY_LENGTH_HEADER = "x-voiceink-body-length";
+export const INTERNAL_CLIENT_KEY_HEADER = "x-voiceink-client-key";
+export const TURNSTILE_TOKEN_HEADER = "x-voiceink-turnstile";
 
 const supportedAudioTypes = new Set([
   "audio/aac",

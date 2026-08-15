@@ -64,6 +64,10 @@ Every public API route must:
 
 Keep separate rate limits for transcription, summarization, enhancement, content imports, and history writes. The private ASR Worker must require `ASR_API_KEY` for inference. The web Worker sends the matching value through its server-only compatibility secret; rotate both sides together.
 
+Every Workers AI call in the ASR Worker must be admitted by the `SPEND_LEDGER` durable object before inference runs (reserve worst-case, settle to actual, release on failure). A failed or unreachable ledger call is a denial, never an allow. Do not remove or bypass the daily spend ceiling or the per-client daily audio quota; changing the defaults is a deliberate `wrangler.jsonc` edit that must update docs and tests together.
+
+`/api/transcribe` must verify a single-use Turnstile token before streaming audio upstream whenever `TURNSTILE_SECRET_KEY` is configured, and production must keep it configured. Local development uses Cloudflare's official test keys rather than a code bypass. Anonymous browser sessions get the 10-minute audio tier; signed-in users keep the full recording and upload limits.
+
 Keep webpage import protections intact: reject private, loopback, link-local, and metadata-service destinations; revalidate redirects; apply request timeouts; cap response size; and only accept supported content types.
 
 Production security headers live in `proxy.ts`. When Clerk domains or other browser dependencies change, update the CSP narrowly and add a regression assertion. Preserve HSTS, clickjacking protection, MIME-sniffing protection, restrictive permissions, referrer policy, `object-src 'none'`, and `frame-ancestors 'none'`.

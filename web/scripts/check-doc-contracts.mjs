@@ -46,6 +46,12 @@ export async function checkDocumentationContracts() {
   assert.match(config, /"workers_dev": false/);
   assert.match(asrConfig, /"workers_dev": false/);
   assert.match(asrConfig, /"preview_urls": false/);
+  assert.match(asrConfig, /"SPEND_LEDGER"/, "spend-ledger durable object binding is missing");
+  assert.match(asrConfig, /"new_sqlite_classes": \["SpendLedger"\]/, "spend-ledger migration is missing");
+  assert.match(asrConfig, /"DAILY_SPEND_LIMIT_MICROS": "2000000"/, "daily spend ceiling drifted from documentation");
+  assert.match(asrConfig, /"DAILY_CLIENT_AUDIO_SECONDS": "7200"/, "per-client audio quota drifted from documentation");
+  assert.match(deployment, /TURNSTILE_SECRET_KEY/, "Turnstile secret setup is undocumented");
+  assert.match(costs, /\$2\.00 per UTC day/, "spend ceiling is undocumented in costs");
   assert.match(contract, /MAXIMUM_AUDIO_BYTES = 24 \* 1024 \* 1024/);
   assert.match(docs, /24 MB/);
   assert.match(costs, /\$0\.00051 per audio minute/);

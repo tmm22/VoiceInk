@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { enforceRateLimit, jsonNoStore, readBoundedJson, rejectCrossOrigin } from "../../../lib/server/requestSecurity";
+import { INTERNAL_CLIENT_KEY_HEADER } from "../../../shared/transcriptionContract";
 
 export const runtime = "edge";
 
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
       headers: {
         authorization: `Bearer ${apiKey}`,
         "content-type": "application/json",
+        [INTERNAL_CLIENT_KEY_HEADER]: request.headers.get("cf-connecting-ip") ?? "unknown",
       },
       body: JSON.stringify({ text, mode }),
       signal: request.signal,

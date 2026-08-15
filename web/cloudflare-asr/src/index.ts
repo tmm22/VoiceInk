@@ -1,6 +1,7 @@
 import {
   hasMatchingAudioSignature,
   INTERNAL_BODY_LENGTH_HEADER,
+  INTERNAL_CLIENT_KEY_HEADER,
   isSupportedAudioMediaType,
   MAXIMUM_AUDIO_BYTES,
   normalizeAudioMediaType,
@@ -8,23 +9,37 @@ import {
   TRANSCRIPTION_MODEL_ID,
   TRANSCRIPTION_MODEL_NAME,
 } from "../../shared/transcriptionContract.ts";
+import {
+  actualTranscriptionMicros,
+  estimateTranscriptionMicros,
+  INFERENCE_TIMEOUT_MS,
+  TEXT_GENERATION_FLAT_MICROS,
+  worstCaseAudioSeconds,
+} from "./budget.ts";
+import { enhancementInstructions, isEnhancementMode } from "./enhancement.ts";
+import { commitSpend, releaseSpend, reserveSpend, type Admission, type LedgerEnv } from "./ledgerClient.ts";
+import { SpendLedger } from "./spendLedger.ts";
 
-interface Env {
+export { SpendLedger };
+export { enhancementInstructions, isEnhancementMode } from "./enhancement.ts";
+
+interface Env extends LedgerEnv {
   AI: Ai;
   ASR_API_KEY: string;
 }
 
-export const enhancementInstructions = {
-  clean: "Correct grammar, punctuation, capitalization, and obvious transcription errors. Remove filler words and false starts only when doing so preserves the speaker's meaning, details, and natural tone. Never invent information.",
-  concise: "Make the text substantially clearer and more concise. Remove repetition and unnecessary words while preserving every material fact, name, number, decision, qualification, and action. Never invent information.",
-  professional: "Rewrite the text in a polished, confident professional tone suitable for work or client communication. Preserve the original meaning and all material details. Do not add claims, commitments, or facts that were not present.",
-  notes: "Turn the text into structured notes with short headings and useful bullet points. Clearly identify decisions and action items when they are actually present. Preserve names, dates, numbers, and qualifications, and never invent information.",
-} as const;
+function admissionDenial(admission: Extract<Admission, { ok: false }>) {
+  if (admission.reason === "unavailable") {
+    return json({ error: "Inference protection is unavailable" }, { status: 503 });
+  }
+  return json({ error: "Daily capacity has been reached. Please try again later." }, {
+    status: 429,
+    headers: { "retry-after": "3600" },
+  });
+}
 
-export type EnhancementMode = keyof typeof enhancementInstructions;
-
-export function isEnhancementMode(value: unknown): value is EnhancementMode {
-  return typeof value === "string" && Object.hasOwn(enhancementInstructions, value);
+function requestClientKey(request: Request) {
+  return request.headers.get(INTERNAL_CLIENT_KEY_HEADER) ?? "unknown";
 }
 
 function json(body: unknown, init: ResponseInit = {}) {
@@ -129,7 +144,7 @@ function fallbackSummary(transcript: string) {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, executionContext: ExecutionContext): Promise<Response> {
     if (request.method === "GET") {
       return json({ status: "ok", model: TRANSCRIPTION_MODEL_ID });
     }
@@ -154,6 +169,13 @@ export default {
       if (text.length > 12_000) return json({ error: "Text is too long to enhance" }, { status: 413 });
       if (!isEnhancementMode(body.mode)) return json({ error: "Unsupported enhancement style" }, { status: 400 });
 
+      const admission = await reserveSpend(env, {
+        estimateMicros: TEXT_GENERATION_FLAT_MICROS,
+        secondsEstimate: 0,
+        clientKey: requestClientKey(request),
+      });
+      if (!admission.ok) return admissionDenial(admission);
+
       let result: unknown;
       try {
         result = await env.AI.run("@cf/meta/llama-3.2-3b-instruct", {
@@ -168,8 +190,10 @@ export default {
           temperature: 0.2,
         }, { signal: request.signal });
       } catch {
+        executionContext.waitUntil(releaseSpend(env, admission.id));
         return json({ error: "Enhancement generation failed" }, { status: 502 });
       }
+      executionContext.waitUntil(commitSpend(env, admission.id, TEXT_GENERATION_FLAT_MICROS, 0));
       const enhanced = generatedText(result);
       if (!enhanced || enhanced.length > 30_000) return json({ error: "Enhancement generation failed" }, { status: 502 });
       return json({ enhanced, mode: body.mode, model: "llama-3.2-3b-instruct" });
@@ -183,6 +207,14 @@ export default {
       const text = body.text?.trim();
       if (!text) return json({ error: "Transcript text is required" }, { status: 400 });
       if (text.length > 60_000) return json({ error: "Transcript is too long to summarize" }, { status: 413 });
+
+      const admission = await reserveSpend(env, {
+        estimateMicros: TEXT_GENERATION_FLAT_MICROS,
+        secondsEstimate: 0,
+        clientKey: requestClientKey(request),
+      });
+      if (!admission.ok) return admissionDenial(admission);
+
       let result: unknown;
       try {
         result = await env.AI.run("@cf/meta/llama-3.2-3b-instruct", {
@@ -197,8 +229,10 @@ export default {
           temperature: 0.2,
         }, { signal: request.signal });
       } catch {
+        executionContext.waitUntil(releaseSpend(env, admission.id));
         return json({ error: "Summary generation failed" }, { status: 502 });
       }
+      executionContext.waitUntil(commitSpend(env, admission.id, TEXT_GENERATION_FLAT_MICROS, 0));
       const generated = generatedText(result);
       const rejectedTranscript = /(?:no|not)\s+(?:transcript|text)|provide\s+(?:the\s+|a\s+)?transcript/i.test(generated);
       return json({
@@ -224,6 +258,20 @@ export default {
       return json({ error: "The uploaded audio format is invalid" }, { status: 415 });
     }
 
+    // Admission prices the declared bytes at the worst-case (lowest) bitrate;
+    // the stream above enforces that actual bytes never exceed what was priced.
+    const estimatedSeconds = worstCaseAudioSeconds(declaredBytes);
+    const admission = await reserveSpend(env, {
+      estimateMicros: estimateTranscriptionMicros(declaredBytes),
+      secondsEstimate: estimatedSeconds,
+      clientKey: requestClientKey(request),
+    });
+    if (!admission.ok) return admissionDenial(admission);
+
+    // Bound inference below the reservation-expiry window so a live request
+    // always settles before its reservation can be swept, and a stalled or
+    // trickled upload is aborted here rather than holding budget for minutes.
+    const deadline = AbortSignal.any([request.signal, AbortSignal.timeout(INFERENCE_TIMEOUT_MS)]);
     try {
       const result = await env.AI.run(TRANSCRIPTION_MODEL_ID, {
         audio: { body: audioStream, contentType: mediaType },
@@ -231,10 +279,12 @@ export default {
         vad_filter: true,
         beam_size: 5,
         condition_on_previous_text: true,
-      }, { signal: request.signal });
+      }, { signal: deadline });
 
       const text = typeof result.text === "string" ? result.text.trim() : "";
       const duration = result.transcription_info?.duration;
+      const settledSeconds = typeof duration === "number" && duration > 0 ? duration : estimatedSeconds;
+      executionContext.waitUntil(commitSpend(env, admission.id, actualTranscriptionMicros(settledSeconds), Math.round(settledSeconds)));
       const response = parseTranscriptionResponse({
         text,
         model: TRANSCRIPTION_MODEL_NAME,
@@ -252,6 +302,7 @@ export default {
       }
       return json(response);
     } catch (error) {
+      executionContext.waitUntil(releaseSpend(env, admission.id));
       const diagnostic = error && typeof error === "object"
         ? error as { name?: unknown; code?: unknown }
         : null;

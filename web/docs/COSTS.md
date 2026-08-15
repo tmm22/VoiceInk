@@ -98,12 +98,16 @@ The unused `parakeet-service/` reference would create a materially different cos
 
 Anonymous transcription remains available, but the following controls limit cost and storage abuse:
 
-1. Cloudflare applies fail-closed, route-specific limits: transcription 4/minute, summary 6/minute, enhancement 6/minute, import 10/minute, and history 30/minute per edge key.
-2. All Convex history access is brokered through the protected web Worker.
-3. Convex independently enforces per-minute, daily, record-count, and stored-character account quotas.
-4. Anonymous history is limited to 30 active records and expires after one hour.
-5. Request, upload, transcript, summary, and imported-content sizes are bounded.
-6. The private ASR Worker requires its shared secret and rejects non-audio uploads.
-7. Retention updates are versioned and cleanup drains expired backlogs through continuations.
+1. A SQLite durable object in the ASR Worker enforces a hard global spend ceiling: every inference call must reserve budget before it runs, priced at the worst-case low bitrate for the declared bytes and settled to the provider-reported duration. The default ceiling is $2.00 per UTC day (`DAILY_SPEND_LIMIT_MICROS = 2000000`), which bounds the worst-case Workers AI bill at roughly $62 per month even under sustained attack. If the ledger is unreachable, inference is denied.
+2. The same ledger caps each client IP at 2 hours of transcribed audio per UTC day (`DAILY_CLIENT_AUDIO_SECONDS = 7200`, about $0.06 of transcription).
+3. `/api/transcribe` requires a server-verified, single-use Cloudflare Turnstile token whenever `TURNSTILE_SECRET_KEY` is configured, stopping headless-bot volume before any inference spend.
+4. Anonymous visitors are limited to 10 minutes of audio per recording or upload; signed-in users keep 30-minute recordings and 2-hour uploads.
+5. Cloudflare applies fail-closed, route-specific limits: transcription 4/minute, summary 6/minute, enhancement 6/minute, import 10/minute, and history 30/minute per edge key.
+6. All Convex history access is brokered through the protected web Worker.
+7. Convex independently enforces per-minute, daily, record-count, and stored-character account quotas.
+8. Anonymous history is limited to 30 active records and expires after one hour.
+9. Request, upload, transcript, summary, and imported-content sizes are bounded.
+10. The private ASR Worker requires its shared secret and rejects non-audio uploads.
+11. Retention updates are versioned and cleanup drains expired backlogs through continuations.
 
-Cloudflare rate-limit bindings are local, permissive pressure controls, not durable spend accounting. Configure billing and Workers AI usage alerts, a tested operator kill switch, WAF rules, and server-validated Turnstile for sustained anonymous abuse. Do not enable response caching for audio, transcripts, summaries, or enhancement output.
+Cloudflare rate-limit bindings are local, permissive pressure controls; the durable-object ledger is the durable spend accounting behind them. Additionally configure a billing budget alert (informational only), keep the zone-level WAF checklist in `docs/HARDENING.md` applied, and do not enable response caching for audio, transcripts, summaries, or enhancement output.

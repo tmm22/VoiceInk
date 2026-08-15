@@ -24,20 +24,38 @@ test("production configuration preserves required domains and bindings", async (
   for (const binding of ["ASR", "TRANSCRIPTION_RATE_LIMITER", "SUMMARY_RATE_LIMITER", "ENHANCEMENT_RATE_LIMITER", "IMPORT_RATE_LIMITER", "HISTORY_RATE_LIMITER"]) assert.match(config, new RegExp(`"${binding}"`));
 });
 
+test("the ASR worker keeps its spend-ledger durable object and metering headers", async () => {
+  const [config, index, transcribe, summarize, enhance] = await Promise.all([
+    source("cloudflare-asr/wrangler.jsonc"),
+    source("cloudflare-asr/src/index.ts"),
+    source("app/api/transcribe/route.ts"),
+    source("app/api/summarize/route.ts"),
+    source("app/api/enhance/route.ts"),
+  ]);
+  assert.match(config, /"durable_objects"/);
+  assert.match(config, /"SPEND_LEDGER"/);
+  assert.match(config, /"new_sqlite_classes": \["SpendLedger"\]/);
+  assert.match(index, /export \{ SpendLedger \}/);
+  for (const route of [transcribe, summarize, enhance]) {
+    assert.match(route, /INTERNAL_CLIENT_KEY_HEADER/);
+    assert.match(route, /cf-connecting-ip/);
+  }
+});
+
 test("AI enhancement is routed through the private AI service with product presets", async () => {
-  const [page, route, worker] = await Promise.all([
+  const [page, route, presets] = await Promise.all([
     source("app/page.tsx"),
     source("app/api/enhance/route.ts"),
-    source("cloudflare-asr/src/index.ts"),
+    source("cloudflare-asr/src/enhancement.ts"),
   ]);
   assert.match(page, /AIEnhancementPanel/);
   assert.match(route, /ENHANCEMENT_RATE_LIMITER/);
   assert.match(route, /\/v1\/enhancements/);
   assert.match(route, /!bindings\.ASR \|\| !apiKey/);
-  assert.match(worker, /clean:/);
-  assert.match(worker, /concise:/);
-  assert.match(worker, /professional:/);
-  assert.match(worker, /notes:/);
+  assert.match(presets, /clean:/);
+  assert.match(presets, /concise:/);
+  assert.match(presets, /professional:/);
+  assert.match(presets, /notes:/);
 });
 
 test("the browser, public API, and private worker agree on the ASR model", async () => {

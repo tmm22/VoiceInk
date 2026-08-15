@@ -48,7 +48,7 @@ Transcript saves are idempotent: every transcription carries a client-generated 
 
 Completed transcripts can be summarized or enhanced on demand with Cloudflare Workers AI using `@cf/meta/llama-3.2-3b-instruct`. Summaries are editable, copyable, and can be sent to the narration workspace. Generated summaries are stored on their matching Convex transcription record and follow that record's retention policy. Enhancement results remain in the current browser session unless the user explicitly replaces the transcript and saves it through the existing history workflow.
 
-Production API routes enforce same-origin browser requests, declared and actual byte limits, strict content types, and independent Cloudflare rate limits for transcription, summarization, enhancement, content imports, and history. Anonymous history creation is brokered by the web Worker with a server-only secret; clients cannot write anonymous records directly to Convex. The private ASR Worker also fails closed when its shared secret is absent.
+Production API routes enforce same-origin browser requests, declared and actual byte limits, strict content types, and independent Cloudflare rate limits for transcription, summarization, enhancement, content imports, and history. Transcription additionally requires a server-verified Cloudflare Turnstile token when configured, and every Workers AI call is admitted through a durable spend ledger that enforces a global daily cost ceiling and per-client daily audio quota before inference runs. Anonymous history creation is brokered by the web Worker with a server-only secret; clients cannot write anonymous records directly to Convex. The private ASR Worker also fails closed when its shared secret is absent.
 
 Transcript content is JSON-encoded as untrusted data and the model is instructed never to treat it as instructions. If the model incorrectly claims that no transcript was supplied, the Worker replaces that response with a deterministic extractive summary so users never see a false missing-transcript message.
 
@@ -56,7 +56,8 @@ Transcript content is JSON-encoded as untrusted data and the model is instructed
 
 - `app/` — browser recorder, audio upload, automatic transcription workflow, AI enhancement, history interface, and protected API proxies
 - `app/tts-workspace.tsx` — device-local text-to-speech workspace with article import
-- `lib/recording.ts` — recorder MIME selection, recording/upload duration caps, and safe audio-metadata reading
+- `lib/recording.ts` — recorder MIME selection, tiered recording/upload duration caps, and safe audio-metadata reading
+- `lib/turnstileClient.ts` and `lib/transcriptionRequest.ts` — invisible-first Turnstile widget driving and the token-carrying transcription request
 - `lib/transcriptExport.ts` — TXT, SRT, and WebVTT transcript downloads adapted from the source project
 - `lib/browserSpeech.ts` — reused system-voice discovery and playback controller
 - `shared/transcriptionContract.ts` — single source of truth for model IDs, audio byte limits, and media-type validation shared by the browser, web Worker, and ASR Worker
@@ -101,7 +102,9 @@ The production smoke suite is non-mutating and does not invoke paid AI. A real a
 
 - Signed-in accounts are limited to 10 history writes per minute, 100 per day, 50 retained records, and 10 million stored transcript/summary characters
 - Anonymous browsers can retain at most 30 active one-hour history records
-- Microphone recordings are capped at 30 minutes and uploaded files at 2 hours of audio, enforced in the browser before upload
+- Signed-in recordings are capped at 30 minutes and uploads at 2 hours of audio; anonymous visitors get 10 minutes for either, enforced in the browser before upload
+- A durable spend ledger in the ASR Worker caps all Workers AI inference at $2.00 per UTC day globally and 2 hours of transcribed audio per client IP per day; when the ledger cannot be reached, inference is denied
+- Transcription requests require a server-verified Cloudflare Turnstile token whenever the Turnstile secret is configured (production configures it; local development uses Cloudflare's official test keys)
 - Cloudflare applies separate inference, import, and history rate limits; missing production bindings fail closed
 
 ## Regression checks
