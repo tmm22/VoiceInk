@@ -7,15 +7,15 @@ struct AudioFeedbackSettingsView: View {
     @State private var currentSoundType: SoundType?
     
     var body: some View {
-        VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
+        VStack(alignment: .leading, spacing: 16) {
             Toggle("Enable sound feedback", isOn: $soundManager.settings.isEnabled)
                 .toggleStyle(.switch)
             
             if soundManager.settings.isEnabled {
-                VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Sound Theme")
-                        .voiceInkHeadline()
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.secondary)
                     
                     Picker("Preset", selection: $soundManager.settings.preset) {
                         ForEach(AudioPreset.allCases, id: \.self) { preset in
@@ -28,15 +28,15 @@ struct AudioFeedbackSettingsView: View {
                         soundManager.settings.customSounds = nil
                     }
                 }
-                .padding(.vertical, VoiceInkSpacing.xxs)
+                .padding(.vertical, 4)
                 
                 if soundManager.settings.preset != .silent {
                     Divider()
                     
-                    VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("Volume Controls")
-                            .voiceInkHeadline()
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.secondary)
                         
                         volumeControl(
                             title: "Start Recording",
@@ -59,11 +59,11 @@ struct AudioFeedbackSettingsView: View {
                     
                     Divider()
                     
-                    VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
+                    VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Text("Custom Sounds")
-                                .voiceInkHeadline()
-                                .foregroundStyle(.secondary)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.secondary)
                             
                             Spacer()
                             
@@ -77,7 +77,8 @@ struct AudioFeedbackSettingsView: View {
                         }
                         
                         Text("Override preset sounds with your own audio files (.mp3, .wav, .aiff)")
-                            .voiceInkCaptionStyle()
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
                         
                         customSoundRow(
                             title: "Start Sound",
@@ -111,68 +112,57 @@ struct AudioFeedbackSettingsView: View {
     
     @ViewBuilder
     private func volumeControl(title: String, value: Binding<Float>, soundType: SoundType) -> some View {
-        HStack(spacing: VoiceInkSpacing.sm) {
+        HStack(spacing: 12) {
             Text(title)
-                .voiceInkSubheadline()
-                .foregroundStyle(.primary)
+                .font(.system(size: 12))
+                .foregroundColor(.primary)
                 .frame(width: 110, alignment: .leading)
             
             Slider(value: value, in: 0...1, step: 0.05)
                 .frame(maxWidth: 200)
             
             Text("\(Int(value.wrappedValue * 100))%")
-                .voiceInkCaptionStyle()
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.secondary)
                 .frame(width: 40, alignment: .trailing)
             
             Button(action: {
                 soundManager.previewSound(type: soundType)
             }) {
                 Image(systemName: "play.circle.fill")
-                    .foregroundColor(VoiceInkTheme.Palette.accent)
+                    .foregroundColor(.accentColor)
             }
             .buttonStyle(.plain)
-            .frame(minWidth: 20, minHeight: 20)
-            .contentShape(Rectangle())
-            .accessibilityLabel("Preview \(title) sound")
-            .help("Preview \(title.lowercased()) sound")
+            .help("Preview sound")
         }
     }
     
     @ViewBuilder
     private func customSoundRow(title: String, type: SoundType, currentPath: String?) -> some View {
-        HStack(spacing: VoiceInkSpacing.xs) {
+        HStack(spacing: 8) {
             Text(title)
-                .voiceInkSubheadline()
+                .font(.system(size: 12))
                 .frame(width: 90, alignment: .leading)
             
             if let path = currentPath {
                 Text(URL(fileURLWithPath: path).lastPathComponent)
-                    .voiceInkCaptionStyle()
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 
                 Button(action: {
-                    Task { @MainActor in
-                        do {
-                            try await soundManager.setCustomSound(type: type, url: nil)
-                        } catch {
-                            AppLogger.audio.error(
-                                "Failed to remove custom sound: \(AppLogger.errorMetadata(error), privacy: .public)"
-                            )
-                        }
-                    }
+                    soundManager.setCustomSound(type: type, url: nil)
                 }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
-                .frame(minWidth: 20, minHeight: 20)
-                .contentShape(Rectangle())
-                .accessibilityLabel("Remove \(title)")
-                .help("Remove \(title.lowercased())")
+                .help("Remove custom sound")
             } else {
                 Text("Using preset default")
-                    .voiceInkCaptionStyle()
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
                     .italic()
             }
             
@@ -197,23 +187,13 @@ struct AudioFeedbackSettingsView: View {
         case .success(let urls):
             guard let url = urls.first else { return }
             
-            Task { @MainActor in
-                let didAccess = url.startAccessingSecurityScopedResource()
-                defer {
-                    if didAccess { url.stopAccessingSecurityScopedResource() }
-                }
-                do {
-                    try await soundManager.setCustomSound(type: type, url: url)
-                } catch {
-                    NotificationManager.shared.showNotification(
-                        title: error.localizedDescription,
-                        type: .error
-                    )
-                }
+            if url.startAccessingSecurityScopedResource() {
+                defer { url.stopAccessingSecurityScopedResource() }
+                soundManager.setCustomSound(type: type, url: url)
             }
             
         case .failure(let error):
-            AppLogger.audio.error("Failed to select custom audio file: \(AppLogger.errorMetadata(error), privacy: .public)")
+            print("Error selecting audio file: \(error.localizedDescription)")
         }
         
         currentSoundType = nil

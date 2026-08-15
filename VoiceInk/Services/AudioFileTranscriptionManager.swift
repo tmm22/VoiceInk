@@ -1,293 +1,230 @@
-import AVFoundation
 import Foundation
-import SwiftData
 import SwiftUI
+import AVFoundation
+import SwiftData
 import os
 
 @MainActor
 class AudioTranscriptionManager: ObservableObject {
     static let shared = AudioTranscriptionManager()
-
-    // MARK: - Published State
-
-    @Published var queue: [AudioFileQueueItem] = []
-    @Published var isProcessingQueue = false
-    @Published var lastCompletedItemId: UUID?
-
-    // MARK: - Private
-
-    private var processingTask: Task<Void, Never>?
-    private var processingGeneration: UInt64 = 0
+    
+    @Published var isProcessing = false
+    @Published var processingPhase: ProcessingPhase = .idle
+    @Published var currentTranscription: Transcription?
+    @Published var errorMessage: String?
+    
+    private var currentTask: Task<Void, Error>?
     private let audioProcessor = AudioProcessor()
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "AudioTranscriptionManager")
-
+    
+    // Transcription services - will be initialized when needed
+    private var localTranscriptionService: LocalTranscriptionService?
+    private lazy var cloudTranscriptionService = CloudTranscriptionService()
+    private lazy var nativeAppleTranscriptionService = NativeAppleTranscriptionService()
+    private var parakeetTranscriptionService: ParakeetTranscriptionService?
+    
+    enum ProcessingPhase {
+        case idle
+        case loading
+        case processingAudio
+        case transcribing
+        case enhancing
+        case completed
+        
+        var message: String {
+            switch self {
+            case .idle:
+                return ""
+            case .loading:
+                return "Loading transcription model..."
+            case .processingAudio:
+                return "Processing audio file for transcription..."
+            case .transcribing:
+                return "Transcribing audio..."
+            case .enhancing:
+                return "Enhancing transcription with AI..."
+            case .completed:
+                return "Transcription completed!"
+            }
+        }
+    }
+    
     private init() {}
-
-    // MARK: - Queue Management
-
-    /// Add one or more audio file URLs to the queue. Invalid files are silently skipped.
-    func addToQueue(urls: [URL]) {
-        for url in urls {
-            guard FileManager.default.fileExists(atPath: url.path) else { continue }
-            guard SupportedMedia.isSupported(url: url) else { continue }
-
-            // Avoid adding the same file path twice if it's already pending/processing
-            let path = url.standardizedFileURL.path
-            if queue.contains(where: { $0.url.standardizedFileURL.path == path && !$0.status.isTerminal }) {
-                continue
-            }
-
-            let item = AudioFileQueueItem(url: url)
-            queue.append(item)
-        }
-    }
-
-    /// Remove a pending item from the queue.
-    func removeFromQueue(id: UUID) {
-        guard let index = queue.firstIndex(where: { $0.id == id }) else { return }
-        let item = queue[index]
-
-        // Only allow removing pending items
-        guard case .pending = item.status else { return }
-
-        queue.remove(at: index)
-    }
-
-    /// Clear all items from the queue, cancelling any in-progress work.
-    func clearAll() {
+    
+    func startProcessing(url: URL, modelContext: ModelContext, whisperState: WhisperState) {
+        // Cancel any existing processing
         cancelProcessing()
-        queue.removeAll()
-        lastCompletedItemId = nil
-    }
+        
+        isProcessing = true
+        processingPhase = .loading
+        errorMessage = nil
+        
+        currentTask = Task {
+            do {
+                guard let currentModel = whisperState.currentTranscriptionModel else {
+                    throw TranscriptionError.noModelSelected
+                }
+                
+                // Initialize local transcription service if needed
+                if localTranscriptionService == nil {
+                    localTranscriptionService = LocalTranscriptionService(modelsDirectory: whisperState.modelsDirectory, whisperState: whisperState)
+                }
+                
+                // Initialize parakeet transcription service if needed
+                if parakeetTranscriptionService == nil {
+                    parakeetTranscriptionService = ParakeetTranscriptionService()
+                }
+                
+                // Process audio file
+                processingPhase = .processingAudio
+                let samples = try await audioProcessor.processAudioToSamples(url)
+                
+                // Get audio duration
+                let audioAsset = AVURLAsset(url: url)
+                let duration = CMTimeGetSeconds(try await audioAsset.load(.duration))
+                
+                // Create permanent copy of the audio file
+                let recordingsDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                    .appendingPathComponent("com.prakashjoshipax.VoiceInk")
+                    .appendingPathComponent("Recordings")
+                
+                let fileName = "transcribed_\(UUID().uuidString).wav"
+                let permanentURL = recordingsDirectory.appendingPathComponent(fileName)
+                
+                try FileManager.default.createDirectory(at: recordingsDirectory, withIntermediateDirectories: true)
+                try audioProcessor.saveSamplesAsWav(samples: samples, to: permanentURL)
+                
+                // Transcribe using appropriate service
+                processingPhase = .transcribing
+                let transcriptionStart = Date()
+                var text: String
+                
+                switch currentModel.provider {
+                case .local:
+                    text = try await localTranscriptionService!.transcribe(audioURL: permanentURL, model: currentModel)
+                case .parakeet:
+                    text = try await parakeetTranscriptionService!.transcribe(audioURL: permanentURL, model: currentModel)
+                case .nativeApple:
+                    text = try await nativeAppleTranscriptionService.transcribe(audioURL: permanentURL, model: currentModel)
+                default: // Cloud models
+                    text = try await cloudTranscriptionService.transcribe(audioURL: permanentURL, model: currentModel)
+                }
+                
+                let transcriptionDuration = Date().timeIntervalSince(transcriptionStart)
+                text = TranscriptionOutputFilter.filter(text)
+                text = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
-    /// Retry a failed item by resetting it to pending and re-enqueuing.
-    func retryItem(id: UUID) {
-        guard let item = queue.first(where: { $0.id == id }),
-            case .failed = item.status
-        else { return }
+                let powerModeManager = PowerModeManager.shared
+                let activePowerModeConfig = powerModeManager.currentActiveConfiguration
+                let powerModeName = (activePowerModeConfig?.isEnabled == true) ? activePowerModeConfig?.name : nil
+                let powerModeEmoji = (activePowerModeConfig?.isEnabled == true) ? activePowerModeConfig?.emoji : nil
 
-        item.status = .pending
-    }
-
-    /// Start processing pending items in the queue sequentially.
-    func startProcessing(modelContext: ModelContext, engine: VoiceInkEngine, mode: ModeConfig) {
-        guard !isProcessingQueue else { return }
-        isProcessingQueue = true
-        processingGeneration &+= 1
-        let generation = processingGeneration
-
-        processingTask = Task { [weak self] in
-            guard let self else { return }
-
-            while let item = self.nextPendingItem() {
-                guard !Task.isCancelled else { break }
-                await self.processItem(item, modelContext: modelContext, engine: engine, mode: mode)
-            }
-
-            if self.processingGeneration == generation {
-                self.isProcessingQueue = false
-            }
-        }
-    }
-
-    func cancelProcessing() {
-        processingTask?.cancel()
-        processingTask = nil
-        isProcessingQueue = false
-
-        // Reset any in-progress items back to pending
-        for item in queue {
-            if case .processing = item.status {
-                item.status = .pending
-            }
-        }
-    }
-
-    var hasPendingItems: Bool {
-        queue.contains {
-            if case .pending = $0.status { return true }
-            return false
-        }
-    }
-
-    // MARK: - Private
-
-    private func nextPendingItem() -> AudioFileQueueItem? {
-        queue.first {
-            if case .pending = $0.status { return true }
-            return false
-        }
-    }
-
-    private func processItem(
-        _ item: AudioFileQueueItem, modelContext: ModelContext, engine: VoiceInkEngine, mode: ModeConfig
-    ) async {
-        let serviceRegistry = TranscriptionServiceRegistry(
-            modelProvider: engine.whisperModelManager,
-            modelsDirectory: engine.whisperModelManager.modelsDirectory,
-            modelContext: modelContext
-        )
-
-        do {
-            guard
-                let transcriptionConfiguration = ModeRuntimeResolver.transcriptionConfiguration(
-                    mode: mode,
-                    transcriptionModelManager: engine.transcriptionModelManager
-                )
-            else {
-                throw TranscriptionError.noModelSelected
-            }
-            let currentModel = transcriptionConfiguration.model
-
-            // Phase: Loading
-            item.status = .processing(phase: .loading)
-            try Task.checkCancellation()
-
-            // Phase: Processing Audio
-            item.status = .processing(phase: .processingAudio)
-
-            let accessing = item.url.startAccessingSecurityScopedResource()
-            defer { if accessing { item.url.stopAccessingSecurityScopedResource() } }
-
-            let samples = try await audioProcessor.processAudioToSamples(item.url)
-            try Task.checkCancellation()
-
-            let audioAsset = AVURLAsset(url: item.url)
-            let duration = CMTimeGetSeconds(try await audioAsset.load(.duration))
-
-            let recordingsDirectory = AppBrand.applicationSupportDirectory()
-                .appendingPathComponent("Recordings")
-
-            let fileName = "transcribed_\(UUID().uuidString).wav"
-            let permanentURL = recordingsDirectory.appendingPathComponent(fileName)
-
-            try FileManager.default.createDirectory(at: recordingsDirectory, withIntermediateDirectories: true)
-            try audioProcessor.saveSamplesAsWav(samples: samples, to: permanentURL)
-            try Task.checkCancellation()
-
-            // Phase: Transcribing
-            item.status = .processing(phase: .transcribing)
-            let transcriptionStart = Date()
-            var text = try await serviceRegistry.transcribe(
-                audioURL: permanentURL,
-                model: currentModel,
-                context: transcriptionConfiguration.requestContext
-            )
-            let transcriptionDuration = Date().timeIntervalSince(transcriptionStart)
-            text = TranscriptionOutputFilter.filter(text)
-            text = text.trimmingCharacters(in: .whitespacesAndNewlines)
-
-            let modeMetadata = transcriptionConfiguration.metadata
-            let formattingConfiguration = ModeRuntimeResolver.transcriptionFormattingConfiguration(mode: mode)
-
-            if formattingConfiguration.isTextFormattingEnabled {
-                text = ParagraphFormatter.format(text)
-            }
-
-            text = WordReplacementService.shared.applyReplacements(to: text, using: modelContext)
-            let cleanedText = text
-            try Task.checkCancellation()
-
-            // Handle enhancement if enabled
-            var transcription: Transcription
-
-            let enhancementConfiguration = engine.enhancementService
-                .flatMap { enhancementService in
-                    enhancementService.getAIService().map { aiService in
-                        ModeRuntimeResolver.currentEnhancementConfiguration(
-                            mode: mode,
-                            enhancementService: enhancementService,
-                            aiService: aiService
-                        )
-                    }
+                if UserDefaults.standard.object(forKey: "IsTextFormattingEnabled") as? Bool ?? true {
+                    text = WhisperTextFormatter.format(text)
                 }
 
-            if let enhancementService = engine.enhancementService,
-                let enhancementConfiguration,
-                enhancementConfiguration.isEnabled,
-                enhancementService.isConfigured(for: enhancementConfiguration)
-            {
-                item.status = .processing(phase: .enhancing)
-                do {
-                    let enhancementResult = try await enhancementService.enhance(
-                        text,
-                        configuration: enhancementConfiguration
-                    )
-                    transcription = Transcription(
-                        text: cleanedText,
+                text = WordReplacementService.shared.applyReplacements(to: text)
+                
+                // Handle enhancement if enabled
+                if let enhancementService = whisperState.enhancementService,
+                   enhancementService.isEnhancementEnabled,
+                   enhancementService.isConfigured {
+                    processingPhase = .enhancing
+                    do {
+                        // inside the enhancement success path where transcription is created
+                        let (enhancedText, enhancementDuration, promptName) = try await enhancementService.enhance(text)
+                        let transcription = Transcription(
+                            text: text,
+                            duration: duration,
+                            enhancedText: enhancedText,
+                            audioFileURL: permanentURL.absoluteString,
+                            transcriptionModelName: currentModel.displayName,
+                            aiEnhancementModelName: enhancementService.getAIService()?.currentModel,
+                            promptName: promptName,
+                            transcriptionDuration: transcriptionDuration,
+                            enhancementDuration: enhancementDuration,
+                            aiRequestSystemMessage: enhancementService.lastSystemMessageSent,
+                            aiRequestUserMessage: enhancementService.lastUserMessageSent,
+                            powerModeName: powerModeName,
+                            powerModeEmoji: powerModeEmoji
+                        )
+                        modelContext.insert(transcription)
+                        try modelContext.save()
+                        NotificationCenter.default.post(name: .transcriptionCreated, object: transcription)
+                        currentTranscription = transcription
+                    } catch {
+                        logger.error("Enhancement failed: \(error.localizedDescription)")
+                        let transcription = Transcription(
+                            text: text,
+                            duration: duration,
+                            audioFileURL: permanentURL.absoluteString,
+                            transcriptionModelName: currentModel.displayName,
+                            promptName: nil,
+                            transcriptionDuration: transcriptionDuration,
+                            powerModeName: powerModeName,
+                            powerModeEmoji: powerModeEmoji
+                        )
+                        modelContext.insert(transcription)
+                        try modelContext.save()
+                        NotificationCenter.default.post(name: .transcriptionCreated, object: transcription)
+                        currentTranscription = transcription
+                    }
+                } else {
+                    let transcription = Transcription(
+                        text: text,
                         duration: duration,
-                        enhancedText: enhancementResult.text,
-                        audioFileURL: permanentURL.absoluteString,
-                        transcriptionModelName: currentModel.displayName,
-                        aiEnhancementModelName: enhancementConfiguration.modelName
-                            ?? enhancementConfiguration.provider?.defaultModel,
-                        promptName: enhancementResult.promptName,
-                        transcriptionDuration: transcriptionDuration,
-                        enhancementDuration: enhancementResult.duration,
-                        aiRequestSystemMessage: enhancementResult.systemMessage,
-                        aiRequestUserMessage: enhancementResult.userMessage,
-                        modeName: modeMetadata.name,
-                        modeEmoji: modeMetadata.emoji
-                    )
-                } catch {
-                    let failureMessage = EnhancementFailureFormatter.message(for: error)
-                    transcription = Transcription(
-                        text: cleanedText,
-                        duration: duration,
-                        enhancedText: failureMessage,
                         audioFileURL: permanentURL.absoluteString,
                         transcriptionModelName: currentModel.displayName,
                         promptName: nil,
                         transcriptionDuration: transcriptionDuration,
-                        modeName: modeMetadata.name,
-                        modeEmoji: modeMetadata.emoji
+                        powerModeName: powerModeName,
+                        powerModeEmoji: powerModeEmoji
                     )
+                    modelContext.insert(transcription)
+                    try modelContext.save()
+                    NotificationCenter.default.post(name: .transcriptionCreated, object: transcription)
+                    currentTranscription = transcription
                 }
-            } else {
-                transcription = Transcription(
-                    text: cleanedText,
-                    duration: duration,
-                    audioFileURL: permanentURL.absoluteString,
-                    transcriptionModelName: currentModel.displayName,
-                    promptName: nil,
-                    transcriptionDuration: transcriptionDuration,
-                    modeName: modeMetadata.name,
-                    modeEmoji: modeMetadata.emoji
-                )
-            }
-
-            modelContext.insert(transcription)
-            try modelContext.save()
-            NotificationCenter.default.post(name: .transcriptionCreated, object: transcription)
-            NotificationCenter.default.post(name: .transcriptionCompleted, object: transcription)
-
-            item.transcription = transcription
-            item.status = .completed
-            lastCompletedItemId = item.id
-
-        } catch {
-            if Task.isCancelled || error is CancellationError {
-                item.status = .pending
-            } else {
-                logger.error("Transcription error: \(AppLogger.errorMetadata(error), privacy: .public)")
-                item.status = .failed(message: error.localizedDescription)
+                
+                processingPhase = .completed
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                await finishProcessing()
+                
+            } catch {
+                await handleError(error)
             }
         }
-
-        await serviceRegistry.cleanup()
+    }
+    
+    func cancelProcessing() {
+        currentTask?.cancel()
+    }
+    
+    private func finishProcessing() {
+        isProcessing = false
+        processingPhase = .idle
+        currentTask = nil
+    }
+    
+    private func handleError(_ error: Error) {
+        logger.error("Transcription error: \(error.localizedDescription)")
+        errorMessage = error.localizedDescription
+        isProcessing = false
+        processingPhase = .idle
+        currentTask = nil
     }
 }
 
 enum TranscriptionError: Error, LocalizedError {
     case noModelSelected
     case transcriptionCancelled
-
+    
     var errorDescription: String? {
         switch self {
         case .noModelSelected:
-            return String(localized: "No transcription model selected")
+            return "No transcription model selected"
         case .transcriptionCancelled:
-            return String(localized: "Transcription was cancelled")
+            return "Transcription was cancelled"
         }
     }
 }

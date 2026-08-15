@@ -1,192 +1,120 @@
 import Foundation
-import OSLog
 import SwiftData
+import OSLog
 
-@MainActor
-final class TranscriptionAutoCleanupService {
+class TranscriptionAutoCleanupService {
     static let shared = TranscriptionAutoCleanupService()
 
-    private let cleanupWorker = AudioFileCleanupWorker()
-    private let logger = Logger(
-        subsystem: "com.prakashjoshipax.voiceink",
-        category: "TranscriptionAutoCleanupService"
-    )
+    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "TranscriptionAutoCleanupService")
     private var modelContext: ModelContext?
-    private var transcriptionObserver: NSObjectProtocol?
 
-    private var recordingsDirectory: URL {
-        AppBrand.applicationSupportDirectory()
-            .appendingPathComponent("Recordings")
-    }
+    private let keyIsEnabled = "IsTranscriptionCleanupEnabled"
+    private let keyRetentionMinutes = "TranscriptionRetentionMinutes"
+
+    private let defaultRetentionMinutes: Int = 24 * 60
 
     private init() {}
 
-    deinit {
-        if let transcriptionObserver {
-            NotificationCenter.default.removeObserver(transcriptionObserver)
-        }
-    }
-
     func startMonitoring(modelContext: ModelContext) {
         self.modelContext = modelContext
-        if let transcriptionObserver {
-            NotificationCenter.default.removeObserver(transcriptionObserver)
-        }
-        transcriptionObserver = NotificationCenter.default.addObserver(
-            forName: .transcriptionCompleted,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            MainActor.assumeIsolated {
-                self?.handleTranscriptionCompleted(notification)
-            }
-        }
 
-        guard UserDefaults.standard.bool(forKey: CleanupSettingsKeys.isTranscriptionCleanupEnabled) else {
-            return
-        }
-        Task { @MainActor [weak self] in
-            guard let self, let modelContext = self.modelContext else { return }
-            await self.sweepOldTranscriptions(modelContext: modelContext)
-            await self.cleanupOrphanAudioFiles(modelContext: modelContext)
-        }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleTranscriptionCompleted(_:)),
+            name: .transcriptionCompleted,
+            object: nil
+        )
+
+        if UserDefaults.standard.bool(forKey: keyIsEnabled) {
+            
+            Task { [weak self] in
+                guard let self = self, let modelContext = self.modelContext else { return }
+                await self.sweepOldTranscriptions(modelContext: modelContext)
+            }
+        } else {}
     }
 
     func stopMonitoring() {
-        if let transcriptionObserver {
-            NotificationCenter.default.removeObserver(transcriptionObserver)
-            self.transcriptionObserver = nil
-        }
+        NotificationCenter.default.removeObserver(self, name: .transcriptionCompleted, object: nil)
     }
 
     func runManualCleanup(modelContext: ModelContext) async {
         await sweepOldTranscriptions(modelContext: modelContext)
     }
 
-    private func handleTranscriptionCompleted(_ notification: Notification) {
-        guard UserDefaults.standard.bool(forKey: CleanupSettingsKeys.isTranscriptionCleanupEnabled) else {
-            return
-        }
-        guard let modelContext else {
-            logger.error("Missing model context for transcription cleanup")
-            return
-        }
+    @objc private func handleTranscriptionCompleted(_ notification: Notification) {
+        let isEnabled = UserDefaults.standard.bool(forKey: keyIsEnabled)
+        guard isEnabled else { return }
 
-        let retentionMinutes = UserDefaults.standard.integer(
-            forKey: CleanupSettingsKeys.transcriptionRetentionMinutes
-        )
-        if retentionMinutes > 0 {
-            Task { @MainActor [weak self] in
-                await self?.sweepOldTranscriptions(modelContext: modelContext)
+        let minutes = UserDefaults.standard.integer(forKey: keyRetentionMinutes)
+        if minutes > 0 {
+            // Trigger a sweep based on the retention window
+            if let modelContext = self.modelContext {
+                Task { [weak self] in
+                    guard let self = self else { return }
+                    await self.sweepOldTranscriptions(modelContext: modelContext)
+                }
             }
             return
         }
 
-        guard let transcription = notification.object as? Transcription else {
-            logger.error("Invalid transcription cleanup notification")
+        guard let transcription = notification.object as? Transcription,
+              let modelContext = self.modelContext else {
+            logger.error("Invalid transcription or missing model context")
             return
         }
-        Task { @MainActor [weak self] in
-            await self?.deleteTranscription(transcription, modelContext: modelContext)
-        }
-    }
 
-    private func deleteTranscription(_ transcription: Transcription, modelContext: ModelContext) async {
-        if let candidate = audioCandidate(from: transcription) {
-            let results = await cleanupWorker.delete([candidate], allowedRoot: recordingsDirectory)
-            if results.contains(where: { if case .failed = $0.deletion { return true }; return false }) {
-                logger.error("Failed to delete an audio file during transcription cleanup")
+        if let urlString = transcription.audioFileURL,
+           let url = URL(string: urlString) {
+            do {
+                try FileManager.default.removeItem(at: url)
+            } catch {
+                logger.error("Failed to delete audio file: \(error.localizedDescription)")
             }
         }
 
         modelContext.delete(transcription)
+
         do {
             try modelContext.save()
-            NotificationCenter.default.post(name: .transcriptionDeleted, object: nil)
         } catch {
-            modelContext.rollback()
-            logger.error(
-                "Failed to save transcription cleanup: \(AppLogger.errorMetadata(error), privacy: .public)"
-            )
+            logger.error("Failed to save after transcription deletion: \(error.localizedDescription)")
         }
     }
 
     private func sweepOldTranscriptions(modelContext: ModelContext) async {
-        guard UserDefaults.standard.bool(forKey: CleanupSettingsKeys.isTranscriptionCleanupEnabled) else {
+        guard UserDefaults.standard.bool(forKey: keyIsEnabled) else {
             return
         }
 
-        let retentionMinutes = max(
-            UserDefaults.standard.integer(forKey: CleanupSettingsKeys.transcriptionRetentionMinutes),
-            0
-        )
-        let cutoffDate = Date().addingTimeInterval(TimeInterval(-retentionMinutes * 60))
+        let retentionMinutes = UserDefaults.standard.integer(forKey: keyRetentionMinutes)
+        let effectiveMinutes = max(retentionMinutes, 0)
+
+        let cutoffDate = Date().addingTimeInterval(TimeInterval(-effectiveMinutes * 60))
 
         do {
-            let descriptor = FetchDescriptor<Transcription>(
-                predicate: #Predicate<Transcription> { transcription in
-                    transcription.timestamp < cutoffDate
-                }
-            )
-            let transcriptions = try modelContext.fetch(descriptor)
-            let candidates = transcriptions.compactMap(audioCandidate(from:))
-            let deletionResults = await cleanupWorker.delete(candidates, allowedRoot: recordingsDirectory)
-            let failures = deletionResults.reduce(into: 0) { count, result in
-                if case .failed = result.deletion { count += 1 }
-            }
-
-            for transcription in transcriptions {
-                modelContext.delete(transcription)
-            }
-            guard !transcriptions.isEmpty else { return }
-
-            try modelContext.save()
-            logger.notice(
-                "Cleaned up transcriptions count=\(transcriptions.count, privacy: .public) audioFailures=\(failures, privacy: .public)"
-            )
-            NotificationCenter.default.post(name: .transcriptionDeleted, object: nil)
-        } catch {
-            modelContext.rollback()
-            logger.error(
-                "Transcription cleanup failed: \(AppLogger.errorMetadata(error), privacy: .public)"
-            )
-        }
-    }
-
-    private func cleanupOrphanAudioFiles(modelContext: ModelContext) async {
-        guard UserDefaults.standard.bool(forKey: CleanupSettingsKeys.isTranscriptionCleanupEnabled) else {
-            return
-        }
-
-        do {
-            var descriptor = FetchDescriptor<Transcription>()
-            descriptor.propertiesToFetch = [\.audioFileURL]
-            let transcriptions = try modelContext.fetch(descriptor)
-            let referencedFiles = Set(transcriptions.compactMap { transcription in
-                transcription.audioFileURL.flatMap(URL.init(string:))?.lastPathComponent
-            })
-            let result = await cleanupWorker.deleteOrphans(
-                referencedFileNames: referencedFiles,
-                allowedRoot: recordingsDirectory
-            )
-            if result.deletedCount > 0 || result.failureCount > 0 {
-                logger.notice(
-                    "Cleaned orphan audio deleted=\(result.deletedCount, privacy: .public) failures=\(result.failureCount, privacy: .public)"
+            try await MainActor.run {
+                let descriptor = FetchDescriptor<Transcription>(
+                    predicate: #Predicate<Transcription> { transcription in
+                        transcription.timestamp < cutoffDate
+                    }
                 )
+                let items = try modelContext.fetch(descriptor)
+                var deletedCount = 0
+                for transcription in items {
+                    // Remove audio file if present
+                    if let urlString = transcription.audioFileURL,
+                       let url = URL(string: urlString),
+                       FileManager.default.fileExists(atPath: url.path) {
+                        try? FileManager.default.removeItem(at: url)
+                    }
+                    modelContext.delete(transcription)
+                    deletedCount += 1
+                }
+                if deletedCount > 0 { try modelContext.save() }
             }
         } catch {
-            logger.error(
-                "Orphan audio cleanup failed: \(AppLogger.errorMetadata(error), privacy: .public)"
-            )
+            logger.error("Failed during transcription cleanup: \(error.localizedDescription)")
         }
-    }
-
-    private func audioCandidate(from transcription: Transcription) -> AudioFileCandidate? {
-        guard let urlString = transcription.audioFileURL,
-            let url = URL(string: urlString)
-        else {
-            return nil
-        }
-        return AudioFileCandidate(id: transcription.id, url: url)
     }
 }

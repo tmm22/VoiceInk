@@ -1,64 +1,86 @@
-import AppKit
 import SwiftUI
+import AppKit
 
-@MainActor
-class NotchWindowManager {
+class NotchWindowManager: ObservableObject {
+    @Published var isVisible = false
     private var windowController: NSWindowController?
-    private var panel: NotchRecorderPanel?
+     var notchPanel: NotchRecorderPanel?
+    private let whisperState: WhisperState
+    private let recorder: Recorder
+    
+    init(whisperState: WhisperState, recorder: Recorder) {
+        self.whisperState = whisperState
+        self.recorder = recorder
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleHideNotification),
+            name: NSNotification.Name("HideNotchRecorder"),
+            object: nil
+        )
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    @objc private func handleHideNotification() {
+        hide()
+    }
+    
+    func show() {
+        if isVisible { return }
+        
+        // Get the active screen from the key window or fallback to main screen
+        let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
+        
+        initializeWindow(screen: activeScreen)
+        self.isVisible = true
+        notchPanel?.show()
+    }
+    
+    func hide() {
+        guard isVisible else { return }
 
-    private let makeView: () -> AnyView
+        self.isVisible = false
 
-    init(
-        engine: VoiceInkEngine,
-        recorder: Recorder,
-        assistantSession: AssistantSession,
-        onRecordButtonTapped: @escaping () -> Void,
-        onCloseTapped: @escaping () -> Void,
-        onAssistantFollowUp: @escaping (String) -> Void
-    ) {
-        self.makeView = {
-            AnyView(
-                NotchRecorderView(
-                    stateProvider: engine,
-                    recorder: recorder,
-                    assistantSession: assistantSession,
-                    onRecordButtonTapped: onRecordButtonTapped,
-                    onCloseTapped: onCloseTapped,
-                    onAssistantFollowUp: onAssistantFollowUp
-                )
-            )
+        self.notchPanel?.hide { [weak self] in
+            guard let self = self else { return }
+            self.deinitializeWindow()
         }
     }
-
-    func show() {
-        if panel == nil { initializeWindow() }
-        panel?.show()
-    }
-
-    func hide() {
-        panel?.orderOut(nil)
-    }
-
-    func destroyWindow() {
+    
+    private func initializeWindow(screen: NSScreen) {
         deinitializeWindow()
-    }
-
-    private func initializeWindow() {
-        deinitializeWindow()
+        
         let metrics = NotchRecorderPanel.calculateWindowMetrics()
-        let newPanel = NotchRecorderPanel(contentRect: metrics.frame)
-        let view = makeView()
-        let hostingController = NotchRecorderHostingController(rootView: view)
-        newPanel.contentView = hostingController.view
-        panel = newPanel
-        windowController = NSWindowController(window: newPanel)
+        let panel = NotchRecorderPanel(contentRect: metrics.frame)
+        
+        let notchRecorderView = NotchRecorderView(whisperState: whisperState, recorder: recorder)
+            .environmentObject(self)
+            .environmentObject(whisperState.enhancementService!)
+        
+        let hostingController = NotchRecorderHostingController(rootView: notchRecorderView)
+        panel.contentView = hostingController.view
+        
+        self.notchPanel = panel
+        self.windowController = NSWindowController(window: panel)
+        
+        panel.orderFrontRegardless()
     }
-
+    
     private func deinitializeWindow() {
-        panel?.orderOut(nil)
+        notchPanel?.orderOut(nil)
         windowController?.close()
         windowController = nil
-        panel = nil
+        notchPanel = nil
     }
-
-}
+    
+    func toggle() {
+        if isVisible {
+            hide()
+        } else {
+            show()
+        }
+    }
+} 

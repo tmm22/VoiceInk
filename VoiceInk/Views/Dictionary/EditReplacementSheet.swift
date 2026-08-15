@@ -1,38 +1,29 @@
-import SwiftData
 import SwiftUI
-
 // Edit existing word replacement entry
 struct EditReplacementSheet: View {
-    let replacement: WordReplacement
-    let modelContext: ModelContext
+    @ObservedObject var manager: WordReplacementManager
+    let originalKey: String
 
     @Environment(\.dismiss) private var dismiss
 
     @State private var originalWord: String
     @State private var replacementWord: String
-    @State private var showAlert = false
-    @State private var alertMessage = ""
 
     // MARK: – Initialiser
-    init(replacement: WordReplacement, modelContext: ModelContext) {
-        self.replacement = replacement
-        self.modelContext = modelContext
-        _originalWord = State(initialValue: replacement.originalText)
-        _replacementWord = State(initialValue: replacement.replacementText)
+    init(manager: WordReplacementManager, originalKey: String) {
+        self.manager = manager
+        self.originalKey = originalKey
+        _originalWord = State(initialValue: originalKey)
+        _replacementWord = State(initialValue: manager.replacements[originalKey] ?? "")
     }
 
     var body: some View {
         VStack(spacing: 0) {
             header
-                .overlay(Divider().opacity(0.5), alignment: .bottom)
+            Divider()
             formContent
         }
         .frame(width: 460, height: 560)
-        .alert("Word Replacement", isPresented: $showAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(alertMessage)
-        }
     }
 
     // MARK: – Subviews
@@ -57,7 +48,7 @@ struct EditReplacementSheet: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 12)
-        .background(AppCardBackground(isSelected: false, cornerRadius: 16))
+        .background(CardBackground(isSelected: false))
     }
 
     private var formContent: some View {
@@ -92,7 +83,7 @@ struct EditReplacementSheet: View {
                 }
                 TextField("Enter word or phrase to replace (use commas for multiple)", text: $originalWord)
                     .textFieldStyle(.roundedBorder)
-
+                
             }
             .padding(.horizontal)
 
@@ -113,7 +104,7 @@ struct EditReplacementSheet: View {
                     .cornerRadius(6)
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
-                            .stroke(AppTheme.Border.control, lineWidth: 1)
+                            .stroke(Color(.separatorColor), lineWidth: 1)
                     )
             }
             .padding(.horizontal)
@@ -124,50 +115,23 @@ struct EditReplacementSheet: View {
     private func saveChanges() {
         let newOriginal = originalWord.trimmingCharacters(in: .whitespacesAndNewlines)
         let newReplacement = replacementWord
-        let tokens =
-            newOriginal
+        // Ensure at least one non-empty token
+        let tokens = newOriginal
             .split(separator: ",")
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         guard !tokens.isEmpty, !newReplacement.isEmpty else { return }
 
-        // Check for duplicates (excluding current replacement)
-        let newTokensPairs = tokens.map { (original: $0, lowercased: $0.lowercased()) }
-
-        let descriptor = FetchDescriptor<WordReplacement>()
-        if let allReplacements = try? modelContext.fetch(descriptor) {
-            for existingReplacement in allReplacements {
-                // Skip checking against itself
-                if existingReplacement.persistentModelID == replacement.persistentModelID {
-                    continue
-                }
-
-                let existingTokens = existingReplacement.originalText
-                    .split(separator: ",")
-                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-                    .filter { !$0.isEmpty }
-
-                for tokenPair in newTokensPairs {
-                    if existingTokens.contains(tokenPair.lowercased) {
-                        alertMessage = String(
-                            format: String(localized: "'%@' already exists in word replacements"), tokenPair.original)
-                        showAlert = true
-                        return
-                    }
-                }
-            }
-        }
-
-        // Update the replacement
-        replacement.originalText = newOriginal
-        replacement.replacementText = newReplacement
-
-        do {
-            try modelContext.save()
-            dismiss()
-        } catch {
-            alertMessage = String(format: String(localized: "Failed to save changes: %@"), error.localizedDescription)
-            showAlert = true
-        }
+        manager.updateReplacement(oldOriginal: originalKey, newOriginal: newOriginal, newReplacement: newReplacement)
+        dismiss()
     }
 }
+
+// MARK: – Preview
+#if DEBUG
+struct EditReplacementSheet_Previews: PreviewProvider {
+    static var previews: some View {
+        EditReplacementSheet(manager: WordReplacementManager(), originalKey: "hello")
+    }
+}
+#endif

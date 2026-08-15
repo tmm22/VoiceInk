@@ -1,5 +1,5 @@
-import AppKit
 import Foundation
+import AppKit
 
 /// A minimal pull-based announcements fetcher that shows one-time in-app banners.
 final class AnnouncementsService {
@@ -102,3 +102,5 @@ private struct RemoteAnnouncement: Decodable {
     }
 
 }
+
+

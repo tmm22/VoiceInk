@@ -1,13 +1,8 @@
-import AVFoundation
 import Foundation
-import SwiftData
 import SwiftUI
+import AVFoundation
+import SwiftData
 import os
-
-struct AudioRetranscriptionResult {
-    let transcription: Transcription
-    let enhancementFailure: String?
-}
 
 @MainActor
 class AudioTranscriptionService: ObservableObject {
@@ -16,177 +11,168 @@ class AudioTranscriptionService: ObservableObject {
 
     private let modelContext: ModelContext
     private let enhancementService: AIEnhancementService?
+    private let whisperState: WhisperState
+    private let promptDetectionService = PromptDetectionService()
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "AudioTranscriptionService")
-    private let serviceRegistry: TranscriptionServiceRegistry
-
+    
+    // Transcription services
+    private let localTranscriptionService: LocalTranscriptionService
+    private lazy var cloudTranscriptionService = CloudTranscriptionService()
+    private lazy var nativeAppleTranscriptionService = NativeAppleTranscriptionService()
+    private lazy var parakeetTranscriptionService = ParakeetTranscriptionService()
+    
     enum TranscriptionError: Error {
         case noAudioFile
         case transcriptionFailed
         case modelNotLoaded
         case invalidAudioFormat
     }
-
-    init(modelContext: ModelContext, engine: VoiceInkEngine) {
+    
+    init(modelContext: ModelContext, whisperState: WhisperState) {
         self.modelContext = modelContext
-        self.enhancementService = engine.enhancementService
-        self.serviceRegistry = TranscriptionServiceRegistry(
-            modelProvider: engine.whisperModelManager, modelsDirectory: engine.whisperModelManager.modelsDirectory,
-            modelContext: modelContext)
+        self.whisperState = whisperState
+        self.enhancementService = whisperState.enhancementService
+        self.localTranscriptionService = LocalTranscriptionService(modelsDirectory: whisperState.modelsDirectory, whisperState: whisperState)
     }
-
-    init(
-        modelContext: ModelContext, serviceRegistry: TranscriptionServiceRegistry,
-        enhancementService: AIEnhancementService?
-    ) {
-        self.modelContext = modelContext
-        self.enhancementService = enhancementService
-        self.serviceRegistry = serviceRegistry
-    }
-
-    func retranscribeAudio(from url: URL, using model: any TranscriptionModel, mode: ModeConfig? = nil) async throws
-        -> AudioRetranscriptionResult
-    {
+    
+    func retranscribeAudio(from url: URL, using model: any TranscriptionModel) async throws -> Transcription {
         guard FileManager.default.fileExists(atPath: url.path) else {
             throw TranscriptionError.noAudioFile
         }
-
+        
         await MainActor.run {
             isTranscribing = true
         }
-
+        
         do {
-            let mode = mode ?? ModeManager.shared.currentEffectiveConfiguration
-            let language = TranscriptionLanguageSupport.validLanguageOrFallback(
-                mode?.selectedLanguage,
-                for: model,
-                realtimeEnabled: mode?.isRealtimeTranscriptionEnabled
-            )
-            let requestContext = TranscriptionRequestContext(
-                language: language,
-                prompt: model.provider == .whisper ? UserDefaults.standard.string(forKey: "TranscriptionPrompt") : nil
-            )
-            let modeName = (mode?.isEnabled == true) ? mode?.name : nil
-            let modeEmoji = (mode?.isEnabled == true) ? mode?.icon.value : nil
-
+            // Delegate transcription to appropriate service
             let transcriptionStart = Date()
-            var text = try await serviceRegistry.transcribe(audioURL: url, model: model, context: requestContext)
+            var text: String
+            
+            switch model.provider {
+            case .local:
+                text = try await localTranscriptionService.transcribe(audioURL: url, model: model)
+            case .parakeet:
+                text = try await parakeetTranscriptionService.transcribe(audioURL: url, model: model)
+            case .nativeApple:
+                text = try await nativeAppleTranscriptionService.transcribe(audioURL: url, model: model)
+            default: // Cloud models
+                text = try await cloudTranscriptionService.transcribe(audioURL: url, model: model)
+            }
+            
             let transcriptionDuration = Date().timeIntervalSince(transcriptionStart)
             text = TranscriptionOutputFilter.filter(text)
             text = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            let formattingConfiguration = ModeRuntimeResolver.transcriptionFormattingConfiguration(mode: mode)
 
-            if formattingConfiguration.isTextFormattingEnabled {
-                text = ParagraphFormatter.format(text)
+            let powerModeManager = PowerModeManager.shared
+            let activePowerModeConfig = powerModeManager.currentActiveConfiguration
+            let powerModeName = (activePowerModeConfig?.isEnabled == true) ? activePowerModeConfig?.name : nil
+            let powerModeEmoji = (activePowerModeConfig?.isEnabled == true) ? activePowerModeConfig?.emoji : nil
+
+            if UserDefaults.standard.object(forKey: "IsTextFormattingEnabled") as? Bool ?? true {
+                text = WhisperTextFormatter.format(text)
             }
 
-            text = WordReplacementService.shared.applyReplacements(to: text, using: modelContext)
-            let cleanedText = text
-
+            text = WordReplacementService.shared.applyReplacements(to: text)
+            logger.notice("✅ Word replacements applied")
+            
+            // Get audio duration
             let audioAsset = AVURLAsset(url: url)
             let duration = CMTimeGetSeconds(try await audioAsset.load(.duration))
-            let recordingsDirectory = AppBrand.applicationSupportDirectory()
+            
+            // Create a permanent copy of the audio file
+            let recordingsDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("com.prakashjoshipax.VoiceInk")
                 .appendingPathComponent("Recordings")
-
+            
             let fileName = "retranscribed_\(UUID().uuidString).wav"
             let permanentURL = recordingsDirectory.appendingPathComponent(fileName)
-
+            
             do {
                 try FileManager.default.copyItem(at: url, to: permanentURL)
             } catch {
-                logger.error("❌ Failed to create permanent copy of audio: \(AppLogger.errorMetadata(error), privacy: .public)")
+                logger.error("❌ Failed to create permanent copy of audio: \(error.localizedDescription)")
                 isTranscribing = false
                 throw error
             }
-
+            
             let permanentURLString = permanentURL.absoluteString
 
-            let originalText = cleanedText
-            let enhancementConfiguration =
-                enhancementService
-                .flatMap { service in
-                    service.getAIService().map { aiService in
-                        ModeRuntimeResolver.currentEnhancementConfiguration(
-                            mode: mode,
-                            enhancementService: service,
-                            aiService: aiService
-                        )
-                    }
-                }
+            // Apply prompt detection for trigger words
+            let originalText = text
+            var promptDetectionResult: PromptDetectionService.PromptDetectionResult? = nil
+
+            if let enhancementService = enhancementService, enhancementService.isConfigured {
+                let detectionResult = await promptDetectionService.analyzeText(text, with: enhancementService)
+                promptDetectionResult = detectionResult
+                await promptDetectionService.applyDetectionResult(detectionResult, to: enhancementService)
+            }
 
             // Apply AI enhancement if enabled
             if let enhancementService = enhancementService,
-                let enhancementConfiguration,
-                enhancementConfiguration.isEnabled,
-                enhancementService.isConfigured(for: enhancementConfiguration)
-            {
+               enhancementService.isEnhancementEnabled,
+               enhancementService.isConfigured {
                 do {
-                    let enhancementResult = try await enhancementService.enhance(
-                        text,
-                        configuration: enhancementConfiguration
-                    )
+                    let textForAI = promptDetectionResult?.processedText ?? text
+                    let (enhancedText, enhancementDuration, promptName) = try await enhancementService.enhance(textForAI)
                     let newTranscription = Transcription(
                         text: originalText,
                         duration: duration,
-                        enhancedText: enhancementResult.text,
+                        enhancedText: enhancedText,
                         audioFileURL: permanentURLString,
                         transcriptionModelName: model.displayName,
-                        aiEnhancementModelName: enhancementConfiguration.modelName
-                            ?? enhancementConfiguration.provider?.defaultModel,
-                        promptName: enhancementResult.promptName,
+                        aiEnhancementModelName: enhancementService.getAIService()?.currentModel,
+                        promptName: promptName,
                         transcriptionDuration: transcriptionDuration,
-                        enhancementDuration: enhancementResult.duration,
-                        aiRequestSystemMessage: enhancementResult.systemMessage,
-                        aiRequestUserMessage: enhancementResult.userMessage,
-                        modeName: modeName,
-                        modeEmoji: modeEmoji
+                        enhancementDuration: enhancementDuration,
+                        aiRequestSystemMessage: enhancementService.lastSystemMessageSent,
+                        aiRequestUserMessage: enhancementService.lastUserMessageSent,
+                        powerModeName: powerModeName,
+                        powerModeEmoji: powerModeEmoji
                     )
                     modelContext.insert(newTranscription)
                     do {
                         try modelContext.save()
                         NotificationCenter.default.post(name: .transcriptionCreated, object: newTranscription)
-                        NotificationCenter.default.post(name: .transcriptionCompleted, object: newTranscription)
                     } catch {
-                        logger.error("❌ Failed to save transcription: \(AppLogger.errorMetadata(error), privacy: .public)")
+                        logger.error("❌ Failed to save transcription: \(error.localizedDescription)")
                     }
+
+                    // Restore original prompt settings if AI was temporarily enabled
+                    if let result = promptDetectionResult,
+                       result.shouldEnableAI {
+                        await promptDetectionService.restoreOriginalSettings(result, to: enhancementService)
+                    }
+
                     await MainActor.run {
                         isTranscribing = false
                     }
 
-                    return AudioRetranscriptionResult(
-                        transcription: newTranscription,
-                        enhancementFailure: nil
-                    )
+                    return newTranscription
                 } catch {
-                    let failureDescription = EnhancementFailureFormatter.description(for: error)
-                    let failureMessage = EnhancementFailureFormatter.message(description: failureDescription)
                     let newTranscription = Transcription(
                         text: originalText,
                         duration: duration,
-                        enhancedText: failureMessage,
                         audioFileURL: permanentURLString,
                         transcriptionModelName: model.displayName,
                         promptName: nil,
                         transcriptionDuration: transcriptionDuration,
-                        modeName: modeName,
-                        modeEmoji: modeEmoji
+                        powerModeName: powerModeName,
+                        powerModeEmoji: powerModeEmoji
                     )
                     modelContext.insert(newTranscription)
                     do {
                         try modelContext.save()
                         NotificationCenter.default.post(name: .transcriptionCreated, object: newTranscription)
-                        NotificationCenter.default.post(name: .transcriptionCompleted, object: newTranscription)
                     } catch {
-                        logger.error("❌ Failed to save transcription: \(AppLogger.errorMetadata(error), privacy: .public)")
+                        logger.error("❌ Failed to save transcription: \(error.localizedDescription)")
                     }
-
+                    
                     await MainActor.run {
                         isTranscribing = false
                     }
-
-                    return AudioRetranscriptionResult(
-                        transcription: newTranscription,
-                        enhancementFailure: failureDescription
-                    )
+                    
+                    return newTranscription
                 }
             } else {
                 let newTranscription = Transcription(
@@ -196,28 +182,24 @@ class AudioTranscriptionService: ObservableObject {
                     transcriptionModelName: model.displayName,
                     promptName: nil,
                     transcriptionDuration: transcriptionDuration,
-                    modeName: modeName,
-                    modeEmoji: modeEmoji
+                    powerModeName: powerModeName,
+                    powerModeEmoji: powerModeEmoji
                 )
                 modelContext.insert(newTranscription)
                 do {
                     try modelContext.save()
-                    NotificationCenter.default.post(name: .transcriptionCompleted, object: newTranscription)
                 } catch {
-                    logger.error("❌ Failed to save transcription: \(AppLogger.errorMetadata(error), privacy: .public)")
+                    logger.error("❌ Failed to save transcription: \(error.localizedDescription)")
                 }
-
+                
                 await MainActor.run {
                     isTranscribing = false
                 }
-
-                return AudioRetranscriptionResult(
-                    transcription: newTranscription,
-                    enhancementFailure: nil
-                )
+                
+                return newTranscription
             }
         } catch {
-            logger.error("❌ Transcription failed: \(AppLogger.errorMetadata(error), privacy: .public)")
+            logger.error("❌ Transcription failed: \(error.localizedDescription)")
             currentError = .transcriptionFailed
             isTranscribing = false
             throw error

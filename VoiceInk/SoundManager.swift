@@ -9,31 +9,30 @@ class SoundManager: ObservableObject {
     private var startSound: AVAudioPlayer?
     private var stopSound: AVAudioPlayer?
     private var escSound: AVAudioPlayer?
-    private let soundFileStore = SoundFileStore()
     
     @Published var settings: AudioFeedbackSettings {
         didSet {
             saveSettings()
-            Task { [weak self] in
-                await self?.reloadSounds()
+            Task {
+                await reloadSounds()
             }
         }
     }
     
     private init() {
         self.settings = Self.loadSettings()
-        Task(priority: .background) { [weak self] in
-            await self?.setupSounds()
+        Task(priority: .background) {
+            await setupSounds()
         }
     }
     
     private static func loadSettings() -> AudioFeedbackSettings {
-        if let data = AppSettings.Audio.audioFeedbackSettingsData,
+        if let data = UserDefaults.standard.data(forKey: AudioFeedbackSettings.userDefaultsKey),
            let settings = try? JSONDecoder().decode(AudioFeedbackSettings.self, from: data) {
             return settings
         }
         
-        let legacyEnabled = AppSettings.Audio.legacySoundFeedbackEnabled
+        let legacyEnabled = UserDefaults.standard.object(forKey: "isSoundFeedbackEnabled") as? Bool ?? true
         
         var defaultSettings = AudioFeedbackSettings.default
         defaultSettings.isEnabled = legacyEnabled
@@ -42,13 +41,8 @@ class SoundManager: ObservableObject {
     }
     
     private func saveSettings() {
-        do {
-            let data = try JSONEncoder().encode(settings)
-            AppSettings.Audio.audioFeedbackSettingsData = data
-        } catch {
-            AppLogger.storage.error(
-                "Failed to save audio feedback settings: \(AppLogger.errorMetadata(error), privacy: .public)"
-            )
+        if let data = try? JSONEncoder().encode(settings) {
+            UserDefaults.standard.set(data, forKey: AudioFeedbackSettings.userDefaultsKey)
         }
     }
     
@@ -60,9 +54,11 @@ class SoundManager: ObservableObject {
         let currentSettings = settings
         
         if currentSettings.preset == .silent {
-            startSound = nil
-            stopSound = nil
-            escSound = nil
+            await MainActor.run {
+                startSound = nil
+                stopSound = nil
+                escSound = nil
+            }
             return
         }
         
@@ -97,13 +93,7 @@ class SoundManager: ObservableObject {
         if let startURL = startURL,
            let stopURL = stopURL,
            let cancelURL = cancelURL {
-            do {
-                try loadSounds(start: startURL, stop: stopURL, cancel: cancelURL)
-            } catch {
-                AppLogger.audio.error(
-                    "Failed to load audio feedback sounds: \(AppLogger.errorMetadata(error), privacy: .public)"
-                )
-            }
+            try? await loadSounds(start: startURL, stop: stopURL, cancel: cancelURL)
         }
     }
     
@@ -111,29 +101,30 @@ class SoundManager: ObservableObject {
         let components = fileName.split(separator: ".")
         guard components.count == 2 else { return nil }
         return Bundle.main.url(forResource: String(components[0]), withExtension: String(components[1]))
-            ?? Bundle.main.url(
-                forResource: String(components[0]),
-                withExtension: String(components[1]),
-                subdirectory: "Sounds"
-            )
     }
     
-    private func loadSounds(start startURL: URL, stop stopURL: URL, cancel cancelURL: URL) throws {
-        let newStartSound = try AVAudioPlayer(contentsOf: startURL)
-        let newStopSound = try AVAudioPlayer(contentsOf: stopURL)
-        let newCancelSound = try AVAudioPlayer(contentsOf: cancelURL)
+    private func loadSounds(start startURL: URL, stop stopURL: URL, cancel cancelURL: URL) async throws {
+        do {
+            let newStartSound = try AVAudioPlayer(contentsOf: startURL)
+            let newStopSound = try AVAudioPlayer(contentsOf: stopURL)
+            let newCancelSound = try AVAudioPlayer(contentsOf: cancelURL)
             
-            self.startSound = newStartSound
-            self.stopSound = newStopSound
-            self.escSound = newCancelSound
-            
-            startSound?.prepareToPlay()
-            stopSound?.prepareToPlay()
-            escSound?.prepareToPlay()
-            
-            startSound?.volume = settings.volumes.start
-            stopSound?.volume = settings.volumes.stop
-            escSound?.volume = settings.volumes.cancel
+            await MainActor.run {
+                self.startSound = newStartSound
+                self.stopSound = newStopSound
+                self.escSound = newCancelSound
+                
+                startSound?.prepareToPlay()
+                stopSound?.prepareToPlay()
+                escSound?.prepareToPlay()
+                
+                startSound?.volume = settings.volumes.start
+                stopSound?.volume = settings.volumes.stop
+                escSound?.volume = settings.volumes.cancel
+            }
+        } catch {
+            throw error
+        }
     }
 
     func playStartSound() {
@@ -169,42 +160,24 @@ class SoundManager: ObservableObject {
         }
     }
     
-    func setCustomSound(type: SoundType, url: URL?) async throws {
+    func setCustomSound(type: SoundType, url: URL?) {
         var customSounds = settings.customSounds ?? CustomSounds()
-        let previousPath = type.path(in: customSounds)
-
-        let storedPath: String?
-        if let url {
-            storedPath = try await soundFileStore.importSound(from: url, type: type).path
-        } else {
-            storedPath = nil
-        }
         
         switch type {
         case .start:
-            customSounds.startPath = storedPath
+            customSounds.startPath = url?.path
         case .stop:
-            customSounds.stopPath = storedPath
+            customSounds.stopPath = url?.path
         case .cancel:
-            customSounds.cancelPath = storedPath
+            customSounds.cancelPath = url?.path
         }
         
         settings.customSounds = customSounds
-        if let previousPath, previousPath != storedPath {
-            await soundFileStore.removeStoredSound(at: URL(fileURLWithPath: previousPath))
-        }
     }
     
     func resetToPresetDefaults() {
-        let storedURLs = settings.customSounds?.paths.map(URL.init(fileURLWithPath:)) ?? []
         settings.customSounds = nil
         settings.volumes = settings.preset.defaultVolumes
-        let store = soundFileStore
-        Task {
-            for url in storedURLs {
-                await store.removeStoredSound(at: url)
-            }
-        }
     }
     
     var isEnabled: Bool {
@@ -222,31 +195,9 @@ enum SoundType {
     
     var displayName: String {
         switch self {
-        case .start: return String(localized: "Recording Start")
-        case .stop: return String(localized: "Recording Stop")
-        case .cancel: return String(localized: "Cancel/Escape")
+        case .start: return "Recording Start"
+        case .stop: return "Recording Stop"
+        case .cancel: return "Cancel/Escape"
         }
     }
-
-    var storageName: String {
-        switch self {
-        case .start: return "start"
-        case .stop: return "stop"
-        case .cancel: return "cancel"
-        }
-    }
-
-    func path(in sounds: CustomSounds) -> String? {
-        switch self {
-        case .start: return sounds.startPath
-        case .stop: return sounds.stopPath
-        case .cancel: return sounds.cancelPath
-        }
-    }
-}
-
-private extension CustomSounds {
-    var paths: [String] {
-        [startPath, stopPath, cancelPath].compactMap { $0 }
-    }
-}
+} 

@@ -3,48 +3,25 @@ import SwiftUI
 // Enhancement Prompt Popover for recorder views
 struct EnhancementPromptPopover: View {
     @EnvironmentObject var enhancementService: AIEnhancementService
-    @ObservedObject private var modeManager = ModeManager.shared
     @State private var selectedPrompt: CustomPrompt?
-
-    private var currentMode: ModeConfig? {
-        modeManager.currentEffectiveConfiguration
-    }
-
-    private var isEnhancementEnabled: Bool {
-        currentMode?.isAIEnhancementEnabled == true
-    }
-
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Enhancement Toggle at the top
             HStack(spacing: 8) {
-                Toggle(
-                    "AI Enhancement",
-                    isOn: Binding(
-                        get: { isEnhancementEnabled },
-                        set: { newValue in
-                            modeManager.updateCurrentEffectiveConfiguration { config in
-                                config.isAIEnhancementEnabled = newValue
-                                if newValue, config.selectedPrompt == nil {
-                                    config.selectedPrompt = enhancementService.allPrompts.first?.id.uuidString
-                                }
-                            }
-                            refreshSelectedPrompt()
-                        }
-                    )
-                )
-                .foregroundColor(AppTheme.Text.primary)
-                .font(.headline)
-                .lineLimit(1)
-
+                Toggle("Enhancement Prompt", isOn: $enhancementService.isEnhancementEnabled)
+                    .foregroundColor(.white.opacity(0.9))
+                    .font(.headline)
+                    .lineLimit(1)
+                
                 Spacer()
             }
             .padding(.horizontal)
             .padding(.top, 8)
-
+            
             Divider()
-                .background(AppTheme.Border.subtle)
-
+                .background(Color.white.opacity(0.1))
+            
             ScrollView {
                 VStack(alignment: .leading, spacing: 4) {
                     // Available Enhancement Prompts
@@ -52,12 +29,13 @@ struct EnhancementPromptPopover: View {
                         EnhancementPromptRow(
                             prompt: prompt,
                             isSelected: selectedPrompt?.id == prompt.id,
-                            isDisabled: !isEnhancementEnabled,
+                            isDisabled: !enhancementService.isEnhancementEnabled,
                             action: {
-                                modeManager.updateCurrentEffectiveConfiguration { config in
-                                    config.isAIEnhancementEnabled = true
-                                    config.selectedPrompt = prompt.id.uuidString
+                                // If enhancement is disabled, enable it first
+                                if !enhancementService.isEnhancementEnabled {
+                                    enhancementService.isEnhancementEnabled = true
                                 }
+                                enhancementService.setActivePrompt(prompt)
                                 selectedPrompt = prompt
                             }
                         )
@@ -69,22 +47,15 @@ struct EnhancementPromptPopover: View {
         .frame(width: 200)
         .frame(maxHeight: 340)
         .padding(.vertical, 8)
-        .background(AppTheme.Surface.window)
-        .popoverAppAppearance()
+        .background(Color.black)
+        .environment(\.colorScheme, .dark)
         .onAppear {
-            refreshSelectedPrompt()
+            // Set the initially selected prompt
+            selectedPrompt = enhancementService.activePrompt
         }
-        .onChange(of: modeManager.currentEffectiveConfiguration?.selectedPrompt) { _, _ in
-            refreshSelectedPrompt()
+        .onChange(of: enhancementService.selectedPromptId) { oldValue, newValue in
+            selectedPrompt = enhancementService.activePrompt
         }
-    }
-
-    private func refreshSelectedPrompt() {
-        guard let promptId = currentMode?.selectedPrompt.flatMap(UUID.init) else {
-            selectedPrompt = nil
-            return
-        }
-        selectedPrompt = enhancementService.allPrompts.first { $0.id == promptId }
     }
 }
 
@@ -94,19 +65,24 @@ struct EnhancementPromptRow: View {
     let isSelected: Bool
     let isDisabled: Bool
     let action: () -> Void
-
+    
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
+                // Use the icon from the prompt
+                Image(systemName: prompt.icon)
+                    .font(.system(size: 14))
+                    .foregroundColor(isDisabled ? .white.opacity(0.4) : .white.opacity(0.7))
+
                 Text(prompt.title)
-                    .foregroundColor(isDisabled ? AppTheme.Text.disabled : AppTheme.Text.primary)
+                    .foregroundColor(isDisabled ? .white.opacity(0.4) : .white.opacity(0.9))
                     .font(.system(size: 13))
                     .lineLimit(1)
 
                 if isSelected {
                     Spacer()
                     Image(systemName: "checkmark")
-                        .foregroundColor(isDisabled ? AppTheme.Status.positive.opacity(0.70) : AppTheme.Status.positive)
+                        .foregroundColor(isDisabled ? .green.opacity(0.7) : .green)
                         .font(.system(size: 10))
                 }
             }
@@ -116,7 +92,7 @@ struct EnhancementPromptRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background(isSelected ? AppTheme.Selection.fill : Color.clear)
+        .background(isSelected ? Color.white.opacity(0.1) : Color.clear)
         .cornerRadius(4)
     }
-}
+} 

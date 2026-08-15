@@ -4,10 +4,10 @@ struct AppIconView: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(AppTheme.Accent.fill)
+                .fill(Color.accentColor.opacity(0.15))
                 .frame(width: 160, height: 160)
                 .blur(radius: 30)
-
+            
             if let image = NSImage(named: "AppIcon") {
                 Image(nsImage: image)
                     .resizable()
@@ -18,8 +18,8 @@ struct AppIconView: View {
                         RoundedRectangle(cornerRadius: 30)
                             .stroke(.white.opacity(0.2), lineWidth: 1)
                     )
-                    .shadow(color: AppTheme.Accent.border, radius: 20)
+                    .shadow(color: .accentColor.opacity(0.3), radius: 20)
             }
         }
     }
-}
+} 

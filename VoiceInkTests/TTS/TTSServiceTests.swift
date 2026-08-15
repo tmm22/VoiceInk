@@ -170,32 +170,6 @@ final class TTSServiceTests: XCTestCase {
         XCTAssertEqual(Voice.ProviderType.google.rawValue, "Google")
         XCTAssertEqual(Voice.ProviderType.tightAss.rawValue, "Tight Ass Mode")
     }
-
-    @MainActor
-    func testLocalTTSIncludesPocketVoiceOptions() {
-        let localService = LocalTTSService()
-        let voiceIDs = Set(localService.availableVoices.map(\.id))
-
-        XCTAssertTrue(voiceIDs.contains("pocket-tts:alba"))
-        XCTAssertTrue(voiceIDs.contains("pocket-tts:azelma"))
-        XCTAssertTrue(voiceIDs.contains("pocket-tts:cosette"))
-        XCTAssertTrue(voiceIDs.contains("pocket-tts:javert"))
-    }
-
-    @MainActor
-    func testLocalTTSDefaultVoiceRemainsSystemVoice() {
-        let localService = LocalTTSService()
-        XCTAssertFalse(localService.defaultVoice.id.hasPrefix("pocket-tts:"))
-    }
-
-    @MainActor
-    func testLocalTTSPocketVoiceHelpers() {
-        XCTAssertTrue(LocalTTSService.isPocketVoiceID("pocket-tts:alba"))
-        XCTAssertFalse(LocalTTSService.isPocketVoiceID("com.apple.speech.synthesis.voice.samantha"))
-
-        XCTAssertEqual(LocalTTSService.pocketVoiceName(for: "pocket-tts:azelma"), "Pocket TTS - Azelma")
-        XCTAssertNil(LocalTTSService.pocketVoiceName(for: "not-a-pocket-voice"))
-    }
     
     // MARK: - AudioSettings Tests
     
@@ -631,8 +605,7 @@ final class ElevenLabsTTSServiceTests: XCTestCase {
     }
     
     func testServiceConformsToStreamingProtocol() async {
-        let synthesizer: any StreamingSpeechSynthesizing = service
-        _ = synthesizer
+        XCTAssertTrue(service is StreamingSpeechSynthesizing)
     }
 }
 

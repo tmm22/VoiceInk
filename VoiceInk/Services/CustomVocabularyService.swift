@@ -1,14 +1,16 @@
 import Foundation
-import SwiftData
 import SwiftUI
 
 class CustomVocabularyService {
     static let shared = CustomVocabularyService()
 
-    private init() {}
+    private init() {
+        // Migrate old key to new key if needed
+        migrateOldDataIfNeeded()
+    }
 
-    func getCustomVocabulary(from context: ModelContext) -> String {
-        guard let customWords = getCustomVocabularyWords(from: context), !customWords.isEmpty else {
+    func getCustomVocabulary() -> String {
+        guard let customWords = getCustomVocabularyWords(), !customWords.isEmpty else {
             return ""
         }
 
@@ -16,15 +18,26 @@ class CustomVocabularyService {
         return "Important Vocabulary: \(wordsText)"
     }
 
-    private func getCustomVocabularyWords(from context: ModelContext) -> [String]? {
-        let descriptor = FetchDescriptor<VocabularyWord>(sortBy: [SortDescriptor(\VocabularyWord.word)])
+    private func getCustomVocabularyWords() -> [String]? {
+        guard let data = UserDefaults.standard.data(forKey: "CustomVocabularyItems") else {
+            return nil
+        }
 
         do {
-            let items = try context.fetch(descriptor)
+            let items = try JSONDecoder().decode([DictionaryItem].self, from: data)
             let words = items.map { $0.word }
             return words.isEmpty ? nil : words
         } catch {
             return nil
+        }
+    }
+
+    private func migrateOldDataIfNeeded() {
+        // Migrate from old "CustomDictionaryItems" key to new "CustomVocabularyItems" key
+        if UserDefaults.standard.data(forKey: "CustomVocabularyItems") == nil,
+           let oldData = UserDefaults.standard.data(forKey: "CustomDictionaryItems") {
+            UserDefaults.standard.set(oldData, forKey: "CustomVocabularyItems")
+            UserDefaults.standard.removeObject(forKey: "CustomDictionaryItems")
         }
     }
 }

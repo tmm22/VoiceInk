@@ -1,10 +1,10 @@
-import AppKit
 import SwiftUI
+import AppKit
 
 class MiniRecorderPanel: NSPanel {
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { true }
-
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
+    
     init(contentRect: NSRect) {
         super.init(
             contentRect: contentRect,
@@ -14,10 +14,9 @@ class MiniRecorderPanel: NSPanel {
         )
         configurePanel()
     }
-
+    
     private func configurePanel() {
         isFloatingPanel = true
-        canHide = false
         level = .floating
         hidesOnDeactivate = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -30,16 +29,14 @@ class MiniRecorderPanel: NSPanel {
         titleVisibility = .hidden
         standardWindowButton(.closeButton)?.isHidden = true
     }
-
+    
     static func calculateWindowMetrics() -> NSRect {
-        let width: CGFloat = 540
-        let height: CGFloat = 430
-
         guard let screen = NSScreen.main else {
-            return NSRect(x: 0, y: 0, width: width, height: height)
+            return NSRect(x: 0, y: 0, width: 184, height: 40)
         }
 
-        // Host stays large enough for assistant output; SwiftUI controls the visible mini width.
+        let width: CGFloat = 184
+        let height: CGFloat = 40
         let padding: CGFloat = 24
 
         let visibleFrame = screen.visibleFrame
@@ -54,11 +51,14 @@ class MiniRecorderPanel: NSPanel {
             height: height
         )
     }
-
+    
     func show() {
         let metrics = MiniRecorderPanel.calculateWindowMetrics()
         setFrame(metrics, display: true)
         orderFrontRegardless()
     }
-
-}
+    
+    func hide(completion: @escaping () -> Void) {
+        completion()
+    }
+} 

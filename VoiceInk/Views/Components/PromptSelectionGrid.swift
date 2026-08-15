@@ -3,14 +3,14 @@ import SwiftUI
 /// A reusable grid component for selecting prompts with a plus button to add new ones
 struct PromptSelectionGrid: View {
     @EnvironmentObject private var enhancementService: AIEnhancementService
-
+    
     let prompts: [CustomPrompt]
     let selectedPromptId: UUID?
     let onPromptSelected: (CustomPrompt) -> Void
     let onEditPrompt: ((CustomPrompt) -> Void)?
     let onDeletePrompt: ((CustomPrompt) -> Void)?
     let onAddNewPrompt: (() -> Void)?
-
+    
     init(
         prompts: [CustomPrompt],
         selectedPromptId: UUID?,
@@ -26,7 +26,9 @@ struct PromptSelectionGrid: View {
         self.onDeletePrompt = onDeletePrompt
         self.onAddNewPrompt = onAddNewPrompt
     }
+    
 
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if prompts.isEmpty {
@@ -35,14 +37,14 @@ struct PromptSelectionGrid: View {
                     .font(.caption)
             } else {
                 let columns = [
-                    GridItem(.adaptive(minimum: 120, maximum: 180), spacing: 8)
+                    GridItem(.adaptive(minimum: 80, maximum: 100), spacing: 36)
                 ]
-
+                
                 LazyVGrid(columns: columns, spacing: 16) {
                     ForEach(prompts) { prompt in
                         prompt.promptIcon(
                             isSelected: selectedPromptId == prompt.id,
-                            onTap: {
+                            onTap: { 
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                     onPromptSelected(prompt)
                                 }
@@ -51,7 +53,7 @@ struct PromptSelectionGrid: View {
                             onDelete: onDeletePrompt
                         )
                     }
-
+                    
                     if let onAddNewPrompt = onAddNewPrompt {
                         CustomPrompt.addNewButton {
                             onAddNewPrompt()
@@ -59,15 +61,15 @@ struct PromptSelectionGrid: View {
                         .help("Add new prompt")
                     }
                 }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 12)
-
+                .padding(.vertical, 12)
+                .padding(.horizontal, 16)
+                
                 // Helpful tip for users
                 HStack {
                     Image(systemName: "info.circle")
                         .font(.caption)
                         .foregroundColor(.secondary)
-
+                    
                     Text("Double-click to edit • Right-click for more options")
                         .font(.caption)
                         .foregroundColor(.secondary)

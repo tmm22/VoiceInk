@@ -1,110 +1,78 @@
 <div align="center">
   <img src="VoiceInk/Assets.xcassets/AppIcon.appiconset/256-mac.png" width="180" height="180" />
-  <h1>VoiceLink Community</h1>
-  <p>macOS voice-to-text without paywalls, trials, or API key juggling</p>
+  <h1>VoiceInk</h1>
+  <p>Voice to text app for macOS to transcribe what you say to text almost instantly</p>
 
   [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
   ![Platform](https://img.shields.io/badge/platform-macOS%2014.0%2B-brightgreen)
+  [![GitHub release (latest by date)](https://img.shields.io/github/v/release/Beingpax/VoiceInk)](https://github.com/Beingpax/VoiceInk/releases)
+  ![GitHub all releases](https://img.shields.io/github/downloads/Beingpax/VoiceInk/total)
+  ![GitHub stars](https://img.shields.io/github/stars/Beingpax/VoiceInk?style=social)
+  <p>
+    <a href="https://tryvoiceink.com">Website</a> •
+    <a href="https://www.youtube.com/@tryvoiceink">YouTube</a>
+  </p>
+
+  <a href="https://tryvoiceink.com">
+    <img src="https://img.shields.io/badge/Download%20Now-Latest%20Version-blue?style=for-the-badge&logo=apple" alt="Download VoiceInk" width="250"/>
+  </a>
 </div>
 
 ---
 
-VoiceLink Community is a maintained fork of the original VoiceInk project focused on a fully unlocked, offline-first macOS transcription workflow. It keeps the privacy-first core, bundles local models, and adds community-friendly defaults for features like Power Mode, Text-to-Speech, and rapid keyboard control.
+VoiceInk is a native macOS application that transcribes what you say to text almost instantly. You can find all the information and download the app from [here](https://tryvoiceink.com). 
 
-Highlights of this fork:
+![VoiceInk Mac App](https://github.com/user-attachments/assets/12367379-83e7-48a6-b52c-4488a6a04bba)
 
-- 💸 **Fully unlocked** – no trials, license prompts, or gated features.
-- 📦 **Models included** – Whisper (multiple sizes) and Parakeet ship in the app, ready to use offline.
-- 🔧 **Hackable by default** – a friendlier contributing policy and cleaner onboarding for builders.
+After dedicating the past 5 months to developing this app, I've decided to open source it for the greater good. 
 
-![VoiceLink Community Mac App](https://github.com/user-attachments/assets/12367379-83e7-48a6-b52c-4488a6a04bba)
+My goal is to make it **the most efficient and privacy-focused voice-to-text solution for macOS** that is a joy to use. While the source code is now open for experienced developers to build and contribute, purchasing a license helps support continued development and gives you access to automatic updates, priority support, and upcoming features.
 
 ## Features
 
-- 🎙️ **Offline transcription** – Whisper, Parakeet, and Apple Speech models are bundled and ready on first launch.
-- 🔊 **Text-to-speech studio** – Create narration with OpenAI, ElevenLabs, Google Cloud, or local system voices, complete with previews, batch queueing, translation, and article import tools.
-- 🔒 **Privacy first** – audio and transcripts stay local unless you explicitly export them.
-- ⚡ **Power Mode** – detect the active app/URL and auto-apply prompts, models, and paste rules.
-- 🎯 **Global shortcuts** – flexible hotkeys, push-to-talk, and middle-click control.
-- 📝 **Custom vocabulary** – dictionaries, word replacements, and CSV import/export.
-- 💬 **Optional enhancements** – local formatting works out of the box; Ollama hooks stay available for power users.
+- 🎙️ **Accurate Transcription**: Local AI models that transcribe your voice to text with 99% accuracy, almost instantly
+- 🔒 **Privacy First**: 100% offline processing ensures your data never leaves your device
+- ⚡ **Power Mode**: Intelligent app detection automatically applies your perfect pre-configured settings based on the app/ URL you're on
+- 🧠 **Context Aware**: Smart AI that understands your screen content and adapts to the context
+- 🎯 **Global Shortcuts**: Configurable keyboard shortcuts for quick recording and push-to-talk functionality
+- 📝 **Personal Dictionary**: Train the AI to understand your unique terminology with custom words, industry terms, and smart text replacements
+- 🔄 **Smart Modes**: Instantly switch between AI-powered modes optimized for different writing styles and contexts
+- 🤖 **AI Assistant**: Built-in voice assistant mode for a quick chatGPT like conversational assistant
 
 ## Get Started
 
-### Download or Build
+### Download
+Get the latest version with a free trial from [tryvoiceink.com](https://tryvoiceink.com). Your purchase helps me work on VoiceInk full-time and continuously improve it with new features and updates.
 
-- **Releases** – download the latest community build from the repository releases tab. These DMGs are currently unsigned, not notarized, and Apple Silicon-only, so macOS Gatekeeper will show a warning the first time you open them.
-- **Homebrew (optional)** – once a tap is available you’ll be able to `brew install --cask voiceink-community`.
-- **From source** – follow [Building from Source](docs/development/BUILDING.md) to compile the app with Xcode. Run `./scripts/download-models.sh` beforehand to drop the default Whisper binaries into the bundle if you haven’t downloaded them yet.
+#### Homebrew
+Alternatively, you can install VoiceInk via `brew`:
 
-### Running Unsigned Releases
+```shell
+brew install --cask voiceink
+```
 
-VoiceLink Community releases are currently distributed without Apple code signing and notarization. As of March 10, 2026, the Apple Developer Program costs [99 USD per year](https://developer.apple.com/programs/whats-included/). For this project, that ongoing cost is being avoided so the app can stay available as an open-source accessibility tool maintained independently by a disabled developer.
-
-The prebuilt GitHub DMGs are also Apple Silicon-only (`arm64`) to keep release downloads smaller without removing app functionality.
-
-If macOS blocks the app on first launch:
-
-1. Download the app from the GitHub Releases page.
-2. Move it to `/Applications` if you want to keep it installed there.
-3. Try to open it once, then dismiss the warning.
-4. Open `System Settings > Privacy & Security`.
-5. Scroll to the security section and click `Open Anyway`.
-6. Confirm the prompt to open the app.
-
-You can also Control-click the app in Finder, choose `Open`, then confirm `Open`.
-
-Only bypass Gatekeeper for builds you downloaded from this repository. If you need an Intel build, or if you prefer, you can also [build the app from source](docs/development/BUILDING.md).
-
-If Microphone, Accessibility, or Screen Recording stops working after updating an unsigned release, open `VoiceInk > Settings > Permissions`, click `Reset Permission Records`, then quit and reopen the app. See [Running Unsigned Releases](docs/RUNNING_UNSIGNED_RELEASES.md) for the Terminal reset command and background.
+### Build from Source
+As an open-source project, you can build VoiceInk yourself by following the instructions in [BUILDING.md](BUILDING.md). However, the compiled version includes additional benefits like automatic updates, priority support via Discord and email, and helps fund ongoing development.
 
 ## Requirements
 
-- macOS 14.4 or later
+- macOS 14.0 or later
 
 ## Documentation
 
-- [Building from Source](docs/development/BUILDING.md) - Detailed build setup and signing notes
-- [Releasing on GitHub](docs/development/RELEASING.md) - Maintainer release workflow and artifact policy
-- [Running Unsigned Releases](docs/RUNNING_UNSIGNED_RELEASES.md) - Gatekeeper workaround steps for GitHub downloads
-- [Documentation Index](docs/README.md) - Feature guides, development docs, plans, and audits
-- [Power Mode Guide](docs/POWER_MODE_GUIDE.md) - Context-aware automation by app or URL
-- [Text-to-Speech Workspace Guide](docs/TTS_WORKSPACE_GUIDE.md) - Narration, batch generation, and export
-- [AI Enhancement Guide](docs/AI_ENHANCEMENT_GUIDE.md) - Providers, prompts, and context settings
-- [Keyboard Shortcuts Guide](docs/KEYBOARD_SHORTCUTS_GUIDE.md) - Hotkeys, push-to-talk, and actions
-- [Dictionary Guide](docs/DICTIONARY_GUIDE.md) - Quick rules, replacements, and vocabulary
-- [Model Management Guide](docs/MODEL_MANAGEMENT_GUIDE.md) - Local, cloud, and custom models
-- [Data Management Guide](docs/DATA_MANAGEMENT_GUIDE.md) - History, export, and cleanup
-- [Contributing Guidelines](CONTRIBUTING.md) - How to contribute to VoiceLink Community
+- [Building from Source](BUILDING.md) - Detailed instructions for building the project
+- [Contributing Guidelines](CONTRIBUTING.md) - How to contribute to VoiceInk
 - [Code of Conduct](CODE_OF_CONDUCT.md) - Our community standards
-- [Rectifications & Improvements](docs/implementation/VOICELINK_COMMUNITY_REMEDIATIONS.md) - Security and performance fixes applied to the community edition
-- [Changelog](CHANGELOG.md) - Release-by-release changes
-
-## Rectifications & Improvements
-
-Recent stability, security, and performance improvements are documented in
-[Rectifications & Improvements](docs/implementation/VOICELINK_COMMUNITY_REMEDIATIONS.md). Highlights include:
-
-- ✅ HTTPS validation for custom AI provider verification.
-- ✅ Non-blocking audio file handling for cloud transcription.
-- ✅ Reduced main-thread hopping in `@MainActor` classes.
-- ✅ Removal of forced `UserDefaults.synchronize()` in hot paths.
-- ✅ Streamed audio preprocessing and transcription uploads to reduce memory.
-- ✅ Disk-cached recent TTS history audio with size limits and cleanup.
-
-### Recent Changes (2026-03-06)
-- Upstream sync: incorporated latest `Beingpax/VoiceInk` changes while preserving community-specific settings flow, hotkey behavior, and transcription defaults.
-- Architecture: kept the established `WhisperState`-driven app flow and deliberately dropped the partially merged upstream engine/manager stack where it would have changed core fork behavior.
-- Build tooling: repaired the Xcode project merge state, synced the SwiftPM lockfile (including `mediaremote-adapter`), and verified a successful Debug build locally.
-
-### Recent Changes (2025-12-20)
-- Performance: streamed audio preprocessing and transcription uploads.
-- Memory: capped OCR/browser context and stored AI request payloads.
-- Storage: cached recent TTS history audio on disk with size limits.
 
 ## Contributing
 
-Pull requests are welcome without prior approval. Read the lightweight [CONTRIBUTING.md](CONTRIBUTING.md) for tips, spin up a branch, and open a PR when ready. If you want early feedback, drafts and GitHub Discussions are perfect places to start the conversation.
+We welcome contributions! However, please note that all contributions should align with the project's goals and vision. Before starting work on any feature or fix:
+
+1. Read our [Contributing Guidelines](CONTRIBUTING.md)
+2. Open an issue to discuss your proposed changes
+3. Wait for maintainer feedback
+
+For build instructions, see our [Building Guide](BUILDING.md).
 
 ## License
 
@@ -112,10 +80,10 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ## Support
 
-If you run into trouble:
-1. Search existing GitHub issues and discussions.
-2. Open a new issue with logs, screenshots, or steps to reproduce.
-3. Start a GitHub Discussion for quick questions or pairing sessions.
+If you encounter any issues or have questions, please:
+1. Check the existing issues in the GitHub repository
+2. Create a new issue if your problem isn't already reported
+3. Provide as much detail as possible about your environment and the problem
 
 ## Acknowledgments
 
@@ -124,7 +92,7 @@ If you run into trouble:
 - [FluidAudio](https://github.com/FluidInference/FluidAudio) - Used for Parakeet model implementation
 
 ### Essential Dependencies
-- [Sparkle](https://github.com/sparkle-project/Sparkle) - Keeping VoiceLink Community up to date
+- [Sparkle](https://github.com/sparkle-project/Sparkle) - Keeping VoiceInk up to date
 - [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) - User-customizable keyboard shortcuts
 - [LaunchAtLogin](https://github.com/sindresorhus/LaunchAtLogin) - Launch at login functionality
 - [MediaRemoteAdapter](https://github.com/ejbills/mediaremote-adapter) - Media playback control during recording
@@ -132,6 +100,7 @@ If you run into trouble:
 - [SelectedTextKit](https://github.com/tisfeng/SelectedTextKit) - A modern macOS library for getting selected text
 - [Swift Atomics](https://github.com/apple/swift-atomics) - Low-level atomic operations for thread-safe concurrent programming
 
+
 ---
 
-Maintained with ❤️ by the VoiceLink Community
+Made with ❤️ by Pax

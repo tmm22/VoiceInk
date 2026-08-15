@@ -5,7 +5,7 @@ This guide provides detailed instructions for building VoiceInk from source.
 ## Prerequisites
 
 Before you begin, ensure you have:
-- macOS 14.4 or later
+- macOS 14.0 or later
 - Xcode (latest version recommended)
 - Swift (latest version recommended)
 - Git (for cloning repositories)
@@ -34,7 +34,6 @@ make dev
 - `make whisper` - Clone and build whisper.cpp XCFramework automatically
 - `make setup` - Prepare the whisper framework for linking
 - `make build` - Build the VoiceInk Xcode project
-- `make local` - Build for local use (no Apple Developer certificate needed)
 - `make run` - Launch the built VoiceInk app
 - `make dev` - Build and run (ideal for development workflow)
 - `make all` - Complete build process (default)
@@ -51,30 +50,6 @@ The Makefile automatically:
 5. **Streamlines Development**: Provides convenient shortcuts for common development tasks
 
 This approach ensures consistent builds across different machines and eliminates manual framework setup errors.
-
----
-
-## Building for Local Use (No Apple Developer Certificate)
-
-If you don't have an Apple Developer certificate, use `make local`:
-
-```bash
-git clone https://github.com/Beingpax/VoiceInk.git
-cd VoiceInk
-make local
-open ~/Downloads/VoiceInk.app
-```
-
-This builds VoiceInk with ad-hoc signing using a separate build configuration (`LocalBuild.xcconfig`) that requires no Apple Developer account.
-
-### How It Works
-
-The `make local` command uses:
-- `LocalBuild.xcconfig` to override signing and entitlements settings
-- `VoiceInk.local.entitlements` (stripped-down, no CloudKit/keychain groups)
-- `LOCAL_BUILD` Swift compilation flag for conditional code paths
-
-Your normal `make all` / `make build` commands are completely unaffected.
 
 ---
 
@@ -136,4 +111,4 @@ If you encounter any build issues:
 4. Verify all dependencies are properly installed
 5. Make sure whisper.xcframework is properly built and linked
 
-For more help, please check the [issues](https://github.com/Beingpax/VoiceInk/issues) section or create a new issue.
+For more help, please check the [issues](https://github.com/Beingpax/VoiceInk/issues) section or create a new issue. 

@@ -1,183 +1,241 @@
 import Foundation
 import SwiftData
+import OSLog
 
-/// Manages audio cleanup while keeping SwiftData on the main actor and file I/O off it.
-@MainActor
-final class AudioCleanupManager {
+/// A utility class that manages automatic cleanup of audio files while preserving transcript data
+class AudioCleanupManager {
     static let shared = AudioCleanupManager()
-
-    private let cleanupWorker = AudioFileCleanupWorker()
-    private let cleanupCheckInterval: TimeInterval = 86_400
-    private let logger = AppLogger.storage
+    
+    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "AudioCleanupManager")
     private var cleanupTimer: Timer?
-    private weak var scheduledModelContext: ModelContext?
-
-    private var recordingsDirectory: URL {
-        AppBrand.applicationSupportDirectory()
-            .appendingPathComponent("Recordings")
+    
+    // Default cleanup settings
+    private let defaultRetentionDays = 7
+    private let cleanupCheckInterval: TimeInterval = 86400 // Check once per day (in seconds)
+    
+    private init() {
+        logger.info("AudioCleanupManager initialized")
     }
-
-    private init() {}
-
-    deinit {
-        cleanupTimer?.invalidate()
-    }
-
+    
+    /// Start the automatic cleanup process
     func startAutomaticCleanup(modelContext: ModelContext) {
-        scheduledModelContext = modelContext
+        logger.info("Starting automatic audio cleanup")
+        
+        // Cancel any existing timer
         cleanupTimer?.invalidate()
-        cleanupTimer = Timer.scheduledTimer(withTimeInterval: cleanupCheckInterval, repeats: true) {
-            [weak self] _ in
-            Task { @MainActor [weak self] in
-                guard let self, let modelContext = self.scheduledModelContext else { return }
-                await self.runAutomaticCleanupIfNeeded(modelContext: modelContext)
+        
+        // Perform initial cleanup
+        Task {
+            await performCleanup(modelContext: modelContext)
+        }
+        
+        // Schedule regular cleanup
+        cleanupTimer = Timer.scheduledTimer(withTimeInterval: cleanupCheckInterval, repeats: true) { [weak self] _ in
+            Task { [weak self] in
+                await self?.performCleanup(modelContext: modelContext)
             }
         }
+        
+        logger.info("Automatic cleanup scheduled")
     }
-
-    func runAutomaticCleanupIfNeeded(modelContext: ModelContext) async {
-        guard UserDefaults.standard.bool(forKey: CleanupSettingsKeys.isAudioCleanupEnabled),
-            !UserDefaults.standard.bool(forKey: CleanupSettingsKeys.isTranscriptionCleanupEnabled),
-            shouldRunAutomaticCleanup()
-        else {
-            return
-        }
-
-        await performCleanup(modelContext: modelContext)
-        UserDefaults.standard.set(Date(), forKey: CleanupSettingsKeys.lastAutomaticAudioCleanupDate)
-    }
-
+    
+    /// Stop the automatic cleanup process
     func stopAutomaticCleanup() {
+        logger.info("Stopping automatic audio cleanup")
         cleanupTimer?.invalidate()
         cleanupTimer = nil
     }
-
-    func getCleanupInfo(modelContext: ModelContext) async -> (
-        fileCount: Int, totalSize: Int64, transcriptions: [Transcription]
-    ) {
-        guard let cutoffDate = cutoffDate() else { return (0, 0, []) }
-
+    
+    /// Get information about the files that would be cleaned up
+    func getCleanupInfo(modelContext: ModelContext) async -> (fileCount: Int, totalSize: Int64, transcriptions: [Transcription]) {
+        logger.info("Analyzing potential audio cleanup")
+        
+        // Get retention period from UserDefaults
+        let retentionDays = UserDefaults.standard.integer(forKey: "AudioRetentionPeriod")
+        let effectiveRetentionDays = retentionDays > 0 ? retentionDays : defaultRetentionDays
+        
+        // Calculate the cutoff date
+        let calendar = Calendar.current
+        guard let cutoffDate = calendar.date(byAdding: .day, value: -effectiveRetentionDays, to: Date()) else {
+            logger.error("Failed to calculate cutoff date")
+            return (0, 0, [])
+        }
+        
         do {
-            let descriptor = FetchDescriptor<Transcription>(
-                predicate: #Predicate<Transcription> { transcription in
-                    transcription.timestamp < cutoffDate && transcription.audioFileURL != nil
+            // Execute SwiftData operations on the main thread
+            return try await MainActor.run {
+                // Create a predicate to find transcriptions with audio files older than the cutoff date
+                let descriptor = FetchDescriptor<Transcription>(
+                    predicate: #Predicate<Transcription> { transcription in
+                        transcription.timestamp < cutoffDate && 
+                        transcription.audioFileURL != nil
+                    }
+                )
+                
+                let transcriptions = try modelContext.fetch(descriptor)
+                
+                // Calculate stats (can be done on any thread)
+                var fileCount = 0
+                var totalSize: Int64 = 0
+                var eligibleTranscriptions: [Transcription] = []
+                
+                for transcription in transcriptions {
+                    if let urlString = transcription.audioFileURL,
+                       let url = URL(string: urlString),
+                       FileManager.default.fileExists(atPath: url.path) {
+                        do {
+                            // Get file attributes to determine size
+                            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+                            if let fileSize = attributes[.size] as? Int64 {
+                                totalSize += fileSize
+                                fileCount += 1
+                                eligibleTranscriptions.append(transcription)
+                            }
+                        } catch {
+                            self.logger.error("Failed to get attributes for \(url.lastPathComponent): \(error.localizedDescription)")
+                        }
+                    }
                 }
-            )
-            let transcriptions = try modelContext.fetch(descriptor)
-            let candidates = audioCandidates(from: transcriptions)
-            let inspections = await cleanupWorker.inspect(candidates)
-            let presentPairs: [(UUID, Int64)] = inspections.compactMap { result in
-                guard case .present(let size) = result.inspection else { return nil }
-                return (result.candidate.id, size)
+                
+                self.logger.info("Found \(fileCount) files eligible for cleanup, totaling \(self.formatFileSize(totalSize))")
+                return (fileCount, totalSize, eligibleTranscriptions)
             }
-            let presentByID = Dictionary(uniqueKeysWithValues: presentPairs)
-            let eligible = transcriptions.filter { presentByID[$0.id] != nil }
-            let totalSize = presentByID.values.reduce(Int64(0), +)
-            return (eligible.count, totalSize, eligible)
         } catch {
-            logger.error("Failed to inspect cleanup candidates: \(AppLogger.errorMetadata(error), privacy: .public)")
+            logger.error("Error analyzing files for cleanup: \(error.localizedDescription)")
             return (0, 0, [])
         }
     }
-
+    
+    /// Perform the cleanup operation
+    private func performCleanup(modelContext: ModelContext) async {
+        logger.info("Performing audio cleanup")
+        
+        // Get retention period from UserDefaults
+        let retentionDays = UserDefaults.standard.integer(forKey: "AudioRetentionPeriod")
+        let effectiveRetentionDays = retentionDays > 0 ? retentionDays : defaultRetentionDays
+        
+        // Check if automatic cleanup is enabled
+        let isCleanupEnabled = UserDefaults.standard.bool(forKey: "IsAudioCleanupEnabled")
+        guard isCleanupEnabled else {
+            logger.info("Audio cleanup is disabled, skipping")
+            return
+        }
+        
+        logger.info("Audio retention period: \(effectiveRetentionDays) days")
+        
+        // Calculate the cutoff date
+        let calendar = Calendar.current
+        guard let cutoffDate = calendar.date(byAdding: .day, value: -effectiveRetentionDays, to: Date()) else {
+            logger.error("Failed to calculate cutoff date")
+            return
+        }
+        
+        logger.info("Cutoff date for audio cleanup: \(cutoffDate)")
+        
+        do {
+            // Execute SwiftData operations on the main thread
+            try await MainActor.run {
+                // Create a predicate to find transcriptions with audio files older than the cutoff date
+                let descriptor = FetchDescriptor<Transcription>(
+                    predicate: #Predicate<Transcription> { transcription in
+                        transcription.timestamp < cutoffDate && 
+                        transcription.audioFileURL != nil
+                    }
+                )
+                
+                let transcriptions = try modelContext.fetch(descriptor)
+                self.logger.info("Found \(transcriptions.count) transcriptions with audio files to clean up")
+                
+                var deletedCount = 0
+                var errorCount = 0
+                
+                for transcription in transcriptions {
+                    if let urlString = transcription.audioFileURL,
+                       let url = URL(string: urlString),
+                       FileManager.default.fileExists(atPath: url.path) {
+                        do {
+                            // Delete the audio file
+                            try FileManager.default.removeItem(at: url)
+                            
+                            // Update the transcription to remove the audio file reference
+                            transcription.audioFileURL = nil
+                            
+                            deletedCount += 1
+                            self.logger.debug("Deleted audio file: \(url.lastPathComponent)")
+                        } catch {
+                            errorCount += 1
+                            self.logger.error("Failed to delete audio file \(url.lastPathComponent): \(error.localizedDescription)")
+                        }
+                    }
+                }
+                
+                if deletedCount > 0 || errorCount > 0 {
+                    try modelContext.save()
+                    self.logger.info("Cleanup complete. Deleted \(deletedCount) files. Failed: \(errorCount)")
+                }
+            }
+        } catch {
+            logger.error("Error during audio cleanup: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Run cleanup manually - can be called from settings
     func runManualCleanup(modelContext: ModelContext) async {
         await performCleanup(modelContext: modelContext)
     }
-
-    func runCleanupForTranscriptions(
-        modelContext: ModelContext,
-        transcriptions: [Transcription]
-    ) async -> (deletedCount: Int, errorCount: Int) {
-        let results = await cleanupWorker.delete(
-            audioCandidates(from: transcriptions),
-            allowedRoot: recordingsDirectory
-        )
-        return applyDeletionResults(results, to: transcriptions, modelContext: modelContext)
-    }
-
-    func formatFileSize(_ size: Int64) -> String {
-        let formatter = ByteCountFormatter()
-        formatter.allowedUnits = [.useKB, .useMB, .useGB]
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: size)
-    }
-
-    private func performCleanup(modelContext: ModelContext) async {
-        guard UserDefaults.standard.bool(forKey: CleanupSettingsKeys.isAudioCleanupEnabled),
-            let cutoffDate = cutoffDate()
-        else {
-            return
-        }
-
+    
+    /// Run cleanup on the specified transcriptions
+    func runCleanupForTranscriptions(modelContext: ModelContext, transcriptions: [Transcription]) async -> (deletedCount: Int, errorCount: Int) {
+        logger.info("Running cleanup for \(transcriptions.count) specific transcriptions")
+        
         do {
-            let descriptor = FetchDescriptor<Transcription>(
-                predicate: #Predicate<Transcription> { transcription in
-                    transcription.timestamp < cutoffDate && transcription.audioFileURL != nil
+            // Execute SwiftData operations on the main thread
+            return try await MainActor.run {
+                var deletedCount = 0
+                var errorCount = 0
+                
+                for transcription in transcriptions {
+                    if let urlString = transcription.audioFileURL,
+                       let url = URL(string: urlString),
+                       FileManager.default.fileExists(atPath: url.path) {
+                        do {
+                            // Delete the audio file
+                            try FileManager.default.removeItem(at: url)
+                            
+                            // Update the transcription to remove the audio file reference
+                            transcription.audioFileURL = nil
+                            
+                            deletedCount += 1
+                            self.logger.debug("Deleted audio file: \(url.lastPathComponent)")
+                        } catch {
+                            errorCount += 1
+                            self.logger.error("Failed to delete audio file \(url.lastPathComponent): \(error.localizedDescription)")
+                        }
+                    }
                 }
-            )
-            let transcriptions = try modelContext.fetch(descriptor)
-            let results = await cleanupWorker.delete(
-                audioCandidates(from: transcriptions),
-                allowedRoot: recordingsDirectory
-            )
-            _ = applyDeletionResults(results, to: transcriptions, modelContext: modelContext)
-        } catch {
-            logger.error("Automatic audio cleanup failed: \(AppLogger.errorMetadata(error), privacy: .public)")
-        }
-    }
-
-    private func applyDeletionResults(
-        _ results: [AudioFileDeletionResult],
-        to transcriptions: [Transcription],
-        modelContext: ModelContext
-    ) -> (deletedCount: Int, errorCount: Int) {
-        let transcriptionByID = Dictionary(uniqueKeysWithValues: transcriptions.map { ($0.id, $0) })
-        var deletedCount = 0
-        var errorCount = 0
-
-        for result in results {
-            switch result.deletion {
-            case .deleted, .missing:
-                transcriptionByID[result.candidate.id]?.audioFileURL = nil
-                deletedCount += 1
-            case .failed:
-                errorCount += 1
+                
+                if deletedCount > 0 || errorCount > 0 {
+                    do {
+                        try modelContext.save()
+                        self.logger.info("Cleanup complete. Deleted \(deletedCount) files. Failed: \(errorCount)")
+                    } catch {
+                        self.logger.error("Error saving model context after cleanup: \(error.localizedDescription)")
+                    }
+                }
+                
+                return (deletedCount, errorCount)
             }
-        }
-
-        guard deletedCount > 0 else { return (deletedCount, errorCount) }
-        do {
-            try modelContext.save()
         } catch {
-            modelContext.rollback()
-            logger.error("Failed to save audio cleanup: \(AppLogger.errorMetadata(error), privacy: .public)")
-            return (0, errorCount + deletedCount)
-        }
-        return (deletedCount, errorCount)
-    }
-
-    private func audioCandidates(from transcriptions: [Transcription]) -> [AudioFileCandidate] {
-        transcriptions.compactMap { transcription in
-            guard let urlString = transcription.audioFileURL,
-                let url = URL(string: urlString)
-            else {
-                return nil
-            }
-            return AudioFileCandidate(id: transcription.id, url: url)
+            logger.error("Error during targeted cleanup: \(error.localizedDescription)")
+            return (0, 0)
         }
     }
-
-    private func cutoffDate() -> Date? {
-        let retentionDays = UserDefaults.standard.integer(forKey: CleanupSettingsKeys.audioRetentionPeriod)
-        return Calendar.current.date(byAdding: .day, value: -retentionDays, to: Date())
+    
+    /// Format file size in human-readable form
+    func formatFileSize(_ size: Int64) -> String {
+        let byteCountFormatter = ByteCountFormatter()
+        byteCountFormatter.allowedUnits = [.useKB, .useMB, .useGB]
+        byteCountFormatter.countStyle = .file
+        return byteCountFormatter.string(fromByteCount: size)
     }
-
-    private func shouldRunAutomaticCleanup() -> Bool {
-        guard let lastCleanupDate = UserDefaults.standard.object(
-            forKey: CleanupSettingsKeys.lastAutomaticAudioCleanupDate
-        ) as? Date else {
-            return true
-        }
-        return Date().timeIntervalSince(lastCleanupDate) >= cleanupCheckInterval
-    }
-}
+} 
