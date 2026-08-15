@@ -1,122 +1,145 @@
-import AppKit
-import Combine
-import Foundation
-import SwiftUI
 import CoreAudio
+import Foundation
 
-/// Controls system audio management during recording
-class MediaController: ObservableObject {
+@MainActor
+final class MediaController: ObservableObject {
+
     static let shared = MediaController()
+
     private var didMuteAudio = false
     private var wasAudioMutedBeforeRecording = false
-    private var currentMuteTask: Task<Bool, Never>?
-    
+    private var unmuteTask: Task<Void, Never>?
+    private var muteGeneration: Int = 0
+
     @Published var isSystemMuteEnabled: Bool = UserDefaults.standard.bool(forKey: "isSystemMuteEnabled") {
-        didSet {
-            UserDefaults.standard.set(isSystemMuteEnabled, forKey: "isSystemMuteEnabled")
-        }
+        didSet { UserDefaults.standard.set(isSystemMuteEnabled, forKey: "isSystemMuteEnabled") }
     }
-    
-    private init() {
-        // Set default if not already set
-        if !UserDefaults.standard.contains(key: "isSystemMuteEnabled") {
-            UserDefaults.standard.set(true, forKey: "isSystemMuteEnabled")
-        }
+
+    @Published var audioResumptionDelay: Double = UserDefaults.standard.double(forKey: "audioResumptionDelay") {
+        didSet { UserDefaults.standard.set(audioResumptionDelay, forKey: "audioResumptionDelay") }
     }
-    
-    /// Checks if the system audio is currently muted using AppleScript
-    private func isSystemAudioMuted() -> Bool {
-        let pipe = Pipe()
-        let task = Process()
-        task.launchPath = "/usr/bin/osascript"
-        task.arguments = ["-e", "output muted of (get volume settings)"]
-        task.standardOutput = pipe
-        
-        do {
-            try task.run()
-            task.waitUntilExit()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) {
-                return output == "true"
-            }
-        } catch {
-            // Silently fail
-        }
-        
-        return false
-    }
-    
-    /// Mutes system audio during recording
+
+    private init() {}
+
     func muteSystemAudio() async -> Bool {
         guard isSystemMuteEnabled else { return false }
-        
-        // Cancel any existing mute task and create a new one
-        currentMuteTask?.cancel()
-        
-        let task = Task<Bool, Never> {
-            // First check if audio is already muted
-            wasAudioMutedBeforeRecording = isSystemAudioMuted()
-            
-            // If already muted, no need to mute it again
-            if wasAudioMutedBeforeRecording {
-                return true
+
+        unmuteTask?.cancel()
+        unmuteTask = nil
+        muteGeneration += 1
+
+        let currentlyMuted = isSystemAudioMuted()
+
+        if currentlyMuted {
+            if didMuteAudio {
+                // We muted it previously, stay responsible for unmuting
+                wasAudioMutedBeforeRecording = false
+            } else {
+                // User muted it, don't unmute when done
+                wasAudioMutedBeforeRecording = true
+                didMuteAudio = false
             }
-            
-            // Otherwise mute the audio
-            let success = executeAppleScript(command: "set volume with output muted")
-            didMuteAudio = success
-            return success
+            return true
         }
-        
-        currentMuteTask = task
-        return await task.value
+
+        wasAudioMutedBeforeRecording = false
+        let success = setSystemMuted(true)
+        didMuteAudio = success
+        return success
     }
-    
-    /// Restores system audio after recording
+
     func unmuteSystemAudio() async {
         guard isSystemMuteEnabled else { return }
-        
-        // Wait for any pending mute operation to complete first
-        if let muteTask = currentMuteTask {
-            _ = await muteTask.value
-        }
-        
-        // Only unmute if we actually muted it (and it wasn't already muted)
-        if didMuteAudio && !wasAudioMutedBeforeRecording {
-            _ = executeAppleScript(command: "set volume without output muted")
-        }
-        
-        didMuteAudio = false
-        currentMuteTask = nil
-    }
-    
-    /// Executes an AppleScript command
-    private func executeAppleScript(command: String) -> Bool {
-        let task = Process()
-        task.launchPath = "/usr/bin/osascript"
-        task.arguments = ["-e", command]
-        
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = pipe
-        
-        do {
-            try task.run()
-            task.waitUntilExit()
-            return task.terminationStatus == 0
-        } catch {
-            return false
-        }
-    }
-}
 
-extension UserDefaults {
-    func contains(key: String) -> Bool {
-        return object(forKey: key) != nil
+        let delay = audioResumptionDelay
+        let shouldUnmute = didMuteAudio && !wasAudioMutedBeforeRecording
+        let myGeneration = muteGeneration
+
+        let task = Task { [weak self] in
+            if delay > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            }
+
+            guard let self = self else { return }
+            guard !Task.isCancelled else { return }
+            guard self.muteGeneration == myGeneration else { return }
+
+            if shouldUnmute {
+                _ = self.setSystemMuted(false)
+            }
+
+            self.didMuteAudio = false
+        }
+
+        unmuteTask = task
+        await task.value
     }
-    
-    var isSystemMuteEnabled: Bool {
-        get { bool(forKey: "isSystemMuteEnabled") }
-        set { set(newValue, forKey: "isSystemMuteEnabled") }
+
+    private func getDefaultOutputDevice() -> AudioDeviceID? {
+        var deviceID = AudioDeviceID(0)
+        var propertySize = UInt32(MemoryLayout<AudioDeviceID>.size)
+
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        let status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            0,
+            nil,
+            &propertySize,
+            &deviceID
+        )
+
+        return status == noErr ? deviceID : nil
+    }
+
+    private func isSystemAudioMuted() -> Bool {
+        guard let deviceID = getDefaultOutputDevice() else { return false }
+
+        var muted: UInt32 = 0
+        var propertySize = UInt32(MemoryLayout<UInt32>.size)
+
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        if !AudioObjectHasProperty(deviceID, &address) {
+            address.mElement = 0
+            if !AudioObjectHasProperty(deviceID, &address) { return false }
+        }
+
+        let status = AudioObjectGetPropertyData(deviceID, &address, 0, nil, &propertySize, &muted)
+        return status == noErr && muted != 0
+    }
+
+    private func setSystemMuted(_ muted: Bool) -> Bool {
+        guard let deviceID = getDefaultOutputDevice() else { return false }
+
+        var muteValue: UInt32 = muted ? 1 : 0
+        let propertySize = UInt32(MemoryLayout<UInt32>.size)
+
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        if !AudioObjectHasProperty(deviceID, &address) {
+            address.mElement = 0
+            if !AudioObjectHasProperty(deviceID, &address) { return false }
+        }
+
+        var isSettable: DarwinBoolean = false
+        var status = AudioObjectIsPropertySettable(deviceID, &address, &isSettable)
+        if status != noErr || !isSettable.boolValue { return false }
+
+        status = AudioObjectSetPropertyData(deviceID, &address, 0, nil, propertySize, &muteValue)
+        return status == noErr
     }
 }

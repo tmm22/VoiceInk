@@ -31,6 +31,19 @@ playground.xcworkspace
 
 .build/
 build/
+.local-build/
+.local-dependencies/
+DerivedData/
+Release/
+release-artifacts/
+docs/archive/
+*.profraw
+/TestResults
+/TestResults.xcresult
+TestResults*
+*.log
+Screenshot*.png
+Packages/SelectedTextKit/Package.resolved
 
 # CocoaPods
 #
@@ -98,4 +111,4 @@ Icon
 .AppleDesktop
 Network Trash Folder
 Temporary Items
-.apdisk 
+.apdisk

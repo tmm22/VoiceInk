@@ -1,46 +1,115 @@
-import SwiftUI
-import SwiftData
 import AppKit
+import SwiftUI
 import UniformTypeIdentifiers
 
 enum ModelFilter: String, CaseIterable, Identifiable {
-    case recommended = "Recommended"
     case local = "Local"
     case cloud = "Cloud"
     case custom = "Custom"
+
     var id: String { self.rawValue }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .local:
+            return "Local"
+        case .cloud:
+            return "Cloud"
+        case .custom:
+            return "Custom"
+        }
+    }
 }
 
 struct ModelManagementView: View {
-    @ObservedObject var whisperState: WhisperState
-    @State private var customModelToEdit: CustomCloudModel?
-    @StateObject private var aiService = AIService()
-    @StateObject private var customModelManager = CustomModelManager.shared
-    @EnvironmentObject private var enhancementService: AIEnhancementService
-    @Environment(\.modelContext) private var modelContext
-    @StateObject private var whisperPrompt = WhisperPrompt()
+    @EnvironmentObject private var aiService: AIService
+    @EnvironmentObject private var whisperModelManager: WhisperModelManager
+    @EnvironmentObject private var fluidAudioModelManager: FluidAudioModelManager
+    @EnvironmentObject private var transcriptionModelManager: TranscriptionModelManager
+    @StateObject private var customModelManager = CustomCloudModelManager.shared
+    @StateObject private var customAIProviderManager = CustomAIProviderManager.shared
     @ObservedObject private var warmupCoordinator = WhisperModelWarmupCoordinator.shared
+    @ObservedObject private var voiceInkRefineService = VoiceInkRefineService.shared
 
-    @State private var selectedFilter: ModelFilter = .recommended
-    @State private var isShowingSettings = false
-    
-    // State for the unified alert
+    @State private var selectedFilter: ModelFilter = .local
+    @State private var activePanel: ModelManagementPanel?
+
     @State private var isShowingDeleteAlert = false
     @State private var alertTitle = ""
     @State private var alertMessage = ""
     @State private var deleteActionClosure: () -> Void = {}
 
+    private enum ModelManagementPanel {
+        case settings
+        case cloudProvider(ProviderDescriptor)
+        case customTranscriptionModel(CustomCloudModel?)
+        case customEnhancementModel(CustomAIProviderConfig?)
+    }
+
+    private var isSettingsPanelOpen: Bool {
+        if case .settings? = activePanel { return true }
+        return false
+    }
+
+    private var isPanelOpen: Bool {
+        activePanel != nil
+    }
+
+    private var selectedCloudProviderID: String? {
+        if case .cloudProvider(let descriptor)? = activePanel {
+            return descriptor.id
+        }
+        return nil
+    }
+
+    private func closePanel() {
+        activePanel = nil
+    }
+
+    private func toggleSettingsPanel() {
+        activePanel = isSettingsPanelOpen ? nil : .settings
+    }
+
+    private func openCloudProviderPanel(_ descriptor: ProviderDescriptor) {
+        activePanel = .cloudProvider(descriptor)
+    }
+
+    private func openCustomTranscriptionModelPanel(_ model: CustomCloudModel? = nil) {
+        activePanel = .customTranscriptionModel(model)
+    }
+
+    private func openCustomEnhancementModelPanel(_ provider: CustomAIProviderConfig? = nil) {
+        activePanel = .customEnhancementModel(provider)
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                defaultModelSection
-                languageSelectionSection
-                availableModelsSection
+        VStack(spacing: 0) {
+            headerSection
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    if SystemArchitecture.isIntelMac {
+                        intelMacWarningBanner
+                    }
+
+                    availableModelsSection
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 18)
+                .padding(.bottom, 28)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
-            .padding(40)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(minWidth: 600, minHeight: 500)
-        .background(Color(NSColor.controlBackgroundColor))
+        .sidePanel(
+            isPresented: .init(
+                get: { isPanelOpen },
+                set: { if !$0 { closePanel() } }
+            )
+        ) {
+            modelPanelContent
+        }
         .alert(isPresented: $isShowingDeleteAlert) {
             Alert(
                 title: Text(alertTitle),
@@ -50,198 +119,340 @@ struct ModelManagementView: View {
             )
         }
     }
-    
-    private var defaultModelSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Default Model")
-                .font(.headline)
-                .foregroundColor(.secondary)
-            Text(whisperState.currentTranscriptionModel?.displayName ?? "No model selected")
-                .font(.title2)
-                .fontWeight(.bold)
+
+    private var headerSection: some View {
+        AppScreenHeader(title: "Model Catalog") {
+            settingsButton
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(CardBackground(isSelected: false))
-        .cornerRadius(10)
     }
-    
-    private var languageSelectionSection: some View {
-        LanguageSelectionView(whisperState: whisperState, displayMode: .full, whisperPrompt: whisperPrompt)
+
+    @ViewBuilder
+    private var modelPanelContent: some View {
+        switch activePanel {
+        case .settings:
+            settingsPanelContent
+        case .cloudProvider(let descriptor):
+            ProviderDetailPanel(descriptor: descriptor, onClose: closePanel)
+                .environmentObject(aiService)
+                .environmentObject(transcriptionModelManager)
+                .id(descriptor.id)
+        case .customTranscriptionModel(let model):
+            CustomTranscriptionModelEditorPanel(
+                editingModel: model,
+                customModelManager: customModelManager,
+                onClose: closePanel,
+                onSave: {
+                    transcriptionModelManager.refreshAllAvailableModels()
+                    closePanel()
+                }
+            )
+        case .customEnhancementModel(let provider):
+            CustomEnhancementModelEditorPanel(
+                editingProvider: provider,
+                manager: customAIProviderManager,
+                onClose: closePanel,
+                onSave: closePanel
+            )
+        case nil:
+            EmptyView()
+        }
     }
-    
+
+    private var settingsPanelContent: some View {
+        VStack(spacing: 0) {
+            AppPanelHeader(title: "Model Settings", onClose: closePanel)
+
+            ModelSettingsPanel()
+        }
+    }
+
     private var availableModelsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                // Modern compact pill switcher
-                HStack(spacing: 12) {
-                    ForEach(ModelFilter.allCases, id: \.self) { filter in
-                        Button(action: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                selectedFilter = filter
-                                isShowingSettings = false
-                            }
-                        }) {
-                            Text(filter.rawValue)
-                                .font(.system(size: 14, weight: selectedFilter == filter ? .semibold : .medium))
-                                .foregroundColor(selectedFilter == filter ? .primary : .primary.opacity(0.7))
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(
-                                    CardBackground(isSelected: selectedFilter == filter, cornerRadius: 22)
-                                )
-                        }
-                        .buttonStyle(PlainButtonStyle())
+            modelFilterPicker
+
+            switch selectedFilter {
+            case .local:
+                localModelsSection
+            case .cloud:
+                CloudProviderManagementView(
+                    selectedProviderID: selectedCloudProviderID,
+                    onSelectProvider: openCloudProviderPanel
+                )
+                .environmentObject(aiService)
+                .environmentObject(transcriptionModelManager)
+            case .custom:
+                CustomProviderManagementView(
+                    customModelManager: customModelManager,
+                    customAIProviderManager: customAIProviderManager,
+                    onAddTranscriptionModel: {
+                        openCustomTranscriptionModelPanel()
+                    },
+                    onEditTranscriptionModel: { model in
+                        openCustomTranscriptionModelPanel(model)
+                    },
+                    onDeleteTranscriptionModel: { model in
+                        confirmDeleteCustomModel(model)
+                    },
+                    onAddEnhancementModel: {
+                        openCustomEnhancementModelPanel()
+                    },
+                    onEditEnhancementModel: { provider in
+                        openCustomEnhancementModelPanel(provider)
+                    },
+                    onDeleteEnhancementModel: { provider in
+                        confirmDeleteCustomEnhancementModel(provider)
                     }
-                }
-                
-                Spacer()
-                
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var modelFilterPicker: some View {
+        HStack(spacing: 12) {
+            ForEach(ModelFilter.allCases, id: \.self) { filter in
                 Button(action: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isShowingSettings.toggle()
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        selectedFilter = filter
                     }
+                    activePanel = nil
                 }) {
-                    Image(systemName: "gear")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(isShowingSettings ? .accentColor : .primary.opacity(0.7))
-                        .padding(12)
+                    Text(filter.title)
+                        .font(.system(size: 14, weight: selectedFilter == filter ? .semibold : .medium))
+                        .foregroundColor(selectedFilter == filter ? .primary : .primary.opacity(0.7))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
                         .background(
-                            CardBackground(isSelected: isShowingSettings, cornerRadius: 22)
+                            AppMaterialCardBackground(isSelected: selectedFilter == filter, cornerRadius: 22)
                         )
                 }
                 .buttonStyle(PlainButtonStyle())
             }
-            .padding(.bottom, 12)
-            
-            if isShowingSettings {
-                ModelSettingsView(whisperPrompt: whisperPrompt)
-            } else {
-                VStack(spacing: 12) {
-                    ForEach(filteredModels, id: \.id) { model in
-                        let isWarming = (model as? LocalModel).map { localModel in
-                            warmupCoordinator.isWarming(modelNamed: localModel.name)
-                        } ?? false
+        }
+        .padding(.bottom, 8)
+    }
 
-                        ModelCardRowView(
-                            model: model,
-                            whisperState: whisperState, 
-                            isDownloaded: whisperState.availableModels.contains { $0.name == model.name },
-                            isCurrent: whisperState.currentTranscriptionModel?.name == model.name,
-                            downloadProgress: whisperState.downloadProgress,
-                            modelURL: whisperState.availableModels.first { $0.name == model.name }?.url,
-                            isWarming: isWarming,
-                            deleteAction: {
-                                if let customModel = model as? CustomCloudModel {
-                                    alertTitle = "Delete Custom Model"
-                                    alertMessage = "Are you sure you want to delete the custom model '\(customModel.displayName)'?"
-                                    deleteActionClosure = {
-                                        customModelManager.removeCustomModel(withId: customModel.id)
-                                        whisperState.refreshAllAvailableModels()
-                                    }
-                                    isShowingDeleteAlert = true
-                                } else if let downloadedModel = whisperState.availableModels.first(where: { $0.name == model.name }) {
-                                    alertTitle = "Delete Model"
-                                    alertMessage = "Are you sure you want to delete the model '\(downloadedModel.name)'?"
-                                    deleteActionClosure = {
-                                        Task {
-                                            await whisperState.deleteModel(downloadedModel)
-                                        }
-                                    }
-                                    isShowingDeleteAlert = true
-                                }
-                            },
-                            setDefaultAction: {
-                                Task {
-                                    await whisperState.setDefaultTranscriptionModel(model)
-                                }
-                            },
-                            downloadAction: {
-                                if let localModel = model as? LocalModel {
-                                    Task { await whisperState.downloadModel(localModel) }
-                                }
-                            },
-                            editAction: model.provider == .custom ? { customModel in
-                                customModelToEdit = customModel
-                            } : nil
-                        )
-                    }
-                    
-                    // Import button as a card at the end of the Local list
-                    if selectedFilter == .local {
-                        HStack(spacing: 8) {
-                            Button(action: { presentImportPanel() }) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "square.and.arrow.down")
-                                    Text("Import Local Model…")
-                                        .font(.system(size: 12, weight: .semibold))
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding(16)
-                                .background(CardBackground(isSelected: false))
-                                .cornerRadius(10)
-                            }
-                            .buttonStyle(.plain)
+    private var settingsButton: some View {
+        AppIconButton(
+            systemName: "gearshape.fill",
+            help: "Model Settings"
+        ) {
+            toggleSettingsPanel()
+        }
+    }
 
-                            InfoTip(
-                                title: "Import local Whisper models",
-                                message: "Add a custom fine-tuned whisper model to use with VoiceInk. Select the downloaded .bin file.",
-                                learnMoreURL: "https://tryvoiceink.com/docs/custom-local-whisper-models"
-                            )
-                            .help("Read more about custom local models")
-                        }
-                    }
-                    
-                    if selectedFilter == .custom {
-                        // Add Custom Model Card at the bottom
-                        AddCustomModelCardView(
-                            customModelManager: customModelManager,
-                            editingModel: customModelToEdit
-                        ) {
-                            // Refresh the models when a new custom model is added
-                            whisperState.refreshAllAvailableModels()
-                            customModelToEdit = nil // Clear editing state
-                        }
-                    }
+    private var localModelsSection: some View {
+        VStack(spacing: 12) {
+            VoiceInkRefineModelCardView(
+                service: voiceInkRefineService,
+                deleteAction: confirmDeleteVoiceInkRefineModel
+            )
+
+            ForEach(appleSpeechModels, id: \.id) { model in
+                localModelCard(model)
+            }
+
+            ForEach(downloadableLocalModels, id: \.id) { model in
+                localModelCard(model)
+            }
+
+            importLocalModelButton
+
+            LocalEnhancementServiceManagementView()
+                .environmentObject(aiService)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func localModelCard(_ model: any TranscriptionModel) -> some View {
+        let isWarming =
+            (model as? WhisperModel).map { whisperModel in
+                warmupCoordinator.isWarming(modelNamed: whisperModel.name)
+            } ?? false
+
+        return ModelCardView(
+            model: model,
+            fluidAudioModelManager: fluidAudioModelManager,
+            isDownloaded: whisperModelManager.availableModels.contains { $0.name == model.name },
+            downloadProgress: whisperModelManager.downloadProgress,
+            modelURL: whisperModelManager.availableModels.first { $0.name == model.name }?.url,
+            isWarming: isWarming,
+            deleteAction: {
+                confirmDeleteLocalModel(model)
+            },
+            downloadAction: {
+                if let whisperModel = model as? WhisperModel {
+                    Task { await whisperModelManager.downloadModel(whisperModel) }
+                } else if model.provider == .fastConformer || model.provider == .senseVoice {
+                    Task { await ONNXLocalModelManager.shared.download(model) }
                 }
             }
-        }
-        .padding()
+        )
     }
 
-    private var filteredModels: [any TranscriptionModel] {
-        switch selectedFilter {
-        case .recommended:
-            return whisperState.allAvailableModels.filter {
-                let recommendedNames = ["ggml-base.en", "ggml-large-v3-turbo-q5_0", "ggml-large-v3-turbo", "whisper-large-v3-turbo"]
-                return recommendedNames.contains($0.name)
-            }.sorted { model1, model2 in
-                let recommendedOrder = ["ggml-base.en", "ggml-large-v3-turbo-q5_0", "ggml-large-v3-turbo", "whisper-large-v3-turbo"]
-                let index1 = recommendedOrder.firstIndex(of: model1.name) ?? Int.max
-                let index2 = recommendedOrder.firstIndex(of: model2.name) ?? Int.max
-                return index1 < index2
+    private var importLocalModelButton: some View {
+        HStack(spacing: 8) {
+            Button(action: { presentImportPanel() }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "square.and.arrow.down")
+                    Text("Import Local Model…")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(16)
+                .background(AppMaterialCardBackground(cornerRadius: 10))
             }
-        case .local:
-            return whisperState.allAvailableModels.filter { $0.provider == .local || $0.provider == .nativeApple || $0.provider == .parakeet }
-        case .cloud:
-            let cloudProviders: [ModelProvider] = [.groq, .elevenLabs, .deepgram, .mistral, .gemini, .soniox]
-            return whisperState.allAvailableModels.filter { cloudProviders.contains($0.provider) }
-        case .custom:
-            return whisperState.allAvailableModels.filter { $0.provider == .custom }
+            .buttonStyle(.plain)
+
+            InfoTip(
+                "Add a custom fine-tuned whisper model to use with VoiceInk. Select the downloaded .bin file.",
+                learnMoreURL: "https://tryvoiceink.com/docs/custom-local-whisper-models"
+            )
+            .help("Read more about custom local models")
         }
     }
 
-    // MARK: - Import Panel
+    private var intelMacWarningBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(AppTheme.Status.warningStrong)
+
+            Text("Local models don't work reliably on Intel Macs")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.primary.opacity(0.85))
+
+            Spacer()
+
+            Button(action: {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    selectedFilter = .cloud
+                }
+            }) {
+                HStack(spacing: 4) {
+                    Text("Use Cloud")
+                        .font(.system(size: 12, weight: .semibold))
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 10, weight: .bold))
+                }
+                .foregroundColor(AppTheme.Status.warningStrong)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(AppTheme.Status.warningStrong.opacity(0.12))
+                .cornerRadius(6)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(AppTheme.Status.warningStrong.opacity(0.08))
+        .cornerRadius(8)
+    }
+
+    private var localModels: [any TranscriptionModel] {
+        transcriptionModelManager.allAvailableModels.filter {
+            ($0.provider == .whisper || $0.provider == .nativeApple || $0.provider == .fluidAudio
+                || $0.provider == .transcribeCpp || $0.provider == .fastConformer
+                || $0.provider == .senseVoice)
+                && transcriptionModelManager.isAvailableOnCurrentOS($0)
+        }
+    }
+
+    private var appleSpeechModels: [any TranscriptionModel] {
+        localModels.filter { $0.provider == .nativeApple }
+    }
+
+    private var downloadableLocalModels: [any TranscriptionModel] {
+        localModels.filter { $0.provider != .nativeApple }
+    }
+
+    private func confirmDeleteLocalModel(_ model: any TranscriptionModel) {
+        if model.provider == .fastConformer || model.provider == .senseVoice {
+            alertTitle = String(localized: "Delete Model")
+            alertMessage = String(
+                format: String(localized: "Are you sure you want to delete the model '%@'?"),
+                model.displayName
+            )
+            deleteActionClosure = {
+                do {
+                    try ONNXLocalModelManager.shared.delete(model)
+                    transcriptionModelManager.handleModelDeleted(model.name)
+                } catch {
+                    NotificationManager.shared.showNotification(
+                        title: String(localized: "Failed to delete model"),
+                        type: .error
+                    )
+                }
+            }
+            isShowingDeleteAlert = true
+            return
+        }
+
+        guard let downloadedModel = whisperModelManager.availableModels.first(where: { $0.name == model.name }) else {
+            return
+        }
+
+        alertTitle = String(localized: "Delete Model")
+        alertMessage = String(
+            format: String(localized: "Are you sure you want to delete the model '%@'?"),
+            downloadedModel.name
+        )
+        deleteActionClosure = {
+            Task {
+                await whisperModelManager.deleteModel(downloadedModel)
+            }
+        }
+        isShowingDeleteAlert = true
+    }
+
+    private func confirmDeleteCustomModel(_ model: CustomCloudModel) {
+        alertTitle = String(localized: "Delete Custom Model")
+        alertMessage = String(
+            format: String(localized: "Are you sure you want to delete the custom model '%@'?"),
+            model.displayName
+        )
+        deleteActionClosure = {
+            customModelManager.removeCustomModel(withId: model.id)
+            transcriptionModelManager.refreshAllAvailableModels()
+        }
+        isShowingDeleteAlert = true
+    }
+
+    private func confirmDeleteVoiceInkRefineModel() {
+        alertTitle = String(localized: "Delete VoiceInk Refine?")
+        alertMessage = String(
+            localized: "The model will need to be downloaded again before a Mode can use it."
+        )
+        deleteActionClosure = {
+            Task {
+                await voiceInkRefineService.deleteModel()
+            }
+        }
+        isShowingDeleteAlert = true
+    }
+
+    private func confirmDeleteCustomEnhancementModel(_ provider: CustomAIProviderConfig) {
+        alertTitle = String(localized: "Delete Custom Enhancement Model")
+        alertMessage = String(
+            format: String(localized: "Are you sure you want to delete the custom enhancement model '%@'?"),
+            provider.name
+        )
+        deleteActionClosure = {
+            customAIProviderManager.deleteProvider(provider)
+        }
+        isShowingDeleteAlert = true
+    }
+
     private func presentImportPanel() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.init(filenameExtension: "bin")!]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.resolvesAliases = true
-        panel.title = "Select a Whisper ggml .bin model"
+        panel.title = String(localized: "Select a Whisper ggml .bin model")
         if panel.runModal() == .OK, let url = panel.url {
             Task { @MainActor in
-                await whisperState.importLocalModel(from: url)
+                await whisperModelManager.importWhisperModel(from: url)
             }
         }
     }

@@ -1,0 +1,144 @@
+import Foundation
+
+@MainActor
+final class OpenAISummarizationService: TextSummarizationService {
+    private let session: URLSession
+    private let authorizationService: AuthorizationService
+    // Force unwrap safe: hardcoded valid URL
+    private let endpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
+    private let model = "gpt-4o-mini"
+
+    init(
+        session: URLSession = SecureURLSession.makeEphemeral(),
+        keychain: KeychainManager = KeychainManager(),
+        managedProvisioningClient: ManagedProvisioningClient? = nil,
+        authorizationService: AuthorizationService? = nil
+    ) {
+        self.session = session
+        let resolvedManagedProvisioningClient = managedProvisioningClient ?? .shared
+        self.authorizationService = authorizationService ?? AuthorizationService(
+            keychain: keychain,
+            managedProvisioningClient: resolvedManagedProvisioningClient
+        )
+    }
+
+    func hasCredentials() -> Bool {
+        authorizationService.hasCredentials(for: "OpenAI")
+    }
+
+    func summarize(text: String, sourceURL: URL?) async throws -> SummarizationResult {
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let authorization = try await authorizationService.authorizationHeader(for: "OpenAI", headerType: .openAI)
+        request.setValue(authorization.value, forHTTPHeaderField: authorization.header)
+        request.timeoutInterval = 45
+
+        let articleSnippet = text.prefix(6_000)
+        let sourceClause = sourceURL.map { "Source URL: \($0.absoluteString)" } ?? ""
+        let prompt = """
+        You are helping a narrator prepare spoken audio from an article. Extract the core article prose, discarding navigation, headers, footers, cookie notices, bylines, or reader comments. Then produce a tight two-to-three sentence summary that captures the key takeaway as it should be spoken aloud.
+
+        Respond only with JSON matching the schema {"conciseArticle":"<full cleaned text>","summary":"<2-3 sentence spoken summary>"}.
+        - Keep `conciseArticle` as readable paragraphs ready for TTS (no headings, bullet markers, or attribution boilerplate).
+        - Never include legal disclaimers or call-to-action language unless it is critical to the article.
+        - The `summary` must be at most three sentences intended to be spoken verbatim.
+        - Do not add explanations outside the JSON.
+
+        \(sourceClause)
+        <article>
+        \(articleSnippet)
+        </article>
+        """
+
+        let body = ChatCompletionRequest(
+            model: model,
+            messages: [
+                .init(role: "system", content: "You generate cleaned narration scripts and concise spoken summaries. Respond strictly with the requested JSON."),
+                .init(role: "user", content: prompt)
+            ],
+            temperature: 0.2,
+            responseFormat: .init(type: "json_object")
+        )
+
+        request.httpBody = try JSONEncoder().encode(body)
+
+        do {
+            let (data, response) = try await session.data(for: request)
+
+            let responseData = try HTTPResponseHandler.handleResponse(
+                response,
+                data: data,
+                onUnauthorized: {
+                    if authorization.usedManagedCredential {
+                        self.authorizationService.invalidateManagedCredential(for: .openAI)
+                    }
+                },
+                clientErrorFormat: "Summarization request failed (%d)",
+                serverErrorFormat: "Summarization service unavailable (%d)",
+                unexpectedFormat: "Unexpected summarization response: %d"
+            )
+
+            let decoded = try JSONDecoder().decode(ChatCompletionResponse.self, from: responseData)
+            guard let content = decoded.choices.first?.message.content,
+                  let payloadData = content.data(using: .utf8) else {
+                throw TTSError.apiError("Summarization response missing content")
+            }
+
+            let payload = try JSONDecoder().decode(SummarizationPayload.self, from: payloadData)
+            return SummarizationResult(
+                condensedArticle: payload.conciseArticle,
+                summary: payload.summary
+            )
+        } catch let error as TTSError {
+            throw error
+        } catch {
+            throw TTSError.networkError(error.localizedDescription)
+        }
+    }
+}
+
+private struct ChatCompletionRequest: Codable {
+    let model: String
+    let messages: [ChatMessage]
+    let temperature: Double
+    let responseFormat: ResponseFormat
+
+    struct ChatMessage: Codable {
+        let role: String
+        let content: String
+    }
+
+    struct ResponseFormat: Codable {
+        let type: String
+
+        enum CodingKeys: String, CodingKey {
+            case type
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case model
+        case messages
+        case temperature
+        case responseFormat = "response_format"
+    }
+}
+
+private struct ChatCompletionResponse: Codable {
+    struct Choice: Codable {
+        let message: ChatCompletionRequest.ChatMessage
+    }
+
+    let choices: [Choice]
+}
+
+private struct SummarizationPayload: Codable {
+    let conciseArticle: String
+    let summary: String
+
+    enum CodingKeys: String, CodingKey {
+        case conciseArticle = "conciseArticle"
+        case summary
+    }
+}
