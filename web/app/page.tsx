@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   deleteTranscription,
-  getRetention,
   listTranscriptions,
   saveTranscription,
   saveTranscriptionSummary,
@@ -11,36 +10,29 @@ import {
   type RetentionDays,
   type TranscriptionHistoryItem,
 } from "../lib/convex";
-import {
-  getBrowserSpeechController,
-  loadBrowserVoices,
-  type BrowserVoice,
-} from "../lib/browserSpeech";
 import { downloadTranscript } from "../lib/transcriptExport";
+import {
+  elapsedRecordingSeconds,
+  maximumRecordingSeconds,
+  maximumUploadSeconds,
+  readAudioDuration,
+  selectRecorderMimeType,
+} from "../lib/recording";
 import { AIEnhancementPanel } from "./ai-enhancement";
 import { AccountControls, useAccountAuth } from "./providers";
 import { HistoryView } from "./history-view";
+import { TTSWorkspace } from "./tts-workspace";
+import {
+  MAXIMUM_AUDIO_BYTES,
+  parseTranscriptionResponse,
+  TRANSCRIPTION_MODEL_NAME,
+  type TranscriptionSegment,
+} from "../shared/transcriptionContract";
 
-type Status = "idle" | "recording" | "transcribing" | "done" | "error";
+type Status = "idle" | "starting" | "recording" | "validating" | "transcribing" | "done" | "error";
 type Theme = "editorial" | "mac";
 type WorkspaceTab = "studio" | "history";
-const maximumRecordingSeconds = 30 * 60;
-const maximumUploadSeconds = 2 * 60 * 60;
-
-async function readAudioDuration(file: File) {
-  const url = URL.createObjectURL(file);
-  try {
-    return await new Promise<number>((resolve) => {
-      const audio = new Audio();
-      audio.preload = "metadata";
-      audio.onloadedmetadata = () => resolve(Number.isFinite(audio.duration) ? Math.round(audio.duration) : 0);
-      audio.onerror = () => resolve(0);
-      audio.src = url;
-    });
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
+const transcriptionTimeoutMs = 5 * 60 * 1_000;
 
 export default function Home() {
   const account = useAccountAuth();
@@ -49,11 +41,19 @@ export default function Home() {
   const ticker = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioFileInput = useRef<HTMLInputElement | null>(null);
   const elapsedRef = useRef(0);
+  const recordingStartedAt = useRef(0);
+  const recordedBytes = useRef(0);
+  const recordingTooLarge = useRef(false);
+  const recordingFailed = useRef(false);
+  const audioOperationId = useRef<string | null>(null);
+  const activeTranscription = useRef<{ id: string; controller: AbortController } | null>(null);
+  const operationGeneration = useRef(0);
+  const recordingStartPending = useRef(false);
   const [status, setStatus] = useState<Status>("idle");
   const [elapsed, setElapsed] = useState(0);
   const [audio, setAudio] = useState<Blob | null>(null);
   const [transcript, setTranscript] = useState("");
-  const [transcriptDuration, setTranscriptDuration] = useState(0);
+  const [transcriptSegments, setTranscriptSegments] = useState<TranscriptionSegment[]>([]);
   const [activeTranscriptionId, setActiveTranscriptionId] = useState<string | null>(null);
   const [summary, setSummary] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -62,17 +62,8 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [history, setHistory] = useState<TranscriptionHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
-  const [voices, setVoices] = useState<BrowserVoice[]>([]);
-  const [voiceId, setVoiceId] = useState("");
-  const [speechRate, setSpeechRate] = useState(1);
-  const [speechPitch, setSpeechPitch] = useState(1);
-  const [speechVolume, setSpeechVolume] = useState(0.8);
-  const [playback, setPlayback] = useState<"idle" | "playing" | "paused">("idle");
-  const [speechError, setSpeechError] = useState("");
+  const [historyCursor, setHistoryCursor] = useState<string | null>(null);
   const [speechText, setSpeechText] = useState("");
-  const [importUrl, setImportUrl] = useState("");
-  const [importStatus, setImportStatus] = useState("");
-  const [isImporting, setIsImporting] = useState(false);
   const [theme, setTheme] = useState<Theme>("editorial");
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("studio");
   const [retentionDays, setRetentionDays] = useState<RetentionDays>(90);
@@ -80,20 +71,35 @@ export default function Home() {
   const [retentionStatus, setRetentionStatus] = useState("");
 
   const refreshHistory = useCallback(async () => {
+    setHistoryLoading(true);
     try {
       const token = await account.getConvexToken();
-      setHistory(await listTranscriptions(token));
+      const result = await listTranscriptions(token);
+      setHistory(result.items);
+      setHistoryCursor(result.nextCursor);
+      if (account.isSignedIn && result.retentionDays !== null) setRetentionDays(result.retentionDays);
+    } catch {
+      setHistory([]);
+      setError("History is temporarily unavailable. Recording and transcription can still be used.");
     } finally {
       setHistoryLoading(false);
     }
   }, [account]);
 
-  const refreshRetention = useCallback(async () => {
-    if (!account.isSignedIn) return;
-    const token = await account.getConvexToken();
-    const days = await getRetention(token);
-    if (days !== null) setRetentionDays(days);
-  }, [account]);
+  async function loadMoreHistory() {
+    if (!historyCursor || historyLoading) return;
+    setHistoryLoading(true);
+    try {
+      const token = await account.getConvexToken();
+      const result = await listTranscriptions(token, historyCursor);
+      setHistory((items) => [...items, ...result.items.filter((item) => !items.some((existing) => existing._id === item._id))]);
+      setHistoryCursor(result.nextCursor);
+    } catch {
+      setError("More history could not be loaded. Please try again.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
 
   useEffect(() => {
     let themeUpdate: number | undefined;
@@ -102,15 +108,23 @@ export default function Home() {
       themeUpdate = window.setTimeout(() => setTheme(savedTheme), 0);
       document.documentElement.dataset.theme = savedTheme;
     }
-    void loadBrowserVoices().then((available) => {
-      setVoices(available);
-      setVoiceId(available.find((voice) => voice.isDefault)?.id ?? available[0]?.id ?? "");
-    });
     return () => {
       if (themeUpdate !== undefined) window.clearTimeout(themeUpdate);
       if (ticker.current) clearInterval(ticker.current);
-      recorder.current?.stream.getTracks().forEach((track) => track.stop());
-      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+      const pendingTranscription = activeTranscription.current;
+      activeTranscription.current = null;
+      pendingTranscription?.controller.abort();
+      operationGeneration.current += 1;
+      const activeRecorder = recorder.current;
+      recorder.current = null;
+      if (activeRecorder) {
+        activeRecorder.ondataavailable = null;
+        activeRecorder.onerror = null;
+        activeRecorder.onstop = null;
+        if (activeRecorder.state === "recording") activeRecorder.stop();
+        activeRecorder.stream.getTracks().forEach((track) => track.stop());
+      }
+      chunks.current = [];
     };
   }, []);
 
@@ -118,10 +132,9 @@ export default function Home() {
     if (account.isLoaded) {
       queueMicrotask(() => {
         void refreshHistory();
-        void refreshRetention();
       });
     }
-  }, [account.identityKey, account.isLoaded, refreshHistory, refreshRetention]);
+  }, [account.identityKey, account.isLoaded, refreshHistory]);
 
   function selectTheme(nextTheme: Theme) {
     setTheme(nextTheme);
@@ -146,31 +159,90 @@ export default function Home() {
   }
 
   async function startRecording() {
+    if (recordingStartPending.current || recorder.current) return;
+    recordingStartPending.current = true;
+    const generation = ++operationGeneration.current;
+    let stream: MediaStream | undefined;
     try {
+      const previousTranscription = activeTranscription.current;
+      activeTranscription.current = null;
+      previousTranscription?.controller.abort();
       setError("");
       setTranscript("");
+      setTranscriptSegments([]);
       setActiveTranscriptionId(null);
       setSummary("");
       setAudio(null);
       setElapsed(0);
+      setStatus("starting");
       elapsedRef.current = 0;
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const nextRecorder = new MediaRecorder(stream);
+      const acquiredStream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+      stream = acquiredStream;
+      if (generation !== operationGeneration.current) {
+        acquiredStream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      const mimeType = selectRecorderMimeType((value) => MediaRecorder.isTypeSupported(value));
+      let nextRecorder: MediaRecorder;
+      try {
+        nextRecorder = new MediaRecorder(acquiredStream, { ...(mimeType ? { mimeType } : {}), audioBitsPerSecond: 64_000 });
+      } catch (recorderError) {
+        acquiredStream.getTracks().forEach((track) => track.stop());
+        throw recorderError;
+      }
       chunks.current = [];
+      recordedBytes.current = 0;
+      recordingTooLarge.current = false;
+      recordingFailed.current = false;
+      recordingStartedAt.current = performance.now();
+      audioOperationId.current = crypto.randomUUID();
       nextRecorder.ondataavailable = (event) => {
-        if (event.data.size) chunks.current.push(event.data);
+        if (generation !== operationGeneration.current || !event.data.size) return;
+        recordedBytes.current += event.data.size;
+        if (recordedBytes.current > MAXIMUM_AUDIO_BYTES) {
+          recordingTooLarge.current = true;
+          if (nextRecorder.state === "recording") nextRecorder.stop();
+          return;
+        }
+        chunks.current.push(event.data);
       };
       nextRecorder.onstop = () => {
-        const recording = new Blob(chunks.current, { type: nextRecorder.mimeType });
+        if (ticker.current) clearInterval(ticker.current);
+        ticker.current = null;
+        const duration = elapsedRecordingSeconds(recordingStartedAt.current, performance.now());
+        elapsedRef.current = duration;
+        setElapsed(duration);
+        const completedChunks = chunks.current;
+        chunks.current = [];
+        recorder.current = null;
+        acquiredStream.getTracks().forEach((track) => track.stop());
+        if (generation !== operationGeneration.current) return;
+        if (recordingTooLarge.current) {
+          setAudio(null);
+          setError("The recording reached the 24 MB safety limit. Record a shorter clip and try again.");
+          setStatus("error");
+          return;
+        }
+        if (recordingFailed.current) {
+          setAudio(null);
+          setStatus("error");
+          return;
+        }
+        const recording = new Blob(completedChunks, { type: nextRecorder.mimeType });
         setAudio(recording);
-        stream.getTracks().forEach((track) => track.stop());
-        void transcribe(recording, elapsedRef.current);
+        void transcribe(recording, duration, audioOperationId.current ?? crypto.randomUUID());
       };
-      nextRecorder.start(250);
+      nextRecorder.onerror = () => {
+        if (generation !== operationGeneration.current) return;
+        recordingFailed.current = true;
+        setError("Recording stopped because the browser audio encoder failed.");
+        if (nextRecorder.state === "recording") nextRecorder.stop();
+      };
+      nextRecorder.start(1_000);
       recorder.current = nextRecorder;
       setStatus("recording");
       ticker.current = setInterval(() => {
-        elapsedRef.current += 1;
+        elapsedRef.current = elapsedRecordingSeconds(recordingStartedAt.current, performance.now());
         setElapsed(elapsedRef.current);
         if (elapsedRef.current >= maximumRecordingSeconds) {
           if (ticker.current) clearInterval(ticker.current);
@@ -179,69 +251,113 @@ export default function Home() {
         }
       }, 1000);
     } catch {
-      setError("Microphone access is required to record a transcription.");
-      setStatus("error");
+      stream?.getTracks().forEach((track) => track.stop());
+      if (generation === operationGeneration.current) {
+        setError("Microphone access is required to record a transcription.");
+        setStatus("error");
+      }
+    } finally {
+      recordingStartPending.current = false;
     }
   }
 
   function stopRecording() {
     if (ticker.current) clearInterval(ticker.current);
     ticker.current = null;
-    recorder.current?.stop();
+    if (recorder.current?.state === "recording") recorder.current.stop();
   }
 
-  async function transcribe(recording: Blob, durationSeconds: number) {
+  async function transcribe(recording: Blob, durationSeconds: number, operationId = audioOperationId.current ?? crypto.randomUUID()) {
+    activeTranscription.current?.controller.abort();
+    const controller = new AbortController();
+    const job = { id: crypto.randomUUID(), controller };
+    activeTranscription.current = job;
+    audioOperationId.current = operationId;
+    const timeout = window.setTimeout(() => controller.abort(), transcriptionTimeoutMs);
     setStatus("transcribing");
     setError("");
     try {
-      const form = new FormData();
-      form.append("audio", recording, "recording.webm");
-      form.append("model", "whisper-large-v3-turbo");
-      const response = await fetch("/api/transcribe", { method: "POST", body: form });
+      const response = await fetch("/api/transcribe", {
+        method: "POST",
+        headers: { "content-type": recording.type },
+        body: recording,
+        cache: "no-store",
+        signal: controller.signal,
+      });
       if (!response.ok) throw new Error("Transcription failed");
-      const result = (await response.json()) as { text: string };
-      const transcribedText = result.text?.trim();
-      if (!transcribedText) throw new Error("No speech was detected");
+      const result = parseTranscriptionResponse(await response.json());
+      if (!result) throw new Error("No speech was detected");
+      const transcribedText = result.text;
+      const effectiveDuration = result.durationSeconds ?? durationSeconds;
+      if (activeTranscription.current?.id !== job.id) return;
+      setAudio(null);
+      chunks.current = [];
       setTranscript(transcribedText);
-      setTranscriptDuration(durationSeconds);
+      setTranscriptSegments(result.segments ?? []);
       setStatus("done");
       try {
         const token = await account.getConvexToken();
         const savedId = await saveTranscription({
           text: transcribedText,
-          durationSeconds,
-          model: "whisper-large-v3-turbo",
+          durationSeconds: effectiveDuration,
+          model: TRANSCRIPTION_MODEL_NAME,
+          operationId,
+          segments: result.segments,
         }, token);
+        if (activeTranscription.current?.id !== job.id) return;
         setActiveTranscriptionId(savedId ?? null);
         await refreshHistory();
       } catch {
         setError("The transcript is ready, but it could not be saved to history. Check your quota or retention settings.");
       }
     } catch {
+      if (activeTranscription.current?.id !== job.id) return;
+      if (controller.signal.aborted) {
+        setError("Transcription timed out. Your recording is still available to retry.");
+        setStatus("error");
+        return;
+      }
       setError("The transcription service could not be reached. Your recording is still available to retry.");
       setStatus("error");
+    } finally {
+      window.clearTimeout(timeout);
+      if (activeTranscription.current?.id === job.id) activeTranscription.current = null;
     }
   }
 
   async function uploadAudio(file: File) {
-    if (file.size > 24 * 1024 * 1024) {
+    if (file.size > MAXIMUM_AUDIO_BYTES) {
       setError("Audio files must be smaller than 24 MB.");
       return;
     }
+    const generation = ++operationGeneration.current;
+    const previousTranscription = activeTranscription.current;
+    activeTranscription.current = null;
+    previousTranscription?.controller.abort();
     setError("");
+    setStatus("validating");
     setTranscript("");
+    setTranscriptSegments([]);
     setActiveTranscriptionId(null);
     setSummary("");
     setSummaryError("");
     const duration = await readAudioDuration(file);
+    if (generation !== operationGeneration.current) return;
+    if (duration === null) {
+      setError("The browser could not read this audio file or determine its duration.");
+      setStatus("error");
+      return;
+    }
     if (duration > maximumUploadSeconds) {
       setError("Audio files must be two hours or shorter.");
+      setStatus("error");
       return;
     }
     setAudio(file);
     elapsedRef.current = duration;
     setElapsed(duration);
-    await transcribe(file, duration);
+    audioOperationId.current = crypto.randomUUID();
+    await transcribe(file, duration, audioOperationId.current);
   }
 
   async function removeHistoryItem(id: string) {
@@ -268,6 +384,7 @@ export default function Home() {
     try {
       const response = await fetch("/api/summarize", {
         method: "POST",
+        cache: "no-store",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ text: value }),
       });
@@ -287,69 +404,10 @@ export default function Home() {
     }
   }
 
-  async function playSpeechText() {
-    if (!speechText.trim()) return;
-    setSpeechError("");
-    setPlayback("playing");
-    try {
-      await getBrowserSpeechController().speak({
-        text: speechText,
-        voiceId,
-        rate: speechRate,
-        pitch: speechPitch,
-        volume: speechVolume,
-      });
-      setPlayback("idle");
-    } catch (speechFailure) {
-      const message = speechFailure instanceof Error ? speechFailure.message : "Speech playback failed";
-      if (message !== "canceled" && message !== "interrupted") setSpeechError(message);
-      setPlayback("idle");
-    }
-  }
-
-  function pauseSpeech() {
-    getBrowserSpeechController().pause();
-    setPlayback("paused");
-  }
-
-  function resumeSpeech() {
-    getBrowserSpeechController().resume();
-    setPlayback("playing");
-  }
-
-  function stopSpeech() {
-    getBrowserSpeechController().cancel();
-    setPlayback("idle");
-  }
-
-  async function importContent(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!importUrl.trim()) return;
-    setIsImporting(true);
-    setImportStatus("Fetching readable content…");
-    try {
-      const response = await fetch("/api/import", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url: importUrl.trim() }),
-      });
-      const result = await response.json() as { title?: string; content?: string; error?: string };
-      if (!response.ok || !result.content) throw new Error(result.error ?? "No readable content was found.");
-      stopSpeech();
-      setSpeechText(result.content);
-      setImportStatus(`${result.title ?? "Article"} loaded into the text-to-speech editor.`);
-      setImportUrl("");
-    } catch (importError) {
-      setImportStatus(importError instanceof Error ? importError.message : "The page could not be imported.");
-    } finally {
-      setIsImporting(false);
-    }
-  }
-
   const time = `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
   function openHistoryItem(item: TranscriptionHistoryItem) {
     setTranscript(item.text);
-    setTranscriptDuration(item.durationSeconds);
+    setTranscriptSegments(item.segments ?? []);
     setActiveTranscriptionId(item._id);
     setSummary(item.summary ?? "");
     setSummaryError("");
@@ -385,7 +443,7 @@ export default function Home() {
 
       <section className={`recorder-card ${status === "recording" ? "is-recording" : ""}`}>
         <div className="card-header">
-          <div><small>TRANSCRIPTION STUDIO</small><h2>{status === "recording" ? "Listening…" : status === "transcribing" ? "Creating your transcript…" : "Ready when you are"}</h2></div>
+          <div><small>TRANSCRIPTION STUDIO</small><h2>{status === "starting" ? "Opening your microphone…" : status === "recording" ? "Listening…" : status === "validating" ? "Checking your audio…" : status === "transcribing" ? "Creating your transcript…" : "Ready when you are"}</h2></div>
           <span className="privacy"><i /> Audio deleted after transcription</span>
         </div>
 
@@ -395,7 +453,7 @@ export default function Home() {
 
         <div className="record-controls">
           {status !== "recording" ? (
-            <button className="record-button" onClick={startRecording} disabled={status === "transcribing"} aria-label="Start recording"><span /></button>
+            <button className="record-button" onClick={startRecording} disabled={status === "starting" || status === "validating" || status === "transcribing"} aria-label="Start recording"><span /></button>
           ) : (
             <button className="record-button stop" onClick={stopRecording} aria-label="Stop recording"><span /></button>
           )}
@@ -403,7 +461,7 @@ export default function Home() {
         </div>
         <div className="audio-upload">
           <span>or</span>
-          <button type="button" onClick={() => audioFileInput.current?.click()} disabled={status === "recording" || status === "transcribing"}>Upload audio file</button>
+          <button type="button" onClick={() => audioFileInput.current?.click()} disabled={status === "starting" || status === "recording" || status === "validating" || status === "transcribing"}>Upload audio file</button>
           <small>MP3, WAV, M4A, WebM and other browser-supported audio · 24 MB maximum</small>
           <input ref={audioFileInput} type="file" accept="audio/*" hidden onChange={(event) => {
             const file = event.target.files?.[0];
@@ -413,7 +471,7 @@ export default function Home() {
         </div>
 
         {audio && status === "error" && (
-          <button className="primary" onClick={() => transcribe(audio, elapsedRef.current)}>
+          <button className="primary" onClick={() => transcribe(audio, elapsedRef.current, audioOperationId.current ?? crypto.randomUUID())}>
             Retry transcription
           </button>
         )}
@@ -421,53 +479,17 @@ export default function Home() {
       </section>
 
       <section className="transcript-card">
-        <div className="transcript-head"><div><small>TRANSCRIPT</small><span>{transcript ? `${transcript.split(/\s+/).length} words` : "Waiting for audio"}</span></div>{transcript && <div className="transcript-tools"><button className="summarize" onClick={() => void summarizeText()} disabled={summaryLoading}>{summaryLoading ? "Summarizing…" : "AI summary"}</button><button onClick={copyTranscript}>{copied ? "Copied" : "Copy"}</button><button onClick={() => downloadTranscript(transcript, "txt")}>TXT</button><button onClick={() => downloadTranscript(transcript, "srt", transcriptDuration * 1000)}>SRT</button><button onClick={() => downloadTranscript(transcript, "vtt", transcriptDuration * 1000)}>VTT</button></div>}</div>
-        <textarea aria-label="Transcript text" value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="Your transcription will appear here…" />
+        <div className="transcript-head"><div><small>TRANSCRIPT</small><span>{transcript ? `${transcript.split(/\s+/).length} words` : "Waiting for audio"}</span></div>{transcript && <div className="transcript-tools"><button className="summarize" onClick={() => void summarizeText()} disabled={summaryLoading}>{summaryLoading ? "Summarizing…" : "AI summary"}</button><button onClick={copyTranscript}>{copied ? "Copied" : "Copy"}</button><button onClick={() => downloadTranscript(transcript, "txt")}>TXT</button><button disabled={!transcriptSegments.length} title={transcriptSegments.length ? "Download timed subtitles" : "Timing is unavailable after editing"} onClick={() => downloadTranscript(transcript, "srt", transcriptSegments)}>SRT</button><button disabled={!transcriptSegments.length} title={transcriptSegments.length ? "Download timed subtitles" : "Timing is unavailable after editing"} onClick={() => downloadTranscript(transcript, "vtt", transcriptSegments)}>VTT</button></div>}</div>
+        <textarea aria-label="Transcript text" value={transcript} onChange={(event) => { setTranscript(event.target.value); setTranscriptSegments([]); }} placeholder="Your transcription will appear here…" />
       </section>
 
-      {transcript && <AIEnhancementPanel text={transcript} onApply={(value) => { setTranscript(value); setSummary(""); setSummaryError(""); }} onNarrate={setSpeechText} />}
+      {transcript && <AIEnhancementPanel text={transcript} onApply={(value) => { setTranscript(value); setTranscriptSegments([]); setSummary(""); setSummaryError(""); }} onNarrate={setSpeechText} />}
 
       {(summary || summaryLoading || summaryError) && <section className="summary-card"><div className="summary-head"><div><small>AI SUMMARY</small><span>Cloudflare Workers AI · Llama 3.2</span></div>{summary && <div><button onClick={() => void navigator.clipboard.writeText(summary)}>Copy</button><button onClick={() => setSpeechText(summary)}>Narrate summary</button></div>}</div>{summaryLoading ? <p className="summary-loading">Finding the key points…</p> : summary ? <textarea aria-label="AI-generated transcript summary" value={summary} onChange={(event) => setSummary(event.target.value)} /> : <p className="error" role="alert">{summaryError}</p>}<p className="ai-note">AI-generated summaries can make mistakes. Check important details against the transcript.</p></section>}
 
-      <section className="tts-card">
-        <div className="tts-head">
-          <div><small>TEXT TO SPEECH</small><span>{speechText ? `${speechText.length.toLocaleString()} characters` : "Paste or type anything to read aloud"}</span></div>
-          <div className="tts-tools">
-            {transcript && <button onClick={() => setSpeechText(transcript)}>Use transcript</button>}
-            <span className="local-pill">No API key</span>
-          </div>
-        </div>
-        <form className="import-content" onSubmit={importContent}>
-          <label htmlFor="import-url">Import content from a webpage</label>
-          <div>
-            <input id="import-url" type="url" value={importUrl} onChange={(event) => setImportUrl(event.target.value)} placeholder="https://example.com/article" required />
-            <button type="submit" disabled={isImporting}>{isImporting ? "Importing…" : "Import article"}</button>
-          </div>
-          {importStatus && <p role="status">{importStatus}</p>}
-        </form>
-        <textarea className="tts-text-editor" aria-label="Text to read aloud" value={speechText} onChange={(event) => setSpeechText(event.target.value)} placeholder="Paste or type text here. This editor is separate from your transcription…" />
-        <div className="tts-grid">
-          <label className="voice-field">
-            <span>Voice</span>
-            <select value={voiceId} onChange={(event) => setVoiceId(event.target.value)} disabled={!voices.length}>
-              {!voices.length && <option>Loading system voices…</option>}
-              {voices.map((voice) => <option key={voice.id} value={voice.id}>{voice.name} · {voice.language}{voice.isLocal ? " · local" : ""}</option>)}
-            </select>
-          </label>
-          <label><span>Speed <b>{speechRate.toFixed(1)}×</b></span><input type="range" min="0.5" max="2" step="0.1" value={speechRate} onChange={(event) => setSpeechRate(Number(event.target.value))} /></label>
-          <label><span>Pitch <b>{speechPitch.toFixed(1)}</b></span><input type="range" min="0.5" max="2" step="0.1" value={speechPitch} onChange={(event) => setSpeechPitch(Number(event.target.value))} /></label>
-          <label><span>Volume <b>{Math.round(speechVolume * 100)}%</b></span><input type="range" min="0" max="1" step="0.05" value={speechVolume} onChange={(event) => setSpeechVolume(Number(event.target.value))} /></label>
-        </div>
-        <div className="playback-buttons">
-          {playback === "idle" && <button className="play" onClick={playSpeechText} disabled={!speechText.trim() || !voices.length}>▶ Read text</button>}
-          {playback === "playing" && <button onClick={pauseSpeech}>Ⅱ Pause</button>}
-          {playback === "paused" && <button className="play" onClick={resumeSpeech}>▶ Resume</button>}
-          {playback !== "idle" && <button onClick={stopSpeech}>■ Stop</button>}
-        </div>
-        {speechError && <p className="error" role="alert">{speechError}</p>}
-      </section>
+      <TTSWorkspace transcript={transcript} text={speechText} onTextChange={setSpeechText} />
 
-      </> : <HistoryView history={history} loading={historyLoading} isSignedIn={account.isSignedIn} retentionDays={retentionDays} retentionSaving={retentionSaving} retentionStatus={retentionStatus} onRefresh={() => void refreshHistory()} onRetentionChange={(days) => void changeRetention(days)} onOpen={openHistoryItem} onNarrate={setSpeechText} onSummarize={(item) => { setTranscript(item.text); setTranscriptDuration(item.durationSeconds); setActiveTranscriptionId(item._id); void summarizeText(item.text, item._id); }} onDelete={(id) => void removeHistoryItem(id)} />}
+      </> : <HistoryView history={history} loading={historyLoading} hasMore={historyCursor !== null} isSignedIn={account.isSignedIn} retentionDays={retentionDays} retentionSaving={retentionSaving} retentionStatus={retentionStatus} onRefresh={() => void refreshHistory()} onLoadMore={() => void loadMoreHistory()} onRetentionChange={(days) => void changeRetention(days)} onOpen={openHistoryItem} onNarrate={setSpeechText} onSummarize={(item) => { setTranscript(item.text); setTranscriptSegments(item.segments ?? []); setActiveTranscriptionId(item._id); void summarizeText(item.text, item._id); }} onDelete={(id) => void removeHistoryItem(id)} />}
 
       <footer><span>VoiceInk Web 2.11.0</span><span>Cloudflare edge</span><span>Convex realtime data</span><span>Whisper V3 Turbo</span></footer>
     </main>

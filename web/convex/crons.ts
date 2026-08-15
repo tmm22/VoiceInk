@@ -7,6 +7,7 @@ crons.interval(
   "delete expired transcripts",
   { minutes: 5 },
   internal.cleanup.deleteExpiredTranscriptions,
+  {},
 );
 
 export default crons;

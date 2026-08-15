@@ -1,6 +1,6 @@
 # Operating costs
 
-Prices below are estimates in USD using published rates checked on July 12, 2026. Cloud pricing changes over time, so verify the linked pricing pages before making budget commitments.
+Prices below are estimates in USD using published rates checked on August 15, 2026. Cloud pricing changes over time, so verify the linked pricing pages before making budget commitments.
 
 ## Current cost drivers
 
@@ -21,7 +21,7 @@ Source: [Cloudflare Workers pricing](https://developers.cloudflare.com/workers/p
 `@cf/openai/whisper-large-v3-turbo` costs approximately:
 
 ```text
-$0.0005 per audio minute
+$0.00051 per audio minute
 ```
 
 Source: [Cloudflare Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
@@ -78,7 +78,7 @@ These scenarios assume:
 The simple planning formula is:
 
 ```text
-monthly cost ≈ $5 + (audio minutes × $0.0005) + Llama token usage + Convex overages + Worker overages
+monthly cost ≈ $5 + (audio minutes × $0.00051) + Llama token usage + Convex overages + Worker overages
 ```
 
 ## Costs not currently incurred
@@ -98,7 +98,7 @@ The unused `parakeet-service/` reference would create a materially different cos
 
 Anonymous transcription remains available, but the following controls limit cost and storage abuse:
 
-1. Cloudflare applies fail-closed limits to inference, imports, and history operations.
+1. Cloudflare applies fail-closed, route-specific limits: transcription 4/minute, summary 6/minute, enhancement 6/minute, import 10/minute, and history 30/minute per edge key.
 2. All Convex history access is brokered through the protected web Worker.
 3. Convex independently enforces per-minute, daily, record-count, and stored-character account quotas.
 4. Anonymous history is limited to 30 active records and expires after one hour.
@@ -106,4 +106,4 @@ Anonymous transcription remains available, but the following controls limit cost
 6. The private ASR Worker requires its shared secret and rejects non-audio uploads.
 7. Retention updates are versioned and cleanup drains expired backlogs through continuations.
 
-Configure Cloudflare billing alerts and Workers AI usage alerts as an additional operational safeguard.
+Cloudflare rate-limit bindings are local, permissive pressure controls, not durable spend accounting. Configure billing and Workers AI usage alerts, a tested operator kill switch, WAF rules, and server-validated Turnstile for sustained anonymous abuse. Do not enable response caching for audio, transcripts, summaries, or enhancement output.

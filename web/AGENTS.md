@@ -57,12 +57,12 @@ Anonymous writes must be brokered through the web Worker and authenticated to Co
 Every public API route must:
 
 - Reject cross-origin browser requests
-- Enforce a declared body-size limit before parsing the payload
+- Enforce declared and actual body-size limits before parsing the payload
 - Use the appropriate Cloudflare rate-limit binding for costly or state-changing work
 - Return bounded, non-sensitive error details
 - Fail closed when an internal credential or required service is unavailable
 
-Keep separate rate limits for AI inference, content imports, and history writes. The private ASR Worker must require `ASR_API_KEY` for inference. The web Worker sends the matching value through its server-only compatibility secret; rotate both sides together.
+Keep separate rate limits for transcription, summarization, enhancement, content imports, and history writes. The private ASR Worker must require `ASR_API_KEY` for inference. The web Worker sends the matching value through its server-only compatibility secret; rotate both sides together.
 
 Keep webpage import protections intact: reject private, loopback, link-local, and metadata-service destinations; revalidate redirects; apply request timeouts; cap response size; and only accept supported content types.
 

@@ -4,6 +4,13 @@ import { internal } from "./_generated/api";
 
 const retentionDays = v.union(v.literal(0), v.literal(7), v.literal(30), v.literal(90), v.literal(365));
 const defaultRetentionDays = 90 as const;
+type RetentionDays = 0 | 7 | 30 | 90 | 365;
+
+function requiresMigrationHold(previousDays: RetentionDays, nextDays: RetentionDays, migrationInProgress: boolean) {
+  if (migrationInProgress) return true;
+  if (nextDays === 0) return true;
+  return previousDays !== 0 && nextDays > previousDays;
+}
 
 function requireServiceSecret(value?: string) {
   if (!process.env.CONVEX_WEB_API_SECRET || value !== process.env.CONVEX_WEB_API_SECRET) throw new Error("This operation must use the protected web service.");
@@ -34,9 +41,19 @@ export const set = mutation({
       .query("retentionSettings")
       .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))
       .unique();
-    const revision = Date.now();
-    if (existing) await ctx.db.patch(existing._id, { days, updatedAt: revision });
-    else await ctx.db.insert("retentionSettings", { ownerId, days, updatedAt: revision });
+    const revision = Math.max(Date.now(), (existing?.updatedAt ?? 0) + 1);
+    const holdCleanup = requiresMigrationHold(
+      existing?.days ?? defaultRetentionDays,
+      days,
+      existing?.migrationRevision !== undefined,
+    );
+    const nextSetting = {
+      days,
+      updatedAt: revision,
+      migrationRevision: holdCleanup ? revision : undefined,
+    };
+    if (existing) await ctx.db.patch(existing._id, nextSetting);
+    else await ctx.db.insert("retentionSettings", { ownerId, ...nextSetting });
 
     await ctx.scheduler.runAfter(0, internal.cleanup.applyRetentionPage, { ownerId, days, cursor: null, revision });
     return { days };

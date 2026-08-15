@@ -2,9 +2,19 @@ name: VoiceInk Web regression checks
 
 on:
   push:
-    paths: ["web/**", ".github/workflows/web-regression.yml"]
+    paths:
+      - "web/**"
+      - "AGENTS.md"
+      - ".gitignore"
+      - ".github/workflows/upstream-sync.yml"
+      - ".github/workflows/web-regression.yml"
   pull_request:
-    paths: ["web/**", ".github/workflows/web-regression.yml"]
+    paths:
+      - "web/**"
+      - "AGENTS.md"
+      - ".gitignore"
+      - ".github/workflows/upstream-sync.yml"
+      - ".github/workflows/web-regression.yml"
   workflow_dispatch:
   schedule:
     - cron: "17 2 * * *"
@@ -12,9 +22,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: web-regression-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
+
 jobs:
   regression:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: web
@@ -24,13 +39,17 @@ jobs:
         with:
           node-version: 22.13.0
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: |
+            web/package-lock.json
+            web/cloudflare-asr/package-lock.json
       - run: npm ci
+      - run: npm ci --prefix cloudflare-asr --ignore-scripts
       - run: npm run check
 
   production-smoke:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: web

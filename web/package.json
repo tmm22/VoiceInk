@@ -6,46 +6,50 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "clean": "node scripts/clean-build.mjs",
     "dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext dev",
-    "build": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build",
+    "build": "npm run clean && WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build",
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
-    "test": "npm run build && node --experimental-strip-types --test tests/*.test.mjs",
+    "test": "npm run build && npm run artifacts:check && node --experimental-strip-types --test tests/*.test.mjs",
     "test:production": "node tests/production-smoke.mjs",
     "typecheck": "tsc --noEmit",
+    "artifacts:check": "node scripts/check-duplicates.mjs",
+    "docs:check": "node scripts/check-doc-contracts.mjs",
+    "files:check": "node scripts/check-file-sizes.mjs",
+    "audit:high": "node scripts/check-audit.mjs web",
+    "audit:asr": "node scripts/check-audit.mjs cloudflare-asr",
+    "check:asr": "npm --prefix cloudflare-asr run typecheck && npm run audit:asr",
     "security:scan": "node scripts/check-secrets.mjs",
-    "check": "npm run typecheck && npm run lint && npm test && npm run security:scan && npm audit --omit=dev",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "drizzle-kit generate"
+    "check": "npm run typecheck && npm run lint && npm run docs:check && npm run files:check && npm test && npm run check:asr && npm run security:scan && npm run audit:high",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },
   "dependencies": {
-    "@clerk/nextjs": "^7.5.17",
-    "convex": "^1.42.1",
-    "drizzle-orm": "0.45.2",
+    "@clerk/nextjs": "7.7.6",
+    "convex": "1.44.0",
     "next": "16.3.1",
-    "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "1.37.1",
-    "@cloudflare/workers-types": "^4.20260702.1",
+    "@cloudflare/vite-plugin": "1.52.1",
+    "@cloudflare/workers-types": "5.20260815.1",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
-    "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.2.6",
-    "react-server-dom-webpack": "19.2.6",
+    "eslint-config-next": "16.3.1",
+    "react-server-dom-webpack": "19.2.8",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "vinext": "0.0.50",
-    "vite": "8.0.13",
-    "wrangler": "4.92.0"
+    "vite": "8.2.1",
+    "wrangler": "4.123.0"
   },
   "overrides": {
-    "postcss": "^8.5.23"
+    "postcss": "8.5.26"
   },
   "type": "module"
 }

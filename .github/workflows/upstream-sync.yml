@@ -11,6 +11,7 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout fork
         uses: actions/checkout@v6
@@ -34,4 +35,23 @@ jobs:
       - name: Merge upstream main
         run: |
           git merge --ff-only upstream/main || git merge upstream/main
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.13.0
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            web/cloudflare-asr/package-lock.json
+
+      - name: Validate merged web application
+        working-directory: web
+        run: |
+          npm ci
+          npm ci --prefix cloudflare-asr --ignore-scripts
+          npm run check
+
+      - name: Push validated merge
+        run: |
           git push origin main

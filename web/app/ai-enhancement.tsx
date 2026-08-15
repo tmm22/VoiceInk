@@ -33,6 +33,7 @@ export function AIEnhancementPanel({ text, onApply, onNarrate }: Props) {
     try {
       const response = await fetch("/api/enhance", {
         method: "POST",
+        cache: "no-store",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ text, mode }),
       });

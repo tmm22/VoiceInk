@@ -1,33 +1,45 @@
 import { env } from "cloudflare:workers";
-import { enforceRateLimit, rejectCrossOrigin, rejectOversizedRequest } from "../../../lib/server/requestSecurity";
+import { enforceRateLimit, jsonNoStore, readBoundedJson, rejectCrossOrigin } from "../../../lib/server/requestSecurity";
 
 export const runtime = "edge";
 
 export async function POST(request: Request) {
   const originError = rejectCrossOrigin(request);
   if (originError) return originError;
-  const oversized = rejectOversizedRequest(request, 70_000);
-  if (oversized) return oversized;
-  const rateError = await enforceRateLimit(request, "AI_RATE_LIMITER");
+  const rateError = await enforceRateLimit(request, "SUMMARY_RATE_LIMITER");
   if (rateError) return rateError;
+  const parsed = await readBoundedJson<{ text?: unknown }>(request, 70_000);
+  if (!parsed.ok) return parsed.response;
+  const text = typeof parsed.value.text === "string" ? parsed.value.text.trim() : "";
+  if (!text) return jsonNoStore({ error: "Transcript text is required" }, { status: 400 });
+  if (text.length > 60_000) return jsonNoStore({ error: "Transcript is too long to summarize" }, { status: 413 });
   const apiKey = process.env.PARAKEET_API_KEY;
   const bindings = env as unknown as { ASR?: Fetcher };
-  if (!bindings.ASR || !apiKey) return Response.json({ error: "Summarization is unavailable" }, { status: 503 });
+  if (!bindings.ASR || !apiKey) return jsonNoStore({ error: "Summarization is unavailable" }, { status: 503 });
 
-  const body = await request.text();
-  const response = await bindings.ASR.fetch(new Request("https://asr.internal/v1/summaries", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${apiKey}`,
-    },
-    body,
-  }));
-  if (!response.ok) {
-    return Response.json({ error: "Summary generation failed", upstreamStatus: response.status }, { status: response.status });
+  let response: Response;
+  try {
+    response = await bindings.ASR.fetch(new Request("https://asr.internal/v1/summaries", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ text }),
+      signal: request.signal,
+    }));
+  } catch {
+    return jsonNoStore({ error: "Summary generation failed" }, { status: 502 });
   }
-  return new Response(response.body, {
-    status: 200,
-    headers: { "content-type": "application/json" },
-  });
+  if (!response.ok) {
+    return jsonNoStore({ error: "Summary generation failed" }, { status: response.status === 429 ? 429 : 502 });
+  }
+  try {
+    const result = await response.json() as { summary?: unknown; model?: unknown };
+    if (typeof result.summary !== "string" || !result.summary.trim() || result.summary.length > 20_000
+      || result.model !== "llama-3.2-3b-instruct") throw new Error("invalid response");
+    return jsonNoStore({ summary: result.summary.trim(), model: result.model });
+  } catch {
+    return jsonNoStore({ error: "Summary generation failed" }, { status: 502 });
+  }
 }

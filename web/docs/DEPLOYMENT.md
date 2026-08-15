@@ -1,6 +1,6 @@
 # Deployment guide
 
-This guide describes the live production architecture as of July 12, 2026.
+This guide describes the live production architecture as of August 15, 2026.
 
 ## Deployed services
 
@@ -28,6 +28,8 @@ Text-to-speech runs through the browser's `speechSynthesis` API and requires no 
 - A Convex account authenticated through the Convex CLI
 
 Run all web commands from the `web/` directory unless another directory is shown.
+
+When upgrading an existing deployment, complete the steps below back-to-back in the order shown. The Convex functions, ASR Worker, and web Worker share strict request contracts (required pagination and operation-ID arguments, raw streamed audio bodies), so a mixed old/new state breaks history or transcription until all three are on the same release. Browser tabs still running the previous bundle must be reloaded before they can save history again.
 
 ## 1. Deploy Convex
 
@@ -87,9 +89,21 @@ The Google Client ID and Client Secret are stored only in Clerk's production Goo
 
 ### Production abuse protection
 
-The web Worker defines independent Cloudflare rate-limit bindings for AI inference, webpage imports, and history writes. API routes also reject cross-origin browser requests. Anonymous history writes pass through `/api/history` and require a shared `CONVEX_WEB_API_SECRET` configured in both the web Worker and the production Convex deployment. Never expose or commit this value.
+The web Worker defines independent Cloudflare rate-limit bindings for transcription (4/minute), summarization (6/minute), enhancement (6/minute), webpage imports (10/minute), and history (30/minute). API routes also reject cross-origin browser requests and enforce both declared and actual byte limits before inference or persistence. Anonymous history writes pass through `/api/history` and require a shared `CONVEX_WEB_API_SECRET` configured in both the web Worker and the production Convex deployment. Never expose or commit this value.
 
-The ASR Worker requires `ASR_API_KEY` for every inference request and fails closed if the secret is missing. Its unauthenticated `GET` endpoint exposes health and model metadata only.
+The ASR Worker requires `ASR_API_KEY` for every inference request and fails closed if the secret is missing. It has no public `workers.dev` or preview URL; health metadata is reachable only through a service binding.
+
+Generate the anonymous-history broker secret once and install the identical value in Convex production and the web Worker without committing or printing it:
+
+```bash
+HISTORY_KEY=$(openssl rand -hex 32)
+npx convex env set --prod CONVEX_WEB_API_SECRET "$HISTORY_KEY"
+printf '%s\n' "$HISTORY_KEY" | npx wrangler secret put CONVEX_WEB_API_SECRET \
+  --config wrangler.production.jsonc --name voiceink-web
+unset HISTORY_KEY
+```
+
+Rotate by repeating those commands, redeploying the web Worker, and running the non-mutating production smoke. Verify only that the variable names exist; never print their values.
 
 Production responses include CSP, HSTS, clickjacking protection, MIME-sniffing protection, a restrictive permissions policy, and a strict referrer policy.
 
@@ -105,7 +119,7 @@ npx wrangler deploy
 cd ..
 ```
 
-The Worker receives multipart audio and invokes `@cf/openai/whisper-large-v3-turbo` through its `AI` binding. Its public hostname exists for health checks, but the production application reaches it through a service binding.
+The web Worker streams a validated raw audio body to the private Worker, which verifies its bounded length, media type, and container signature before invoking `@cf/openai/whisper-large-v3-turbo` through its `AI` binding. It is private-only and the production application reaches it through the `ASR` service binding.
 
 The same private Worker handles `/v1/summaries` and `/v1/enhancements` with Llama 3.2 3B. The public web Worker exposes `/api/summarize` and `/api/enhance`, then forwards text through the private service binding. After a successful summary response, the browser stores the summary on the matching transcription through an ownership-checked Convex mutation, so both share the same retention window. Enhancement results remain browser-local unless the user explicitly replaces the transcript.
 
@@ -138,6 +152,7 @@ The public Convex and site URLs are embedded in the client build, so set them ex
 ```bash
 NEXT_PUBLIC_CONVEX_URL=https://<your-convex-deployment>.convex.cloud \
 NEXT_PUBLIC_SITE_URL=https://v.paul.im \
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_<your-publishable-key> \
 npm run build
 
 npx wrangler deploy \
@@ -166,27 +181,23 @@ npm run check
 
 After deployment, run `npm run test:production -- --base-url https://v.paul.im`. This smoke suite checks production health and security contracts without invoking paid transcription, summarization, or enhancement. The repository's `web-regression.yml` workflow repeats local checks on every relevant push/PR and runs production smoke checks daily and on manual dispatch.
 
-Check the site:
-
-```bash
-curl --fail --head "https://<your-web-worker>.<your-subdomain>.workers.dev"
-```
-
 Run a real transcription:
 
 ```bash
 curl --fail \
-  -F "audio=@sample.wav" \
-  -F "model=whisper-large-v3-turbo" \
-  "https://<your-web-worker>.<your-subdomain>.workers.dev/api/transcribe"
+  -H "content-type: audio/wav" \
+  --data-binary @sample.wav \
+  "https://v.paul.im/api/transcribe"
 ```
 
-Expected response shape:
+The route accepts raw audio bodies only; multipart uploads are rejected. Expected response shape (`durationSeconds` and `segments` are included when the provider returns timing data):
 
 ```json
 {
   "text": "The completed transcript.",
-  "model": "whisper-large-v3-turbo"
+  "model": "whisper-large-v3-turbo",
+  "durationSeconds": 4.2,
+  "segments": [{ "start": 0, "end": 4.2, "text": "The completed transcript." }]
 }
 ```
 
@@ -198,7 +209,7 @@ Run a summary smoke test:
 curl --fail \
   -H 'content-type: application/json' \
   --data '{"text":"A transcript containing decisions and action items."}' \
-  "https://<your-web-worker>.<your-subdomain>.workers.dev/api/summarize"
+  "https://v.paul.im/api/summarize"
 ```
 
 Run a minimal text-enhancement smoke test after changing the inference path:
@@ -220,7 +231,7 @@ Verify article importing:
 curl --fail \
   -H 'content-type: application/json' \
   --data '{"url":"https://example.com/"}' \
-  "https://<your-web-worker>.<your-subdomain>.workers.dev/api/import"
+  "https://v.paul.im/api/import"
 ```
 
 ## Configuration reference
@@ -232,13 +243,12 @@ curl --fail \
 | `CONVEX_WEB_API_SECRET` | Web Worker and Convex | Yes | Authorizes brokered anonymous history creation |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Build and web Worker | No | Enables Clerk sign-in in the browser |
 | `CLERK_JWT_ISSUER_DOMAIN` | Convex environment | No | Validates Clerk-issued Convex JWTs |
-| `PARAKEET_API_URL` | Web Worker | No | Legacy fallback URL for ASR |
 | `PARAKEET_API_KEY` | Web Worker | Yes | Credential sent to ASR Worker |
 | `ASR_API_KEY` | ASR Worker | Yes | Credential checked by ASR Worker |
 | `AI` | ASR Worker binding | Binding | Workers AI access |
 | `ASR` | Web Worker binding | Binding | Private Worker-to-Worker transport |
 
-The `PARAKEET_*` names remain for compatibility with the prototype’s first inference adapter. Renaming them should be done as a dedicated migration so both Workers and deployment instructions change together.
+The `PARAKEET_API_KEY` name remains for compatibility with the prototype’s first inference adapter. There is no external URL fallback: production fails closed unless the private `ASR` binding and matching secret are both present.
 
 ## Logs and diagnostics
 
@@ -252,9 +262,8 @@ Common failures:
 
 - `401` from ASR: the two Worker secrets do not match; rotate them together.
 - `404` from an upstream Worker fetch: verify the `ASR` service binding is present and do not use the public hostname for Worker-to-Worker traffic.
-- `502` from `/api/transcribe`: inspect `upstreamStatus` and tail both Workers.
+- `502` from `/api/transcribe`: tail both Workers using the response request ID where present; provider bodies are intentionally not exposed.
 - `503` from `/api/summarize` or `/api/enhance`: verify the `ASR` binding and shared secret are present on the web Worker.
-- Demo transcript returned: `PARAKEET_API_URL` was unavailable in the web runtime.
 - Transcript succeeds but is not saved: verify the production Convex URL and inspect Convex function logs.
 - Sign-in is not visible: the client bundle was built without `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`.
 - Clerk signs in but history fails: verify the Clerk Convex integration and `CLERK_JWT_ISSUER_DOMAIN`, then redeploy Convex with `auth.config.ts` enabled.

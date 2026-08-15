@@ -4,6 +4,9 @@ import { v } from "convex/values";
 
 const anonymousRetentionMs = 60 * 60 * 1000;
 const dayMs = 24 * 60 * 60 * 1000;
+const cleanupBatchSize = 100;
+const cleanupScanPages = 10;
+const staleMigrationMs = 60 * 60 * 1000;
 
 export const applyRetentionPage = internalMutation({
   args: {
@@ -22,24 +25,58 @@ export const applyRetentionPage = internalMutation({
     for (const item of page.page) {
       await ctx.db.patch(item._id, { expiresAt: days === 0 ? undefined : item.createdAt + days * dayMs });
     }
-    if (!page.isDone) await ctx.scheduler.runAfter(0, internal.cleanup.applyRetentionPage, {
-      ownerId,
-      days,
-      cursor: page.continueCursor,
-      revision,
-    });
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.cleanup.applyRetentionPage, {
+        ownerId,
+        days,
+        cursor: page.continueCursor,
+        revision,
+      });
+    } else if (setting.migrationRevision === revision) {
+      // Deletion may resume only after every record has the current policy.
+      await ctx.db.patch(setting._id, { migrationRevision: undefined });
+    }
   },
 });
 
 export const deleteExpiredTranscriptions = internalMutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { cursor: v.optional(v.union(v.string(), v.null())), pagesRemaining: v.optional(v.number()) },
+  handler: async (ctx, { cursor, pagesRemaining }) => {
     const now = Date.now();
-    const expired = await ctx.db
+    const expiredPage = await ctx.db
       .query("transcriptions")
       .withIndex("by_expires_at", (q) => q.gt("expiresAt", 0).lte("expiresAt", now))
-      .take(100);
-    for (const item of expired) await ctx.db.delete(item._id);
+      .paginate({ cursor: cursor ?? null, numItems: cleanupBatchSize });
+    const retentionSettings = new Map<string, { days: 0 | 7 | 30 | 90 | 365; updatedAt: number; migrationRevision?: number } | null>();
+    const restartedMigrations = new Set<string>();
+    let expiredDeleted = 0;
+    for (const item of expiredPage.page) {
+      if (item.ownerId) {
+        const ownerId = item.ownerId;
+        let setting = retentionSettings.get(ownerId);
+        if (setting === undefined) {
+          setting = await ctx.db
+            .query("retentionSettings")
+            .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))
+            .unique();
+          retentionSettings.set(ownerId, setting);
+        }
+        if (setting?.migrationRevision !== undefined) {
+          if (now - setting.updatedAt > staleMigrationMs && !restartedMigrations.has(ownerId)) {
+            restartedMigrations.add(ownerId);
+            await ctx.scheduler.runAfter(0, internal.cleanup.applyRetentionPage, {
+              ownerId,
+              days: setting.days,
+              cursor: null,
+              revision: setting.migrationRevision,
+            });
+          }
+          continue;
+        }
+      }
+      await ctx.db.delete(item._id);
+      expiredDeleted += 1;
+    }
 
     const legacyAnonymous = await ctx.db
       .query("transcriptions")
@@ -48,14 +85,24 @@ export const deleteExpiredTranscriptions = internalMutation({
         q.eq(q.field("expiresAt"), undefined),
       ))
       .order("asc")
-      .take(100);
+      .take(cleanupBatchSize);
     let legacyDeleted = 0;
     for (const item of legacyAnonymous) {
       if (item.createdAt + anonymousRetentionMs > now) break;
       await ctx.db.delete(item._id);
       legacyDeleted += 1;
     }
-    if (expired.length === 100 || legacyAnonymous.length === 100) await ctx.scheduler.runAfter(0, internal.cleanup.deleteExpiredTranscriptions, {});
-    return { deleted: expired.length + legacyDeleted };
+    // Continue only after actually draining a complete deletable batch. Merely
+    // reading 100 held or fresh records must not create a zero-delay spin loop.
+    const scansLeft = Math.min(Math.max(pagesRemaining ?? cleanupScanPages, 1), cleanupScanPages);
+    if (!expiredPage.isDone && scansLeft > 1) {
+      await ctx.scheduler.runAfter(0, internal.cleanup.deleteExpiredTranscriptions, {
+        cursor: expiredPage.continueCursor,
+        pagesRemaining: scansLeft - 1,
+      });
+    } else if (expiredDeleted === cleanupBatchSize || legacyDeleted === cleanupBatchSize) {
+      await ctx.scheduler.runAfter(0, internal.cleanup.deleteExpiredTranscriptions, {});
+    }
+    return { deleted: expiredDeleted + legacyDeleted };
   },
 });

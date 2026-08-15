@@ -32,8 +32,8 @@ test("keeps costly production routes behind edge controls", async () => {
     source("cloudflare-asr/src/index.ts"),
   ]);
   for (const route of [transcribe, summarize, history, importer]) assert.match(route, /rejectCrossOrigin/);
-  assert.match(transcribe, /AI_RATE_LIMITER/);
-  assert.match(summarize, /AI_RATE_LIMITER/);
+  assert.match(transcribe, /TRANSCRIPTION_RATE_LIMITER/);
+  assert.match(summarize, /SUMMARY_RATE_LIMITER/);
   assert.match(history, /HISTORY_RATE_LIMITER/);
   assert.match(importer, /IMPORT_RATE_LIMITER/);
   assert.match(security, /Too many requests/);
@@ -86,10 +86,19 @@ test("brokers Convex access and enforces quotas and race-safe retention", async 
   assert.match(transcriptions, /requireServiceSecret\(args\.serviceSecret\)/);
   assert.match(transcriptions, /Daily transcription limit reached/);
   assert.match(transcriptions, /Account storage limit reached/);
-  assert.match(transcriptions, /history\.length >= 1000/);
+  assert.match(transcriptions, /history\.length >= 50/);
+  assert.match(transcriptions, /by_owner_operation/);
+  assert.match(transcriptions, /by_client_operation/);
+  assert.match(transcriptions, /Operation identifier was already used for different content/);
   assert.match(retention, /serviceSecret/);
   assert.match(cleanup, /setting\.updatedAt !== revision/);
   assert.match(cleanup, /internal\.cleanup\.deleteExpiredTranscriptions/);
   assert.doesNotMatch(client, /client\.mutation/);
   assert.doesNotMatch(client, /client\.query/);
+});
+
+test("user-selected imports always bypass shared subrequest caches", async () => {
+  const route = await source("app/api/import/route.ts");
+  assert.match(route, /fetch\(url,[\s\S]*?cache: "no-store"/);
+  assert.doesNotMatch(route, /caches\.default|cache\.put\(/);
 });

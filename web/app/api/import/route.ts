@@ -1,5 +1,5 @@
 import { extractReadableArticle } from "../../../lib/imports/readability";
-import { enforceRateLimit, rejectCrossOrigin } from "../../../lib/server/requestSecurity";
+import { enforceRateLimit, jsonNoStore, readBoundedJson, rejectCrossOrigin } from "../../../lib/server/requestSecurity";
 
 export const runtime = "edge";
 
@@ -21,7 +21,13 @@ function isPrivateIPv4(hostname: string) {
     || (first === 169 && second === 254)
     || (first === 172 && second >= 16 && second <= 31)
     || (first === 192 && second === 168)
-    || (first === 100 && second >= 64 && second <= 127);
+    || (first === 100 && second >= 64 && second <= 127)
+    || (first === 192 && second === 0)
+    || (first === 198 && (second === 18 || second === 19))
+    || (first === 192 && second === 0 && parts[2] === 2)
+    || (first === 198 && second === 51 && parts[2] === 100)
+    || (first === 203 && second === 0 && parts[2] === 113)
+    || first >= 224;
 }
 
 function isPrivateAddress(address: string) {
@@ -49,6 +55,10 @@ function validateUrl(value: string) {
   const url = new URL(value);
   const hostname = url.hostname.toLowerCase();
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error("Only HTTP and HTTPS URLs can be imported.");
+  if (url.username || url.password) throw new Error("Page URLs cannot include credentials.");
+  if (url.port && !((url.protocol === "http:" && url.port === "80") || (url.protocol === "https:" && url.port === "443"))) {
+    throw new Error("That page uses an unsupported network port.");
+  }
   if (hostname.includes(":") || /^\d+$/.test(hostname) || blockedHosts.has(hostname) || hostname.endsWith(".local") || hostname.endsWith(".internal") || isPrivateIPv4(hostname)) {
     throw new Error("That address cannot be imported.");
   }
@@ -61,6 +71,7 @@ async function fetchWithSafeRedirects(initialUrl: URL) {
     await assertPublicDns(url.hostname);
     const response = await fetch(url, {
       redirect: "manual",
+      cache: "no-store",
       headers: {
         Accept: "text/html,application/xhtml+xml",
         "User-Agent": "VoiceInk-Web-Importer/1.0",
@@ -84,18 +95,24 @@ export async function POST(request: Request) {
     if (originError) return originError;
     const rateError = await enforceRateLimit(request, "IMPORT_RATE_LIMITER");
     if (rateError) return rateError;
-    const declaredRequestSize = Number(request.headers.get("content-length") ?? 0);
-    if (declaredRequestSize > 2_000) return Response.json({ error: "Request body is too large." }, { status: 413 });
-    const body = await request.json() as { url?: string };
-    if (!body.url?.trim()) return Response.json({ error: "Enter a URL to import." }, { status: 400 });
+    const parsed = await readBoundedJson<{ url?: unknown }>(request, 2_000);
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.value;
+    if (typeof body.url !== "string" || !body.url.trim()) return jsonNoStore({ error: "Enter a URL to import." }, { status: 400 });
 
     const response = await fetchWithSafeRedirects(validateUrl(body.url.trim()));
-    if (!response.ok) return Response.json({ error: `The page returned ${response.status}.` }, { status: 422 });
-    const declaredSize = Number(response.headers.get("content-length") ?? 0);
-    if (declaredSize > maximumBytes) return Response.json({ error: "The page is too large to import." }, { status: 413 });
+    if (!response.ok) return jsonNoStore({ error: "The page could not be imported." }, { status: 422 });
+    const contentType = response.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase();
+    if (contentType !== "text/html" && contentType !== "application/xhtml+xml") {
+      return jsonNoStore({ error: "Only HTML pages can be imported." }, { status: 415 });
+    }
+    const declaredHeader = response.headers.get("content-length");
+    if (declaredHeader !== null && (!/^\d+$/.test(declaredHeader) || Number(declaredHeader) > maximumBytes)) {
+      return jsonNoStore({ error: "The page is too large to import." }, { status: 413 });
+    }
 
     const reader = response.body?.getReader();
-    if (!reader) return Response.json({ error: "The page returned no content." }, { status: 422 });
+    if (!reader) return jsonNoStore({ error: "The page returned no content." }, { status: 422 });
     const chunks: Uint8Array[] = [];
     let received = 0;
     while (true) {
@@ -104,7 +121,7 @@ export async function POST(request: Request) {
       received += value.byteLength;
       if (received > maximumBytes) {
         await reader.cancel();
-        return Response.json({ error: "The page is too large to import." }, { status: 413 });
+        return jsonNoStore({ error: "The page is too large to import." }, { status: 413 });
       }
       chunks.push(value);
     }
@@ -112,10 +129,21 @@ export async function POST(request: Request) {
     let offset = 0;
     for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
     const article = extractReadableArticle(new TextDecoder().decode(bytes));
-    if (!article.content) return Response.json({ error: "No readable article content was found." }, { status: 422 });
-    return Response.json(article);
+    if (!article.content) return jsonNoStore({ error: "No readable article content was found." }, { status: 422 });
+    return jsonNoStore(article);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "The page could not be imported.";
-    return Response.json({ error: message }, { status: 400 });
+    const allowedMessages = new Set([
+      "Only HTTP and HTTPS URLs can be imported.",
+      "Page URLs cannot include credentials.",
+      "That page uses an unsupported network port.",
+      "That address cannot be imported.",
+      "The page address could not be verified.",
+      "The page redirected too many times.",
+      "The page could not be imported.",
+    ]);
+    const message = error instanceof Error && allowedMessages.has(error.message)
+      ? error.message
+      : "The page could not be imported.";
+    return jsonNoStore({ error: message }, { status: 400 });
   }
 }
