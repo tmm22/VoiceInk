@@ -77,7 +77,7 @@ export function TTSWorkspace({ transcript, text, onTextChange }: Props) {
     <section className="tts-card">
       <div className="tts-head">
         <div><small>TEXT TO SPEECH</small><span>{text ? `${text.length.toLocaleString()} characters` : "Paste or type anything to read aloud"}</span></div>
-        <div className="tts-tools">{transcript && <button onClick={() => onTextChange(transcript)}>Use transcript</button>}<span className="local-pill">No API key</span></div>
+        <div className="tts-tools">{transcript && <button onClick={() => onTextChange(transcript)}>Use transcript</button>}<span className="local-pill">On-device voices</span></div>
       </div>
       <form className="import-content" onSubmit={importContent}>
         <label htmlFor="import-url">Import content from a webpage</label>
@@ -92,10 +92,10 @@ export function TTSWorkspace({ transcript, text, onTextChange }: Props) {
         <label><span>Volume <b>{Math.round(speechVolume * 100)}%</b></span><input type="range" min="0" max="1" step="0.05" value={speechVolume} onChange={(event) => setSpeechVolume(Number(event.target.value))} /></label>
       </div>
       <div className="playback-buttons">
-        {playback === "idle" && <button className="play" onClick={() => void play()} disabled={!text.trim() || !voices.length}>▶ Read text</button>}
-        {playback === "playing" && <button onClick={() => { getBrowserSpeechController().pause(); setPlayback("paused"); }}>Ⅱ Pause</button>}
-        {playback === "paused" && <button className="play" onClick={() => { getBrowserSpeechController().resume(); setPlayback("playing"); }}>▶ Resume</button>}
-        {playback !== "idle" && <button onClick={stop}>■ Stop</button>}
+        {playback === "idle" && <button className="play" onClick={() => void play()} disabled={!text.trim() || !voices.length}>Play</button>}
+        {playback === "playing" && <button onClick={() => { getBrowserSpeechController().pause(); setPlayback("paused"); }}>Pause</button>}
+        {playback === "paused" && <button className="play" onClick={() => { getBrowserSpeechController().resume(); setPlayback("playing"); }}>Resume</button>}
+        {playback !== "idle" && <button onClick={stop}>Stop</button>}
       </div>
       {speechError && <p className="error" role="alert">{speechError}</p>}
     </section>

@@ -389,7 +389,7 @@ export default function Home() {
         setHistory((items) => items.map((item) => item._id === transcriptionId ? { ...item, summary: generatedSummary } : item));
       }
     } catch {
-      setSummaryError("The AI summary could not be generated. Please try again.");
+      setSummaryError("Summarizing failed. Try again.");
     } finally {
       setSummaryLoading(false);
     }
@@ -421,25 +421,23 @@ export default function Home() {
             <button className={theme === "editorial" ? "active" : ""} onClick={() => selectTheme("editorial")} aria-pressed={theme === "editorial"}>Original</button>
             <button className={theme === "mac" ? "active" : ""} onClick={() => selectTheme("mac")} aria-pressed={theme === "mac"}>Mac</button>
           </div>
-          <div className="model-pill"><span /> Whisper V3 Turbo <b>multilingual</b></div>
         </div>
       </header>
 
       {activeTab === "studio" ? <>
       <section className="hero">
-        <div className="eyebrow"><i /> PRIVATE-BY-DESIGN TRANSCRIPTION</div>
-        <h1>Your voice, <span>made clear.</span></h1>
-        <p>Fast, focused transcription powered by Cloudflare Workers AI. Record in your browser and keep control of what happens next.</p>
+        <h1>Transcription</h1>
+        <p>Record or upload audio and get an editable transcript. Audio is processed in the cloud.</p>
       </section>
 
       <section className={`recorder-card ${status === "recording" ? "is-recording" : ""}`}>
         <div className="card-header">
-          <div><small>TRANSCRIPTION STUDIO</small><h2>{status === "starting" ? "Opening your microphone…" : status === "recording" ? "Listening…" : status === "validating" ? "Checking your audio…" : status === "transcribing" ? "Creating your transcript…" : "Ready when you are"}</h2></div>
-          <span className="privacy"><i /> Audio deleted after transcription</span>
+          <div><h2>{status === "starting" ? "Requesting microphone…" : status === "recording" ? "Recording" : status === "validating" ? "Checking audio…" : status === "transcribing" ? "Transcribing…" : "Ready to record"}</h2></div>
+          <span className="privacy">Audio deleted after transcription</span>
         </div>
 
         <div className="wave" aria-hidden="true">
-          {Array.from({ length: 42 }, (_, index) => <span key={index} style={{ height: `${12 + ((index * 17) % 54)}px` }} />)}
+          {Array.from({ length: 42 }, (_, index) => <span key={index} style={{ height: `${12 + ((index * 17) % 54)}px`, "--i": index } as React.CSSProperties} />)}
         </div>
 
         <div className="record-controls">
@@ -448,7 +446,7 @@ export default function Home() {
           ) : (
             <button className="record-button stop" onClick={stopRecording} aria-label="Stop recording"><span /></button>
           )}
-          <div><strong>{status === "recording" ? time : status === "transcribing" ? "Uploading automatically…" : "Press to record"}</strong><small>{status === "recording" ? "Stop to upload and transcribe" : status === "transcribing" ? "The transcript will be saved to history" : "Microphone access stays in this tab"}</small></div>
+          <div><strong>{status === "recording" ? time : status === "transcribing" ? "Uploading and transcribing…" : "Press to record"}</strong><small>{status === "recording" ? "Stop to upload and transcribe" : status === "transcribing" ? "The transcript will be saved to history" : "Microphone access stays in this tab"}</small></div>
         </div>
         <div className="audio-upload">
           <span>or</span>
@@ -470,19 +468,19 @@ export default function Home() {
       </section>
 
       <section className="transcript-card">
-        <div className="transcript-head"><div><small>TRANSCRIPT</small><span>{transcript ? `${transcript.split(/\s+/).length} words` : "Waiting for audio"}</span></div>{transcript && <div className="transcript-tools"><button className="summarize" onClick={() => void summarizeText()} disabled={summaryLoading}>{summaryLoading ? "Summarizing…" : "AI summary"}</button><button onClick={copyTranscript}>{copied ? "Copied" : "Copy"}</button><button onClick={() => downloadTranscript(transcript, "txt")}>TXT</button><button disabled={!transcriptSegments.length} title={transcriptSegments.length ? "Download timed subtitles" : "Timing is unavailable after editing"} onClick={() => downloadTranscript(transcript, "srt", transcriptSegments)}>SRT</button><button disabled={!transcriptSegments.length} title={transcriptSegments.length ? "Download timed subtitles" : "Timing is unavailable after editing"} onClick={() => downloadTranscript(transcript, "vtt", transcriptSegments)}>VTT</button></div>}</div>
+        <div className="transcript-head"><div><small>TRANSCRIPT</small><span>{transcript ? `${transcript.split(/\s+/).length} words` : "Waiting for audio"}</span></div>{transcript && <div className="transcript-tools"><button className="summarize" onClick={() => void summarizeText()} disabled={summaryLoading}>{summaryLoading ? "Summarizing…" : "Summarize"}</button><button onClick={copyTranscript}>{copied ? "Copied" : "Copy"}</button><button onClick={() => downloadTranscript(transcript, "txt")}>TXT</button><button disabled={!transcriptSegments.length} title={transcriptSegments.length ? "Download timed subtitles" : "Timing is unavailable after editing"} onClick={() => downloadTranscript(transcript, "srt", transcriptSegments)}>SRT</button><button disabled={!transcriptSegments.length} title={transcriptSegments.length ? "Download timed subtitles" : "Timing is unavailable after editing"} onClick={() => downloadTranscript(transcript, "vtt", transcriptSegments)}>VTT</button></div>}</div>
         <textarea aria-label="Transcript text" value={transcript} onChange={(event) => { setTranscript(event.target.value); setTranscriptSegments([]); }} placeholder="Your transcription will appear here…" />
       </section>
 
       {transcript && <AIEnhancementPanel text={transcript} onApply={(value) => { setTranscript(value); setTranscriptSegments([]); setSummary(""); setSummaryError(""); }} onNarrate={setSpeechText} />}
 
-      {(summary || summaryLoading || summaryError) && <section className="summary-card"><div className="summary-head"><div><small>AI SUMMARY</small><span>Cloudflare Workers AI · Llama 3.2</span></div>{summary && <div><button onClick={() => void navigator.clipboard.writeText(summary)}>Copy</button><button onClick={() => setSpeechText(summary)}>Narrate summary</button></div>}</div>{summaryLoading ? <p className="summary-loading">Finding the key points…</p> : summary ? <textarea aria-label="AI-generated transcript summary" value={summary} onChange={(event) => setSummary(event.target.value)} /> : <p className="error" role="alert">{summaryError}</p>}<p className="ai-note">AI-generated summaries can make mistakes. Check important details against the transcript.</p></section>}
+      {(summary || summaryLoading || summaryError) && <section className="summary-card"><div className="summary-head"><div><small>SUMMARY</small><span>Llama 3.2</span></div>{summary && <div><button onClick={() => void navigator.clipboard.writeText(summary)}>Copy</button><button onClick={() => setSpeechText(summary)}>Narrate summary</button></div>}</div>{summaryLoading ? <p className="summary-loading">Summarizing…</p> : summary ? <textarea aria-label="AI-generated transcript summary" value={summary} onChange={(event) => setSummary(event.target.value)} /> : <p className="error" role="alert">{summaryError}</p>}<p className="ai-note">AI-generated summaries can make mistakes. Check important details against the transcript.</p></section>}
 
       <TTSWorkspace transcript={transcript} text={speechText} onTextChange={setSpeechText} />
 
       </> : <HistoryView history={history} loading={historyLoading} hasMore={historyCursor !== null} isSignedIn={account.isSignedIn} retentionDays={retentionDays} retentionSaving={retentionSaving} retentionStatus={retentionStatus} onRefresh={() => void refreshHistory()} onLoadMore={() => void loadMoreHistory()} onRetentionChange={(days) => void changeRetention(days)} onOpen={openHistoryItem} onNarrate={setSpeechText} onSummarize={(item) => { setTranscript(item.text); setTranscriptSegments(item.segments ?? []); setActiveTranscriptionId(item._id); void summarizeText(item.text, item._id); }} onDelete={(id) => void removeHistoryItem(id)} />}
 
-      <footer><span>VoiceInk Web 2.11.0</span><span>Cloudflare edge</span><span>Convex realtime data</span><span>Whisper V3 Turbo</span></footer>
+      <footer><span>VoiceInk Web 2.11.0</span><span>Whisper large-v3 turbo</span></footer>
     </main>
   );
 }

@@ -11,9 +11,9 @@ test("ships the VoiceInk production interface instead of the starter preview", a
     source("app/layout.tsx"),
     source("app/providers.tsx"),
   ]);
-  assert.match(page, /Transcription Studio/i);
+  assert.match(page, /Ready to record/);
   assert.match(page, /History/);
-  assert.match(page, /AI summary/i);
+  assert.match(page, /Summarize/);
   assert.match(layout, /VoiceInk Web/);
   assert.match(providers, /signInForceRedirectUrl=\{siteUrl\}/);
   assert.match(providers, /signUpForceRedirectUrl=\{siteUrl\}/);

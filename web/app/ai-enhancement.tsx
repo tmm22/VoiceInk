@@ -42,7 +42,7 @@ export function AIEnhancementPanel({ text, onApply, onNarrate }: Props) {
       setEnhancedText(result.enhanced);
       setSourceText(text);
     } catch {
-      setError("The text could not be enhanced. Your original transcript is unchanged.");
+      setError("The rewrite failed. Your original transcript is unchanged.");
     } finally {
       setIsEnhancing(false);
     }
@@ -59,11 +59,11 @@ export function AIEnhancementPanel({ text, onApply, onNarrate }: Props) {
   return (
     <section className="ai-enhancement-card">
       <div className="enhancement-head">
-        <div><small>AI TEXT ENHANCEMENT</small><span>Cloudflare Workers AI · Llama 3.2</span></div>
-        <span className="cloud-pill">Runs on request</span>
+        <div><small>REWRITE</small></div>
+        <span className="cloud-pill">Sends text to the cloud</span>
       </div>
       <div className="enhancement-controls">
-        <div className="enhancement-mode-grid" role="radiogroup" aria-label="Enhancement style">
+        <div className="enhancement-mode-grid" role="radiogroup" aria-label="Rewrite style">
           {enhancementModes.map((item) => (
             <button
               key={item.id}
@@ -79,21 +79,21 @@ export function AIEnhancementPanel({ text, onApply, onNarrate }: Props) {
           ))}
         </div>
         <button className="enhance-button" type="button" onClick={() => void enhance()} disabled={isEnhancing || !text.trim()}>
-          {isEnhancing ? "Enhancing…" : "Enhance transcript"}
+          {isEnhancing ? "Rewriting…" : "Rewrite transcript"}
         </button>
       </div>
       {enhancedText && (
         <div className="enhancement-result">
           <div className="enhancement-result-head">
-            <span>Enhanced result</span>
+            <span>Rewritten transcript</span>
             <div>
               <button type="button" onClick={() => void copyEnhancedText()}>{copied ? "Copied" : "Copy"}</button>
               <button type="button" onClick={() => onNarrate(enhancedText)}>Narrate</button>
               <button className="apply" type="button" onClick={() => onApply(enhancedText)} disabled={sourceHasChanged}>Replace transcript</button>
             </div>
           </div>
-          <textarea aria-label="AI-enhanced transcript" value={enhancedText} onChange={(event) => setEnhancedText(event.target.value)} />
-          {sourceHasChanged && <p className="enhancement-stale" role="status">The transcript changed after this result was generated. Enhance it again before replacing the transcript.</p>}
+          <textarea aria-label="Rewritten transcript" value={enhancedText} onChange={(event) => setEnhancedText(event.target.value)} />
+          {sourceHasChanged && <p className="enhancement-stale" role="status">The transcript changed after this result was generated. Rewrite it again before replacing the transcript.</p>}
         </div>
       )}
       {error && <p className="error" role="alert">{error}</p>}

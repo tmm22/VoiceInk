@@ -1,25 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "./providers";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
-  title: "VoiceInk Web — private transcription",
-  description: "Private-by-design browser transcription powered by Cloudflare Workers AI.",
+  title: "VoiceInk Web",
+  description: "Record or upload audio in the browser and get a transcript. Audio is deleted after transcription.",
   openGraph: {
-    title: "Your voice, made clear.",
-    description: "Private-by-design browser transcription powered by Cloudflare Workers AI.",
+    title: "VoiceInk Web",
+    description: "Record or upload audio in the browser and get a transcript. Audio is deleted after transcription.",
     images: ["/og.png"],
   },
   twitter: { card: "summary_large_image", images: ["/og.png"] },
@@ -36,9 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className="antialiased">
         <AppProviders>{children}</AppProviders>
       </body>
     </html>
