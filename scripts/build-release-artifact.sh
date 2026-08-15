@@ -165,6 +165,8 @@ echo "Building VoiceInk $version ($build_number) [$build_configuration]"
         -project VoiceInk.xcodeproj \
         -scheme "$build_scheme" \
         -configuration "$build_configuration" \
+        -skipPackagePluginValidation \
+        -skipMacroValidation \
         -derivedDataPath "$derived_data_dir" \
         -xcconfig LocalBuild.xcconfig \
         "${strip_build_args[@]}" \
@@ -180,6 +182,8 @@ echo "Building VoiceInk $version ($build_number) [$build_configuration]"
         -project VoiceInk.xcodeproj \
         -scheme "$build_scheme" \
         -configuration "$build_configuration" \
+        -skipPackagePluginValidation \
+        -skipMacroValidation \
         -derivedDataPath "$derived_data_dir" \
         "${strip_build_args[@]}" \
         CODE_SIGNING_ALLOWED=YES \
