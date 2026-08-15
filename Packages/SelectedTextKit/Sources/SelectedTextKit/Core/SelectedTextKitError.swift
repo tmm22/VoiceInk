@@ -26,8 +26,8 @@ public enum SelectedTextKitError: Error, LocalizedError, CustomNSError {
         case .timeout(let operation, let duration):
             return "Operation '\(operation)' timed out after \(duration) seconds"
         case .appleScriptExecution(_, let exitCode, let output):
-            return
-                "AppleScript execution failed with exit code \(exitCode): \(output ?? "Unknown error")"
+            let codeDescription = exitCode.map(String.init) ?? "unknown"
+            return "AppleScript execution failed with exit code \(codeDescription); output length: \(output?.count ?? 0)"
         case .unsupportedBrowser(let bundleID):
             return "Browser '\(bundleID)' is not supported for AppleScript operations"
         case .browserNotFound:
@@ -126,9 +126,9 @@ public enum SelectedTextKitError: Error, LocalizedError, CustomNSError {
             userInfo["operation"] = operation
             userInfo["duration"] = duration
         case .appleScriptExecution(let script, let exitCode, let output):
-            userInfo["script"] = script
+            userInfo["scriptLength"] = script.count
             userInfo["exitCode"] = exitCode
-            userInfo["output"] = output
+            userInfo["outputLength"] = output?.count ?? 0
         case .unsupportedBrowser(let bundleID):
             userInfo["bundleID"] = bundleID
         case .elementNotFound(let description):

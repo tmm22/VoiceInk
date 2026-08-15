@@ -1,28 +1,23 @@
-import Foundation
 import AppKit
+import Foundation
 
 /// A minimal pull-based announcements fetcher that shows one-time in-app banners.
 final class AnnouncementsService {
     static let shared = AnnouncementsService()
 
     private init() {}
-    
-    deinit {
-        timer?.invalidate()
-        timer = nil
-    }
 
     // MARK: - Configuration
 
-    // Pull announcements from the community fork so release builds stay self-contained.
-    private let announcementsURL = URL(string: "https://raw.githubusercontent.com/tmm22/VoiceInk/custom-main-v2/announcements.json")
+    // Hosted via GitHub Pages for this repo
+    private let announcementsURL = URL(string: "https://beingpax.github.io/VoiceInk/announcements.json")!
 
     // Fetch every 4 hours
     private let refreshInterval: TimeInterval = 4 * 60 * 60
 
+    private let dismissedKey = "dismissedAnnouncementIds"
     private let maxDismissedToKeep = 2
     private var timer: Timer?
-    private let session = SecureURLSession.makeEphemeral()
 
     // MARK: - Public API
 
@@ -32,8 +27,7 @@ final class AnnouncementsService {
             self?.fetchAndMaybeShow()
         }
         // Do an initial fetch shortly after launch
-        Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
             self?.fetchAndMaybeShow()
         }
     }
@@ -46,9 +40,8 @@ final class AnnouncementsService {
     // MARK: - Core Logic
 
     private func fetchAndMaybeShow() {
-        guard let url = announcementsURL else { return }
-        let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
-        let task = session.dataTask(with: request) { [weak self] data, response, error in
+        let request = URLRequest(url: announcementsURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
+        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             guard let self = self else { return }
             guard error == nil, let data = data else { return }
             guard let announcements = try? JSONDecoder().decode([RemoteAnnouncement].self, from: data) else { return }
@@ -59,7 +52,7 @@ final class AnnouncementsService {
 
             guard let next = valid.first else { return }
 
-            Task { @MainActor in
+            DispatchQueue.main.async {
                 let url = next.url.flatMap { URL(string: $0) }
                 AnnouncementManager.shared.showAnnouncement(
                     title: next.title,
@@ -73,12 +66,12 @@ final class AnnouncementsService {
     }
 
     private func isDismissed(_ id: String) -> Bool {
-        let set = AppSettings.Announcements.dismissedIds
+        let set = UserDefaults.standard.stringArray(forKey: dismissedKey) ?? []
         return set.contains(id)
     }
 
     private func markDismissed(_ id: String) {
-        var ids = AppSettings.Announcements.dismissedIds
+        var ids = UserDefaults.standard.stringArray(forKey: dismissedKey) ?? []
         if !ids.contains(id) {
             ids.append(id)
         }
@@ -87,7 +80,7 @@ final class AnnouncementsService {
             let overflow = ids.count - maxDismissedToKeep
             ids.removeFirst(overflow)
         }
-        AppSettings.Announcements.dismissedIds = ids
+        UserDefaults.standard.set(ids, forKey: dismissedKey)
     }
 }
 

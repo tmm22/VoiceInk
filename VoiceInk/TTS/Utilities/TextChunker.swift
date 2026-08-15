@@ -3,6 +3,7 @@ import NaturalLanguage
 
 struct TextChunker {
     static func chunk(text: String, limit: Int) -> [String] {
+        guard limit > 0 else { return text.isEmpty ? [] : [text] }
         guard text.count > limit else { return [text] }
 
         var chunks: [String] = []
@@ -64,7 +65,24 @@ struct TextChunker {
 
         for word in words {
             if word.count >= limit {
-                chunks.append(word)
+                if !current.isEmpty {
+                    chunks.append(current)
+                    current = ""
+                }
+
+                if word.count == limit {
+                    chunks.append(word)
+                } else {
+                    var remaining = word[...]
+                    while !remaining.isEmpty {
+                        let end = remaining.index(
+                            remaining.startIndex,
+                            offsetBy: min(limit, remaining.count)
+                        )
+                        chunks.append(String(remaining[..<end]))
+                        remaining = remaining[end...]
+                    }
+                }
                 continue
             }
             append(word, to: &chunks, current: &current, limit: limit, separator: " ")

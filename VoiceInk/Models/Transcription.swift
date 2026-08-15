@@ -5,15 +5,18 @@ enum TranscriptionStatus: String, Codable {
     case pending
     case completed
     case failed
+    case canceled
 }
 
 @Model
 final class Transcription {
-    var id: UUID
-    var text: String
+    static let canceledTranscriptionText = "The transcription was canceled."
+
+    var id: UUID = UUID()
+    var text: String = ""
     var enhancedText: String?
-    var timestamp: Date
-    var duration: TimeInterval
+    var timestamp: Date = Date()
+    var duration: TimeInterval = 0
     var audioFileURL: String?
     var transcriptionModelName: String?
     var aiEnhancementModelName: String?
@@ -22,30 +25,32 @@ final class Transcription {
     var enhancementDuration: TimeInterval?
     var aiRequestSystemMessage: String?
     var aiRequestUserMessage: String?
-    var aiContextJSON: String?
-    var powerModeName: String?
-    var powerModeEmoji: String?
+    @Attribute(originalName: "powerModeName")
+    var modeName: String?
+    @Attribute(originalName: "powerModeEmoji")
+    var modeEmoji: String?
     var transcriptionStatus: String?
-    
-    // Soft delete properties (defaults ensure migration compatibility)
     var isDeleted: Bool = false
     var deletedAt: Date?
 
-    init(text: String,
-         duration: TimeInterval,
-         enhancedText: String? = nil,
-         audioFileURL: String? = nil,
-         transcriptionModelName: String? = nil,
-         aiEnhancementModelName: String? = nil,
-         promptName: String? = nil,
-         transcriptionDuration: TimeInterval? = nil,
-         enhancementDuration: TimeInterval? = nil,
-         aiRequestSystemMessage: String? = nil,
-         aiRequestUserMessage: String? = nil,
-         aiContextJSON: String? = nil,
-         powerModeName: String? = nil,
-         powerModeEmoji: String? = nil,
-         transcriptionStatus: TranscriptionStatus = .pending) {
+    init(
+        text: String,
+        duration: TimeInterval,
+        enhancedText: String? = nil,
+        audioFileURL: String? = nil,
+        transcriptionModelName: String? = nil,
+        aiEnhancementModelName: String? = nil,
+        promptName: String? = nil,
+        transcriptionDuration: TimeInterval? = nil,
+        enhancementDuration: TimeInterval? = nil,
+        aiRequestSystemMessage: String? = nil,
+        aiRequestUserMessage: String? = nil,
+        modeName: String? = nil,
+        modeEmoji: String? = nil,
+        isDeleted: Bool = false,
+        deletedAt: Date? = nil,
+        transcriptionStatus: TranscriptionStatus = .pending
+    ) {
         self.id = UUID()
         self.text = text
         self.enhancedText = enhancedText
@@ -59,21 +64,39 @@ final class Transcription {
         self.enhancementDuration = enhancementDuration
         self.aiRequestSystemMessage = aiRequestSystemMessage
         self.aiRequestUserMessage = aiRequestUserMessage
-        self.aiContextJSON = aiContextJSON
-        self.powerModeName = powerModeName
-        self.powerModeEmoji = powerModeEmoji
+        self.modeName = modeName
+        self.modeEmoji = modeEmoji
+        self.isDeleted = isDeleted
+        self.deletedAt = deletedAt
         self.transcriptionStatus = transcriptionStatus.rawValue
-        self.isDeleted = false
-        self.deletedAt = nil
     }
-    
-    /// Marks the transcription as deleted (soft delete)
+
+    func markAsCanceledTranscription(
+        duration: TimeInterval? = nil,
+        modelName: String? = nil
+    ) {
+        text = Self.canceledTranscriptionText
+        enhancedText = nil
+        transcriptionStatus = TranscriptionStatus.canceled.rawValue
+        if let duration {
+            self.duration = duration
+        }
+        if let modelName {
+            transcriptionModelName = modelName
+        }
+        transcriptionDuration = nil
+        enhancementDuration = nil
+        aiEnhancementModelName = nil
+        promptName = nil
+        aiRequestSystemMessage = nil
+        aiRequestUserMessage = nil
+    }
+
     func moveToTrash() {
         isDeleted = true
         deletedAt = Date()
     }
-    
-    /// Restores a deleted transcription
+
     func restore() {
         isDeleted = false
         deletedAt = nil

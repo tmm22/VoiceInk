@@ -20,15 +20,19 @@ final class FastConformerTranscriptionService: TranscriptionService {
         self.env = try? ORTEnv(loggingLevel: .warning)
     }
 
-    func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
+    func transcribe(
+        audioURL: URL,
+        model: any TranscriptionModel,
+        context: TranscriptionRequestContext
+    ) async throws -> String {
         guard let fastConformerModel = model as? FastConformerModel else {
-            throw WhisperStateError.modelLoadFailed
+            throw VoiceInkEngineError.modelLoadFailed
         }
 
         let samples = try readAudioSamples(from: audioURL)
-        guard !samples.isEmpty else { throw WhisperStateError.transcriptionFailed }
+        guard !samples.isEmpty else { throw VoiceInkEngineError.transcriptionFailed }
         let features = featureExtractor.extract(samples: samples)
-        guard !features.isEmpty else { throw WhisperStateError.transcriptionFailed }
+        guard !features.isEmpty else { throw VoiceInkEngineError.transcriptionFailed }
 
         let session = try ensureSession(for: fastConformerModel)
         let outputName = try outputMetadata(for: fastConformerModel, session: session)
@@ -42,7 +46,7 @@ final class FastConformerTranscriptionService: TranscriptionService {
             runOptions: nil
         )
         guard let outputValue = outputs[outputName] else {
-            throw WhisperStateError.transcriptionFailed
+            throw VoiceInkEngineError.transcriptionFailed
         }
 
         let logits = try extractLogits(from: outputValue)
@@ -95,13 +99,13 @@ final class FastConformerTranscriptionService: TranscriptionService {
         }
         cacheLock.unlock()
         guard let env = env else {
-            throw WhisperStateError.modelLoadFailed
+            throw VoiceInkEngineError.modelLoadFailed
         }
 
         let modelDirectory = modelsDirectory.appendingPathComponent(model.name)
         guard let modelPath = OnnxModelFileLocator.findModelFile(in: modelDirectory) else {
             logger.error("No ONNX model file found for \(model.name, privacy: .public)")
-            throw WhisperStateError.modelLoadFailed
+            throw VoiceInkEngineError.modelLoadFailed
         }
         
         logger.info("Loading ONNX model for \(model.name, privacy: .public)")
@@ -127,7 +131,7 @@ final class FastConformerTranscriptionService: TranscriptionService {
         }
         cacheLock.unlock()
         guard let outputName = try session.outputNames().first else {
-            throw WhisperStateError.modelLoadFailed
+            throw VoiceInkEngineError.modelLoadFailed
         }
         cacheLock.lock()
         metadataCache[model.name] = ("audio_signal", outputName)
@@ -167,7 +171,7 @@ final class FastConformerTranscriptionService: TranscriptionService {
         let typeInfo = try value.tensorTypeAndShapeInfo()
         let shape = typeInfo.shape.map { $0.intValue }
         guard shape.count >= 3 else {
-            throw WhisperStateError.modelLoadFailed
+            throw VoiceInkEngineError.modelLoadFailed
         }
         let frameCount = shape[shape.count - 2]
         let vocabSize = shape.last ?? 0
@@ -216,7 +220,7 @@ final class FastConformerTranscriptionService: TranscriptionService {
         do {
             return try AudioSampleReader.readPCM16LE(from: url)
         } catch {
-            throw WhisperStateError.transcriptionFailed
+            throw VoiceInkEngineError.transcriptionFailed
         }
     }
 }

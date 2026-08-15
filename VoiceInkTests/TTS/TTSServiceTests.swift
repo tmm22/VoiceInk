@@ -631,7 +631,8 @@ final class ElevenLabsTTSServiceTests: XCTestCase {
     }
     
     func testServiceConformsToStreamingProtocol() async {
-        XCTAssertTrue(service is StreamingSpeechSynthesizing)
+        let synthesizer: any StreamingSpeechSynthesizing = service
+        _ = synthesizer
     }
 }
 

@@ -23,7 +23,7 @@ extension UIElement {
         }
 
         for child in try children() ?? [] {
-            if let element = try child.deepFirst { condition($0) } {
+            if let element = try child.deepFirst(where: { condition($0) }) {
                 return element
             }
         }

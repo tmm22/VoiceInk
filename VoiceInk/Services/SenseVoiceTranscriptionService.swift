@@ -24,21 +24,25 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
         }
     }
 
-    func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
+    func transcribe(
+        audioURL: URL,
+        model: any TranscriptionModel,
+        context: TranscriptionRequestContext
+    ) async throws -> String {
         guard model.provider == .senseVoice else {
-            throw WhisperStateError.modelLoadFailed
+            throw VoiceInkEngineError.modelLoadFailed
         }
 
         let samples = try readAudioSamples(from: audioURL)
-        guard !samples.isEmpty else { throw WhisperStateError.transcriptionFailed }
+        guard !samples.isEmpty else { throw VoiceInkEngineError.transcriptionFailed }
         
         let rawFeatures = featureExtractor.extract(samples: samples)
-        guard !rawFeatures.isEmpty else { throw WhisperStateError.transcriptionFailed }
+        guard !rawFeatures.isEmpty else { throw VoiceInkEngineError.transcriptionFailed }
         
         // SenseVoice uses LFR (Low Frame Rate) features: stack 7 frames with stride 6
         // This converts 80-dim features to 560-dim (80 * 7)
         let features = applyLFR(features: rawFeatures, lfrM: 7, lfrN: 6)
-        guard !features.isEmpty else { throw WhisperStateError.transcriptionFailed }
+        guard !features.isEmpty else { throw VoiceInkEngineError.transcriptionFailed }
         
         logger.notice("SenseVoice: Feature shape after LFR: \(features.count) frames x \(features.first?.count ?? 0) dims")
 
@@ -54,12 +58,12 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
         // SenseVoice expects: x, x_length, language, text_norm
         guard let outputName = outputNames.first else {
             logger.error("SenseVoice: Could not find output name")
-            throw WhisperStateError.modelLoadFailed
+            throw VoiceInkEngineError.modelLoadFailed
         }
         
         let inputValue = try makeInputTensor(from: features)
         let lengthValue = try makeLengthTensor(frameCount: features.count)
-        let languageId = senseVoiceLanguageId()
+        let languageId = senseVoiceLanguageId(context.language)
         let languageValue = try makeLanguageTensor(languageId: languageId)
         let textNormValue = try makeTextNormTensor(normalize: true)
         
@@ -85,7 +89,7 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
                                       outputNames: [outputName],
                                       runOptions: nil)
         guard let outputValue = outputs[outputName] else {
-            throw WhisperStateError.transcriptionFailed
+            throw VoiceInkEngineError.transcriptionFailed
         }
 
         let tokenIds = try extractTokenIds(from: outputValue)
@@ -133,7 +137,7 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
         cacheLock.unlock()
         guard let env = env else {
             logger.error("SenseVoice: ONNX environment is nil")
-            throw WhisperStateError.modelLoadFailed
+            throw VoiceInkEngineError.modelLoadFailed
         }
 
         let modelPath = modelsDirectory
@@ -145,7 +149,7 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
         
         guard FileManager.default.fileExists(atPath: modelPath.path) else {
             logger.error("SenseVoice: Model file not found at path")
-            throw WhisperStateError.modelLoadFailed
+            throw VoiceInkEngineError.modelLoadFailed
         }
 
         let options = try ORTSessionOptions()
@@ -158,7 +162,7 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
             logger.notice("SenseVoice: ONNX session created successfully")
         } catch {
             logger.error("SenseVoice: Failed to create ONNX session: \(AppLogger.errorMetadata(error), privacy: .public)")
-            throw WhisperStateError.modelLoadFailed
+            throw VoiceInkEngineError.modelLoadFailed
         }
         cacheLock.lock()
         sessions[modelName] = session
@@ -197,7 +201,7 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
     private func makeInputTensor(from features: [[Float]]) throws -> ORTValue {
         let frames = features.count
         guard let firstFrame = features.first else {
-            throw WhisperStateError.transcriptionFailed
+            throw VoiceInkEngineError.transcriptionFailed
         }
         let dimension = firstFrame.count  // Use actual dimension from features
         
@@ -232,8 +236,8 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
 
     // Maps user's selected language to SenseVoice language ID
     // SenseVoice language IDs: 0=zh, 1=yue, 2=en, 3=ja, 4=ko
-    private func senseVoiceLanguageId() -> Int32 {
-        let selectedLanguage = AppSettings.TranscriptionSettings.selectedLanguage ?? "en"
+    private func senseVoiceLanguageId(_ selectedLanguage: String?) -> Int32 {
+        let selectedLanguage = selectedLanguage ?? "en"
         
         switch selectedLanguage.lowercased() {
         case "zh", "zh-cn", "zh-tw", "chinese":
@@ -334,7 +338,7 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
         do {
             return try AudioSampleReader.readPCM16LE(from: url)
         } catch {
-            throw WhisperStateError.transcriptionFailed
+            throw VoiceInkEngineError.transcriptionFailed
         }
     }
 }

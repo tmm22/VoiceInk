@@ -1,53 +1,107 @@
 import SwiftUI
 
-struct MiniRecorderView: View {
-    @ObservedObject var whisperState: WhisperState
+struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
+    @ObservedObject var stateProvider: S
     @ObservedObject var recorder: Recorder
-    @EnvironmentObject var windowManager: MiniWindowManager
-    @EnvironmentObject private var enhancementService: AIEnhancementService
+    @ObservedObject var assistantSession: AssistantSession
+    let onRecordButtonTapped: () -> Void
+    let onCloseTapped: () -> Void
+    let onAssistantFollowUp: (String) -> Void
+    @AppStorage(RecorderDisplaySettingsKeys.showLiveTranscript) private var showLiveTranscript = true
 
-    @State private var activePopover: ActivePopoverState = .none
+    // MARK: - Layout Constants
 
-    // MARK: - Design Constants
-    private let mainContentHeight: CGFloat = 40
-    private let width: CGFloat = 184
-    private let cornerRadius: CGFloat = 20
+    private let controlBarHeight: CGFloat = 40
+    private let compactWidth: CGFloat = 184
+    private let expandedWidth: CGFloat = 300
+    private let assistantWidth: CGFloat = 520
+    private let compactCornerRadius: CGFloat = 20
+    private let expandedCornerRadius: CGFloat = 14
 
-    private var contentLayout: some View {
+    // true when live transcript is streaming in during recording
+    private var hasLiveTranscript: Bool {
+        showLiveTranscript
+            && stateProvider.recordingState == .recording
+            && !stateProvider.partialTranscript.isEmpty
+    }
+
+    private var hasAssistantResponse: Bool {
+        assistantSession.isVisible
+    }
+
+    private var shouldShowCloseButton: Bool {
+        hasAssistantResponse && stateProvider.recordingState == .idle && !assistantSession.isBusy
+    }
+
+    private var liveAssistantFollowUpText: String {
+        guard showLiveTranscript, stateProvider.recordingState == .recording else { return "" }
+        return stateProvider.partialTranscript
+    }
+
+    private var controlBar: some View {
         HStack(spacing: 0) {
-            RecorderPromptButton(
-                activePopover: $activePopover,
-                buttonSize: 22,
-                padding: EdgeInsets()
-            )
-            .padding(.leading, 12)
+            Group {
+                if shouldShowCloseButton {
+                    RecorderCloseButton(action: onCloseTapped)
+                } else {
+                    RecorderRecordButton(
+                        recordingState: stateProvider.recordingState,
+                        action: onRecordButtonTapped
+                    )
+                }
+            }
+            .padding(.leading, 10)
 
             Spacer(minLength: 0)
 
             RecorderStatusDisplay(
-                currentState: whisperState.recordingState,
-                audioMeter: recorder.audioMeter
+                currentState: stateProvider.recordingState,
+                audioMeterProvider: recorder.audioMeterSnapshot
             )
 
             Spacer(minLength: 0)
 
-            RecorderPowerModeButton(
-                activePopover: $activePopover,
+            RecorderModeButton(
                 buttonSize: 22,
                 padding: EdgeInsets()
             )
             .padding(.trailing, 12)
         }
-        .frame(height: mainContentHeight)
+        .frame(height: controlBarHeight)
+    }
+
+    private var transcriptSection: some View {
+        VStack(spacing: 0) {
+            if hasLiveTranscript {
+                LiveTranscriptView(text: stateProvider.partialTranscript)
+                Divider().background(Color.white.opacity(0.15))
+            }
+        }
     }
 
     var body: some View {
-        if windowManager.isVisible {
-            contentLayout
-                .frame(width: width)
-                .background(Color.black)
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        VStack(spacing: 0) {
+            if hasAssistantResponse {
+                AssistantPanelView(
+                    session: assistantSession,
+                    liveFollowUpText: liveAssistantFollowUpText,
+                    onSend: onAssistantFollowUp
+                )
+                Divider().background(Color.white.opacity(0.15))
+            } else {
+                transcriptSection
+            }
+            controlBar
         }
+        .frame(width: hasAssistantResponse ? assistantWidth : (hasLiveTranscript ? expandedWidth : compactWidth))
+        .background(Color.black)
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: hasLiveTranscript || hasAssistantResponse ? expandedCornerRadius : compactCornerRadius,
+                style: .continuous)
+        )
+        .animation(.easeInOut(duration: 0.3), value: hasLiveTranscript)
+        .animation(.easeInOut(duration: 0.3), value: hasAssistantResponse)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
     }
 }

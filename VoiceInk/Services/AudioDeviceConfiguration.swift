@@ -1,14 +1,11 @@
-import Foundation
 import AVFoundation
 import CoreAudio
+import Foundation
 import os
 
 /// Audio device configuration queries (does NOT modify system default device)
 class AudioDeviceConfiguration {
-    private static let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "AudioDeviceConfiguration")
-    
-
-
+    private static let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "AudioDeviceConfiguration")
 
     /// Gets the current system default input device (for reference only)
     static func getDefaultInputDevice() -> AudioDeviceID? {
@@ -29,6 +26,7 @@ class AudioDeviceConfiguration {
         )
         if status != noErr {
             logger.error("Failed to get current default input device: \(status, privacy: .public)")
+            return nil
         }
         return defaultDeviceID
     }
@@ -39,10 +37,10 @@ class AudioDeviceConfiguration {
         queue: OperationQueue = .main
     ) -> NSObjectProtocol {
         return NotificationCenter.default.addObserver(
-            forName: .audioDeviceChanged,
+            forName: NSNotification.Name("AudioDeviceChanged"),
             object: nil,
             queue: queue,
             using: { _ in handler() }
         )
     }
-} 
+}

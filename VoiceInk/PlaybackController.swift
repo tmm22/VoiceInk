@@ -1,8 +1,8 @@
 import AppKit
 import Combine
 import Foundation
-import SwiftUI
 import MediaRemoteAdapter
+import SwiftUI
 
 @MainActor
 class PlaybackController: ObservableObject {
@@ -14,9 +14,9 @@ class PlaybackController: ObservableObject {
     private var originalMediaAppBundleId: String?
     private var resumeTask: Task<Void, Never>?
 
-    @Published var isPauseMediaEnabled: Bool = AppSettings.Audio.isPauseMediaEnabled {
+    @Published var isPauseMediaEnabled: Bool = UserDefaults.standard.bool(forKey: "isPauseMediaEnabled") {
         didSet {
-            AppSettings.Audio.isPauseMediaEnabled = isPauseMediaEnabled
+            UserDefaults.standard.set(isPauseMediaEnabled, forKey: "isPauseMediaEnabled")
 
             if isPauseMediaEnabled {
                 startMediaTracking()
@@ -29,10 +29,6 @@ class PlaybackController: ObservableObject {
     private init() {
         mediaController = MediaRemoteAdapter.MediaController()
 
-        if !AppSettings.contains(key: AppSettings.Keys.isPauseMediaEnabled) {
-            AppSettings.Audio.isPauseMediaEnabled = false
-        }
-
         setupMediaControllerCallbacks()
 
         if isPauseMediaEnabled {
@@ -42,19 +38,11 @@ class PlaybackController: ObservableObject {
 
     private func setupMediaControllerCallbacks() {
         mediaController.onTrackInfoReceived = { [weak self] trackInfo in
-            guard let trackInfo = trackInfo else { return }
-            self?.isMediaPlaying = trackInfo.payload.isPlaying ?? false
+            self?.isMediaPlaying = trackInfo?.payload.isPlaying ?? false
             self?.lastKnownTrackInfo = trackInfo
         }
 
-        mediaController.onListenerTerminated = { }
-    }
-
-    deinit {
-        resumeTask?.cancel()
-        mediaController.stopListening()
-        mediaController.onTrackInfoReceived = nil
-        mediaController.onListenerTerminated = nil
+        mediaController.onListenerTerminated = {}
     }
 
     private func startMediaTracking() {
@@ -77,9 +65,10 @@ class PlaybackController: ObservableObject {
         originalMediaAppBundleId = nil
 
         guard isPauseMediaEnabled,
-              isMediaPlaying,
-              lastKnownTrackInfo?.payload.isPlaying == true,
-              let bundleId = lastKnownTrackInfo?.payload.bundleIdentifier else {
+            isMediaPlaying,
+            lastKnownTrackInfo?.payload.isPlaying == true,
+            let bundleId = lastKnownTrackInfo?.payload.bundleIdentifier
+        else {
             return
         }
 
@@ -87,6 +76,7 @@ class PlaybackController: ObservableObject {
         originalMediaAppBundleId = bundleId
 
         try? await Task.sleep(nanoseconds: 50_000_000)
+        guard !Task.isCancelled else { return }
 
         mediaController.pause()
     }
@@ -102,8 +92,9 @@ class PlaybackController: ObservableObject {
         }
 
         guard isPauseMediaEnabled,
-              shouldResume,
-              let bundleId = originalBundleId else {
+            shouldResume,
+            let bundleId = originalBundleId
+        else {
             return
         }
 
@@ -112,9 +103,10 @@ class PlaybackController: ObservableObject {
         }
 
         guard let currentTrackInfo = lastKnownTrackInfo,
-              let currentBundleId = currentTrackInfo.payload.bundleIdentifier,
-              currentBundleId == bundleId,
-              currentTrackInfo.payload.isPlaying == false else {
+            let currentBundleId = currentTrackInfo.payload.bundleIdentifier,
+            currentBundleId == bundleId,
+            currentTrackInfo.payload.isPlaying == false
+        else {
             return
         }
 
@@ -152,7 +144,6 @@ class PlaybackController: ObservableObject {
             )
             event?.cgEvent?.post(tap: .cghidEventTap)
         }
-
         post(down: true)
         post(down: false)
     }
@@ -160,12 +151,5 @@ class PlaybackController: ObservableObject {
     private func isAppStillRunning(bundleId: String) -> Bool {
         let runningApps = NSWorkspace.shared.runningApplications
         return runningApps.contains { $0.bundleIdentifier == bundleId }
-    }
-}
-
-extension UserDefaults {
-    var isPauseMediaEnabled: Bool {
-        get { AppSettings.Audio.isPauseMediaEnabled }
-        set { AppSettings.Audio.isPauseMediaEnabled = newValue }
     }
 }

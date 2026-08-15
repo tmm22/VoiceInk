@@ -25,7 +25,7 @@ final class RecorderUITests: XCTestCase {
         app.menuItems["Show Recorder"].click()
         
         // Verify recorder appears
-        let recorderWindow = app.windows.containing(.window, identifier: "MiniRecorder").firstMatch
+        _ = app.windows.containing(.window, identifier: "MiniRecorder").firstMatch
         
         // Allow time for animation
         sleep(1)

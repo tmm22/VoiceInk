@@ -1,8 +1,7 @@
-import SwiftUI
-import SwiftData
 import AppKit
+import SwiftData
+import SwiftUI
 
-@MainActor
 class HistoryWindowController: NSObject, NSWindowDelegate {
     static let shared = HistoryWindowController()
 
@@ -14,7 +13,9 @@ class HistoryWindowController: NSObject, NSWindowDelegate {
         super.init()
     }
 
-    func showHistoryWindow(modelContainer: ModelContainer, whisperState: WhisperState) {
+    func showHistoryWindow(modelContainer: ModelContainer, engine: VoiceInkEngine) {
+        AppPresentationPolicy.activateForUserFacingWindow()
+
         if let existingWindow = historyWindow {
             if existingWindow.isMiniaturized {
                 existingWindow.deminiaturize(nil)
@@ -24,43 +25,39 @@ class HistoryWindowController: NSObject, NSWindowDelegate {
             return
         }
 
-        guard let window = createHistoryWindow(modelContainer: modelContainer, whisperState: whisperState) else {
-            AppLogger.ui.error("Unable to open transcription history because the enhancement service is unavailable")
-            return
-        }
+        let window = createHistoryWindow(modelContainer: modelContainer, engine: engine)
         historyWindow = window
         window.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
-    private func createHistoryWindow(modelContainer: ModelContainer, whisperState: WhisperState) -> NSWindow? {
-        guard let enhancementService = whisperState.enhancementService else { return nil }
-
+    private func createHistoryWindow(modelContainer: ModelContainer, engine: VoiceInkEngine) -> NSWindow {
         let historyView = TranscriptionHistoryView()
             .modelContainer(modelContainer)
-            .environmentObject(whisperState)
-            .environmentObject(enhancementService)
-            .frame(minWidth: 1000, minHeight: 700)
+            .environmentObject(engine)
+            .environmentObject(engine.enhancementService!)
+            .frame(minWidth: 1150, minHeight: 700)
 
         let hostingController = NSHostingController(rootView: historyView)
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1100, height: 750),
+            contentRect: NSRect(x: 0, y: 0, width: 1250, height: 750),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
 
         window.contentViewController = hostingController
-        window.title = "VoiceInk — Transcription History"
+        window.title = String(localized: "History")
         window.identifier = windowIdentifier
         window.delegate = self
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .visible
-        window.backgroundColor = NSColor.windowBackgroundColor
+        window.backgroundColor = .clear
+        window.isOpaque = false
         window.isReleasedWhenClosed = false
         window.collectionBehavior = [.fullScreenPrimary]
-        window.minSize = NSSize(width: 1000, height: 700)
+        window.minSize = NSSize(width: 1150, height: 700)
 
         window.setFrameAutosaveName(windowAutosaveName)
         if !window.setFrameUsingName(windowAutosaveName) {
@@ -74,14 +71,16 @@ class HistoryWindowController: NSObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow,
-              window.identifier == windowIdentifier else { return }
+            window.identifier == windowIdentifier
+        else { return }
 
         historyWindow = nil
     }
 
     func windowDidBecomeKey(_ notification: Notification) {
         guard let window = notification.object as? NSWindow,
-              window.identifier == windowIdentifier else { return }
-        NSApplication.shared.activate(ignoringOtherApps: true)
+            window.identifier == windowIdentifier
+        else { return }
+        AppPresentationPolicy.activateForUserFacingWindow()
     }
 }

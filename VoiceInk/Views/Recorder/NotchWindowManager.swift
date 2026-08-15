@@ -1,97 +1,64 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 @MainActor
-class NotchWindowManager: ObservableObject {
-    @Published var isVisible = false
+class NotchWindowManager {
     private var windowController: NSWindowController?
-     var notchPanel: NotchRecorderPanel?
-    private let whisperState: WhisperState
-    private let recorder: Recorder
+    private var panel: NotchRecorderPanel?
 
-    init(whisperState: WhisperState, recorder: Recorder) {
-        self.whisperState = whisperState
-        self.recorder = recorder
+    private let makeView: () -> AnyView
 
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleHideNotification),
-            name: .hideNotchRecorder,
-            object: nil
-        )
-    }
-
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-
-    @objc private func handleHideNotification() {
-        hide()
+    init(
+        engine: VoiceInkEngine,
+        recorder: Recorder,
+        assistantSession: AssistantSession,
+        onRecordButtonTapped: @escaping () -> Void,
+        onCloseTapped: @escaping () -> Void,
+        onAssistantFollowUp: @escaping (String) -> Void
+    ) {
+        self.makeView = {
+            AnyView(
+                NotchRecorderView(
+                    stateProvider: engine,
+                    recorder: recorder,
+                    assistantSession: assistantSession,
+                    onRecordButtonTapped: onRecordButtonTapped,
+                    onCloseTapped: onCloseTapped,
+                    onAssistantFollowUp: onAssistantFollowUp
+                )
+            )
+        }
     }
 
     func show() {
-        if isVisible { return }
-
-        guard let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens.first else {
-            AppLogger.ui.error("Unable to show notch recorder because no display is available")
-            return
-        }
-        if notchPanel == nil || screenIdentifier(for: notchPanel?.screen) != screenIdentifier(for: activeScreen) {
-            guard initializeWindow(screen: activeScreen) else { return }
-        }
-        self.isVisible = true
-        notchPanel?.show()
+        if panel == nil { initializeWindow() }
+        panel?.show()
     }
 
     func hide() {
-        guard isVisible else { return }
-
-        self.isVisible = false
-        notchPanel?.orderOut(nil)
+        panel?.orderOut(nil)
     }
 
-    @discardableResult
-    private func initializeWindow(screen: NSScreen) -> Bool {
-        guard let enhancementService = whisperState.enhancementService else {
-            AppLogger.ui.error("Unable to initialize notch recorder because the enhancement service is unavailable")
-            return false
-        }
-
+    func destroyWindow() {
         deinitializeWindow()
+    }
 
+    private func initializeWindow() {
+        deinitializeWindow()
         let metrics = NotchRecorderPanel.calculateWindowMetrics()
-        let panel = NotchRecorderPanel(contentRect: metrics.frame)
-
-        let notchRecorderView = NotchRecorderView(whisperState: whisperState, recorder: recorder)
-            .environmentObject(self)
-            .environmentObject(enhancementService)
-
-        let hostingController = NotchRecorderHostingController(rootView: notchRecorderView)
-        panel.contentView = hostingController.view
-
-        self.notchPanel = panel
-        self.windowController = NSWindowController(window: panel)
-
-        panel.orderFrontRegardless()
-        return true
+        let newPanel = NotchRecorderPanel(contentRect: metrics.frame)
+        let view = makeView()
+        let hostingController = NotchRecorderHostingController(rootView: view)
+        newPanel.contentView = hostingController.view
+        panel = newPanel
+        windowController = NSWindowController(window: newPanel)
     }
 
     private func deinitializeWindow() {
-        notchPanel?.orderOut(nil)
+        panel?.orderOut(nil)
         windowController?.close()
         windowController = nil
-        notchPanel = nil
+        panel = nil
     }
 
-    private func screenIdentifier(for screen: NSScreen?) -> NSNumber? {
-        screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
-    }
-
-    func toggle() {
-        if isVisible {
-            hide()
-        } else {
-            show()
-        }
-    }
 }

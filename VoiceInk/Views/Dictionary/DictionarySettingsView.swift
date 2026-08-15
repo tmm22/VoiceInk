@@ -1,164 +1,192 @@
 import SwiftUI
-import SwiftData
 
 struct DictionarySettingsView: View {
-    @Environment(\.modelContext) private var modelContext
-    @State private var selectedSection: DictionarySection = .quickRules
-    let whisperPrompt: WhisperPrompt
-    
-    enum DictionarySection: String, CaseIterable {
-        case quickRules = "Quick Rules"
+    @State private var selectedSection: DictionarySection = .replacements
+    @State private var isShowingSettings = false
+    private let dictionaryInfoMessage: LocalizedStringKey =
+        "Word Replacements run after transcription. Vocabulary is used with AI enhancement to better understand names, technical terms, and unique spellings in your transcript."
+
+    enum DictionarySection: String, CaseIterable, Hashable {
         case replacements = "Word Replacements"
         case spellings = "Vocabulary"
-        
+        case quickRules = "Quick Rules"
+
         var description: String {
             switch self {
-            case .quickRules:
-                return "Apply preset correction rules to clean up transcribed text"
             case .spellings:
-                return "Add words to help \(AppBrand.communityName) recognize them properly"
+                return String(
+                    localized:
+                        "Vocabulary is used only with AI enhancement to preserve important names, technical terms, and unique spellings in the final output."
+                )
             case .replacements:
-                return "Automatically replace specific words/phrases with custom formatted text "
+                return String(
+                    localized:
+                        "Word Replacements run after transcription to replace misheard words, phrases, abbreviations, or boilerplate text."
+                )
+            case .quickRules:
+                return String(localized: "Quick Rules apply configurable cleanup patterns after transcription.")
             }
         }
-        
-        var icon: String {
+
+        var systemImage: String {
             switch self {
+            case .spellings:
+                return "character.book.closed"
+            case .replacements:
+                return "arrow.left.arrow.right"
             case .quickRules:
                 return "wand.and.stars"
-            case .spellings:
-                return "character.book.closed.fill"
-            case .replacements:
-                return "arrow.2.squarepath"
             }
         }
     }
-    
+
     var body: some View {
-        VStack(spacing: VoiceInkSpacing.xl) {
-            sectionSelector
-            
+        VStack(spacing: 0) {
+            headerSection
+
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 18) {
+                    sectionSelector
+                    selectedSectionForm
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 18)
+                .padding(.bottom, 28)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(minWidth: 600, minHeight: 500)
+        .sidePanel(isPresented: $isShowingSettings) {
+            DictionarySettingsPanel {
+                isShowingSettings = false
+            }
+        }
+    }
+
+    private var headerSection: some View {
+        AppScreenHeader(title: "Dictionary", infoMessage: dictionaryInfoMessage) {
+            settingsButton
+        }
+    }
+
+    private var settingsButton: some View {
+        AppIconButton(
+            systemName: "gearshape.fill",
+            help: "Dictionary Settings"
+        ) {
+            isShowingSettings.toggle()
+        }
+    }
+
+    private var sectionSelector: some View {
+        DictionarySectionSwitcher(selection: $selectedSection)
+    }
+
+    private var selectedSectionForm: some View {
+        DictionaryGroupedSection {
             selectedSectionContent
         }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
-    
-    private var sectionSelector: some View {
-        VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
-            HStack {
-                Text("Select Section")
-                    .voiceInkHeadline()
 
-                Spacer()
-
-                HStack(spacing: VoiceInkSpacing.sm) {
-                    Button(action: {
-                        DictionaryImportExportService.shared.importDictionary(into: modelContext)
-                    }) {
-                        Image(systemName: "square.and.arrow.down")
-                            .font(.system(size: 16))
-                            .foregroundColor(VoiceInkTheme.Palette.accent)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Import vocabulary and word replacements")
-
-                    Button(action: {
-                        DictionaryImportExportService.shared.exportDictionary(from: modelContext)
-                    }) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 16))
-                            .foregroundColor(VoiceInkTheme.Palette.accent)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Export vocabulary and word replacements")
-                }
-            }
-
-            HStack(spacing: VoiceInkSpacing.md) {
-                ForEach(DictionarySection.allCases, id: \.self) { section in
-                    SectionCard(
-                        section: section,
-                        isSelected: selectedSection == section,
-                        action: { selectedSection = section }
-                    )
-                }
-            }
-        }
-    }
-    
+    @ViewBuilder
     private var selectedSectionContent: some View {
-        VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
-            switch selectedSection {
-            case .quickRules:
-                QuickRulesView()
-                    .padding(VoiceInkSpacing.md)
-                    .background(
-                        RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                            .fill(VoiceInkTheme.Card.background)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                                    .stroke(VoiceInkTheme.Card.stroke, lineWidth: 1)
-                            )
-                    )
-            case .spellings:
-                DictionaryView(whisperPrompt: whisperPrompt)
-                    .padding(VoiceInkSpacing.md)
-                    .background(
-                        RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                            .fill(VoiceInkTheme.Card.background)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                                    .stroke(VoiceInkTheme.Card.stroke, lineWidth: 1)
-                            )
-                    )
-            case .replacements:
-                WordReplacementView()
-                    .padding(VoiceInkSpacing.md)
-                    .background(
-                        RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                            .fill(VoiceInkTheme.Card.background)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                                    .stroke(VoiceInkTheme.Card.stroke, lineWidth: 1)
-                            )
-                    )
-            }
+        switch selectedSection {
+        case .spellings:
+            VocabularyView()
+        case .replacements:
+            WordReplacementView()
+        case .quickRules:
+            QuickRulesView()
         }
     }
 }
 
-struct SectionCard: View {
+private struct DictionaryGroupedSection<Content: View>: View {
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            content()
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(sectionBackground)
+        .overlay(sectionBorder)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var sectionBackground: some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(AppTheme.Surface.card)
+    }
+
+    private var sectionBorder: some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .stroke(AppTheme.Border.control.opacity(0.16), lineWidth: 1)
+    }
+}
+
+private struct DictionarySectionSwitcher: View {
+    @Binding var selection: DictionarySettingsView.DictionarySection
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(DictionarySettingsView.DictionarySection.allCases, id: \.self) { section in
+                DictionarySectionButton(
+                    section: section,
+                    isSelected: selection == section
+                ) {
+                    withAnimation(.easeInOut(duration: 0.16)) {
+                        selection = section
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct DictionarySectionButton: View {
     let section: DictionarySettingsView.DictionarySection
     let isSelected: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: VoiceInkSpacing.sm) {
-                Image(systemName: section.icon)
-                    .font(.system(size: 28))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(isSelected ? VoiceInkTheme.Palette.accent : .secondary)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(section.rawValue)
-                        .voiceInkHeadline()
-                    
-                    Text(section.description)
-                        .voiceInkCaptionStyle()
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(VoiceInkSpacing.md)
-            .background(
-                RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                    .fill(VoiceInkTheme.Card.background)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: VoiceInkRadius.medium)
-                            .stroke(isSelected ? VoiceInkTheme.Card.selectedStroke : VoiceInkTheme.Card.stroke, lineWidth: 1)
-                    )
+            DictionarySectionButtonLabel(
+                title: LocalizedStringKey(section.rawValue),
+                icon: section.systemImage,
+                isSelected: isSelected
             )
         }
         .buttonStyle(.plain)
+        .help(section.description)
     }
-} 
+}
+
+private struct DictionarySectionButtonLabel: View {
+    let title: LocalizedStringKey
+    let icon: String
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+
+            Text(title)
+                .font(.system(size: 14, weight: isSelected ? .semibold : .medium))
+        }
+        .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(
+            AppCardBackground(isSelected: isSelected, cornerRadius: 22)
+        )
+        .contentShape(Rectangle())
+    }
+}

@@ -1,204 +1,360 @@
-import SwiftUI
+import Carbon.HIToolbox
 import Cocoa
-import KeyboardShortcuts
-import LaunchAtLogin
-import AVFoundation
-
-// MARK: - Settings View
-
-/// Main settings view for the application.
-/// Component views are organized in extension files:
-/// - SettingsView+Types.swift - SearchableSetting, SettingsTab enum, Text extension
-/// - SettingsView+General.swift - General settings tab
-/// - SettingsView+Audio.swift - Audio settings tab
-/// - SettingsView+Transcription.swift - Transcription settings tab
-/// - SettingsView+Shortcuts.swift - Shortcuts settings tab
-/// - SettingsView+Data.swift - Data settings tab
-/// - SettingsView+Navigation.swift - SettingsNavigationRail, SettingsRailItem
-///
-/// Upstream changes are integrated selectively in this fork while preserving the
-/// existing category-based Settings structure. The current settings layout and
-/// organization should remain unchanged unless this project explicitly chooses
-/// to redesign it.
+import SwiftUI
 
 struct SettingsView: View {
-    // Environment objects - internal access for extension files
-    @EnvironmentObject var updaterViewModel: UpdaterViewModel
-    @EnvironmentObject var menuBarManager: MenuBarManager
-    @EnvironmentObject var hotkeyManager: HotkeyManager
-    @EnvironmentObject var whisperState: WhisperState
-    @EnvironmentObject var enhancementService: AIEnhancementService
-    @StateObject var deviceManager = AudioDeviceManager.shared
-    @ObservedObject var soundManager = SoundManager.shared
-    @ObservedObject var mediaController = MediaController.shared
-    @ObservedObject var playbackController = PlaybackController.shared
-    @AppStorage("hasCompletedOnboarding") var hasCompletedOnboarding = true
-    @AppStorage("autoUpdateCheck") var autoUpdateCheck = true
-    @AppStorage("enableAnnouncements") var enableAnnouncements = true
-    @State var showResetOnboardingAlert = false
-    @State var currentShortcut = KeyboardShortcuts.getShortcut(for: .toggleMiniRecorder)
-    @State var isCustomCancelEnabled = false
-    @State var isCustomSoundsExpanded = false
-    @State var selectedTab: SettingsTab = .general
-    @State var showTrashView = false
-    @State var trashItemCount: Int = 0
-    @State var showLicenseSheet = false
-    @State var showDictionarySheet = false
-    @State var searchText: String = ""
-    
-    // Store the passed tab to detect changes from parent
-    private let requestedTab: SettingsTab
-    
-    // Searchable settings definitions
-    var searchableSettings: [SearchableSetting] {
-        var settings = [
-            // General
-            SearchableSetting(tab: .general, section: "App Behavior", keywords: ["dock", "icon", "menu bar", "launch", "login", "startup", "update", "automatic", "announcements", "onboarding", "reset"]),
-            SearchableSetting(tab: .general, section: "Community & License", keywords: ["license", "community", "edition", "open source", "privacy"]),
-            SearchableSetting(tab: .general, section: "Diagnostics", keywords: ["diagnostics", "troubleshooting", "logs", "support"]),
-            
-            // Audio
-            SearchableSetting(tab: .audio, section: "Audio Input", keywords: ["microphone", "mic", "input", "device", "audio input"]),
-            SearchableSetting(tab: .audio, section: "Audio Feedback", keywords: ["sound", "feedback", "volume", "recording sound", "beep", "notification"]),
-            SearchableSetting(tab: .audio, section: "Recording Behavior", keywords: ["mute", "system audio", "recording", "behavior"]),
-            
-            // Transcription
-            SearchableSetting(tab: .transcription, section: "Dictionary", keywords: ["dictionary", "words", "phrases", "quick rules", "replacement", "spelling", "custom words"]),
-            SearchableSetting(tab: .transcription, section: "Clipboard & Paste", keywords: ["clipboard", "paste", "copy", "transcript", "applescript"]),
-            SearchableSetting(tab: .transcription, section: "Recorder Style", keywords: ["recorder", "style", "notch", "mini", "interface"]),
-            SearchableSetting(tab: .transcription, section: "Power Mode", keywords: ["power mode", "context", "app", "browser", "url", "automatic"]),
-            SearchableSetting(tab: .transcription, section: "Experimental", keywords: ["experimental", "beta", "features"]),
-            
-            // Shortcuts
-            SearchableSetting(tab: .shortcuts, section: "VoiceInk Shortcuts", keywords: ["hotkey", "shortcut", "keyboard", "trigger", "option", "command", "push to talk", "hands-free"]),
-            SearchableSetting(tab: .shortcuts, section: "Other App Shortcuts", keywords: ["paste last", "transcript", "enhanced", "retry", "cancel", "middle click", "mouse"]),
-            
-            // AI
-            SearchableSetting(tab: .enhancement, section: "AI Enhancement", keywords: ["ai", "enhancement", "llm", "openai", "anthropic", "google", "ollama", "local", "model", "token", "prompt", "persona"]),
-            SearchableSetting(tab: .enhancement, section: "Cloud Sync", keywords: ["icloud", "sync", "cloud", "backup", "restore", "devices"]),
-            
-            // Data
-            SearchableSetting(tab: .data, section: "Trash", keywords: ["trash", "deleted", "recover", "restore", "transcriptions"]),
-            SearchableSetting(tab: .data, section: "Data & Privacy", keywords: ["privacy", "data", "cleanup", "storage", "history", "delete"]),
-            SearchableSetting(tab: .data, section: "Data Management", keywords: ["import", "export", "backup", "settings", "prompts", "preferences"]),
-            
-            // Permissions
-            SearchableSetting(tab: .permissions, section: "Permissions", keywords: ["permissions", "accessibility", "microphone", "access", "privacy", "security"]),
-        ]
-        
-        #if DEBUG
-        settings.append(SearchableSetting(tab: .general, section: "Performance Metrics", keywords: ["performance", "metrics", "metrickit", "cpu", "memory", "hang", "debug", "monitoring"]))
-        #endif
-        
-        return settings
-    }
-    
-    func matchesSearch(_ setting: SearchableSetting) -> Bool {
-        guard !searchText.isEmpty else { return true }
-        let query = searchText.lowercased()
-        return setting.section.lowercased().contains(query) ||
-               setting.keywords.contains { $0.lowercased().contains(query) }
-    }
-    
-    func tabHasMatches(_ tab: SettingsTab) -> Bool {
-        guard !searchText.isEmpty else { return true }
-        return searchableSettings.filter { $0.tab == tab }.contains { matchesSearch($0) }
-    }
-    
-    func sectionMatches(_ sectionTitle: String, in tab: SettingsTab) -> Bool {
-        guard !searchText.isEmpty else { return true }
-        return searchableSettings.first { $0.tab == tab && $0.section == sectionTitle }.map { matchesSearch($0) } ?? false
-    }
+    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var updaterViewModel: UpdaterViewModel
+    @EnvironmentObject private var menuBarManager: MenuBarManager
+    @EnvironmentObject private var recordingShortcutManager: RecordingShortcutManager
+    @EnvironmentObject private var recorderUIManager: RecorderUIManager
+    @EnvironmentObject private var transcriptionModelManager: TranscriptionModelManager
+    @EnvironmentObject private var enhancementService: AIEnhancementService
+    @ObservedObject private var launchAtLoginManager = LaunchAtLoginManager.shared
+    @ObservedObject private var mediaController = MediaController.shared
+    @ObservedObject private var playbackController = PlaybackController.shared
+    @AppStorage("hasCompletedOnboardingV2") private var hasCompletedOnboardingV2 = true
+    @AppStorage("enableAnnouncements") private var enableAnnouncements = true
+    @AppStorage("restoreClipboardAfterPaste") private var restoreClipboardAfterPaste = true
+    @AppStorage("clipboardRestoreDelay") private var clipboardRestoreDelay = 2.0
+    @AppStorage(PasteMethod.userDefaultsKey) private var pasteMethodRawValue = PasteMethod.standard.rawValue
+    @AppStorage(AppAppearancePreference.userDefaultsKey) private var appAppearancePreference = AppAppearancePreference
+        .system
+    @AppStorage(AppLanguagePreference.userDefaultsKey) private var appLanguagePreference = AppLanguagePreference
+        .systemValue
+    @AppStorage(RecorderDisplaySettingsKeys.showLiveTranscript) private var showLiveTranscript = true
+    @State private var showResetOnboardingAlert = false
+    @State private var showLanguageRestartAlert = false
+    @State private var hasCancelRecordingShortcut = ShortcutStore.shortcut(for: .cancelRecorder) != nil
+    @State private var cancelRecordingShortcutRecorderResetID = 0
 
-    init(selectedTab: SettingsTab = .general) {
-        self.requestedTab = selectedTab
-        _selectedTab = State(initialValue: selectedTab)
-    }
+    @State private var isMiddleClickExpanded = false
+    @State private var isRestoreClipboardExpanded = false
 
     var body: some View {
-        HStack(spacing: 0) {
-            // Navigation Rail
-            SettingsNavigationRail(
-                tabs: SettingsTab.allCases,
-                selectedTab: $selectedTab,
-                searchText: $searchText,
-                tabHasMatches: tabHasMatches,
-                onSelect: { tab in
-                    selectedTab = tab
+        Form {
+            Section {
+                LabeledContent("Primary Shortcut") {
+                    HStack(spacing: 8) {
+                        Spacer()
+                        shortcutModePicker(binding: $recordingShortcutManager.primaryRecordingShortcutMode)
+                        ShortcutRecorder(action: .primaryRecording) {
+                            recordingShortcutManager.primaryRecordingShortcut = .custom
+                            recordingShortcutManager.updateShortcutStatus()
+                        }
+                        .controlSize(.small)
+                    }
                 }
-            )
-            .frame(width: 220)
-            .background(VoiceInkTheme.Palette.surface)
-            .overlay(
-                Rectangle()
-                    .frame(width: 1)
-                    .foregroundColor(VoiceInkTheme.Palette.outline),
-                alignment: .trailing
-            )
-            
-            // Main Content Area
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: VoiceInkSpacing.lg) {
-                    Text(selectedTab.rawValue)
-                        .font(.system(size: 24, weight: .bold))
-                        .padding(.bottom, VoiceInkSpacing.sm)
-                    
-                    settingsContent(for: selectedTab)
+
+                if recordingShortcutManager.secondaryRecordingShortcut != .none {
+                    LabeledContent("Secondary Shortcut") {
+                        HStack(spacing: 8) {
+                            Spacer()
+                            shortcutModePicker(binding: $recordingShortcutManager.secondaryRecordingShortcutMode)
+                            ShortcutRecorder(action: .secondaryRecording) {
+                                recordingShortcutManager.secondaryRecordingShortcut = .custom
+                                recordingShortcutManager.updateShortcutStatus()
+                            }
+                            .controlSize(.small)
+                            Button {
+                                withAnimation { recordingShortcutManager.secondaryRecordingShortcut = .none }
+                            } label: {
+                                Image(systemName: "minus.circle.fill")
+                                    .foregroundColor(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
                 }
-                .padding(VoiceInkSpacing.xl)
-                .frame(maxWidth: 800, alignment: .leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
+
+                if recordingShortcutManager.secondaryRecordingShortcut == .none {
+                    Button("Add Second Shortcut") {
+                        withAnimation { recordingShortcutManager.secondaryRecordingShortcut = .custom }
+                    }
+                }
+            } header: {
+                Text("Shortcuts")
             }
-            .background(VoiceInkTheme.Palette.canvas)
+
+            Section("Additional Shortcuts") {
+                LabeledContent("Paste Last Transcription (Original)") {
+                    ShortcutRecorder(action: .pasteLastTranscription) {
+                        recordingShortcutManager.updateShortcutStatus()
+                    }
+                    .controlSize(.small)
+                }
+
+                LabeledContent("Paste Last Transcription (Enhanced)") {
+                    ShortcutRecorder(action: .pasteLastEnhancement) {
+                        recordingShortcutManager.updateShortcutStatus()
+                    }
+                    .controlSize(.small)
+                }
+
+                LabeledContent("Retry Last Transcription") {
+                    ShortcutRecorder(action: .retryLastTranscription) {
+                        recordingShortcutManager.updateShortcutStatus()
+                    }
+                    .controlSize(.small)
+                }
+
+                LabeledContent("Cancel Recording") {
+                    HStack(spacing: 8) {
+                        ShortcutRecorder(
+                            action: .cancelRecorder,
+                            defaultShortcut: Self.defaultCancelRecordingShortcut
+                        ) {
+                            hasCancelRecordingShortcut = true
+                        }
+                        .id(cancelRecordingShortcutRecorderResetID)
+                        .controlSize(.small)
+
+                        Button {
+                            ShortcutStore.setShortcut(nil, for: .cancelRecorder)
+                            hasCancelRecordingShortcut = false
+                            cancelRecordingShortcutRecorderResetID += 1
+                        } label: {
+                            Image(systemName: "arrow.counterclockwise")
+                        }
+                        .buttonStyle(.plain)
+                        .help("Reset to default")
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: ShortcutStore.shortcutDidChange)) { notification in
+                    guard let action = notification.object as? ShortcutAction, action == .cancelRecorder else { return }
+                    hasCancelRecordingShortcut = ShortcutStore.shortcut(for: .cancelRecorder) != nil
+                }
+
+                ExpandableSettingsRow(
+                    isExpanded: $isMiddleClickExpanded,
+                    isEnabled: $recordingShortcutManager.isMiddleClickToggleEnabled,
+                    label: "Middle-Click Recording"
+                ) {
+                    LabeledContent("Activation Delay") {
+                        HStack {
+                            TextField(
+                                "", value: $recordingShortcutManager.middleClickActivationDelay,
+                                formatter: {
+                                    let formatter = NumberFormatter()
+                                    formatter.minimum = 0
+                                    return formatter
+                                }()
+                            )
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 60)
+                            Text("ms")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            }
+
+            Section("Pasting") {
+                ExpandableSettingsRow(
+                    isExpanded: $isRestoreClipboardExpanded,
+                    isEnabled: $restoreClipboardAfterPaste,
+                    label: "Keep Clipboard Content",
+                    infoMessage:
+                        "VoiceInk temporarily uses the clipboard to paste transcription. When enabled, it restores your previous clipboard content after the selected delay. When disabled, the pasted transcription stays on your clipboard."
+                ) {
+                    Picker("Restore Delay", selection: $clipboardRestoreDelay) {
+                        Text("250ms").tag(0.25)
+                        Text("500ms").tag(0.5)
+                        Text("1s").tag(1.0)
+                        Text("2s").tag(2.0)
+                        Text("3s").tag(3.0)
+                        Text("4s").tag(4.0)
+                        Text("5s").tag(5.0)
+                    }
+                }
+
+                Picker(selection: $pasteMethodRawValue) {
+                    ForEach(PasteMethod.allCases) { method in
+                        Text(method.displayName).tag(method.rawValue)
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("Paste Method")
+                        InfoTip(
+                            "Default uses simulated Cmd+V key events. AppleScript can help when custom keyboard layouts do not paste correctly."
+                        )
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: pasteMethodRawValue) { _, newValue in
+                    guard let method = PasteMethod(rawValue: newValue) else {
+                        pasteMethodRawValue = PasteMethod.standard.rawValue
+                        return
+                    }
+                    PasteMethod.setCurrent(method)
+                }
+            }
+
+            Section("Interface") {
+                Picker("Appearance", selection: $appAppearancePreference) {
+                    ForEach(AppAppearancePreference.allCases) { preference in
+                        Text(preference.displayName).tag(preference)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: appAppearancePreference) { _, newValue in
+                    newValue.apply()
+                }
+
+                Picker("Language", selection: $appLanguagePreference) {
+                    ForEach(AppLanguagePreference.availableOptions) { option in
+                        Text(option.displayName).tag(option.id)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: appLanguagePreference) { oldValue, newValue in
+                    guard oldValue != newValue else { return }
+                    let normalizedValue = AppLanguagePreference.normalizedRawValue(newValue)
+                    if normalizedValue != newValue {
+                        appLanguagePreference = normalizedValue
+                        return
+                    }
+                    AppLanguagePreference.apply(rawValue: normalizedValue)
+                    showLanguageRestartAlert = true
+                }
+
+                Picker("Recorder Style", selection: $recorderUIManager.recorderPanelStyle) {
+                    ForEach(RecorderPanelStyle.allCases) { style in
+                        Text(style.displayName).tag(style)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                Toggle(isOn: $showLiveTranscript) {
+                    HStack(spacing: 4) {
+                        Text("Live Text Display")
+                        InfoTip("Shows live text while recording with realtime models.")
+                    }
+                }
+            }
+
+            Section("General") {
+                Toggle("Hide Dock Icon", isOn: $menuBarManager.isMenuBarOnly)
+
+                Toggle(
+                    String(localized: "Launch at Login"),
+                    isOn: Binding(
+                        get: { launchAtLoginManager.isEnabled },
+                        set: { launchAtLoginManager.setEnabled($0) }
+                    )
+                )
+                .disabled(launchAtLoginManager.isUpdating)
+
+                Toggle(
+                    "Automatically Check for Updates",
+                    isOn: Binding(
+                        get: { updaterViewModel.checksForUpdatesWhenDashboardAppears },
+                        set: { updaterViewModel.setChecksForUpdatesWhenDashboardAppears($0) }
+                    ))
+
+                Toggle("Show Announcements", isOn: $enableAnnouncements)
+                    .onChange(of: enableAnnouncements) { _, newValue in
+                        if newValue {
+                            AnnouncementsService.shared.start()
+                        } else {
+                            AnnouncementsService.shared.stop()
+                        }
+                    }
+
+                HStack {
+                    Button("Check for Updates") {
+                        updaterViewModel.checkForUpdates()
+                    }
+                    .disabled(!updaterViewModel.canCheckForUpdates)
+
+                    Button("Reset Onboarding") {
+                        showResetOnboardingAlert = true
+                    }
+                }
+            }
+
+            Section {
+                LabeledContent("Export Settings") {
+                    Button("Export") {
+                        Task {
+                            await ImportExportService.shared.exportSettings(
+                                enhancementService: enhancementService,
+                                recordingShortcutManager: recordingShortcutManager,
+                                menuBarManager: menuBarManager,
+                                mediaController: mediaController,
+                                playbackController: playbackController,
+                                recorderUIManager: recorderUIManager,
+                                modelContext: modelContext
+                            )
+                        }
+                    }
+                }
+
+                LabeledContent("Import Settings") {
+                    Button("Import") {
+                        ImportExportService.shared.importSettings(
+                            enhancementService: enhancementService,
+                            recordingShortcutManager: recordingShortcutManager,
+                            menuBarManager: menuBarManager,
+                            mediaController: mediaController,
+                            playbackController: playbackController,
+                            recorderUIManager: recorderUIManager,
+                            modelContext: modelContext,
+                            transcriptionModelManager: transcriptionModelManager
+                        )
+                    }
+                }
+            } header: {
+                Text("Backup")
+            } footer: {
+                Text("Export all settings, or choose specific categories when importing a backup.")
+            }
+
+            Section("Diagnostics") {
+                DiagnosticsSettingsView()
+            }
         }
-        .navigationTitle("Settings")
-        .onChange(of: requestedTab) { _, newTab in
-            selectedTab = newTab
-        }
-        .onAppear {
-            isCustomCancelEnabled = KeyboardShortcuts.getShortcut(for: .cancelRecorder) != nil
-        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
         .alert("Reset Onboarding", isPresented: $showResetOnboardingAlert) {
-            Button("Cancel", role: .cancel) { }
+            Button("Cancel", role: .cancel) {}
             Button("Reset", role: .destructive) {
                 DispatchQueue.main.async {
-                    hasCompletedOnboarding = false
+                    hasCompletedOnboardingV2 = false
                 }
             }
         } message: {
-            Text("Are you sure you want to reset the onboarding? You'll see the introduction screens again the next time you launch the app.")
+            Text("You'll see the introduction screens again the next time you launch the app.")
         }
-        .sheet(isPresented: $showTrashView) {
-            TrashView(modelContext: whisperState.modelContext)
-                .onDisappear {
-                    updateTrashCount()
-                }
-        }
-        .sheet(isPresented: $showLicenseSheet) {
-            LicenseManagementView()
-                .frame(minWidth: 600, minHeight: 500)
-        }
-        .sheet(isPresented: $showDictionarySheet) {
-            DictionarySettingsView(whisperPrompt: whisperState.whisperPrompt)
-                .frame(minWidth: 700, minHeight: 500)
-                .padding()
+        .alert("Restart VoiceInk to Apply Language", isPresented: $showLanguageRestartAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Your language change will take full effect after you quit and reopen VoiceInk.")
         }
     }
-    
-    func updateTrashCount() {
-        trashItemCount = TrashCleanupService.shared.getTrashCount(modelContext: whisperState.modelContext)
-    }
-    
+
+    private static let defaultCancelRecordingShortcut = Shortcut.key(
+        keyCode: UInt16(kVK_Escape),
+        modifierFlags: []
+    )
+
     @ViewBuilder
-    private func settingsContent(for tab: SettingsTab) -> some View {
-        switch tab {
-        case .general: generalSettings
-        case .audio: audioSettings
-        case .transcription: transcriptionSettings
-        case .shortcuts: shortcutsSettings
-        case .enhancement: EnhancementSettingsView()
-        case .data: dataSettings
-        case .permissions: PermissionsView().voiceInkSectionPadding()
+    private func shortcutModePicker(binding: Binding<RecordingShortcutManager.Mode>) -> some View {
+        Picker("", selection: binding) {
+            ForEach(RecordingShortcutManager.Mode.allCases, id: \.self) { mode in
+                Text(mode.displayName).tag(mode)
+            }
         }
+        .labelsHidden()
+        .fixedSize()
+    }
+}
+
+extension Text {
+    func settingsDescription() -> some View {
+        self
+            .font(.system(size: 12))
+            .foregroundColor(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

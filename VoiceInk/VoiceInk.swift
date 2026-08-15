@@ -1,28 +1,31 @@
-import SwiftUI
-import SwiftData
-import Sparkle
-import AppKit
-import OSLog
 import AppIntents
+import AppKit
 import FluidAudio
-import Security
+import OSLog
+import SwiftData
+import SwiftUI
 
 @main
 struct VoiceInkApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     let container: ModelContainer
-    let containerInitializationFailed: Bool
-    
-    @StateObject private var whisperState: WhisperState
-    @StateObject private var hotkeyManager: HotkeyManager
+
+    @StateObject private var engine: VoiceInkEngine
+    @StateObject private var whisperModelManager: WhisperModelManager
+    @StateObject private var fluidAudioModelManager: FluidAudioModelManager
+    @StateObject private var transcriptionModelManager: TranscriptionModelManager
+    @StateObject private var recorderUIManager: RecorderUIManager
+    @StateObject private var recordingShortcutManager: RecordingShortcutManager
     @StateObject private var updaterViewModel: UpdaterViewModel
     @StateObject private var menuBarManager: MenuBarManager
+    @StateObject private var mainWindowNavigation = MainWindowNavigation.shared
     @StateObject private var aiService = AIService()
     @StateObject private var enhancementService: AIEnhancementService
     @StateObject private var activeWindowService = ActiveWindowService.shared
-    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage("hasCompletedOnboardingV2") private var hasCompletedOnboardingV2 = false
     @AppStorage("enableAnnouncements") private var enableAnnouncements = true
     @State private var showMenuBarIcon = true
+    @State private var didShowLaunchReminders = false
 
     // Audio cleanup manager for automatic deletion of old audio files
     private let audioCleanupManager = AudioCleanupManager.shared
@@ -32,457 +35,466 @@ struct VoiceInkApp: App {
 
     // Model prewarm service for optimizing model on wake from sleep
     @StateObject private var prewarmService: ModelPrewarmService
-    
-    // MetricKit manager for DEBUG performance monitoring
-    #if DEBUG
-    @available(macOS 12.0, *)
-    private var metricsManager: MetricsManager { MetricsManager.shared }
-    #endif
-    
+
     init() {
-        // Disable shared HTTP response caching so API responses are not persisted to Cache.db.
+        // Disable HTTP response caching — prevents API responses from being stored in Cache.db
         URLCache.shared = URLCache(memoryCapacity: 0, diskCapacity: 0)
 
         AppDefaults.registerDefaults()
-
-        // Migrate API keys from UserDefaults to Keychain (runs once on first launch after update)
-        APIKeyMigrationService.migrateAPIKeysIfNeeded()
-        
-        if !AppSettings.contains(key: AppSettings.Keys.powerModeUIFlag) {
-            let hasEnabledPowerModes = PowerModeManager.shared.configurations.contains { $0.isEnabled }
-            AppSettings.General.powerModeUIFlag = hasEnabledPowerModes
-        }
+        AppLanguagePreference.applyStored()
+        AppAppearancePreference.applyStored()
+        OnboardingV2Migration.prepareIfNeeded()
 
         let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "Initialization")
+        // Keep existing model order stable; append new models after synced entities.
         let schema = Schema([
             Transcription.self,
             VocabularyWord.self,
-            WordReplacement.self
+            WordReplacement.self,
+            SessionMetric.self,
         ])
-        var initializationFailed = false
-        
-        // Attempt 1: Try persistent storage
-        if let persistentContainer = Self.createPersistentContainer(schema: schema, logger: logger) {
-            container = persistentContainer
-        }
-        // Attempt 2: Try in-memory storage
-        else if let memoryContainer = Self.createInMemoryContainer(schema: schema, logger: logger) {
-            container = memoryContainer
+        let resolvedContainer: ModelContainer
 
-            logger.warning("Using in-memory storage as fallback. Data will not persist between sessions.")
+        // Tests must never open a user's persistent or CloudKit-backed stores.
+        if AppRuntimeEnvironment.isRunningTests {
+            do {
+                resolvedContainer = try Self.createInMemoryContainer(schema: schema, logger: logger)
+            } catch {
+                fatalError("VoiceInk failed to initialize isolated test storage: \(error)")
+            }
+        } else {
+            // Attempt 1: Try persistent storage
+            do {
+                resolvedContainer = try Self.createPersistentContainer(schema: schema, logger: logger)
+            } catch let persistentError {
+            // Attempt 2: Try in-memory storage
+                do {
+                    resolvedContainer = try Self.createInMemoryContainer(schema: schema, logger: logger)
+                    logger.warning("Using in-memory storage as fallback. Data will not persist between sessions.")
 
-            // Show alert to user about storage issue
-            Task { @MainActor in
-                let alert = NSAlert()
-                alert.messageText = "Storage Warning"
-                alert.informativeText = "VoiceInk couldn't access its storage location. Your transcriptions will not be saved between sessions."
-                alert.alertStyle = .warning
-                alert.addButton(withTitle: "OK")
-                alert.runModal()
+                    DispatchQueue.main.async {
+                        let alert = NSAlert()
+                        alert.messageText = String(localized: "Storage Warning")
+                        alert.informativeText = String(
+                            localized:
+                                "VoiceInk couldn't access its storage location. Your transcriptions will not be saved between sessions."
+                        )
+                        alert.alertStyle = .warning
+                        alert.addButton(withTitle: String(localized: "OK"))
+                        alert.runModal()
+                    }
+                } catch let memoryError {
+                    let persistentDetail = Self.fullErrorDescription(persistentError)
+                    let memoryDetail = Self.fullErrorDescription(memoryError)
+                    logger.critical(
+                        "❌ All ModelContainer init attempts failed.\nPersistent:\n\(persistentDetail, privacy: .public)\nIn-memory:\n\(memoryDetail, privacy: .public)"
+                    )
+                    fatalError(
+                        "VoiceInk failed to initialize storage.\nPersistent:\n\(persistentDetail)\nIn-memory:\n\(memoryDetail)"
+                    )
+                }
             }
         }
-        // All attempts failed
-        else {
-            logger.critical("ModelContainer initialization failed")
-            initializationFailed = true
 
-            // Create minimal in-memory container to satisfy initialization
-            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-            container = (try? ModelContainer(for: schema, configurations: [config])) ?? {
-                preconditionFailure("Unable to create ModelContainer. SwiftData is unavailable.")
-            }()
-        }
-        
-        containerInitializationFailed = initializationFailed
-        
+        container = resolvedContainer
+        DictionaryService.removeExactDuplicateContent(context: resolvedContainer.mainContext, source: "launch")
+
         // Initialize services with proper sharing of instances
         let aiService = AIService()
         _aiService = StateObject(wrappedValue: aiService)
-        
-        let updaterViewModel = UpdaterViewModel()
-        _updaterViewModel = StateObject(wrappedValue: updaterViewModel)
-        
-        if AppSettings.General.enableAIEnhancementFeatures == nil {
-            AppSettings.General.enableAIEnhancementFeatures = true
-            logger.info("Defaulted AI enhancement feature visibility to enabled for first launch")
+        if !AppRuntimeEnvironment.isRunningTests {
+            aiService.refreshOllamaAvailabilityInBackground()
         }
 
-        let enhancementService = AIEnhancementService(aiService: aiService, modelContext: container.mainContext)
+        let updaterViewModel = UpdaterViewModel()
+        _updaterViewModel = StateObject(wrappedValue: updaterViewModel)
+
+        let enhancementService = AIEnhancementService(aiService: aiService, modelContext: resolvedContainer.mainContext)
         _enhancementService = StateObject(wrappedValue: enhancementService)
-        if AppSettings.General.enableAIEnhancementFeatures == false {
-            enhancementService.isEnhancementEnabled = false
-        }
-        
-        let whisperState = WhisperState(modelContext: container.mainContext, enhancementService: enhancementService)
-        _whisperState = StateObject(wrappedValue: whisperState)
-        
-        let hotkeyManager = HotkeyManager(whisperState: whisperState)
-        _hotkeyManager = StateObject(wrappedValue: hotkeyManager)
+
+        // 1. Create modelsDirectory URL
+        let appSupportDirectory = AppBrand.applicationSupportDirectory()
+        let modelsDirectory = appSupportDirectory.appendingPathComponent("WhisperModels")
+
+        // 2. Create model managers
+        let whisperModelManager = WhisperModelManager(modelsDirectory: modelsDirectory)
+        let fluidAudioModelManager = FluidAudioModelManager()
+        let transcriptionModelManager = TranscriptionModelManager(
+            whisperModelManager: whisperModelManager,
+            fluidAudioModelManager: fluidAudioModelManager
+        )
+
+        // 3. Create UI manager
+        let recorderUIManager = RecorderUIManager()
+
+        // 4. Create engine
+        let engine = VoiceInkEngine(
+            modelContext: resolvedContainer.mainContext,
+            whisperModelManager: whisperModelManager,
+            transcriptionModelManager: transcriptionModelManager,
+            enhancementService: enhancementService
+        )
+
+        // 5. Configure circular deps
+        recorderUIManager.configure(engine: engine, recorder: engine.recorder)
+        engine.recorderUIManager = recorderUIManager
+
+        // 6. Initialize model state
+        // Migration and refreshAllAvailableModels must run before loadCurrentTranscriptionModel so renamed keys are remapped and imported models are present when restoring the saved selection.
+        StreamingKeysMigration.run()
+        whisperModelManager.createModelsDirectoryIfNeeded()
+        whisperModelManager.loadAvailableModels()
+        transcriptionModelManager.refreshAllAvailableModels()
+        transcriptionModelManager.loadCurrentTranscriptionModel()
+
+        _whisperModelManager = StateObject(wrappedValue: whisperModelManager)
+        _fluidAudioModelManager = StateObject(wrappedValue: fluidAudioModelManager)
+        _transcriptionModelManager = StateObject(wrappedValue: transcriptionModelManager)
+        _recorderUIManager = StateObject(wrappedValue: recorderUIManager)
+        _engine = StateObject(wrappedValue: engine)
+
+        // 7. Create other services that depend on engine
+        let recordingShortcutManager = RecordingShortcutManager(engine: engine, recorderUIManager: recorderUIManager)
+        _recordingShortcutManager = StateObject(wrappedValue: recordingShortcutManager)
 
         let menuBarManager = MenuBarManager()
         _menuBarManager = StateObject(wrappedValue: menuBarManager)
-        menuBarManager.configure(modelContainer: container, whisperState: whisperState)
+        menuBarManager.configure(modelContainer: resolvedContainer, engine: engine)
 
         let activeWindowService = ActiveWindowService.shared
-        activeWindowService.configure(with: enhancementService)
-        activeWindowService.configureWhisperState(whisperState)
         _activeWindowService = StateObject(wrappedValue: activeWindowService)
 
-        
-        let prewarmService = ModelPrewarmService(whisperState: whisperState, modelContext: container.mainContext)
+        let prewarmService = ModelPrewarmService(
+            transcriptionModelManager: transcriptionModelManager,
+            whisperModelManager: whisperModelManager,
+            modelContext: resolvedContainer.mainContext
+        )
         _prewarmService = StateObject(wrappedValue: prewarmService)
 
         appDelegate.menuBarManager = menuBarManager
 
         // Ensure no lingering recording state from previous runs
         Task {
-            await whisperState.resetOnLaunch()
+            await recorderUIManager.resetOnLaunch()
         }
 
-        AppShortcuts.updateAppShortcutParameters()
+        if !AppRuntimeEnvironment.isRunningTests {
+            AppShortcuts.updateAppShortcutParameters()
+        }
+
+        let statsMigrationTask = SessionMetricMigrationService.shared.runStatsMigrationIfNeeded(
+            modelContainer: resolvedContainer)
+        let mainContext = resolvedContainer.mainContext
+        Task { @MainActor in
+            await statsMigrationTask?.value
+            TranscriptionAutoCleanupService.shared.startMonitoring(modelContext: mainContext)
+
+            let tokenBackfillTask = SessionMetricMigrationService.shared.runEnhancementTokenBackfillIfNeeded(
+                modelContainer: resolvedContainer)
+            await tokenBackfillTask?.value
+        }
     }
-    
+
     // MARK: - Container Creation Helpers
-    
-    private static let dictionaryCloudKitContainerIdentifier = "iCloud.com.prakashjoshipax.VoiceInk"
-    
-    private static func shouldUseDictionaryCloudKit(logger: Logger) -> Bool {
-        if ProcessInfo.processInfo.environment["VOICEINK_DISABLE_DICTIONARY_CLOUDKIT"] == "1" {
-            logger.notice("Dictionary CloudKit sync disabled by VOICEINK_DISABLE_DICTIONARY_CLOUDKIT")
-            return false
+
+    private static func fullErrorDescription(_ error: Error, depth: Int = 0) -> String {
+        let ns = error as NSError
+        let indent = String(repeating: "  ", count: depth)
+        var lines: [String] = []
+        lines.append("\(indent)[\(ns.domain) \(ns.code)] \(ns.localizedDescription)")
+        for (key, value) in ns.userInfo {
+            let keyStr = "\(key)"
+            if keyStr == NSUnderlyingErrorKey || keyStr == "NSDetailedErrors" { continue }
+            lines.append("\(indent)  \(keyStr): \(value)")
         }
-        
-        guard hasICloudContainerEntitlement(dictionaryCloudKitContainerIdentifier) else {
-            logger.notice("Dictionary CloudKit sync disabled: missing iCloud container entitlement")
-            return false
+        if let underlying = ns.userInfo[NSUnderlyingErrorKey] as? Error {
+            lines.append("\(indent)  Underlying:")
+            lines.append(fullErrorDescription(underlying, depth: depth + 2))
         }
-        
-        guard FileManager.default.ubiquityIdentityToken != nil else {
-            logger.notice("Dictionary CloudKit sync disabled: iCloud account unavailable")
-            return false
-        }
-        
-        return true
-    }
-    
-    private static func hasICloudContainerEntitlement(_ containerIdentifier: String) -> Bool {
-        guard let task = SecTaskCreateFromSelf(nil),
-              let raw = SecTaskCopyValueForEntitlement(
-                task,
-                "com.apple.developer.icloud-container-identifiers" as CFString,
-                nil
-              ) else {
-            return false
-        }
-        
-        if let identifiers = raw as? [String] {
-            return identifiers.contains(containerIdentifier)
-        }
-        
-        if let identifiers = raw as? [Any] {
-            return identifiers.compactMap { $0 as? String }.contains(containerIdentifier)
-        }
-        
-        return false
-    }
-    
-    private static func createPersistentContainer(schema: Schema, logger: Logger) -> ModelContainer? {
-        do {
-            // Use bundle identifier for app-specific storage directory
-            let bundleID = Bundle.main.bundleIdentifier ?? "com.tmm22.VoiceLinkCommunity"
-            let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent(bundleID, isDirectory: true)
-            
-            // Create the directory if it doesn't exist
-            try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
-
-            // Define storage locations
-            let defaultStoreURL = appSupportURL.appendingPathComponent("default.store")
-            let dictionaryStoreURL = appSupportURL.appendingPathComponent("dictionary.store")
-
-            // Transcript configuration
-            let transcriptSchema = Schema([Transcription.self])
-            let transcriptConfig = ModelConfiguration(
-                "default",
-                schema: transcriptSchema,
-                url: defaultStoreURL,
-                cloudKitDatabase: .none
-            )
-
-            // Dictionary configuration (CloudKit is enabled only when runtime supports it)
-            let dictionarySchema = Schema([VocabularyWord.self, WordReplacement.self])
-            let dictionaryCloudKitDatabase: ModelConfiguration.CloudKitDatabase =
-                shouldUseDictionaryCloudKit(logger: logger)
-                ? .private(dictionaryCloudKitContainerIdentifier)
-                : .none
-            let dictionaryConfig = ModelConfiguration(
-                "dictionary",
-                schema: dictionarySchema,
-                url: dictionaryStoreURL,
-                cloudKitDatabase: dictionaryCloudKitDatabase
-            )
-
-            // Initialize container
-            return try ModelContainer(
-                for: schema,
-                configurations: transcriptConfig, dictionaryConfig
-            )
-        } catch {
-            logger.error("Failed to create persistent ModelContainer: \(AppLogger.errorMetadata(error), privacy: .public)")
-            return nil
-        }
-    }
-    
-    private static func createInMemoryContainer(schema: Schema, logger: Logger) -> ModelContainer? {
-        do {
-            // Transcript configuration
-            let transcriptSchema = Schema([Transcription.self])
-            let transcriptConfig = ModelConfiguration(
-                "default",
-                schema: transcriptSchema,
-                isStoredInMemoryOnly: true
-            )
-
-            // Dictionary configuration
-            let dictionarySchema = Schema([VocabularyWord.self, WordReplacement.self])
-            let dictionaryConfig = ModelConfiguration(
-                "dictionary",
-                schema: dictionarySchema,
-                isStoredInMemoryOnly: true
-            )
-
-            return try ModelContainer(for: schema, configurations: transcriptConfig, dictionaryConfig)
-        } catch {
-            logger.error("Failed to create in-memory ModelContainer: \(AppLogger.errorMetadata(error), privacy: .public)")
-            return nil
-        }
-    }
-    
-    var body: some Scene {
-        WindowGroup {
-            if hasCompletedOnboarding {
-                ContentView()
-                    .environmentObject(whisperState)
-                    .environmentObject(hotkeyManager)
-                    .environmentObject(updaterViewModel)
-                    .environmentObject(menuBarManager)
-                    .environmentObject(aiService)
-                    .environmentObject(enhancementService)
-                    .modelContainer(container)
-                    .onAppear {
-                        // Check if container initialization failed
-                        if containerInitializationFailed {
-                            let alert = NSAlert()
-                            alert.messageText = "Critical Storage Error"
-                            alert.informativeText = "VoiceInk cannot initialize its storage system. The app cannot continue.\n\nPlease try reinstalling the app or contact support if the issue persists."
-                            alert.alertStyle = .critical
-                            alert.addButton(withTitle: "Quit")
-                            alert.runModal()
-
-                            NSApplication.shared.terminate(nil)
-                            return
-                        }
-
-                        // Migrate dictionary data from UserDefaults to SwiftData (one-time operation)
-                        DictionaryMigrationService.shared.migrateIfNeeded(context: container.mainContext)
-
-                        updaterViewModel.silentlyCheckForUpdates()
-                        if enableAnnouncements {
-                            AnnouncementsService.shared.start()
-                        }
-                        
-                        // Start the transcription auto-cleanup service (handles immediate and scheduled transcript deletion)
-                        transcriptionAutoCleanupService.startMonitoring(modelContext: container.mainContext)
-                        
-                        // Clean up expired trash items (items deleted more than 30 days ago)
-                        Task {
-                            await TrashCleanupService.shared.cleanupExpiredTrashItems(modelContext: container.mainContext)
-                        }
-                        
-                        // Start the automatic audio cleanup process only if transcript cleanup is not enabled
-                        if !AppSettings.Cleanup.isTranscriptionCleanupEnabled {
-                            audioCleanupManager.startAutomaticCleanup(modelContext: container.mainContext)
-                        }
-                        
-                        // Process any pending open-file request now that the main ContentView is ready.
-                        if let pendingURL = appDelegate.pendingOpenFileURL {
-                            NotificationCenter.default.post(name: .navigateToDestination, object: nil, userInfo: ["destination": "Transcribe Audio"])
-                            Task { @MainActor in
-                                try? await Task.sleep(nanoseconds: 300_000_000)
-                                NotificationCenter.default.post(name: .openFileForTranscription, object: nil, userInfo: ["url": pendingURL])
-                            }
-                            appDelegate.pendingOpenFileURL = nil
-                        }
-                        
-                        // Register MetricKit for DEBUG performance monitoring
-                        #if DEBUG
-                        if #available(macOS 12.0, *) {
-                            metricsManager.register()
-                        }
-                        #endif
-                    }
-                    .background(WindowAccessor { window in
-                        WindowManager.shared.configureWindow(window)
-                    })
-                    .onDisappear {
-                        AnnouncementsService.shared.stop()
-                        whisperState.unloadModel()
-                        
-                        // Stop the transcription auto-cleanup service
-                        transcriptionAutoCleanupService.stopMonitoring()
-                        
-                        // Stop the automatic audio cleanup process
-                        audioCleanupManager.stopAutomaticCleanup()
-                        
-                        // Unregister MetricKit
-                        #if DEBUG
-                        if #available(macOS 12.0, *) {
-                            metricsManager.unregister()
-                        }
-                        #endif
-                    }
-            } else {
-                OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
-                    .environmentObject(hotkeyManager)
-                    .environmentObject(whisperState)
-                    .environmentObject(aiService)
-                    .environmentObject(enhancementService)
-                    .frame(minWidth: 880, minHeight: 780)
-                    .background(WindowAccessor { window in
-                        if window.identifier == nil || window.identifier != NSUserInterfaceItemIdentifier("com.prakashjoshipax.voiceink.onboardingWindow") {
-                            WindowManager.shared.configureOnboardingPanel(window)
-                        }
-                    })
+        if let details = ns.userInfo["NSDetailedErrors"] as? [Error] {
+            lines.append("\(indent)  DetailedErrors (\(details.count)):")
+            for (i, detail) in details.enumerated() {
+                lines.append("\(indent)    [\(i)]:")
+                lines.append(fullErrorDescription(detail, depth: depth + 3))
             }
         }
+        return lines.joined(separator: "\n")
+    }
+
+    private static func createPersistentContainer(schema: Schema, logger: Logger) throws -> ModelContainer {
+        let appSupportURL = AppBrand.applicationSupportDirectory()
+
+        try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
+
+        let defaultStoreURL = appSupportURL.appendingPathComponent("default.store")
+        let dictionaryStoreURL = appSupportURL.appendingPathComponent("dictionary.store")
+        let statsStoreURL = appSupportURL.appendingPathComponent("stats.store")
+
+        let transcriptSchema = Schema([Transcription.self])
+        let transcriptConfig = ModelConfiguration(
+            "default",
+            schema: transcriptSchema,
+            url: defaultStoreURL,
+            cloudKitDatabase: .none
+        )
+
+        let dictionarySchema = Schema([VocabularyWord.self, WordReplacement.self])
+        #if LOCAL_BUILD
+            let dictionaryCloudKit: ModelConfiguration.CloudKitDatabase = .none
+        #else
+            let dictionaryCloudKit: ModelConfiguration.CloudKitDatabase = .private(
+                "iCloud.com.prakashjoshipax.VoiceInk")
+        #endif
+        let dictionaryConfig = ModelConfiguration(
+            "dictionary",
+            schema: dictionarySchema,
+            url: dictionaryStoreURL,
+            cloudKitDatabase: dictionaryCloudKit
+        )
+
+        let statsSchema = Schema([SessionMetric.self])
+        let statsConfig = ModelConfiguration(
+            "stats",
+            schema: statsSchema,
+            url: statsStoreURL,
+            cloudKitDatabase: .none
+        )
+
+        do {
+            return try ModelContainer(for: schema, configurations: transcriptConfig, dictionaryConfig, statsConfig)
+        } catch {
+            logger.error(
+                "❌ Failed to create persistent ModelContainer:\n\(Self.fullErrorDescription(error), privacy: .public)")
+            throw error
+        }
+    }
+
+    private static func createInMemoryContainer(schema: Schema, logger: Logger) throws -> ModelContainer {
+        let transcriptSchema = Schema([Transcription.self])
+        let transcriptConfig = ModelConfiguration("default", schema: transcriptSchema, isStoredInMemoryOnly: true)
+
+        let dictionarySchema = Schema([VocabularyWord.self, WordReplacement.self])
+        let dictionaryConfig = ModelConfiguration("dictionary", schema: dictionarySchema, isStoredInMemoryOnly: true)
+
+        let statsSchema = Schema([SessionMetric.self])
+        let statsConfig = ModelConfiguration("stats", schema: statsSchema, isStoredInMemoryOnly: true)
+
+        do {
+            return try ModelContainer(for: schema, configurations: transcriptConfig, dictionaryConfig, statsConfig)
+        } catch {
+            logger.error(
+                "❌ Failed to create in-memory ModelContainer:\n\(Self.fullErrorDescription(error), privacy: .public)")
+            throw error
+        }
+    }
+
+    var body: some Scene {
+        Window("VoiceInk", id: AppWindowID.main) {
+            Group {
+                if hasCompletedOnboardingV2 {
+                    ContentView()
+                        .environmentObject(engine)
+                        .environmentObject(whisperModelManager)
+                        .environmentObject(fluidAudioModelManager)
+                        .environmentObject(transcriptionModelManager)
+                        .environmentObject(recorderUIManager)
+                        .environmentObject(recordingShortcutManager)
+                        .environmentObject(updaterViewModel)
+                        .environmentObject(menuBarManager)
+                        .environmentObject(mainWindowNavigation)
+                        .environmentObject(aiService)
+                        .environmentObject(enhancementService)
+                        .modelContainer(container)
+                        .onAppear {
+                            if enableAnnouncements {
+                                AnnouncementsService.shared.start()
+                            }
+
+                            showLaunchRemindersIfNeeded()
+
+                            GitHubStarPromptCoordinator.shared.scheduleIfNeeded(modelContainer: container)
+
+                            // Run due audio-only cleanup and schedule future checks when transcript cleanup is not managing retention.
+                            if !UserDefaults.standard.bool(forKey: CleanupSettingsKeys.isTranscriptionCleanupEnabled)
+                                && UserDefaults.standard.bool(forKey: CleanupSettingsKeys.isAudioCleanupEnabled)
+                            {
+                                Task {
+                                    await audioCleanupManager.runAutomaticCleanupIfNeeded(
+                                        modelContext: container.mainContext)
+                                }
+                                audioCleanupManager.startAutomaticCleanup(modelContext: container.mainContext)
+                            }
+
+                            // Process any pending open-file request now that the main ContentView is ready.
+                            if let pendingURL = appDelegate.pendingOpenFileURL {
+                                NotificationCenter.default.post(
+                                    name: .navigateToDestination, object: nil,
+                                    userInfo: ["destination": "Transcribe Audio"])
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                    NotificationCenter.default.post(
+                                        name: .openFileForTranscription, object: nil, userInfo: ["url": pendingURL])
+                                }
+                                appDelegate.pendingOpenFileURL = nil
+                            }
+                        }
+                        .background(
+                            WindowAccessor { window in
+                                WindowManager.shared.configureWindow(window)
+                            }
+                        )
+                        .onDisappear {
+                            AnnouncementsService.shared.stop()
+                            whisperModelManager.unloadModel()
+
+                            // Stop the automatic audio cleanup process
+                            audioCleanupManager.stopAutomaticCleanup()
+                        }
+                } else {
+                    OnboardingView(hasCompletedOnboardingV2: $hasCompletedOnboardingV2)
+                        .environmentObject(fluidAudioModelManager)
+                        .environmentObject(transcriptionModelManager)
+                        .environmentObject(aiService)
+                        .environmentObject(enhancementService)
+                        .frame(width: AppWindowLayout.width)
+                        .frame(minHeight: AppWindowLayout.minimumHeight)
+                        .background(
+                            WindowAccessor { window in
+                                WindowManager.shared.configureWindow(window)
+                            })
+                }
+            }
+            .confettiCelebrationPresenter()
+        }
         .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 1200, height: 780)
-        .windowResizability(.contentMinSize)
+        .defaultSize(width: AppWindowLayout.width, height: AppWindowLayout.minimumHeight)
+        .windowResizability(.contentSize)
         .commands {
-            CommandGroup(replacing: .newItem) { }
+            CommandGroup(replacing: .newItem) {}
 
             CommandGroup(after: .appInfo) {
                 CheckForUpdatesView(updaterViewModel: updaterViewModel)
             }
-            
-            CommandGroup(after: .help) {
-                Button("Keyboard Shortcuts") {
-                    NotificationCenter.default.post(name: .showShortcutCheatSheet, object: nil)
-                }
-                .keyboardShortcut("/", modifiers: [.command, .shift])
-            }
         }
-        
+
         MenuBarExtra(isInserted: $showMenuBarIcon) {
             MenuBarView()
-                .environmentObject(whisperState)
-                .environmentObject(hotkeyManager)
+                .environmentObject(engine)
+                .environmentObject(whisperModelManager)
+                .environmentObject(fluidAudioModelManager)
+                .environmentObject(transcriptionModelManager)
+                .environmentObject(recorderUIManager)
+                .environmentObject(recordingShortcutManager)
                 .environmentObject(menuBarManager)
+                .environmentObject(mainWindowNavigation)
                 .environmentObject(updaterViewModel)
                 .environmentObject(aiService)
                 .environmentObject(enhancementService)
         } label: {
             let image: NSImage = {
-                if let img = NSImage(named: "menuBarIcon") {
-                    let ratio = img.size.height / img.size.width
-                    img.size.height = 22
-                    img.size.width = 22 / ratio
-                    return img
-                } else {
-                    // Fallback system image if custom asset is missing
-                    let fallback = NSImage(systemSymbolName: "mic.fill", accessibilityDescription: "VoiceInk") ?? NSImage()
-                    fallback.size = NSSize(width: 18, height: 22)
-                    return fallback
-                }
-            }()
+                let ratio = $0.size.height / $0.size.width
+                $0.size.height = 22
+                $0.size.width = 22 / ratio
+                return $0
+            }(NSImage(named: "menuBarIcon")!)
 
             Image(nsImage: image)
-                .accessibilityLabel(AppBrand.communityName)
+                .background(MainWindowRequestBridge(menuBarManager: menuBarManager))
         }
         .menuBarExtraStyle(.menu)
-        
+
         #if DEBUG
-        WindowGroup("Debug") {
-            Button("Toggle Menu Bar Only") {
-                menuBarManager.isMenuBarOnly.toggle()
+            WindowGroup("Debug") {
+                Button("Toggle Menu Bar Only") {
+                    menuBarManager.isMenuBarOnly.toggle()
+                }
             }
-        }
         #endif
     }
-}
 
-@MainActor
-class UpdaterViewModel: ObservableObject {
-    @AppStorage("autoUpdateCheck") private var autoUpdateCheck = true
-    
-    private let updaterController: SPUStandardUpdaterController?
-    
-    @Published var canCheckForUpdates = false
-    
-    init() {
-        guard AppBrand.supportsInAppUpdates else {
-            updaterController = nil
-            canCheckForUpdates = true
+    /// Only one notification fits on screen, so show at most one launch reminder.
+    private func showLaunchRemindersIfNeeded() {
+        guard !didShowLaunchReminders else { return }
+        didShowLaunchReminders = true
+
+        if !AXIsProcessTrusted() {
+            NotificationManager.shared.showNotification(
+                title: String(localized: "Accessibility permission is not provided"),
+                type: .warning,
+                duration: 7.0,
+                actionButton: (String(localized: "Open Settings"), Self.openAccessibilitySettings)
+            )
             return
         }
 
-        let controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
-        updaterController = controller
-        
-        // Enable automatic update checking
-        controller.updater.automaticallyChecksForUpdates = autoUpdateCheck
-        controller.updater.updateCheckInterval = 24 * 60 * 60
-        
-        controller.updater.publisher(for: \.canCheckForUpdates)
-            .assign(to: &$canCheckForUpdates)
-    }
-    
-    func toggleAutoUpdates(_ value: Bool) {
-        guard let updaterController else { return }
-        updaterController.updater.automaticallyChecksForUpdates = value
-    }
-    
-    func checkForUpdates() {
-        guard let updaterController else {
-            if let url = AppBrand.releasesURL {
-                NSWorkspace.shared.open(url)
-            }
-            return
+        if !ModeManager.shared.hasEnabledConfiguration {
+            NotificationManager.shared.showNotification(
+                title: String(localized: "No mode configured"),
+                type: .warning,
+                duration: 7.0,
+                actionButton: (String(localized: "Manage Modes"), ModeSetupNavigator.openModesSettings)
+            )
         }
-
-        // This is for manual checks - will show UI
-        updaterController.checkForUpdates(nil)
     }
-    
-    func silentlyCheckForUpdates() {
-        guard let updaterController else { return }
 
-        // This checks for updates in the background without showing UI unless an update is found
-        updaterController.updater.checkForUpdatesInBackground()
+    private static func openAccessibilitySettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
     }
 }
 
-struct CheckForUpdatesView: View {
-    @ObservedObject var updaterViewModel: UpdaterViewModel
-    
+private struct MainWindowRequestBridge: View {
+    @Environment(\.openWindow) private var openWindow
+    let menuBarManager: MenuBarManager
+
     var body: some View {
-        Button("Check for Updates…", action: updaterViewModel.checkForUpdates)
-            .disabled(!updaterViewModel.canCheckForUpdates)
+        Color.clear
+            .frame(width: 0, height: 0)
+            .onReceive(NotificationCenter.default.publisher(for: .showMainWindowRequested)) { _ in
+                let existingWindow = WindowManager.shared.currentMainWindow()
+
+                if existingWindow == nil {
+                    menuBarManager.activateForPresentedWindow()
+                    WindowManager.shared.prepareForUserRequestedMainWindow()
+                    openWindow(id: AppWindowID.main)
+                } else {
+                    menuBarManager.activateForPresentedWindow()
+                    openWindow(id: AppWindowID.main)
+                    WindowManager.shared.showMainWindow()
+                }
+            }
     }
 }
 
 struct WindowAccessor: NSViewRepresentable {
     let callback: (NSWindow) -> Void
-    
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
-        Task { @MainActor in
-            if let window = view.window {
+        notifyWindowIfNeeded(for: view, context: context)
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        notifyWindowIfNeeded(for: nsView, context: context)
+    }
+
+    private func notifyWindowIfNeeded(for view: NSView, context: Context) {
+        DispatchQueue.main.async {
+            if let window = view.window,
+                context.coordinator.window !== window
+            {
+                context.coordinator.window = window
                 callback(window)
             }
         }
-        return view
     }
-    
-    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    final class Coordinator {
+        weak var window: NSWindow?
+    }
 }

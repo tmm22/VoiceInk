@@ -30,16 +30,20 @@ playground.xcworkspace
 # .swiftpm
 
 .build/
-
-# Build Artifacts
-DerivedData/
-Release/
-
-# Temporary Documentation Archive
-docs/archive/
 build/
+.local-build/
+.local-dependencies/
 DerivedData/
 Release/
+release-artifacts/
+docs/archive/
+*.profraw
+/TestResults
+/TestResults.xcresult
+TestResults*
+*.log
+Screenshot*.png
+Packages/SelectedTextKit/Package.resolved
 
 # CocoaPods
 #
@@ -107,19 +111,4 @@ Icon
 .AppleDesktop
 Network Trash Folder
 Temporary Items
-.apdisk 
-# Xcode DerivedData
-DerivedData/
-.local-build/
-
-# Release builds
-Release/
-release-artifacts/
-
-# Test Results
-TestResults*
-
-# Local build logs and screenshots
-*.log
-build*.log
-Screenshot*.png
+.apdisk

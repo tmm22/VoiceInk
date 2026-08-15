@@ -18,9 +18,9 @@ extension XCTestCase {
         line: UInt = #line,
         operation: () throws -> Void
     ) {
-        weak var weakInstance = instance
+        weak let weakInstance = instance
         
-        addTeardownBlock { [weak self] in
+        addTeardownBlock {
             XCTAssertNil(
                 weakInstance,
                 "Memory leak detected: Instance was not deallocated",
@@ -43,9 +43,9 @@ extension XCTestCase {
         line: UInt = #line,
         operation: () async throws -> Void
     ) async {
-        weak var weakInstance = instance
+        weak let weakInstance = instance
         
-        addTeardownBlock { [weak self] in
+        addTeardownBlock {
             XCTAssertNil(
                 weakInstance,
                 "Memory leak detected: Instance was not deallocated",

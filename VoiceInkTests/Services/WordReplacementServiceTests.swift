@@ -1,53 +1,60 @@
+import SwiftData
 import XCTest
 @testable import VoiceInk
 
 @available(macOS 14.0, *)
 @MainActor
 final class WordReplacementServiceTests: XCTestCase {
-    private var originalQuickRulesEnabled = false
-    private var originalWordReplacements: [String: String] = [:]
+    private var container: ModelContainer!
+    private var context: ModelContext!
 
-    override func setUp() async throws {
-        try await super.setUp()
-        originalQuickRulesEnabled = AppSettings.QuickRules.isEnabled
-        originalWordReplacements = AppSettings.Dictionary.wordReplacements
-        AppSettings.QuickRules.isEnabled = false
-        AppSettings.Dictionary.wordReplacements = [:]
+    override func setUpWithError() throws {
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        container = try ModelContainer(for: WordReplacement.self, configurations: configuration)
+        context = container.mainContext
     }
 
-    override func tearDown() async throws {
-        AppSettings.Dictionary.wordReplacements = originalWordReplacements
-        AppSettings.QuickRules.isEnabled = originalQuickRulesEnabled
-        try await super.tearDown()
+    override func tearDown() {
+        context = nil
+        container = nil
+        super.tearDown()
     }
 
-    func testPunctuationHeavyTermsUseBoundaries() {
-        AppSettings.Dictionary.wordReplacements = [
-            "C++": "Cpp"
-        ]
+    func testPunctuationHeavyTermsUseBoundaries() throws {
+        try insert(original: "C++", replacement: "Cpp")
 
-        let result = WordReplacementService.shared.applyReplacements(to: "C++ works; C++17 does not.")
+        let result = WordReplacementService.shared.applyReplacements(
+            to: "C++ works; C++17 does not.",
+            using: context
+        )
 
         XCTAssertEqual(result, "Cpp works; C++17 does not.")
     }
 
-    func testCommaSeparatedVariantsPreferLongestMatch() {
-        AppSettings.Dictionary.wordReplacements = [
-            "new, new york": "NY"
-        ]
+    func testCommaSeparatedVariantsPreferLongestMatch() throws {
+        try insert(original: "new, new york", replacement: "NY")
 
-        let result = WordReplacementService.shared.applyReplacements(to: "new york and new")
+        let result = WordReplacementService.shared.applyReplacements(
+            to: "new york and new",
+            using: context
+        )
 
         XCTAssertEqual(result, "NY and NY")
     }
 
-    func testStandaloneWordsDoNotReplaceInsideAlphanumericText() {
-        AppSettings.Dictionary.wordReplacements = [
-            "app": "application"
-        ]
+    func testStandaloneWordsDoNotReplaceInsideAlphanumericText() throws {
+        try insert(original: "app", replacement: "application")
 
-        let result = WordReplacementService.shared.applyReplacements(to: "happy app app2 2app app.")
+        let result = WordReplacementService.shared.applyReplacements(
+            to: "happy app app2 2app app.",
+            using: context
+        )
 
         XCTAssertEqual(result, "happy application app2 2app application.")
+    }
+
+    private func insert(original: String, replacement: String) throws {
+        context.insert(WordReplacement(originalText: original, replacementText: replacement))
+        try context.save()
     }
 }

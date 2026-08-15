@@ -32,6 +32,11 @@ let package = Package(
         .target(
             name: "SelectedTextKitExample",
             dependencies: ["SelectedTextKit"],
-            path: "SelectedTextKitExample"),
+            path: "SelectedTextKitExample",
+            exclude: [
+                "Assets.xcassets",
+                "Preview Content",
+                "SelectedTextKitExample.entitlements",
+            ]),
     ]
 )

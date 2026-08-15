@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 // Edit existing word replacement entry
 struct EditReplacementSheet: View {
@@ -24,7 +24,7 @@ struct EditReplacementSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider()
+                .overlay(Divider().opacity(0.5), alignment: .bottom)
             formContent
         }
         .frame(width: 460, height: 560)
@@ -57,7 +57,7 @@ struct EditReplacementSheet: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 12)
-        .background(CardBackground(isSelected: false))
+        .background(AppCardBackground(isSelected: false, cornerRadius: 16))
     }
 
     private var formContent: some View {
@@ -92,7 +92,7 @@ struct EditReplacementSheet: View {
                 }
                 TextField("Enter word or phrase to replace (use commas for multiple)", text: $originalWord)
                     .textFieldStyle(.roundedBorder)
-                
+
             }
             .padding(.horizontal)
 
@@ -113,7 +113,7 @@ struct EditReplacementSheet: View {
                     .cornerRadius(6)
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
-                            .stroke(Color(.separatorColor), lineWidth: 1)
+                            .stroke(AppTheme.Border.control, lineWidth: 1)
                     )
             }
             .padding(.horizontal)
@@ -124,7 +124,8 @@ struct EditReplacementSheet: View {
     private func saveChanges() {
         let newOriginal = originalWord.trimmingCharacters(in: .whitespacesAndNewlines)
         let newReplacement = replacementWord
-        let tokens = newOriginal
+        let tokens =
+            newOriginal
             .split(separator: ",")
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -137,7 +138,7 @@ struct EditReplacementSheet: View {
         if let allReplacements = try? modelContext.fetch(descriptor) {
             for existingReplacement in allReplacements {
                 // Skip checking against itself
-                if existingReplacement.id == replacement.id {
+                if existingReplacement.persistentModelID == replacement.persistentModelID {
                     continue
                 }
 
@@ -148,7 +149,8 @@ struct EditReplacementSheet: View {
 
                 for tokenPair in newTokensPairs {
                     if existingTokens.contains(tokenPair.lowercased) {
-                        alertMessage = "'\(tokenPair.original)' already exists in word replacements"
+                        alertMessage = String(
+                            format: String(localized: "'%@' already exists in word replacements"), tokenPair.original)
                         showAlert = true
                         return
                     }
@@ -164,7 +166,7 @@ struct EditReplacementSheet: View {
             try modelContext.save()
             dismiss()
         } catch {
-            alertMessage = "Failed to save changes: \(error.localizedDescription)"
+            alertMessage = String(format: String(localized: "Failed to save changes: %@"), error.localizedDescription)
             showAlert = true
         }
     }

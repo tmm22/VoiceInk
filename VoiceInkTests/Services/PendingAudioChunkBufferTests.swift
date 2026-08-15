@@ -2,7 +2,7 @@ import XCTest
 @testable import VoiceInk
 
 final class PendingAudioChunkBufferTests: XCTestCase {
-    func testDropsOldestChunksWhenByteBudgetIsExceeded() {
+    func testByteBudgetOverflowRequiresBatchFallback() {
         let buffer = PendingAudioChunkBuffer(maximumByteCount: 10)
         let oldest = Data(repeating: 1, count: 6)
         let newest = Data(repeating: 2, count: 6)
@@ -10,39 +10,40 @@ final class PendingAudioChunkBufferTests: XCTestCase {
         buffer.append(oldest)
         buffer.append(newest)
 
-        let result = buffer.takeChunks()
-        XCTAssertEqual(result.chunks, [newest])
-        XCTAssertEqual(result.droppedChunkCount, 1)
+        var forwarded: [Data] = []
+        let droppedChunkCount = buffer.handoff { forwarded.append($0) }
+        XCTAssertTrue(forwarded.isEmpty)
+        XCTAssertEqual(droppedChunkCount, 1)
     }
 
-    func testTakingChunksResetsBufferAndDropCount() {
+    func testRemovingChunksResetsBufferAndDropCount() {
         let buffer = PendingAudioChunkBuffer(maximumByteCount: 4)
         buffer.append(Data(repeating: 1, count: 5))
-        _ = buffer.takeChunks()
+        XCTAssertEqual(buffer.removeAll(), 1)
 
-        let result = buffer.takeChunks()
-        XCTAssertTrue(result.chunks.isEmpty)
-        XCTAssertEqual(result.droppedChunkCount, 0)
+        var forwarded: [Data] = []
+        XCTAssertEqual(buffer.handoff { forwarded.append($0) }, 0)
+        XCTAssertTrue(forwarded.isEmpty)
     }
 
     func testOversizedChunkIsDroppedWithoutGrowingBuffer() {
         let buffer = PendingAudioChunkBuffer(maximumByteCount: 0)
         buffer.append(Data([1]))
 
-        let result = buffer.takeChunks()
-        XCTAssertTrue(result.chunks.isEmpty)
-        XCTAssertEqual(result.droppedChunkCount, 1)
+        var forwarded: [Data] = []
+        XCTAssertEqual(buffer.handoff { forwarded.append($0) }, 1)
+        XCTAssertTrue(forwarded.isEmpty)
     }
 
-    func testFixedChunkCapacityEvictsOldestInOrder() {
+    func testFixedChunkCapacityOverflowRequiresBatchFallback() {
         let buffer = PendingAudioChunkBuffer(maximumByteCount: 100, maximumChunkCount: 2)
         buffer.append(Data([1]))
         buffer.append(Data([2]))
         buffer.append(Data([3]))
 
-        let result = buffer.takeChunks()
-        XCTAssertEqual(result.chunks, [Data([2]), Data([3])])
-        XCTAssertEqual(result.droppedChunkCount, 1)
+        var forwarded: [Data] = []
+        XCTAssertEqual(buffer.handoff { forwarded.append($0) }, 1)
+        XCTAssertTrue(forwarded.isEmpty)
     }
 
     func testHandoffPreservesBufferedPrefixBeforeSubsequentChunks() {

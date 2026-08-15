@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct TranscriptionHistoryView: View {
     @Environment(\.modelContext) private var modelContext
@@ -8,25 +8,24 @@ struct TranscriptionHistoryView: View {
     @State private var selectedTranscriptions: Set<Transcription> = []
     @State private var showDeleteConfirmation = false
     @State private var isViewCurrentlyVisible = false
-    @State private var showAnalysisView = false
+    @State private var isAnalysisPanelPresented = false
     @State private var isLeftSidebarVisible = true
-    @State private var isRightSidebarVisible = true
-    @State private var leftSidebarWidth: CGFloat = 260
-    @State private var rightSidebarWidth: CGFloat = 260
+    @State private var isRightSidebarVisible = false
+    @State private var leftSidebarWidth: CGFloat = 300
     @State private var displayedTranscriptions: [Transcription] = []
     @State private var isLoading = false
     @State private var hasMoreContent = true
     @State private var lastTimestamp: Date?
 
     private let exportService = VoiceInkCSVExportService()
-    private let minSidebarWidth: CGFloat = 200
-    private let maxSidebarWidth: CGFloat = 350
     private let pageSize = 20
 
-    @Query(Self.createLatestTranscriptionIndicatorDescriptor()) private var latestTranscriptionIndicator: [Transcription]
+    @Query(Self.createLatestTranscriptionIndicatorDescriptor()) private var latestTranscriptionIndicator:
+        [Transcription]
 
     private static func createLatestTranscriptionIndicatorDescriptor() -> FetchDescriptor<Transcription> {
         var descriptor = FetchDescriptor<Transcription>(
+            predicate: #Predicate<Transcription> { !$0.isDeleted },
             sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
         )
         descriptor.fetchLimit = 1
@@ -41,35 +40,53 @@ struct TranscriptionHistoryView: View {
         if let timestamp = timestamp {
             if !searchText.isEmpty {
                 descriptor.predicate = #Predicate<Transcription> { transcription in
-                    (transcription.text.localizedStandardContains(searchText) ||
-                    (transcription.enhancedText?.localizedStandardContains(searchText) ?? false)) &&
-                    transcription.timestamp < timestamp
+                    (transcription.text.localizedStandardContains(searchText)
+                        || (transcription.enhancedText?.localizedStandardContains(searchText) ?? false))
+                        && !transcription.isDeleted
+                        && transcription.timestamp < timestamp
                 }
             } else {
                 descriptor.predicate = #Predicate<Transcription> { transcription in
-                    transcription.timestamp < timestamp
+                    !transcription.isDeleted && transcription.timestamp < timestamp
                 }
             }
         } else if !searchText.isEmpty {
             descriptor.predicate = #Predicate<Transcription> { transcription in
-                transcription.text.localizedStandardContains(searchText) ||
-                (transcription.enhancedText?.localizedStandardContains(searchText) ?? false)
+                !transcription.isDeleted
+                    && (transcription.text.localizedStandardContains(searchText)
+                        || (transcription.enhancedText?.localizedStandardContains(searchText) ?? false))
             }
+        } else {
+            descriptor.predicate = #Predicate<Transcription> { !$0.isDeleted }
         }
 
         descriptor.fetchLimit = pageSize
         return descriptor
     }
 
+    private func openAnalysisPanel() {
+        isRightSidebarVisible = false
+        isAnalysisPanelPresented = true
+    }
+
+    private func closeAnalysisPanel() {
+        isAnalysisPanelPresented = false
+    }
+
+    private func openInfoPanel() {
+        isAnalysisPanelPresented = false
+        isRightSidebarVisible = true
+    }
+
+    private func closeInfoPanel() {
+        isRightSidebarVisible = false
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             if isLeftSidebarVisible {
                 leftSidebarView
-                    .frame(
-                        minWidth: minSidebarWidth,
-                        idealWidth: leftSidebarWidth,
-                        maxWidth: maxSidebarWidth
-                    )
+                    .frame(width: leftSidebarWidth)
                     .transition(.move(edge: .leading))
 
                 Divider()
@@ -77,32 +94,23 @@ struct TranscriptionHistoryView: View {
 
             centerPaneView
                 .frame(maxWidth: .infinity)
-
-            if isRightSidebarVisible {
-                Divider()
-
-                rightSidebarView
-                    .frame(
-                        minWidth: minSidebarWidth,
-                        idealWidth: rightSidebarWidth,
-                        maxWidth: maxSidebarWidth
-                    )
-                    .transition(.move(edge: .trailing))
-            }
         }
+        .background(historyBackground)
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
                 Button(action: { withAnimation { isLeftSidebarVisible.toggle() } }) {
                     Label("Toggle Sidebar", systemImage: "sidebar.left")
                 }
-                .help(isLeftSidebarVisible ? "Hide transcription list" : "Show transcription list")
             }
 
             ToolbarItemGroup(placement: .automatic) {
-                Button(action: { withAnimation { isRightSidebarVisible.toggle() } }) {
+                Button(action: {
+                    withAnimation {
+                        isRightSidebarVisible ? closeInfoPanel() : openInfoPanel()
+                    }
+                }) {
                     Label("Toggle Inspector", systemImage: "sidebar.right")
                 }
-                .help(isRightSidebarVisible ? "Hide transcription metadata" : "Show transcription metadata")
             }
         }
         .alert("Delete Selected Items?", isPresented: $showDeleteConfirmation) {
@@ -111,12 +119,32 @@ struct TranscriptionHistoryView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This action cannot be undone. Are you sure you want to delete \(selectedTranscriptions.count) item\(selectedTranscriptions.count == 1 ? "" : "s")?")
+            let count = selectedTranscriptions.count
+            Text(String(localized: "This action cannot be undone. Are you sure you want to delete \(count) items?"))
         }
-        .sheet(isPresented: $showAnalysisView) {
-            if !selectedTranscriptions.isEmpty {
-                PerformanceAnalysisView(transcriptions: Array(selectedTranscriptions))
-            }
+        .sidePanel(
+            isPresented: .init(
+                get: { isRightSidebarVisible },
+                set: { newValue in
+                    if !newValue { closeInfoPanel() }
+                }
+            )
+        ) {
+            infoSidePanelView
+        }
+        .sidePanel(
+            isPresented: .init(
+                get: { isAnalysisPanelPresented },
+                set: { newValue in
+                    if !newValue { closeAnalysisPanel() }
+                }
+            )
+        ) {
+            HistoryAnalysisPanelView(
+                transcriptions: Array(selectedTranscriptions),
+                onClose: closeAnalysisPanel
+            )
+            .id(selectedTranscriptions.count)
         }
         .onAppear {
             isViewCurrentlyVisible = true
@@ -144,6 +172,24 @@ struct TranscriptionHistoryView: View {
         }
     }
 
+    private var historyBackground: some View {
+        SidePanelBackground()
+            .ignoresSafeArea(.container, edges: .top)
+    }
+
+    private var sidebarMaterialBackground: some View {
+        VisualEffectView(
+            material: .sidebar,
+            blendingMode: .behindWindow
+        )
+        .ignoresSafeArea(.container, edges: .top)
+    }
+
+    private var detailMaterialBackground: some View {
+        SidePanelBackground()
+            .ignoresSafeArea(.container, edges: .top)
+    }
+
     private var leftSidebarView: some View {
         VStack(spacing: 0) {
             HStack {
@@ -156,8 +202,12 @@ struct TranscriptionHistoryView: View {
             }
             .padding(10)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(.thinMaterial)
+                RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
+                    .fill(AppTheme.Surface.subtle)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
+                            .strokeBorder(AppTheme.Border.tint, lineWidth: 1)
+                    }
             )
             .padding(12)
 
@@ -216,13 +266,13 @@ struct TranscriptionHistoryView: View {
                 }
             }
         }
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(sidebarMaterialBackground)
     }
 
     private var centerPaneView: some View {
         Group {
             if let transcription = selectedTranscription {
-                TranscriptionDetailView(transcription: transcription)
+                TranscriptionDetailView(transcription: transcription, onInfoTap: openInfoPanel)
                     .id(transcription.id)
             } else {
                 ScrollView {
@@ -252,15 +302,17 @@ struct TranscriptionHistoryView: View {
                     .frame(minHeight: 600)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(NSColor.controlBackgroundColor))
             }
         }
+        .background(detailMaterialBackground)
     }
 
-    private var rightSidebarView: some View {
-        Group {
+    private var infoSidePanelView: some View {
+        VStack(spacing: 0) {
+            AppPanelHeader(title: "Info", onClose: closeInfoPanel)
+
             if let transcription = selectedTranscription {
-                TranscriptionMetadataView(transcription: transcription)
+                TranscriptionInfoPanel(transcription: transcription)
                     .id(transcription.id)
             } else {
                 VStack(spacing: 12) {
@@ -272,39 +324,44 @@ struct TranscriptionHistoryView: View {
                         .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(NSColor.controlBackgroundColor))
             }
         }
     }
 
+    private var allSelected: Bool {
+        !displayedTranscriptions.isEmpty && displayedTranscriptions.allSatisfy { selectedTranscriptions.contains($0) }
+    }
+
     private var selectionToolbar: some View {
         HStack(spacing: 12) {
-            if selectedTranscriptions.isEmpty {
-                Button("Select All") {
-                    Task { await selectAllTranscriptions() }
-                }
-                .buttonStyle(.plain)
-                .font(.system(size: 13))
-                .foregroundColor(.secondary)
-            } else {
+            if allSelected {
                 Button("Deselect All") {
                     selectedTranscriptions.removeAll()
                 }
                 .buttonStyle(.plain)
                 .font(.system(size: 13))
                 .foregroundColor(.secondary)
+            } else {
+                Button("Select All") {
+                    Task { await selectAllTranscriptions() }
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+            }
 
+            if !selectedTranscriptions.isEmpty {
                 Divider()
                     .frame(height: 16)
 
-                Button(action: { showAnalysisView = true }) {
+                Button(action: {
+                    openAnalysisPanel()
+                }) {
                     Image(systemName: "chart.bar.xaxis")
                         .font(.system(size: 14, weight: .regular))
                         .foregroundColor(.secondary)
-                        .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Analyze selected transcriptions")
                 .help("Analyze")
 
                 Button(action: {
@@ -313,27 +370,23 @@ struct TranscriptionHistoryView: View {
                     Image(systemName: "square.and.arrow.up")
                         .font(.system(size: 14, weight: .regular))
                         .foregroundColor(.secondary)
-                        .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Export selected transcriptions")
                 .help("Export")
 
                 Button(action: { showDeleteConfirmation = true }) {
                     Image(systemName: "trash")
                         .font(.system(size: 14, weight: .regular))
                         .foregroundColor(.secondary)
-                        .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Delete selected transcriptions")
                 .help("Delete")
             }
 
             Spacer()
 
             if !selectedTranscriptions.isEmpty {
-                Text("\(selectedTranscriptions.count) selected")
+                Text(String(format: String(localized: "%lld selected"), Int64(selectedTranscriptions.count)))
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.secondary)
             }
@@ -341,8 +394,11 @@ struct TranscriptionHistoryView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(
-            Color(NSColor.windowBackgroundColor)
-                .shadow(color: Color.black.opacity(0.15), radius: 3, y: -2)
+            VisualEffectView(
+                material: .hudWindow,
+                blendingMode: .withinWindow
+            )
+            .shadow(color: Color.black.opacity(0.15), radius: 3, y: -2)
         )
     }
 
@@ -358,7 +414,9 @@ struct TranscriptionHistoryView: View {
             lastTimestamp = items.last?.timestamp
             hasMoreContent = items.count == pageSize
         } catch {
-            AppLogger.storage.error("Failed to load transcriptions: \(AppLogger.errorMetadata(error), privacy: .public)")
+            AppLogger.storage.error(
+                "Failed to load transcription history: \(AppLogger.errorMetadata(error), privacy: .public)"
+            )
         }
     }
 
@@ -375,7 +433,9 @@ struct TranscriptionHistoryView: View {
             self.lastTimestamp = newItems.last?.timestamp
             hasMoreContent = newItems.count == pageSize
         } catch {
-            AppLogger.storage.error("Failed to load more transcriptions: \(AppLogger.errorMetadata(error), privacy: .public)")
+            AppLogger.storage.error(
+                "Failed to load more transcription history: \(AppLogger.errorMetadata(error), privacy: .public)"
+            )
         }
     }
 
@@ -388,22 +448,12 @@ struct TranscriptionHistoryView: View {
     }
 
     private func performDeletion(for transcription: Transcription) {
-        if let urlString = transcription.audioFileURL,
-           let url = URL(string: urlString),
-           FileManager.default.fileExists(atPath: url.path) {
-            do {
-                try FileManager.default.removeItem(at: url)
-            } catch {
-                AppLogger.storage.error("Failed to delete transcription audio file: \(AppLogger.errorMetadata(error), privacy: .public)")
-            }
-        }
-
         if selectedTranscription == transcription {
             selectedTranscription = nil
         }
 
         selectedTranscriptions.remove(transcription)
-        modelContext.delete(transcription)
+        transcription.moveToTrash()
     }
 
     private func saveAndReload() async {
@@ -412,15 +462,8 @@ struct TranscriptionHistoryView: View {
             NotificationCenter.default.post(name: .transcriptionDeleted, object: nil)
             await loadInitialContent()
         } catch {
-            AppLogger.storage.error("Failed to save transcription deletion: \(AppLogger.errorMetadata(error), privacy: .public)")
+            AppLogger.storage.error("Failed to move transcription to trash: \(AppLogger.errorMetadata(error), privacy: .public)")
             await loadInitialContent()
-        }
-    }
-
-    private func deleteTranscription(_ transcription: Transcription) {
-        performDeletion(for: transcription)
-        Task {
-            await saveAndReload()
         }
     }
 
@@ -443,15 +486,17 @@ struct TranscriptionHistoryView: View {
         }
     }
 
-    @MainActor
     private func selectAllTranscriptions() async {
         do {
-            var allDescriptor = FetchDescriptor<Transcription>()
+            var allDescriptor = FetchDescriptor<Transcription>(
+                predicate: #Predicate<Transcription> { !$0.isDeleted }
+            )
 
             if !searchText.isEmpty {
                 allDescriptor.predicate = #Predicate<Transcription> { transcription in
-                    transcription.text.localizedStandardContains(searchText) ||
-                    (transcription.enhancedText?.localizedStandardContains(searchText) ?? false)
+                    !transcription.isDeleted
+                        && (transcription.text.localizedStandardContains(searchText)
+                            || (transcription.enhancedText?.localizedStandardContains(searchText) ?? false))
                 }
             }
 
@@ -467,7 +512,9 @@ struct TranscriptionHistoryView: View {
                 }
             }
         } catch {
-            AppLogger.storage.error("Failed to select all transcriptions: \(AppLogger.errorMetadata(error), privacy: .public)")
+            AppLogger.storage.error(
+                "Failed to select transcription history: \(AppLogger.errorMetadata(error), privacy: .public)"
+            )
         }
     }
 }

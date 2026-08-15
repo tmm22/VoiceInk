@@ -1,47 +1,60 @@
 import SwiftUI
 
 struct LicenseView: View {
-    @StateObject private var licenseViewModel = LicenseViewModel()
+    @ObservedObject private var licenseViewModel = LicenseViewModel.shared
+    @State private var licenseKeyDraft = ""
 
     var body: some View {
-        VStack(spacing: 18) {
-            Text("Community Edition")
-                .font(.title2.weight(.semibold))
-
-            Text(licenseViewModel.headline)
+        VStack(spacing: 15) {
+            Text("License Management")
                 .font(.headline)
 
-            Text(licenseViewModel.subheadline)
-                .font(.subheadline)
-                .multilineTextAlignment(.center)
-                .foregroundColor(.secondary)
-                .frame(maxWidth: 360)
+            if licenseViewModel.hasVerifiedLicense {
+                VStack(spacing: 10) {
+                    Text("Premium Features Activated")
+                        .foregroundColor(AppTheme.Status.positive)
 
-            Divider().padding(.vertical, 8)
+                    Button(
+                        role: .destructive,
+                        action: {
+                            Task { await licenseViewModel.deactivateLicense() }
+                        }
+                    ) {
+                        Text("Deactivate License")
+                    }
+                    .disabled(licenseViewModel.isDeactivating)
+                }
+            } else {
+                TextField("Enter License Key", text: $licenseKeyDraft)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .frame(maxWidth: 300)
 
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Highlights")
-                    .font(.headline)
-
-                benefit("waveform", text: "Offline Whisper and Parakeet models bundled by default.")
-                benefit("lock.shield", text: "Full functionality without license keys or paywalls.")
-                benefit("sparkles", text: "Extensible prompts and enhancements without vendor lock-in.")
+                Button(action: {
+                    Task {
+                        await licenseViewModel.validateLicense(licenseKeyDraft)
+                    }
+                }) {
+                    if licenseViewModel.isValidating {
+                        ProgressView()
+                    } else {
+                        Text("Activate License")
+                    }
+                }
+                .disabled(licenseViewModel.isValidating)
             }
 
-            Spacer()
+            if let message = licenseViewModel.validationMessage {
+                Text(message)
+                    .foregroundColor(
+                        licenseViewModel.validationSuccess ? AppTheme.Status.positive : AppTheme.Status.error
+                    )
+                    .font(.caption)
+            }
         }
-        .padding(32)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private func benefit(_ systemImage: String, text: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Image(systemName: systemImage)
-                .foregroundColor(.accentColor)
-            Text(text)
-                .font(.subheadline)
+        .padding()
+        .onChange(of: licenseViewModel.hasVerifiedLicense) { _, _ in
+            licenseKeyDraft = ""
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

@@ -1,100 +1,63 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 @MainActor
-class MiniWindowManager: ObservableObject {
-    @Published var isVisible = false
+class MiniWindowManager {
     private var windowController: NSWindowController?
-    private var miniPanel: MiniRecorderPanel?
-    private let whisperState: WhisperState
-    private let recorder: Recorder
+    private var panel: MiniRecorderPanel?
 
-    init(whisperState: WhisperState, recorder: Recorder) {
-        self.whisperState = whisperState
-        self.recorder = recorder
-        setupNotifications()
-    }
+    private let makeView: () -> AnyView
 
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-
-    private func setupNotifications() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleHideNotification),
-            name: .hideMiniRecorder,
-            object: nil
-        )
-    }
-
-    @objc private func handleHideNotification() {
-        hide()
+    init(
+        engine: VoiceInkEngine,
+        recorder: Recorder,
+        assistantSession: AssistantSession,
+        onRecordButtonTapped: @escaping () -> Void,
+        onCloseTapped: @escaping () -> Void,
+        onAssistantFollowUp: @escaping (String) -> Void
+    ) {
+        self.makeView = {
+            AnyView(
+                MiniRecorderView(
+                    stateProvider: engine,
+                    recorder: recorder,
+                    assistantSession: assistantSession,
+                    onRecordButtonTapped: onRecordButtonTapped,
+                    onCloseTapped: onCloseTapped,
+                    onAssistantFollowUp: onAssistantFollowUp
+                )
+            )
+        }
     }
 
     func show() {
-        if isVisible { return }
-
-        guard let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens.first else {
-            AppLogger.ui.error("Unable to show mini recorder because no display is available")
-            return
-        }
-        if miniPanel == nil || screenIdentifier(for: miniPanel?.screen) != screenIdentifier(for: activeScreen) {
-            guard initializeWindow(screen: activeScreen) else { return }
-        }
-        self.isVisible = true
-        miniPanel?.show()
+        if panel == nil { initializeWindow() }
+        panel?.show()
     }
 
     func hide() {
-        guard isVisible else { return }
-
-        self.isVisible = false
-        miniPanel?.orderOut(nil)
+        panel?.orderOut(nil)
     }
 
-    @discardableResult
-    private func initializeWindow(screen: NSScreen) -> Bool {
-        guard let enhancementService = whisperState.enhancementService else {
-            AppLogger.ui.error("Unable to initialize mini recorder because the enhancement service is unavailable")
-            return false
-        }
-
+    func destroyWindow() {
         deinitializeWindow()
+    }
 
+    private func initializeWindow() {
+        deinitializeWindow()
         let metrics = MiniRecorderPanel.calculateWindowMetrics()
-        let panel = MiniRecorderPanel(contentRect: metrics)
-
-        let miniRecorderView = MiniRecorderView(whisperState: whisperState, recorder: recorder)
-            .environmentObject(self)
-            .environmentObject(enhancementService)
-
-        let hostingController = NSHostingController(rootView: miniRecorderView)
-        panel.contentView = hostingController.view
-
-        self.miniPanel = panel
-        self.windowController = NSWindowController(window: panel)
-
-        panel.orderFrontRegardless()
-        return true
+        let newPanel = MiniRecorderPanel(contentRect: metrics)
+        let view = makeView()
+        let hostingController = NSHostingController(rootView: view)
+        newPanel.contentView = hostingController.view
+        panel = newPanel
+        windowController = NSWindowController(window: newPanel)
     }
 
     private func deinitializeWindow() {
-        miniPanel?.orderOut(nil)
+        panel?.orderOut(nil)
         windowController?.close()
         windowController = nil
-        miniPanel = nil
-    }
-
-    private func screenIdentifier(for screen: NSScreen?) -> NSNumber? {
-        screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
-    }
-
-    func toggle() {
-        if isVisible {
-            hide()
-        } else {
-            show()
-        }
+        panel = nil
     }
 }

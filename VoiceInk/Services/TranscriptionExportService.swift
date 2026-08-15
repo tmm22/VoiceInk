@@ -89,7 +89,7 @@ class TranscriptionExportService {
             let enhancementModel = escapeCSVString(transcription.aiEnhancementModelName ?? "")
             let promptName = escapeCSVString(transcription.promptName ?? "")
             let transcriptionModel = escapeCSVString(transcription.transcriptionModelName ?? "")
-            let powerMode = escapeCSVString(powerModeDisplay(name: transcription.powerModeName, emoji: transcription.powerModeEmoji))
+            let powerMode = escapeCSVString(powerModeDisplay(name: transcription.modeName, emoji: transcription.modeEmoji))
             let enhancementTime = transcription.enhancementDuration ?? 0
             let transcriptionTime = transcription.transcriptionDuration ?? 0
             let timestamp = transcription.timestamp.ISO8601Format()
@@ -142,11 +142,11 @@ class TranscriptionExportService {
                 dict["promptName"] = promptName
             }
             
-            if let powerModeName = transcription.powerModeName {
+            if let powerModeName = transcription.modeName {
                 dict["powerModeName"] = powerModeName
             }
             
-            if let powerModeEmoji = transcription.powerModeEmoji {
+            if let powerModeEmoji = transcription.modeEmoji {
                 dict["powerModeEmoji"] = powerModeEmoji
             }
             
@@ -200,9 +200,9 @@ class TranscriptionExportService {
                 output += "Model: \(model)\n"
             }
             
-            if let powerModeName = transcription.powerModeName {
+            if let powerModeName = transcription.modeName {
                 output += "Power Mode: "
-                if let emoji = transcription.powerModeEmoji {
+                if let emoji = transcription.modeEmoji {
                     output += "\(emoji) "
                 }
                 output += "\(powerModeName)\n"

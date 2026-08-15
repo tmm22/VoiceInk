@@ -13,9 +13,9 @@ enum AudioPreset: String, Codable, CaseIterable {
         switch self {
         case .default:
             return SoundFiles(
-                start: "recstart.mp3",
-                stop: "recstop.mp3",
-                cancel: "esc.wav"
+                start: "sound5.mp3",
+                stop: "sound6.mp3",
+                cancel: "sound7.wav"
             )
         case .minimal:
             return SoundFiles(

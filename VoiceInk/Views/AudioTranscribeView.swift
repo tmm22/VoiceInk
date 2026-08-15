@@ -1,279 +1,390 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 import UniformTypeIdentifiers
-import AVFoundation
 
-@MainActor
 struct AudioTranscribeView: View {
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var whisperState: WhisperState
-    @StateObject private var transcriptionManager: AudioTranscriptionManager
+    @EnvironmentObject private var engine: VoiceInkEngine
+    @ObservedObject private var modeManager = ModeManager.shared
+    @StateObject private var transcriptionManager = AudioTranscriptionManager.shared
     @State private var isDropTargeted = false
-    @State private var selectedAudioURL: URL?
-    @State private var isAudioFileSelected = false
-    @State private var isEnhancementEnabled = false
-    @State private var selectedPromptId: UUID?
+    @State private var showModePopover = false
+    @State private var expandedItemId: UUID?
 
-    init(transcriptionManager: AudioTranscriptionManager) {
-        _transcriptionManager = StateObject(wrappedValue: transcriptionManager)
+    private var selectedMode: ModeConfig? {
+        modeManager.currentEffectiveConfiguration
     }
 
-    @MainActor
-    init() {
-        _transcriptionManager = StateObject(wrappedValue: AudioTranscriptionManager.shared)
-    }
-    
     var body: some View {
-        ScrollView {
-            VStack(spacing: VoiceInkSpacing.lg) {
-                VoiceInkCard(padding: VoiceInkSpacing.xl) {
-                    if transcriptionManager.isProcessing {
-                        processingView
-                    } else {
-                        uploaderView
-                    }
-                }
-
-                if let transcription = transcriptionManager.currentTranscription {
-                    TranscriptionResultView(transcription: transcription)
-                }
+        Group {
+            if transcriptionManager.queue.isEmpty {
+                emptyStateView
+            } else {
+                queueFormView
             }
-            .padding(VoiceInkSpacing.lg)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onDrop(of: [.fileURL, .data, .audio, .movie], isTargeted: $isDropTargeted) { providers in
-            if !transcriptionManager.isProcessing && !isAudioFileSelected {
-                handleDroppedFile(providers)
-                return true
-            }
-            return false
+            handleDroppedFiles(providers)
+            return true
         }
-        .alert(Localization.General.error, isPresented: .constant(transcriptionManager.errorMessage != nil)) {
-            Button("OK", role: .cancel) {
-                transcriptionManager.errorMessage = nil
-            }
-        } message: {
-            if let errorMessage = transcriptionManager.errorMessage {
-                Text(errorMessage)
+        .overlay {
+            if isDropTargeted && !transcriptionManager.queue.isEmpty {
+                dropOverlay
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .openFileForTranscription)) { notification in
             if let url = notification.userInfo?["url"] as? URL {
-                validateAndSetAudioFile(url)
+                transcriptionManager.addToQueue(urls: [url])
+            }
+        }
+        .onChange(of: transcriptionManager.lastCompletedItemId) { _, newId in
+            if let newId {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    expandedItemId = newId
+                }
             }
         }
     }
-    
-    private var uploaderView: some View {
-        VStack(spacing: VoiceInkSpacing.lg) {
-            if isAudioFileSelected {
-                selectedFileView
-            } else {
-                VoiceInkDropZone(
-                    isActive: isDropTargeted,
-                    title: "Drop audio or video file here",
-                    subtitle: "Drag files directly into this window or choose a file manually.",
-                    buttonTitle: "Choose File",
-                    buttonAction: selectFile
-                )
-                .frame(height: 240)
-            }
 
-            Text("Supported formats: WAV, MP3, M4A, AIFF, MP4, MOV")
-                .voiceInkCaptionStyle()
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
+    // MARK: - Empty State
 
-    private var selectedFileView: some View {
-        VStack(alignment: .leading, spacing: VoiceInkSpacing.lg) {
-            if let fileName = selectedAudioURL?.lastPathComponent {
-                Text("Audio file selected: \(fileName)")
-                    .voiceInkHeadline()
-            }
+    private var emptyStateView: some View {
+        VStack(spacing: 0) {
+            Spacer()
 
-            if let enhancementService = whisperState.getEnhancementService() {
-                enhancementControls(for: enhancementService)
-                    .onAppear {
-                        isEnhancementEnabled = enhancementService.isEnhancementEnabled
-                        selectedPromptId = enhancementService.selectedPromptId
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(AppTheme.Surface.window.opacity(0.4))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(
+                                style: StrokeStyle(lineWidth: 2, dash: [8])
+                            )
+                            .foregroundColor(isDropTargeted ? AppTheme.Accent.primary : .gray.opacity(0.5))
+                    )
+                    .animation(.easeInOut(duration: 0.15), value: isDropTargeted)
+
+                VStack(spacing: 14) {
+                    Image(systemName: "arrow.down.doc")
+                        .font(.system(size: 32))
+                        .foregroundColor(isDropTargeted ? AppTheme.Accent.primary : .gray)
+
+                    Text("Drop audio or video files here")
+                        .font(.headline)
+
+                    Text("or")
+                        .foregroundColor(.secondary)
+
+                    Button("Choose Files") {
+                        selectFiles()
                     }
+                    .buttonStyle(.bordered)
+                }
+                .padding(32)
             }
+            .frame(maxWidth: 480, maxHeight: 200)
 
-            HStack(spacing: VoiceInkSpacing.sm) {
-                Button("Start Transcription") {
-                    if let url = selectedAudioURL {
-                        transcriptionManager.startProcessing(
-                            url: url,
-                            modelContext: modelContext,
-                            whisperState: whisperState
+            Text("Supports WAV, MP3, M4A, AIFF, MP4, MOV, AAC, FLAC, CAF, AMR, OGG, OPUS, 3GP")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.top, 12)
+
+            Spacer()
+        }
+        .padding()
+    }
+
+    // MARK: - Queue Form View
+
+    private var queueFormView: some View {
+        VStack(spacing: 0) {
+            topBar
+            Divider()
+
+            Form {
+                ForEach(transcriptionManager.queue) { item in
+                    Section {
+                        AudioFileRow(
+                            item: item,
+                            isExpanded: expandedItemId == item.id,
+                            onToggleExpand: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    expandedItemId = expandedItemId == item.id ? nil : item.id
+                                }
+                            },
+                            onRemove: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    transcriptionManager.removeFromQueue(id: item.id)
+                                    if expandedItemId == item.id { expandedItemId = nil }
+                                }
+                            },
+                            onRetry: {
+                                transcriptionManager.retryItem(id: item.id)
+                                startProcessing()
+                            }
                         )
                     }
                 }
-                .buttonStyle(PrimaryProminentButtonStyle())
-
-                Button("Choose Different File") {
-                    selectedAudioURL = nil
-                    isAudioFileSelected = false
-                }
-                .buttonStyle(SecondaryBorderedButtonStyle())
+            }
+            .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .safeAreaInset(edge: .bottom) {
+                Text("Drop files anywhere to add more")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
             }
         }
     }
 
-    @ViewBuilder
-    private func enhancementControls(for service: AIEnhancementService) -> some View {
-        VStack(alignment: .leading, spacing: VoiceInkSpacing.md) {
-            HStack(spacing: VoiceInkSpacing.sm) {
-                Toggle("AI Enhancement", isOn: $isEnhancementEnabled)
-                    .toggleStyle(.switch)
-                    .onChange(of: isEnhancementEnabled) { _, newValue in
-                        service.isEnhancementEnabled = newValue
+    // MARK: - Top Bar
+
+    private var topBar: some View {
+        HStack(spacing: 10) {
+            let count = transcriptionManager.queue.count
+            Text(String(localized: "\(count) files"))
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+
+            Button {
+                selectFiles()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 12, weight: .medium))
+                    Text("Add")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule()
+                        .fill(AppTheme.Surface.controlActive)
+                )
+            }
+            .buttonStyle(.plain)
+            .help("Add files")
+
+            Spacer()
+
+            modePicker
+
+            if transcriptionManager.isProcessingQueue {
+                Button {
+                    transcriptionManager.cancelProcessing()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "stop.fill")
+                            .font(.system(size: 10, weight: .medium))
+                        Text("Cancel")
+                            .font(.system(size: 12, weight: .medium))
                     }
+                    .foregroundColor(AppTheme.Status.error)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(
+                        Capsule()
+                            .fill(AppTheme.Status.error.opacity(0.12))
+                    )
+                }
+                .buttonStyle(.plain)
+                .help("Cancel transcription")
+            } else if transcriptionManager.hasPendingItems {
+                Button {
+                    startProcessing()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 10, weight: .medium))
+                        Text("Start")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(AppTheme.Accent.primary)
+                            .shadow(color: AppTheme.Accent.shadow, radius: 2, x: 0, y: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(selectedMode == nil)
+                .opacity(selectedMode == nil ? 0.5 : 1.0)
+                .help(selectedMode == nil ? "Select an enabled mode to start" : "Start transcription")
+            }
 
-                if isEnhancementEnabled {
-                    Divider()
-                        .frame(height: 20)
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    transcriptionManager.clearAll()
+                    expandedItemId = nil
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "xmark.bin")
+                        .font(.system(size: 12, weight: .medium))
+                    Text("Clear")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule()
+                        .fill(AppTheme.Surface.controlActive)
+                )
+            }
+            .buttonStyle(.plain)
+            .help("Clear all items")
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 10)
+    }
 
-                    HStack(spacing: VoiceInkSpacing.xs) {
-                        Text("Prompt")
-                            .voiceInkSubheadline()
+    private var modePicker: some View {
+        HStack(spacing: 6) {
+            Text("Mode")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
 
-                        if service.allPrompts.isEmpty {
-                            Text("No prompts available")
-                                .voiceInkCaptionStyle()
-                                .italic()
-                        } else {
-                            let promptBinding = Binding<UUID>(
-                                get: {
-                                    selectedPromptId ?? service.allPrompts.first?.id ?? UUID()
-                                },
-                                set: { newValue in
-                                    selectedPromptId = newValue
-                                    service.selectedPromptId = newValue
-                                }
-                            )
-
-                            Picker("Prompt", selection: promptBinding) {
-                                ForEach(service.allPrompts) { prompt in
-                                    Text(prompt.title).tag(prompt.id)
-                                }
-                            }
-                            .labelsHidden()
-                            .fixedSize()
-                        }
+            if modeManager.enabledConfigurations.isEmpty {
+                Text("None")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+            } else if let selectedMode {
+                Button {
+                    showModePopover.toggle()
+                } label: {
+                    HStack(spacing: 6) {
+                        ModeIconView(icon: selectedMode.icon, size: selectedMode.icon.kind == .emoji ? 13 : 11)
+                            .frame(width: 16)
+                        Text(selectedMode.name)
+                            .font(.system(size: 12, weight: .medium))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(.secondary)
+                    }
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .frame(maxWidth: 160, alignment: .leading)
+                    .background(
+                        Capsule()
+                            .fill(AppTheme.Surface.subtle)
+                    )
+                    .overlay(
+                        Capsule()
+                            .stroke(AppTheme.Accent.fillSubtle, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $showModePopover, arrowEdge: .bottom) {
+                    ModePopover(selectedModeId: selectedMode.id) { mode in
+                        selectMode(mode)
                     }
                 }
             }
         }
-        .padding(VoiceInkSpacing.md)
-        .voiceInkCardBackground()
+        .fixedSize(horizontal: true, vertical: false)
     }
-    
-    private var processingView: some View {
-        VStack(spacing: VoiceInkSpacing.md) {
-            ProgressView()
-                .controlSize(.large)
 
-            Text(transcriptionManager.processingPhase.message)
-                .voiceInkHeadline()
-        }
-        .frame(maxWidth: .infinity)
+    private func selectMode(_ mode: ModeConfig) {
+        modeManager.setActiveConfiguration(mode)
+        showModePopover = false
     }
-    
-    private func selectFile() {
+
+    private func startProcessing() {
+        guard let selectedMode else { return }
+        transcriptionManager.startProcessing(modelContext: modelContext, engine: engine, mode: selectedMode)
+    }
+
+    // MARK: - Drop Overlay
+
+    private var dropOverlay: some View {
+        RoundedRectangle(cornerRadius: 12)
+            .strokeBorder(AppTheme.Accent.primary, style: StrokeStyle(lineWidth: 2, dash: [8]))
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(AppTheme.Accent.fillSubtle)
+            )
+            .overlay {
+                Text("Drop to add files")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(AppTheme.Accent.primary)
+            }
+            .padding(16)
+            .transition(.opacity)
+            .animation(.easeInOut(duration: 0.15), value: isDropTargeted)
+    }
+
+    // MARK: - File Handling
+
+    private func selectFiles() {
         let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
+        panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
-        panel.allowedContentTypes = [
-            .audio, .movie
-        ]
-        
+        panel.allowedContentTypes = [.audio, .movie]
+
         if panel.runModal() == .OK {
-            if let url = panel.url {
-                selectedAudioURL = url
-                isAudioFileSelected = true
-            }
+            transcriptionManager.addToQueue(urls: panel.urls)
         }
     }
-    
-    private func handleDroppedFile(_ providers: [NSItemProvider]) {
-        guard let provider = providers.first else { return }
-        
-        // List of type identifiers to try
+
+    private func handleDroppedFiles(_ providers: [NSItemProvider]) {
         let typeIdentifiers = [
             UTType.fileURL.identifier,
             UTType.audio.identifier,
             UTType.movie.identifier,
             UTType.data.identifier,
-            "public.file-url"
+            "public.file-url",
         ]
-        
-        // Try each type identifier
-        for typeIdentifier in typeIdentifiers {
-            if provider.hasItemConformingToTypeIdentifier(typeIdentifier) {
-                provider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { (item, error) in
-                    if let error = error {
-                        AppLogger.audio.error("Failed to load dropped file for type \(typeIdentifier, privacy: .public): \(AppLogger.errorMetadata(error), privacy: .public)")
-                        return
-                    }
-                    
-                    var fileURL: URL?
-                    
-                    if let url = item as? URL {
-                        fileURL = url
-                    } else if let data = item as? Data {
-                        // Try to create URL from data
-                        if let url = URL(dataRepresentation: data, relativeTo: nil) {
-                            fileURL = url
-                        } else if let urlString = String(data: data, encoding: .utf8),
-                                  let url = URL(string: urlString) {
-                            fileURL = url
+
+        for provider in providers {
+            for typeIdentifier in typeIdentifiers {
+                if provider.hasItemConformingToTypeIdentifier(typeIdentifier) {
+                    provider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { item, error in
+                        if let error = error {
+                            AppLogger.ui.error(
+                                "Failed to load dropped media: \(AppLogger.errorMetadata(error), privacy: .public)"
+                            )
+                            return
                         }
-                    } else if let urlString = item as? String {
-                        fileURL = URL(string: urlString)
-                    }
-                    
-                    if let finalURL = fileURL {
-                        Task { @MainActor in
-                            self.validateAndSetAudioFile(finalURL)
+
+                        var fileURL: URL?
+
+                        if let url = item as? URL {
+                            fileURL = url
+                        } else if let data = item as? Data {
+                            if let url = URL(dataRepresentation: data, relativeTo: nil) {
+                                fileURL = url
+                            } else if let urlString = String(data: data, encoding: .utf8),
+                                let url = URL(string: urlString)
+                            {
+                                fileURL = url
+                            }
+                        } else if let urlString = item as? String {
+                            fileURL = URL(string: urlString)
                         }
-                        return
+
+                        if let finalURL = fileURL {
+                            DispatchQueue.main.async {
+                                self.transcriptionManager.addToQueue(urls: [finalURL])
+                            }
+                        }
                     }
+                    break
                 }
-                break // Stop trying other types once we find a compatible one
             }
         }
-    }
-    
-    private func validateAndSetAudioFile(_ url: URL) {
-        AppLogger.audio.debug("Validating dropped audio file. \(AppLogger.fileMetadata(for: url), privacy: .public)")
-        
-        // Check if file exists
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            AppLogger.audio.error("Dropped audio file was missing at validation time")
-            return
-        }
-        
-        // Try to access security scoped resource
-        let accessing = url.startAccessingSecurityScopedResource()
-        defer {
-            if accessing {
-                url.stopAccessingSecurityScopedResource()
-            }
-        }
-        
-        // Validate file type
-        guard SupportedMedia.isSupported(url: url) else { return }
-        
-        AppLogger.audio.info("Validated dropped audio file. \(AppLogger.fileMetadata(for: url), privacy: .public)")
-        selectedAudioURL = url
-        isAudioFileSelected = true
-    }
-    
-    private func formatDuration(_ duration: TimeInterval) -> String {
-        let minutes = Int(duration) / 60
-        let seconds = Int(duration) % 60
-        return String(format: "%d:%02d", minutes, seconds)
     }
 }

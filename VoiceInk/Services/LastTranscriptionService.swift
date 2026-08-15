@@ -1,36 +1,36 @@
 import Foundation
 import SwiftData
-import OSLog
 
 @MainActor
 class LastTranscriptionService: ObservableObject {
-    
+
     static func getLastTranscription(from modelContext: ModelContext) -> Transcription? {
         var descriptor = FetchDescriptor<Transcription>(
+            predicate: #Predicate<Transcription> { !$0.isDeleted },
             sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
         )
         descriptor.fetchLimit = 1
-        
+
         do {
             let transcriptions = try modelContext.fetch(descriptor)
             return transcriptions.first
         } catch {
-            AppLogger.transcription.error("Error fetching last transcription: \(AppLogger.errorMetadata(error), privacy: .public)")
+            AppLogger.storage.error("Failed to fetch the last transcription: \(AppLogger.errorMetadata(error), privacy: .public)")
             return nil
         }
     }
-    
+
     static func copyLastTranscription(from modelContext: ModelContext) {
         guard let lastTranscription = getLastTranscription(from: modelContext) else {
             Task { @MainActor in
                 NotificationManager.shared.showNotification(
-                    title: Localization.Transcription.noTranscriptionAvailable,
+                    title: String(localized: "No transcription available"),
                     type: .error
                 )
             }
             return
         }
-        
+
         // Prefer enhanced text; fallback to original text
         let textToCopy: String = {
             if let enhancedText = lastTranscription.enhancedText, !enhancedText.isEmpty {
@@ -39,18 +39,18 @@ class LastTranscriptionService: ObservableObject {
                 return lastTranscription.text
             }
         }()
-        
+
         let success = ClipboardManager.copyToClipboard(textToCopy)
-        
+
         Task { @MainActor in
             if success {
                 NotificationManager.shared.showNotification(
-                    title: Localization.Transcription.lastTranscriptionCopied,
+                    title: String(localized: "Last transcription copied"),
                     type: .success
                 )
             } else {
                 NotificationManager.shared.showNotification(
-                    title: Localization.Transcription.failedToCopy,
+                    title: String(localized: "Failed to copy transcription"),
                     type: .error
                 )
             }
@@ -61,32 +61,31 @@ class LastTranscriptionService: ObservableObject {
         guard let lastTranscription = getLastTranscription(from: modelContext) else {
             Task { @MainActor in
                 NotificationManager.shared.showNotification(
-                    title: Localization.Transcription.noTranscriptionAvailable,
+                    title: String(localized: "No transcription available"),
                     type: .error
                 )
             }
             return
         }
-        
+
         let textToPaste = lastTranscription.text
 
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 150_000_000)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             CursorPaster.pasteAtCursor(textToPaste)
         }
     }
-    
+
     static func pasteLastEnhancement(from modelContext: ModelContext) {
         guard let lastTranscription = getLastTranscription(from: modelContext) else {
             Task { @MainActor in
                 NotificationManager.shared.showNotification(
-                    title: Localization.Transcription.noTranscriptionAvailable,
+                    title: String(localized: "No transcription available"),
                     type: .error
                 )
             }
             return
         }
-        
+
         // Prefer enhanced text; if unavailable, fallback to original text (which may contain an error message)
         let textToPaste: String = {
             if let enhancedText = lastTranscription.enhancedText, !enhancedText.isEmpty {
@@ -96,53 +95,79 @@ class LastTranscriptionService: ObservableObject {
             }
         }()
 
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 150_000_000)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             CursorPaster.pasteAtCursor(textToPaste)
         }
     }
-    
-    static func retryLastTranscription(from modelContext: ModelContext, whisperState: WhisperState) {
+
+    static func retryLastTranscription(
+        from modelContext: ModelContext, transcriptionModelManager: TranscriptionModelManager,
+        serviceRegistry: TranscriptionServiceRegistry, enhancementService: AIEnhancementService?
+    ) {
         Task { @MainActor in
             guard let lastTranscription = getLastTranscription(from: modelContext),
-                  let audioURLString = lastTranscription.audioFileURL,
-                  let audioURL = URL(string: audioURLString),
-                  FileManager.default.fileExists(atPath: audioURL.path) else {
+                let audioURLString = lastTranscription.audioFileURL,
+                let audioURL = URL(string: audioURLString),
+                FileManager.default.fileExists(atPath: audioURL.path)
+            else {
                 NotificationManager.shared.showNotification(
-                    title: Localization.Transcription.audioFileNotFound,
+                    title: String(localized: "Cannot retry: Audio file not found"),
                     type: .error
                 )
                 return
             }
-            
-            guard let currentModel = whisperState.currentTranscriptionModel else {
+
+            guard
+                let transcriptionConfiguration = ModeRuntimeResolver.transcriptionConfiguration(
+                    transcriptionModelManager: transcriptionModelManager
+                )
+            else {
                 NotificationManager.shared.showNotification(
-                    title: Localization.Transcription.noModelSelected,
+                    title: String(localized: "No transcription model selected"),
                     type: .error
                 )
                 return
             }
-            
-            let transcriptionService = AudioTranscriptionService(modelContext: modelContext, whisperState: whisperState)
+
+            let transcriptionService = AudioTranscriptionService(
+                modelContext: modelContext,
+                serviceRegistry: serviceRegistry,
+                enhancementService: enhancementService
+            )
             do {
-                let newTranscription = try await transcriptionService.retranscribeAudio(from: audioURL, using: currentModel)
-                
+                let result = try await transcriptionService.retranscribeAudio(
+                    from: audioURL,
+                    using: transcriptionConfiguration.model
+                )
+                let newTranscription = result.transcription
+
                 let textToCopy: String
-                if let enhanced = newTranscription.enhancedText, !enhanced.isEmpty {
-                    textToCopy = enhanced
+                if result.enhancementFailure == nil,
+                    let enhancedText = newTranscription.enhancedText,
+                    !enhancedText.isEmpty
+                {
+                    textToCopy = enhancedText
                 } else {
                     textToCopy = newTranscription.text
                 }
-                
                 _ = ClipboardManager.copyToClipboard(textToCopy)
-                
-                NotificationManager.shared.showNotification(
-                    title: Localization.Transcription.copiedToClipboard,
-                    type: .success
-                )
+
+                if let enhancementFailure = result.enhancementFailure {
+                    NotificationManager.shared.showNotification(
+                        title: EnhancementFailureFormatter.transcriptionSavedMessage(
+                            description: enhancementFailure
+                        ),
+                        type: .warning
+                    )
+                } else {
+                    NotificationManager.shared.showNotification(
+                        title: String(localized: "Copied to clipboard"),
+                        type: .success
+                    )
+                }
             } catch {
                 NotificationManager.shared.showNotification(
-                    title: String(format: Localization.Transcription.retryFailed, error.localizedDescription),
+                    title: String(format: String(localized: "Retry failed: %@"), error.localizedDescription),
                     type: .error
                 )
             }

@@ -2,6 +2,21 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-08-15
+
+### Upstream Sync
+- Integrated upstream VoiceInk changes through `eb5d0b30`, including the current mode workflow, assistant experience, transcription architecture, local model support, dashboard, onboarding, and reliability improvements.
+- Preserved the community fork's unrestricted, local-first behavior, TTS workspace, dictionary and history tools, custom model support, branding, bundle identifiers, and shared dictionary compatibility.
+
+### Privacy, Security & Reliability
+- Kept Whisper context ownership generation-safe and centralized, bounded streaming startup audio, confined background recording cleanup to the recordings root, and retained incremental processing for large audio inputs.
+- Hardened custom provider endpoints, Keychain-backed credentials, custom sound storage, sensitive logging, and vendored selected-text handling to the community project's production standards.
+- Updated the website runtime dependencies and verified a clean production dependency audit.
+
+### Quality
+- Ported the current unit suite to the new architecture, added focused regression coverage for buffering and endpoint validation, and made the local test runner deterministic and failure-safe.
+- Split Core Audio setup out of the recorder implementation to keep production files within the project's hard size limit.
+
 ## 2026-07-12
 
 ### Release Preparation

@@ -12,22 +12,31 @@ if [ ! -d "VoiceInk.xcodeproj" ]; then
     exit 1
 fi
 
-# Run tests using xcodebuild. Explicitly select VoiceInkTests to avoid running UI
-# tests that require code signing.
+# Run the Debug unit-test host directly. Package plug-ins are already pinned by
+# Package.resolved; skip interactive validation so CI and fresh machines behave
+# the same as the documented build command.
+test_args=(
+    test
+    -project VoiceInk.xcodeproj
+    -scheme VoiceInk
+    -configuration Debug
+    -destination 'platform=macOS,arch=arm64,name=My Mac'
+    -resultBundlePath TestResults
+    -only-testing:VoiceInkTests
+    -parallel-testing-enabled NO
+    -skipPackagePluginValidation
+    -skipMacroValidation
+    'CODE_SIGN_IDENTITY='
+    CODE_SIGNING_REQUIRED=NO
+    CODE_SIGNING_ALLOWED=NO
+)
+
 if command -v xcbeautify >/dev/null 2>&1; then
     echo "✨ Using xcbeautify for output"
 
     # Capture both statuses so formatter failures cannot hide an xcodebuild failure.
     set +e
-    xcodebuild build-for-testing test-without-building \
-        -project VoiceInk.xcodeproj \
-        -scheme VoiceInk \
-        -destination 'platform=macOS' \
-        -resultBundlePath TestResults \
-        -only-testing:VoiceInkTests \
-        CODE_SIGN_IDENTITY="" \
-        CODE_SIGNING_REQUIRED=NO \
-        | xcbeautify
+    xcodebuild "${test_args[@]}" | xcbeautify
     pipeline_status=("${PIPESTATUS[@]}")
     set -e
 
@@ -44,12 +53,5 @@ if command -v xcbeautify >/dev/null 2>&1; then
     fi
 else
     echo "⚠️ xcbeautify not found, using raw xcodebuild output"
-    xcodebuild build-for-testing test-without-building \
-        -project VoiceInk.xcodeproj \
-        -scheme VoiceInk \
-        -destination 'platform=macOS' \
-        -resultBundlePath TestResults \
-        -only-testing:VoiceInkTests \
-        CODE_SIGN_IDENTITY="" \
-        CODE_SIGNING_REQUIRED=NO
+    xcodebuild "${test_args[@]}"
 fi

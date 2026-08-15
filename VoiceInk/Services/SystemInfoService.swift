@@ -1,79 +1,76 @@
-import Foundation
-import AppKit
 import AVFoundation
+import AppKit
+import Foundation
 
 @MainActor
-class SystemInfoService {
+final class SystemInfoService {
     static let shared = SystemInfoService()
 
     private init() {}
 
     func getSystemInfoString() -> String {
         let info = """
-        === VOICELINK COMMUNITY SYSTEM INFORMATION ===
-        Generated: \(Date().formatted(date: .long, time: .standard))
+            === VOICEINK SYSTEM INFORMATION ===
+            Generated: \(Self.englishTimestamp())
 
-        APP INFORMATION:
-        App Version: \(getAppVersion())
-        Build Version: \(getBuildVersion())
-        License Status: \(getLicenseStatus())
+            APP INFORMATION:
+            App Version: \(getAppVersion())
+            Build Version: \(getBuildVersion())
+            Edition: \(getEdition())
 
-        OPERATING SYSTEM:
-        macOS Version: \(ProcessInfo.processInfo.operatingSystemVersionString)
+            OPERATING SYSTEM:
+            macOS Version: \(ProcessInfo.processInfo.operatingSystemVersionString)
 
-        HARDWARE INFORMATION:
-        Device Model: \(getMacModel())
-        CPU: \(getCPUInfo())
-        Memory: \(getMemoryInfo())
-        Architecture: \(getArchitecture())
+            HARDWARE INFORMATION:
+            Device Model: \(getMacModel())
+            CPU: \(getCPUInfo())
+            Memory: \(getMemoryInfo())
+            Architecture: \(getArchitecture())
 
-        AUDIO SETTINGS:
-        Input Mode: \(getAudioInputMode())
-        Current Audio Device: \(getCurrentAudioDevice())
-        Available Audio Devices: \(getAvailableAudioDevices())
+            AUDIO SETTINGS:
+            Input Mode: \(getAudioInputMode())
+            Current Audio Device: \(getCurrentAudioDevice())
+            Available Audio Devices: \(getAvailableAudioDevices())
 
-        HOTKEY SETTINGS:
-        Primary Hotkey: \(getPrimaryHotkey())
-        Secondary Hotkey: \(getSecondaryHotkey())
-        Middle-Click Recording: \(UserDefaults.standard.bool(forKey: "isMiddleClickToggleEnabled"))
-        Middle-Click Activation Delay: \(UserDefaults.standard.integer(forKey: "middleClickActivationDelay")) ms
+            HOTKEY SETTINGS:
+            Primary Shortcut: \(getPrimaryShortcut())
+            Secondary Shortcut: \(getSecondaryShortcut())
+            Middle-Click Recording: \(UserDefaults.standard.bool(forKey: "isMiddleClickToggleEnabled"))
+            Middle-Click Activation Delay: \(UserDefaults.standard.integer(forKey: "middleClickActivationDelay")) ms
 
-        TRANSCRIPTION SETTINGS:
-        Selected Model: \(getCurrentTranscriptionModel())
-        Selected Language: \(getCurrentLanguage())
-        AI Enhancement: \(getAIEnhancementStatus())
-        AI Provider: \(getAIProvider())
-        AI Model: \(getAIModel())
+            TRANSCRIPTION SETTINGS:
+            Selected Model: \(getCurrentTranscriptionModel())
+            Selected Language: \(getCurrentLanguage())
+            AI Enhancement: \(getAIEnhancementStatus())
+            AI Provider: \(getAIProvider())
+            AI Model: \(getAIModel())
 
-        UI SETTINGS:
-        Hide Dock Icon: \(UserDefaults.standard.bool(forKey: "IsMenuBarOnly"))
-        Recorder Style: \(UserDefaults.standard.string(forKey: "RecorderType") ?? "mini")
+            UI SETTINGS:
+            Hide Dock Icon: \(UserDefaults.standard.bool(forKey: "IsMenuBarOnly"))
+            Recorder Style: \(UserDefaults.standard.string(forKey: "RecorderType") ?? "mini")
 
-        RECORDING FEEDBACK:
-        Sound Feedback: \(UserDefaults.standard.bool(forKey: "isSoundFeedbackEnabled"))
-        Pause Media While Recording: \(UserDefaults.standard.bool(forKey: "isPauseMediaEnabled"))
-        Mute Audio While Recording: \(UserDefaults.standard.bool(forKey: "isSystemMuteEnabled"))
-        Audio Resumption Delay: \(UserDefaults.standard.double(forKey: "audioResumptionDelay"))s
+            RECORDING FEEDBACK:
+            Sound Feedback: \(SoundManager.shared.settings.isEnabled && SoundManager.shared.settings.preset != .silent)
+            Pause Media While Recording: \(UserDefaults.standard.bool(forKey: "isPauseMediaEnabled"))
+            Mute Audio While Recording: \(UserDefaults.standard.bool(forKey: "isSystemMuteEnabled"))
+            Audio Resumption Delay: \(UserDefaults.standard.double(forKey: "audioResumptionDelay"))s
 
-        CLIPBOARD & PASTE SETTINGS:
-        Restore Clipboard After Paste: \(UserDefaults.standard.bool(forKey: "restoreClipboardAfterPaste"))
-        Clipboard Restore Delay: \(UserDefaults.standard.double(forKey: "clipboardRestoreDelay"))s
-        Use AppleScript Paste: \(AppSettings.Clipboard.useAppleScriptPaste)
-        POWER MODE:
-        Power Mode Enabled: \(UserDefaults.standard.bool(forKey: "powerModeUIFlag"))
-        Auto-Restore Enabled: \(UserDefaults.standard.bool(forKey: "powerModeAutoRestoreEnabled"))
+            CLIPBOARD & PASTE SETTINGS:
+            Restore Clipboard After Paste: \(UserDefaults.standard.bool(forKey: "restoreClipboardAfterPaste"))
+            Clipboard Restore Delay: \(UserDefaults.standard.double(forKey: "clipboardRestoreDelay"))s
+            Paste Method: \(PasteMethod.current().displayName)
 
-        DATA CLEANUP SETTINGS:
-        Auto-Delete Transcriptions: \(UserDefaults.standard.bool(forKey: "IsTranscriptionCleanupEnabled"))
-        Transcription Retention: \(UserDefaults.standard.integer(forKey: "TranscriptionRetentionMinutes")) minutes
-        Auto-Delete Audio Files: \(UserDefaults.standard.bool(forKey: "IsAudioCleanupEnabled"))
-        Audio Retention Period: \(UserDefaults.standard.integer(forKey: "AudioRetentionPeriod")) days
+            DATA CLEANUP SETTINGS:
+            Auto-Delete Transcriptions: \(UserDefaults.standard.bool(forKey: CleanupSettingsKeys.isTranscriptionCleanupEnabled))
+            Transcription Retention: \(UserDefaults.standard.integer(forKey: CleanupSettingsKeys.transcriptionRetentionMinutes)) minutes
+            Auto-Delete Audio Files: \(UserDefaults.standard.bool(forKey: CleanupSettingsKeys.isAudioCleanupEnabled))
+            Audio Retention Period: \(UserDefaults.standard.integer(forKey: CleanupSettingsKeys.audioRetentionPeriod)) days
 
-        PERMISSIONS:
-        Accessibility: \(getAccessibilityStatus())
-        Screen Recording: \(getScreenRecordingStatus())
-        Microphone: \(getMicrophoneStatus())
-        """
+            PERMISSIONS:
+            Accessibility: \(getAccessibilityStatus())
+            Screen Recording: \(getScreenRecordingStatus())
+            Microphone: \(getMicrophoneStatus())
+            """
 
         return info
     }
@@ -111,7 +108,8 @@ class SystemInfoService {
 
     private func getMemoryInfo() -> String {
         let totalMemory = ProcessInfo.processInfo.physicalMemory
-        return ByteCountFormatter.string(fromByteCount: Int64(totalMemory), countStyle: .memory)
+        let gibibytes = Double(totalMemory) / 1_073_741_824
+        return String(format: "%.2f GB (%llu bytes)", locale: Locale(identifier: "en_US_POSIX"), gibibytes, totalMemory)
     }
 
     private func getArchitecture() -> String {
@@ -119,9 +117,17 @@ class SystemInfoService {
     }
 
     private func getAudioInputMode() -> String {
-        if let mode = AppSettings.AudioInput.audioInputModeRawValue,
-           let audioMode = AudioInputMode(rawValue: mode) {
-            return audioMode.rawValue
+        if let mode = UserDefaults.standard.audioInputModeRawValue,
+            let audioMode = AudioInputMode(rawValue: mode)
+        {
+            switch audioMode {
+            case .systemDefault:
+                return "System Default"
+            case .custom:
+                return "Custom Device"
+            case .prioritized:
+                return "Prioritized"
+            }
         }
         return "System Default"
     }
@@ -143,25 +149,21 @@ class SystemInfoService {
         return devices.map { $0.name }.joined(separator: ", ")
     }
 
-    private func getPrimaryHotkey() -> String {
-        if let hotkeyRaw = AppSettings.Hotkeys.selectedHotkey1,
-           let hotkey = HotkeyManager.HotkeyOption(rawValue: hotkeyRaw) {
-            return hotkey.displayName
-        }
-        return "Right Command"
+    private func getPrimaryShortcut() -> String {
+        shortcutDescription(for: .primaryRecording)
     }
 
-    private func getSecondaryHotkey() -> String {
-        if let hotkeyRaw = AppSettings.Hotkeys.selectedHotkey2,
-           let hotkey = HotkeyManager.HotkeyOption(rawValue: hotkeyRaw) {
-            return hotkey.displayName
-        }
-        return "None"
+    private func getSecondaryShortcut() -> String {
+        shortcutDescription(for: .secondaryRecording)
+    }
+
+    private func shortcutDescription(for action: ShortcutAction) -> String {
+        ShortcutStore.shortcut(for: action)?.displayString ?? ""
     }
 
     private func getCurrentTranscriptionModel() -> String {
-        if let modelName = AppSettings.TranscriptionSettings.currentTranscriptionModel {
-            if let model = PredefinedModels.models.first(where: { $0.name == modelName }) {
+        if let modelName = ModeManager.shared.currentEffectiveConfiguration?.selectedTranscriptionModelName {
+            if let model = TranscriptionModelRegistry.models.first(where: { $0.name == modelName }) {
                 return model.displayName
             }
             return modelName
@@ -170,27 +172,15 @@ class SystemInfoService {
     }
 
     private func getAIEnhancementStatus() -> String {
-        let enhancementEnabled = AppSettings.Enhancements.isEnhancementEnabled
-        return enhancementEnabled ? "Enabled" : "Disabled"
+        ModeManager.shared.currentEffectiveConfiguration?.isAIEnhancementEnabled == true ? "Enabled" : "Disabled"
     }
 
     private func getAIProvider() -> String {
-        if let providerRaw = AppSettings.AI.selectedProviderRawValue {
-            return providerRaw
-        }
-        return "None selected"
+        ModeManager.shared.currentEffectiveConfiguration?.selectedAIProvider ?? "None selected"
     }
 
     private func getAIModel() -> String {
-        if let providerRaw = AppSettings.AI.selectedProviderRawValue {
-            let modelKey = AppSettings.AI.selectedModelKey(for: providerRaw)
-            let savedModel = AppSettings.string(forKey: modelKey, default: "")
-            if !savedModel.isEmpty {
-                return savedModel
-            }
-            return "Default (\(providerRaw))"
-        }
-        return "None selected"
+        ModeManager.shared.currentEffectiveConfiguration?.selectedAIModel ?? "None selected"
     }
     private func getAccessibilityStatus() -> String {
         return AXIsProcessTrusted() ? "Granted" : "Not Granted"
@@ -215,18 +205,18 @@ class SystemInfoService {
         }
     }
 
-    private func getLicenseStatus() -> String {
-        // Check for existing license key and activation
-        let licenseKey = AppSettings.licenseKey ?? ""
-        if !licenseKey.isEmpty {
-            return "Licensed (Pro)"
-        }
-
-        return "Community Edition"
+    private func getEdition() -> String {
+        AppBrand.isCommunityEdition ? "Community Edition" : "Standard Edition"
     }
 
     private func getCurrentLanguage() -> String {
-        return AppSettings.TranscriptionSettings.selectedLanguage ?? "en"
+        return UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "en"
+    }
+
+    private static func englishTimestamp() -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.string(from: Date())
     }
 
 }

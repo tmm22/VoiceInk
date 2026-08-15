@@ -2,11 +2,26 @@ import Foundation
 import Security
 import os
 
-/// Securely stores and retrieves secrets using Keychain.
-/// Local builds still use Keychain, but disable syncable items because
-/// local entitlements omit the production iCloud/keychain configuration.
+/// Stores credentials with caller-selected Keychain synchronization and accessibility.
 final class KeychainService {
     static let shared = KeychainService()
+
+    enum Accessibility {
+        case afterFirstUnlockThisDeviceOnly
+
+        fileprivate var value: CFString {
+            switch self {
+            case .afterFirstUnlockThisDeviceOnly:
+                return kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            }
+        }
+    }
+
+    enum ReadResult<Value> {
+        case value(Value)
+        case notFound
+        case unavailable(OSStatus)
+    }
 
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "KeychainService")
     private let service = "com.prakashjoshipax.VoiceInk"
@@ -17,34 +32,75 @@ final class KeychainService {
 
     /// Saves a string value to Keychain.
     @discardableResult
-    func save(_ value: String, forKey key: String, syncable: Bool = true) -> Bool {
+    func save(
+        _ value: String,
+        forKey key: String,
+        syncable: Bool = true,
+        accessibility: Accessibility? = nil
+    ) -> Bool {
         guard let data = value.data(using: .utf8) else {
             logger.error("Failed to convert value to data for key: \(key, privacy: .public)")
             return false
         }
-        return save(data: data, forKey: key, syncable: syncable)
+        return save(data: data, forKey: key, syncable: syncable, accessibility: accessibility)
     }
 
     /// Saves data to Keychain.
     @discardableResult
-    func save(data: Data, forKey key: String, syncable: Bool = true) -> Bool {
-        let effectiveSyncable = resolvedSyncable(syncable)
+    func save(
+        data: Data,
+        forKey key: String,
+        syncable: Bool = true,
+        accessibility: Accessibility? = nil
+    ) -> Bool {
+        let query = baseQuery(forKey: key, syncable: syncable)
+        var attributes: [String: Any] = [kSecValueData as String: data]
+        if let accessibility {
+            attributes[kSecAttrAccessible as String] = accessibility.value
+        }
+        let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
 
-        // First, try to delete any existing item to avoid duplicates
-        delete(forKey: key, syncable: effectiveSyncable)
-
-        var query = baseQuery(forKey: key, syncable: effectiveSyncable)
-        query[kSecValueData as String] = data
-
-        let status = SecItemAdd(query as CFDictionary, nil)
-
-        if status == errSecSuccess {
-            logger.info("Successfully saved keychain item for key: \(key, privacy: .public)")
+        if updateStatus == errSecSuccess {
+            logger.info("Successfully updated keychain item for key: \(key, privacy: .public)")
             return true
-        } else {
-            logger.error("Failed to save keychain item for key: \(key, privacy: .public), status: \(status, privacy: .public)")
+        }
+
+        guard updateStatus == errSecItemNotFound else {
+            logger.error(
+                "Failed to update keychain item for key: \(key, privacy: .public), status: \(updateStatus, privacy: .public)"
+            )
             return false
         }
+
+        var addQuery = query
+        addQuery[kSecValueData as String] = data
+        if let accessibility {
+            addQuery[kSecAttrAccessible as String] = accessibility.value
+        }
+        let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
+
+        if addStatus == errSecSuccess {
+            logger.info("Successfully saved keychain item for key: \(key, privacy: .public)")
+            return true
+        }
+
+        if addStatus == errSecDuplicateItem {
+            let retryStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+            if retryStatus == errSecSuccess {
+                logger.info("Successfully updated concurrently created keychain item for key: \(key, privacy: .public)")
+                return true
+            }
+
+            logger.error(
+                "Failed to update concurrently created keychain item for key: \(key, privacy: .public), status: \(retryStatus, privacy: .public)"
+            )
+            return false
+        }
+
+        logger.error(
+            "Failed to save keychain item for key: \(key, privacy: .public), status: \(addStatus, privacy: .public)"
+        )
+        return false
     }
 
     /// Retrieves a string value from Keychain.
@@ -55,29 +111,33 @@ final class KeychainService {
         return String(data: data, encoding: .utf8)
     }
 
-    func readString(forKey key: String, syncable: Bool = true) -> KeychainReadResult {
-        let effectiveSyncable = resolvedSyncable(syncable)
-        var query = baseQuery(forKey: key, syncable: effectiveSyncable)
-        query[kSecReturnData as String] = kCFBooleanTrue
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-
-        if status == errSecItemNotFound { return .absent }
-        guard status == errSecSuccess,
-              let data = result as? Data,
-              let value = String(data: data, encoding: .utf8) else {
-            logger.error("Failed to retrieve keychain item for key: \(key, privacy: .public), status: \(status, privacy: .public)")
-            return .failed
+    /// Retrieves a string while distinguishing missing data from unavailable storage.
+    func readString(forKey key: String, syncable: Bool = true) -> ReadResult<String> {
+        switch readData(forKey: key, syncable: syncable) {
+        case .value(let data):
+            guard let value = String(data: data, encoding: .utf8) else {
+                logger.error("Failed to decode keychain string for key: \(key, privacy: .public)")
+                return .unavailable(errSecDecode)
+            }
+            return .value(value)
+        case .notFound:
+            return .notFound
+        case .unavailable(let status):
+            return .unavailable(status)
         }
-        return .present(value)
     }
 
     /// Retrieves data from Keychain.
     func getData(forKey key: String, syncable: Bool = true) -> Data? {
-        let effectiveSyncable = resolvedSyncable(syncable)
+        guard case .value(let data) = readData(forKey: key, syncable: syncable) else {
+            return nil
+        }
+        return data
+    }
 
-        var query = baseQuery(forKey: key, syncable: effectiveSyncable)
+    /// Retrieves data while preserving the Security framework status.
+    func readData(forKey key: String, syncable: Bool = true) -> ReadResult<Data> {
+        var query = baseQuery(forKey: key, syncable: syncable)
         query[kSecReturnData as String] = kCFBooleanTrue
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
@@ -85,19 +145,27 @@ final class KeychainService {
         let status = SecItemCopyMatching(query as CFDictionary, &result)
 
         if status == errSecSuccess {
-            return result as? Data
-        } else if status != errSecItemNotFound {
-            logger.error("Failed to retrieve keychain item for key: \(key, privacy: .public), status: \(status, privacy: .public)")
+            guard let data = result as? Data else {
+                logger.error("Keychain returned invalid data for key: \(key, privacy: .public)")
+                return .unavailable(errSecDecode)
+            }
+            return .value(data)
         }
 
-        return nil
+        if status == errSecItemNotFound {
+            return .notFound
+        }
+
+        logger.error(
+            "Failed to retrieve keychain item for key: \(key, privacy: .public), status: \(status, privacy: .public)"
+        )
+        return .unavailable(status)
     }
 
     /// Deletes an item from Keychain.
     @discardableResult
     func delete(forKey key: String, syncable: Bool = true) -> Bool {
-        let effectiveSyncable = resolvedSyncable(syncable)
-        let query = baseQuery(forKey: key, syncable: effectiveSyncable)
+        let query = baseQuery(forKey: key, syncable: syncable)
         let status = SecItemDelete(query as CFDictionary)
 
         if status == errSecSuccess || status == errSecItemNotFound {
@@ -106,16 +174,16 @@ final class KeychainService {
             }
             return true
         } else {
-            logger.error("Failed to delete keychain item for key: \(key, privacy: .public), status: \(status, privacy: .public)")
+            logger.error(
+                "Failed to delete keychain item for key: \(key, privacy: .public), status: \(status, privacy: .public)"
+            )
             return false
         }
     }
 
     /// Checks if a key exists in Keychain.
     func exists(forKey key: String, syncable: Bool = true) -> Bool {
-        let effectiveSyncable = resolvedSyncable(syncable)
-
-        var query = baseQuery(forKey: key, syncable: effectiveSyncable)
+        var query = baseQuery(forKey: key, syncable: syncable)
         query[kSecReturnData as String] = kCFBooleanFalse
 
         let status = SecItemCopyMatching(query as CFDictionary, nil)
@@ -124,21 +192,13 @@ final class KeychainService {
 
     // MARK: - Private Helpers
 
-    private func resolvedSyncable(_ requestedSyncable: Bool) -> Bool {
-        #if LOCAL_BUILD
-        return false
-        #else
-        return requestedSyncable
-        #endif
-    }
-
-    /// Creates base Keychain query dictionary.
+    /// Creates a base Keychain query.
     private func baseQuery(forKey key: String, syncable: Bool) -> [String: Any] {
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
-            kSecUseDataProtectionKeychain as String: true
+            kSecUseDataProtectionKeychain as String: true,
         ]
 
         if syncable {

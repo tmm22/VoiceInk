@@ -27,6 +27,11 @@ struct AudioFileDeletionResult: Sendable {
     let deletion: AudioFileDeletion
 }
 
+struct OrphanAudioCleanupResult: Sendable {
+    let deletedCount: Int
+    let failureCount: Int
+}
+
 actor AudioFileCleanupWorker {
     func inspect(_ candidates: [AudioFileCandidate]) -> [AudioFileInspectionResult] {
         return candidates.map { candidate in
@@ -66,6 +71,46 @@ actor AudioFileCleanupWorker {
             } catch {
                 return AudioFileDeletionResult(candidate: candidate, deletion: .failed(message: error.localizedDescription))
             }
+        }
+    }
+
+    func deleteOrphans(referencedFileNames: Set<String>, allowedRoot: URL) -> OrphanAudioCleanupResult {
+        let resolvedRoot = allowedRoot.standardizedFileURL.resolvingSymlinksInPath()
+        let rootPrefix = resolvedRoot.path.hasSuffix("/") ? resolvedRoot.path : resolvedRoot.path + "/"
+
+        do {
+            let files = try FileManager.default.contentsOfDirectory(
+                at: resolvedRoot,
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles]
+            )
+            var deletedCount = 0
+            var failureCount = 0
+
+            for fileURL in files where !referencedFileNames.contains(fileURL.lastPathComponent) {
+                let resolvedURL = fileURL.standardizedFileURL.resolvingSymlinksInPath()
+                guard resolvedURL.path.hasPrefix(rootPrefix) else {
+                    failureCount += 1
+                    continue
+                }
+
+                do {
+                    let values = try resolvedURL.resourceValues(forKeys: [.isRegularFileKey])
+                    guard values.isRegularFile == true else { continue }
+                    try FileManager.default.removeItem(at: resolvedURL)
+                    deletedCount += 1
+                } catch let error as CocoaError where error.code == .fileNoSuchFile {
+                    continue
+                } catch {
+                    failureCount += 1
+                }
+            }
+
+            return OrphanAudioCleanupResult(deletedCount: deletedCount, failureCount: failureCount)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return OrphanAudioCleanupResult(deletedCount: 0, failureCount: 0)
+        } catch {
+            return OrphanAudioCleanupResult(deletedCount: 0, failureCount: 1)
         }
     }
 }

@@ -152,7 +152,15 @@ struct AudioFeedbackSettingsView: View {
                     .truncationMode(.middle)
                 
                 Button(action: {
-                    soundManager.setCustomSound(type: type, url: nil)
+                    Task { @MainActor in
+                        do {
+                            try await soundManager.setCustomSound(type: type, url: nil)
+                        } catch {
+                            AppLogger.audio.error(
+                                "Failed to remove custom sound: \(AppLogger.errorMetadata(error), privacy: .public)"
+                            )
+                        }
+                    }
                 }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.secondary)
@@ -189,9 +197,19 @@ struct AudioFeedbackSettingsView: View {
         case .success(let urls):
             guard let url = urls.first else { return }
             
-            if url.startAccessingSecurityScopedResource() {
-                defer { url.stopAccessingSecurityScopedResource() }
-                soundManager.setCustomSound(type: type, url: url)
+            Task { @MainActor in
+                let didAccess = url.startAccessingSecurityScopedResource()
+                defer {
+                    if didAccess { url.stopAccessingSecurityScopedResource() }
+                }
+                do {
+                    try await soundManager.setCustomSound(type: type, url: url)
+                } catch {
+                    NotificationManager.shared.showNotification(
+                        title: error.localizedDescription,
+                        type: .error
+                    )
+                }
             }
             
         case .failure(let error):

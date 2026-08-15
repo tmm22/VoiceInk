@@ -1,26 +1,29 @@
-import SwiftUI
-import SwiftData
 import AppKit
+import SwiftData
+import SwiftUI
 
 @MainActor
 class MenuBarManager: ObservableObject {
     @Published var isMenuBarOnly: Bool {
         didSet {
-            AppSettings.General.isMenuBarOnly = isMenuBarOnly
-            updateAppActivationPolicy()
+            UserDefaults.standard.set(isMenuBarOnly, forKey: "IsMenuBarOnly")
+            applyActivationPolicy()
         }
     }
 
     private var modelContainer: ModelContainer?
-    private var whisperState: WhisperState?
+    private var engine: VoiceInkEngine?
+    private var configuredActivationPolicy: NSApplication.ActivationPolicy {
+        isMenuBarOnly ? .accessory : .regular
+    }
 
     init() {
-        self.isMenuBarOnly = AppSettings.General.isMenuBarOnly ?? false
-        updateAppActivationPolicy()
+        self.isMenuBarOnly = UserDefaults.standard.bool(forKey: "IsMenuBarOnly")
+        applyActivationPolicy()
 
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(windowDidClose),
+            selector: #selector(userFacingWindowWillClose),
             name: NSWindow.willCloseNotification,
             object: nil
         )
@@ -30,101 +33,50 @@ class MenuBarManager: ObservableObject {
         NotificationCenter.default.removeObserver(self)
     }
 
-    @objc private func windowDidClose(_ notification: Notification) {
-        guard isMenuBarOnly else { return }
-
-        Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(100))
-            guard let self, self.isMenuBarOnly else { return }
-            let hasVisibleWindows = NSApplication.shared.windows.contains {
-                $0.isVisible && $0.level == .normal && !$0.styleMask.contains(.nonactivatingPanel)
-            }
-            if !hasVisibleWindows {
-                NSApplication.shared.setActivationPolicy(.accessory)
-            }
+    @objc private func userFacingWindowWillClose(_ notification: Notification) {
+        guard isMenuBarOnly,
+            let window = notification.object as? NSWindow,
+            window.level == .normal,
+            window.styleMask.contains(.titled)
+        else {
+            return
         }
+
+        AppPresentationPolicy.restoreAccessoryIfNeededAfterUserFacingWindowClosed()
     }
 
-    func configure(modelContainer: ModelContainer, whisperState: WhisperState) {
+    func configure(modelContainer: ModelContainer, engine: VoiceInkEngine) {
         self.modelContainer = modelContainer
-        self.whisperState = whisperState
+        self.engine = engine
     }
-    
+
     func toggleMenuBarOnly() {
         isMenuBarOnly.toggle()
     }
-    
+
     func applyActivationPolicy() {
-        updateAppActivationPolicy()
-    }
-    
-    func focusMainWindow() {
-        applyActivationPolicy()
-        if WindowManager.shared.showMainWindow() == nil {
-            AppLogger.ui.debug("MenuBarManager was unable to locate the main window to focus")
-        }
-    }
-    
-    private func updateAppActivationPolicy() {
-        let applyPolicy = { [weak self] in
-            guard let self else { return }
-            let application = NSApplication.shared
-            if self.isMenuBarOnly {
-                application.setActivationPolicy(.accessory)
-                WindowManager.shared.hideMainWindow()
-            } else {
-                application.setActivationPolicy(.regular)
-                _ = WindowManager.shared.showMainWindow()
-            }
-        }
+        NSApplication.shared.setActivationPolicy(configuredActivationPolicy)
 
-        applyPolicy()
+        if isMenuBarOnly {
+            WindowManager.shared.hideMainWindow()
+        }
     }
-    
-    func openMainWindowAndNavigate(to destination: String) {
-        AppLogger.ui.debug("MenuBarManager received a navigation request")
 
-        let aiFeaturesEnabled = AppSettings.General.enableAIEnhancementFeatures ?? true
-        if !aiFeaturesEnabled && (destination == "AI Models" || destination == "Enhancement" || destination == "Text to Speech") {
-            AppLogger.ui.info("MenuBarManager blocked navigation because AI features are disabled")
-            let alert = NSAlert()
-            alert.messageText = "AI enhancements are disabled"
-            alert.informativeText = "Enable AI enhancement features in Settings before accessing this workspace."
-            alert.alertStyle = .informational
-            alert.addButton(withTitle: "OK")
-            alert.runModal()
-            return
-        }
-        
-        applyActivationPolicy()
-        
-        guard WindowManager.shared.showMainWindow() != nil else {
-            AppLogger.ui.error("MenuBarManager was unable to show the main window for navigation")
-            return
-        }
-        
-        // Post a notification to navigate to the desired destination
-        Task {
-            try? await Task.sleep(for: .milliseconds(100))
-            NotificationCenter.default.post(
-                name: .navigateToDestination,
-                object: nil,
-                userInfo: ["destination": destination]
-            )
-            AppLogger.ui.debug("MenuBarManager posted a navigation notification")
-        }
+    func activateForPresentedWindow() {
+        AppPresentationPolicy.activateForUserFacingWindow()
     }
 
     func openHistoryWindow() {
         guard let modelContainer = modelContainer,
-              let whisperState = whisperState else {
-            AppLogger.ui.error("MenuBarManager dependencies were not configured before opening history window")
+            let engine = engine
+        else {
             return
         }
-        NSApplication.shared.setActivationPolicy(.regular)
+
+        activateForPresentedWindow()
         HistoryWindowController.shared.showHistoryWindow(
             modelContainer: modelContainer,
-            whisperState: whisperState
+            engine: engine
         )
     }
 }

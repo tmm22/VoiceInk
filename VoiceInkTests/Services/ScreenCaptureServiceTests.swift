@@ -55,7 +55,7 @@ final class ScreenCaptureServiceTests: XCTestCase {
         _ = captureService.isCapturing
         
         // Wait for capture to complete
-        await captureTask.value
+        _ = await captureTask.value
         
         // Should be false after completion
         XCTAssertFalse(captureService.isCapturing, "Should not be capturing after completion")
@@ -74,6 +74,7 @@ final class ScreenCaptureServiceTests: XCTestCase {
         
         // At least some should return nil (concurrent prevention)
         // In test environment, likely all will be nil due to permissions
+        XCTAssertEqual(results.count, 3)
         XCTAssertNotNil(captureService, "Should handle concurrent attempts")
     }
     
@@ -97,7 +98,7 @@ final class ScreenCaptureServiceTests: XCTestCase {
         // Test that getting window info doesn't crash
         // This uses private method, so we test the public API that calls it
         
-        let result = await captureService.captureAndExtractText()
+        _ = await captureService.captureAndExtractText()
         
         // May be nil due to permissions or no active window
         // Main test is that it doesn't crash
@@ -110,7 +111,7 @@ final class ScreenCaptureServiceTests: XCTestCase {
         // This tests the internal text extraction with nil image
         // Since the method is private, we test via the public API
         
-        let result = await captureService.captureAndExtractText()
+        _ = await captureService.captureAndExtractText()
         
         // Should handle nil image gracefully
         XCTAssertNotNil(captureService, "Should handle nil image")
@@ -138,11 +139,12 @@ final class ScreenCaptureServiceTests: XCTestCase {
         let expectation = expectation(description: "Observe isCapturing")
         
         let cancellable = captureService.$isCapturing
-            .sink { isCapturing in
-                captureStates.append(isCapturing)
-                if captureStates.count >= 2 {
-                    expectation.fulfill()
-                }
+            .dropFirst()
+            .prefix(2)
+            .collect()
+            .sink { states in
+                captureStates = states
+                expectation.fulfill()
             }
         
         // Change state
@@ -162,11 +164,12 @@ final class ScreenCaptureServiceTests: XCTestCase {
         let expectation = expectation(description: "Observe lastCapturedText")
         
         let cancellable = captureService.$lastCapturedText
-            .sink { text in
-                capturedTexts.append(text)
-                if capturedTexts.count >= 2 {
-                    expectation.fulfill()
-                }
+            .dropFirst()
+            .prefix(2)
+            .collect()
+            .sink { texts in
+                capturedTexts = texts
+                expectation.fulfill()
             }
         
         // Change state

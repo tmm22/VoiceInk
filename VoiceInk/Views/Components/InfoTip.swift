@@ -3,13 +3,11 @@ import SwiftUI
 /// A reusable info tip component that displays helpful information in a popover
 struct InfoTip: View {
     // Content configuration
-    var title: String? = nil
-    var message: String
+    var message: LocalizedStringKey
     var learnMoreLink: URL?
-    var learnMoreText: String = Localization.General.learnMore
 
     // Appearance customization
-    var iconName: String = "info.circle.fill"
+    var iconName: String = "info.circle"
     var iconSize: Image.Scale = .medium
     var iconColor: Color = .primary
     var width: CGFloat = 280
@@ -25,40 +23,28 @@ struct InfoTip: View {
             .padding(5)
             .contentShape(Rectangle())
             .popover(isPresented: $isShowingTip) {
-                VStack(alignment: .leading, spacing: 10) {
-                    if let title, !title.isEmpty {
-                        Text(title)
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                    }
-
-                    Text(message)
-                        .font(.subheadline)
-                        .foregroundColor(.primary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    if let url = learnMoreLink {
-                        Link(destination: url) {
-                            HStack(spacing: 4) {
-                                Text(learnMoreText)
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                Image(systemName: "arrow.up.forward")
-                                    .font(.caption2)
-                            }
-                            .foregroundColor(.accentColor)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(
-                                RoundedRectangle(cornerRadius: 4)
-                                    .strokeBorder(Color.accentColor.opacity(0.4), lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(.plain)
+                VStack(alignment: .leading, spacing: 0) {
+                    if learnMoreLink != nil {
+                        (Text(message)
+                            .foregroundColor(.secondary)
+                            + Text(" ")
+                            + Text("Learn more")
+                            .foregroundColor(AppTheme.Accent.primary))
+                            .font(.callout)
+                    } else {
+                        Text(message)
+                            .font(.callout)
+                            .foregroundColor(.secondary)
                     }
                 }
-                .padding(12)
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(width: width, alignment: .leading)
+                .padding(14)
+                .onTapGesture {
+                    if let url = learnMoreLink {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
             }
             .onTapGesture {
                 isShowingTip.toggle()
@@ -69,24 +55,27 @@ struct InfoTip: View {
 // MARK: - Convenience initializers
 
 extension InfoTip {
-    /// Creates an InfoTip with title and message
-    init(title: String, message: String, learnMoreURL: String? = nil) {
-        self.title = title
-        self.message = message
-        self.learnMoreLink = learnMoreURL.flatMap(URL.init(string:))
-    }
-
     /// Creates an InfoTip with just a message
-    init(_ message: String) {
-        self.title = nil
+    init(_ message: LocalizedStringKey) {
         self.message = message
         self.learnMoreLink = nil
     }
 
+    /// Creates an InfoTip with a dynamic string message
+    init(_ message: String) {
+        self.message = LocalizedStringKey(message)
+        self.learnMoreLink = nil
+    }
+
     /// Creates an InfoTip with a learn more link
-    init(_ message: String, learnMoreURL: String) {
-        self.title = nil
+    init(_ message: LocalizedStringKey, learnMoreURL: String) {
         self.message = message
+        self.learnMoreLink = URL(string: learnMoreURL)
+    }
+
+    /// Creates an InfoTip with a dynamic string message and learn more link
+    init(_ message: String, learnMoreURL: String) {
+        self.message = LocalizedStringKey(message)
         self.learnMoreLink = URL(string: learnMoreURL)
     }
 }

@@ -1,93 +1,84 @@
 import Foundation
-
-/// Reasoning effort levels supported by AI models
-enum ReasoningEffort: String, CaseIterable, Codable {
-    case none = "none"
-    case low = "low"
-    case medium = "medium"
-    case high = "high"
-    
-    var displayName: String {
-        switch self {
-        case .none: return "None"
-        case .low: return "Low"
-        case .medium: return "Medium"
-        case .high: return "High"
-        }
-    }
-    
-    var description: String {
-        switch self {
-        case .none: return "No reasoning - fastest responses"
-        case .low: return "Light reasoning - balanced speed and quality"
-        case .medium: return "Moderate reasoning - better quality"
-        case .high: return "Deep reasoning - highest quality, slower"
-        }
-    }
-}
+import LLMkit
 
 struct ReasoningConfig {
-    static let geminiReasoningModels: Set<String> = [
-        "gemini-3.1-pro-preview",
-        "gemini-3-pro-preview",
-        "gemini-2.5-flash",
-        "gemini-2.5-flash-lite"
+    // These models support "minimal", optimized for low-latency instruction following.
+    static let geminiMinimalThinkingModels: Set<String> = [
+        "gemini-3.6-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.5-flash",
+        "gemini-3.1-flash-lite",
     ]
 
-    static let openAIReasoningModels: Set<String> = [
-        "gpt-5.6",
-        "gpt-5.6-terra",
+    // Gemini 3.1 Pro does not support "minimal".
+    static let geminiLowThinkingModels: Set<String> = [
+        "gemini-3.1-pro-preview",
+    ]
+
+    // Gemini 2.5 Flash-Lite is intentionally omitted because its Interactions
+    // API default has thinking off.
+    static func geminiThinkingLevel(for modelName: String) -> GeminiThinkingLevel? {
+        if geminiMinimalThinkingModels.contains(modelName) {
+            return .minimal
+        }
+        if geminiLowThinkingModels.contains(modelName) {
+            return .low
+        }
+        return nil
+    }
+
+    // OpenAI GPT-5 models support explicit "none"; GPT-4.1 models need no param.
+    static let openAINoneReasoningModels: Set<String> = [
         "gpt-5.6-luna",
+        "gpt-5.6-terra",
+        "gpt-5.6-sol",
         "gpt-5.5",
-        "gpt-5.5-pro",
         "gpt-5.4",
-        "gpt-5.4-pro",
         "gpt-5.4-mini",
         "gpt-5.4-nano",
-        "gpt-5-mini",
-        "gpt-5-nano",
-        "gpt-5.1"
     ]
 
-    static let cerebrasReasoningModels: Set<String> = [
+    // Cerebras GPT-OSS has no true "none"; use lowest effort.
+    static let cerebrasGPTOSSMinimumReasoningModels: Set<String> = [
         "gpt-oss-120b"
     ]
-    
-    /// All models that support reasoning effort parameter
-    static var allReasoningModels: Set<String> {
-        geminiReasoningModels.union(openAIReasoningModels).union(cerebrasReasoningModels)
-    }
-    
-    /// Checks if a model supports reasoning effort parameter
-    static func supportsReasoning(_ modelName: String) -> Bool {
-        allReasoningModels.contains(modelName)
-    }
 
-    /// Returns the reasoning parameter for a model, using user preference if provided
-    /// - Parameters:
-    ///   - modelName: The name of the AI model
-    ///   - userPreference: Optional user-selected reasoning effort level
-    /// - Returns: The reasoning effort string to send to the API, or nil if model doesn't support it
-    static func getReasoningParameter(for modelName: String, userPreference: ReasoningEffort? = nil) -> String? {
-        guard supportsReasoning(modelName) else {
+    // Groq GPT-OSS has no true "none"; use lowest effort.
+    static let groqGPTOSSMinimumReasoningModels: Set<String> = [
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+    ]
+
+    // Cerebras GLM supports "none".
+    static let cerebrasNoneReasoningModels: Set<String> = [
+        "zai-glm-4.7"
+    ]
+
+    static func getReasoningParameter(for provider: AIProvider, modelName: String) -> String? {
+        switch provider {
+        case .openAI:
+            if openAINoneReasoningModels.contains(modelName) { return "none" }
+        case .cerebras:
+            if cerebrasGPTOSSMinimumReasoningModels.contains(modelName) {
+                return "low"
+            } else if cerebrasNoneReasoningModels.contains(modelName) {
+                return "none"
+            }
+        case .groq:
+            if groqGPTOSSMinimumReasoningModels.contains(modelName) { return "low" }
+        default:
             return nil
         }
-
-        return normalizedEffort(for: modelName, userPreference: userPreference).rawValue
+        return nil
     }
 
-    private static func normalizedEffort(for modelName: String, userPreference: ReasoningEffort?) -> ReasoningEffort {
-        let effort = userPreference ?? .low
-        let modelLower = modelName.lowercased()
-
-        if modelLower == "gpt-5-pro" {
-            return .high
+    // Provider-specific body params for hiding reasoning.
+    static func getExtraBodyParameters(for provider: AIProvider, modelName: String) -> [String: Any]? {
+        if provider == .cerebras && modelName == "gpt-oss-120b" {
+            return ["reasoning_format": "hidden"]
+        } else if provider == .groq && (modelName == "openai/gpt-oss-120b" || modelName == "openai/gpt-oss-20b") {
+            return ["include_reasoning": false]
         }
-
-        if modelLower.hasPrefix("gpt-5.") && modelLower.hasSuffix("-pro") {
-            return effort == .high ? .high : .medium
-        }
-
-        return effort
+        return nil
     }
 }

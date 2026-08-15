@@ -2,18 +2,20 @@ import SwiftUI
 
 // Define a display mode for flexible usage
 enum LanguageDisplayMode {
-    case full // For settings page with descriptions
-    case menuItem // For menu bar with compact layout
+    case full  // For settings page with descriptions
+    case menuItem  // For menu bar with compact layout
 }
 
 struct LanguageSelectionView: View {
-    @ObservedObject var whisperState: WhisperState
+    @ObservedObject var transcriptionModelManager: TranscriptionModelManager
     @AppStorage("SelectedLanguage") private var selectedLanguage: String = "en"
     // Add display mode parameter with full as the default
     var displayMode: LanguageDisplayMode = .full
     @ObservedObject var whisperPrompt: WhisperPrompt
 
     private func updateLanguage(_ language: String) {
+        guard selectedLanguage != language else { return }
+
         // Update UI state - the UserDefaults updating is now automatic with @AppStorage
         selectedLanguage = language
 
@@ -22,43 +24,77 @@ struct LanguageSelectionView: View {
 
         // Post notification for language change
         NotificationCenter.default.post(name: .languageDidChange, object: nil)
-        AppSettings.notifyChange()
+        NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
     }
 
     // Function to check if current model is multilingual
     private func isMultilingualModel() -> Bool {
-        guard let currentModel = whisperState.currentTranscriptionModel else {
+        guard let currentModel = transcriptionModelManager.currentTranscriptionModel else {
             return false
         }
         return currentModel.isMultilingualModel
     }
 
     private func languageSelectionDisabled() -> Bool {
-        guard let provider = whisperState.currentTranscriptionModel?.provider else {
+        guard let provider = transcriptionModelManager.currentTranscriptionModel?.provider else {
             return false
         }
-        return provider == .parakeet || provider == .gemini
+        return provider == .gemini
     }
 
-    // Function to get current model's supported languages
-    private func getCurrentModelLanguages() -> [String: String] {
-        guard let currentModel = whisperState.currentTranscriptionModel else {
-            return ["en": "English"] // Default to English if no model found
+    private func isNativeAppleModelSelected() -> Bool {
+        transcriptionModelManager.currentTranscriptionModel?.provider == .nativeApple
+    }
+
+    private func availableLanguagesForCurrentModel() -> [String: String] {
+        guard let currentModel = transcriptionModelManager.currentTranscriptionModel else {
+            return ["en": "English"]  // Default to English if no model found
         }
-        return currentModel.supportedLanguages
+        return TranscriptionLanguageSupport.languages(for: currentModel)
+    }
+
+    private func useCompatibleLanguageForCurrentModel() {
+        guard let currentModel = transcriptionModelManager.currentTranscriptionModel else { return }
+        updateLanguage(TranscriptionLanguageSupport.validLanguageOrFallback(selectedLanguage, for: currentModel))
     }
 
     // Get the display name of the current language
     private func currentLanguageDisplayName() -> String {
-        return getCurrentModelLanguages()[selectedLanguage] ?? "Unknown"
+        return availableLanguagesForCurrentModel()[selectedLanguage] ?? "Unknown"
+    }
+
+    private var selectedLanguageBinding: Binding<String> {
+        Binding(
+            get: { selectedLanguage },
+            set: { updateLanguage($0) }
+        )
+    }
+
+    private var nativeAppleAssetControl: some View {
+        NativeAppleLanguageAssetControl(
+            localeIdentifier: selectedLanguage,
+            isVisible: true
+        )
+        .layoutPriority(1)
     }
 
     var body: some View {
-        switch displayMode {
-        case .full:
-            fullView
-        case .menuItem:
-            menuItemView
+        Group {
+            switch displayMode {
+            case .full:
+                fullView
+            case .menuItem:
+                menuItemView
+            }
+        }
+        .onAppear {
+            useCompatibleLanguageForCurrentModel()
+        }
+        .onChange(of: transcriptionModelManager.currentTranscriptionModel?.name) { _, _ in
+            useCompatibleLanguageForCurrentModel()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .AppSettingsDidChange)) { _ in
+            useCompatibleLanguageForCurrentModel()
         }
     }
 
@@ -74,17 +110,12 @@ struct LanguageSelectionView: View {
             Text("Transcription Language")
                 .font(.headline)
 
-            if let currentModel = whisperState.currentTranscriptionModel
-            {
+            if transcriptionModelManager.currentTranscriptionModel != nil {
                 if languageSelectionDisabled() {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Language: Autodetected")
                             .font(.subheadline)
                             .foregroundColor(.primary)
-
-                        Text("Current model: \(currentModel.displayName)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
 
                         Text("The transcription language is automatically detected by the model.")
                             .font(.caption)
@@ -93,25 +124,25 @@ struct LanguageSelectionView: View {
                     .disabled(true)
                 } else if isMultilingualModel() {
                     VStack(alignment: .leading, spacing: 8) {
-                        Picker("Select Language", selection: $selectedLanguage) {
-                            ForEach(
-                                currentModel.supportedLanguages.sorted(by: {
-                                    if $0.key == "auto" { return true }
-                                    if $1.key == "auto" { return false }
-                                    return $0.value < $1.value
-                                }), id: \.key
-                            ) { key, value in
-                                Text(value).tag(key)
+                        HStack(spacing: 8) {
+                            Picker("Select Language", selection: selectedLanguageBinding) {
+                                ForEach(
+                                    availableLanguagesForCurrentModel().sorted(by: {
+                                        if $0.key == "auto" { return true }
+                                        if $1.key == "auto" { return false }
+                                        return $0.value < $1.value
+                                    }), id: \.key
+                                ) { key, value in
+                                    Text(value).tag(key)
+                                }
+                            }
+                            .pickerStyle(MenuPickerStyle())
+                            .frame(maxWidth: isNativeAppleModelSelected() ? 280 : .infinity, alignment: .leading)
+
+                            if isNativeAppleModelSelected() {
+                                nativeAppleAssetControl
                             }
                         }
-                        .pickerStyle(MenuPickerStyle())
-                        .onChange(of: selectedLanguage) { oldValue, newValue in
-                            updateLanguage(newValue)
-                        }
-
-                        Text("Current model: \(currentModel.displayName)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
 
                         Text(
                             "This model supports multiple languages. Select a specific language or auto-detect(if available)"
@@ -125,10 +156,6 @@ struct LanguageSelectionView: View {
                         Text("Language: English")
                             .font(.subheadline)
                             .foregroundColor(.primary)
-
-                        Text("Current model: \(currentModel.displayName)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
 
                         Text(
                             "This is an English-optimized model and only supports English transcription."
@@ -149,7 +176,7 @@ struct LanguageSelectionView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(AppTheme.Surface.control)
         .cornerRadius(10)
     }
 
@@ -165,30 +192,36 @@ struct LanguageSelectionView: View {
                 }
                 .disabled(true)
             } else if isMultilingualModel() {
-                Menu {
-                    ForEach(
-                        getCurrentModelLanguages().sorted(by: {
-                            if $0.key == "auto" { return true }
-                            if $1.key == "auto" { return false }
-                            return $0.value < $1.value
-                        }), id: \.key
-                    ) { key, value in
-                        Button {
-                            updateLanguage(key)
-                        } label: {
-                            HStack {
-                                Text(value)
-                                if selectedLanguage == key {
-                                    Image(systemName: "checkmark")
+                HStack(spacing: 8) {
+                    Menu {
+                        ForEach(
+                            availableLanguagesForCurrentModel().sorted(by: {
+                                if $0.key == "auto" { return true }
+                                if $1.key == "auto" { return false }
+                                return $0.value < $1.value
+                            }), id: \.key
+                        ) { key, value in
+                            Button {
+                                updateLanguage(key)
+                            } label: {
+                                HStack {
+                                    Text(value)
+                                    if selectedLanguage == key {
+                                        Image(systemName: "checkmark")
+                                    }
                                 }
                             }
                         }
+                    } label: {
+                        HStack {
+                            Text(String(format: String(localized: "Language: %@"), currentLanguageDisplayName()))
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.system(size: 10))
+                        }
                     }
-                } label: {
-                    HStack {
-                        Text("Language: \(currentLanguageDisplayName())")
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 10))
+
+                    if isNativeAppleModelSelected() {
+                        nativeAppleAssetControl
                     }
                 }
             } else {

@@ -1,10 +1,9 @@
 import SwiftUI
-import KeyboardShortcuts
-import SwiftData
 
 struct KeyboardShortcutCheatSheet: View {
-    @EnvironmentObject private var hotkeyManager: HotkeyManager
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("isMiddleClickToggleEnabled") private var isMiddleClickToggleEnabled = false
+    @State private var shortcutRevision = UUID()
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -37,14 +36,14 @@ struct KeyboardShortcutCheatSheet: View {
                     ShortcutSection(title: "Recording", icon: "mic.fill", iconColor: .red) {
                         ShortcutRow(
                             action: "Start/Stop Recording",
-                            shortcut: hotkeyManager.selectedHotkey1.displayName,
+                            shortcut: shortcutDisplay(for: .primaryRecording),
                             description: "Quick tap to toggle hands-free mode, hold for push-to-talk"
                         )
                         
-                        if hotkeyManager.selectedHotkey2 != .none {
+                        if let secondaryShortcut = ShortcutStore.shortcut(for: .secondaryRecording) {
                             ShortcutRow(
                                 action: "Alternative Recording Trigger",
-                                shortcut: hotkeyManager.selectedHotkey2.displayName,
+                                shortcut: secondaryShortcut.displayString,
                                 description: "Secondary hotkey option"
                             )
                         }
@@ -55,15 +54,15 @@ struct KeyboardShortcutCheatSheet: View {
                             description: "Double-tap Escape to cancel current recording"
                         )
                         
-                        if let customCancel = KeyboardShortcuts.getShortcut(for: .cancelRecorder) {
+                        if let customCancel = ShortcutStore.shortcut(for: .cancelRecorder) {
                             ShortcutRow(
                                 action: "Cancel (Custom)",
-                                shortcut: customCancel.description,
+                                shortcut: customCancel.displayString,
                                 description: "Custom cancel shortcut"
                             )
                         }
                         
-                        if hotkeyManager.isMiddleClickToggleEnabled {
+                        if isMiddleClickToggleEnabled {
                             ShortcutRow(
                                 action: "Middle-Click Toggle",
                                 shortcut: "Middle Mouse",
@@ -74,26 +73,26 @@ struct KeyboardShortcutCheatSheet: View {
                     
                     // Paste Section
                     ShortcutSection(title: "Paste Transcriptions", icon: "doc.on.clipboard", iconColor: .blue) {
-                        if let shortcut = KeyboardShortcuts.getShortcut(for: .pasteLastTranscription) {
+                        if let shortcut = ShortcutStore.shortcut(for: .pasteLastTranscription) {
                             ShortcutRow(
                                 action: "Paste Last Transcript (Original)",
-                                shortcut: shortcut.description,
+                                shortcut: shortcut.displayString,
                                 description: "Paste the most recent unprocessed transcription"
                             )
                         }
                         
-                        if let shortcut = KeyboardShortcuts.getShortcut(for: .pasteLastEnhancement) {
+                        if let shortcut = ShortcutStore.shortcut(for: .pasteLastEnhancement) {
                             ShortcutRow(
                                 action: "Paste Last Transcript (Enhanced)",
-                                shortcut: shortcut.description,
+                                shortcut: shortcut.displayString,
                                 description: "Paste enhanced transcript, fallback to original if unavailable"
                             )
                         }
                         
-                        if let shortcut = KeyboardShortcuts.getShortcut(for: .retryLastTranscription) {
+                        if let shortcut = ShortcutStore.shortcut(for: .retryLastTranscription) {
                             ShortcutRow(
                                 action: "Retry Last Transcription",
-                                shortcut: shortcut.description,
+                                shortcut: shortcut.displayString,
                                 description: "Re-transcribe the last audio with current model"
                             )
                         }
@@ -170,6 +169,14 @@ struct KeyboardShortcutCheatSheet: View {
         }
         .frame(width: 600, height: 700)
         .background(Color(NSColor.windowBackgroundColor))
+        .id(shortcutRevision)
+        .onReceive(NotificationCenter.default.publisher(for: ShortcutStore.shortcutDidChange)) { _ in
+            shortcutRevision = UUID()
+        }
+    }
+
+    private func shortcutDisplay(for action: ShortcutAction) -> String {
+        ShortcutStore.shortcut(for: action)?.displayString ?? String(localized: "Not Set")
     }
 }
 
@@ -257,10 +264,5 @@ struct ShortcutRow: View {
 }
 
 #Preview {
-    if let container = try? ModelContainer(for: Transcription.self) {
-        KeyboardShortcutCheatSheet()
-            .environmentObject(HotkeyManager(whisperState: WhisperState(modelContext: ModelContext(container))))
-    } else {
-        Text("Preview unavailable")
-    }
+    KeyboardShortcutCheatSheet()
 }

@@ -40,7 +40,7 @@ extension AppleScriptManager {
     public func executeBrowserAction(_ action: BrowserAction, browser: SupportedBrowser) async throws
         -> String?
     {
-        let scriptInfo = try action.generateScriptInfo(for: browser)
+        let scriptInfo = action.generateScriptInfo(for: browser)
         return try await runAppleScript(scriptInfo)
     }
     

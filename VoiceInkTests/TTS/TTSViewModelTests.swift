@@ -55,7 +55,7 @@ final class TTSViewModelTests: XCTestCase {
     func testDeinitCancelsAllTasks() async {
         // CRITICAL TEST: TTSViewModel has 5 tasks that must be cancelled in deinit
         var viewModel: TTSViewModel? = TTSViewModel()
-        weak var weakViewModel = viewModel
+        weak let weakViewModel = viewModel
         
         // Set input to trigger potential tasks
         viewModel?.inputText = "Test text for generation"
@@ -139,7 +139,7 @@ final class TTSViewModelTests: XCTestCase {
     func testBatchTaskCancellation() async {
         // Test that batch task can be cancelled
         var viewModel: TTSViewModel? = TTSViewModel()
-        weak var weakVM = viewModel
+        weak let weakVM = viewModel
         
         // Set batchable text
         viewModel?.inputText = "Text 1\n---\nText 2\n---\nText 3"
@@ -154,12 +154,11 @@ final class TTSViewModelTests: XCTestCase {
     
     // MARK: - Preview Voice Tests
     
-    func testPreviewVoiceConcurrentCalls() async {
+    func testPreviewVoiceConcurrentCalls() async throws {
         // Test that concurrent preview calls are handled
         // We need actual voices, which may not be available
         guard !viewModel.availableVoices.isEmpty else {
-            XCTSkip("No voices available for testing")
-            return
+            throw XCTSkip("No voices available for testing")
         }
         
         let voice = viewModel.availableVoices[0]
@@ -188,7 +187,7 @@ final class TTSViewModelTests: XCTestCase {
     func testPreviewTaskCancellation() async {
         // Test that preview task is cancelled on deinit
         var viewModel: TTSViewModel? = TTSViewModel()
-        weak var weakVM = viewModel
+        weak let weakVM = viewModel
         
         if let voice = viewModel?.availableVoices.first {
             viewModel?.preview.previewVoice(voice)
@@ -270,7 +269,7 @@ final class TTSViewModelTests: XCTestCase {
         viewModel.inputText = veryLongText
         
         // Should detect overflow
-        let shouldHighlight = viewModel.shouldHighlightCharacterOverflow
+        _ = viewModel.shouldHighlightCharacterOverflow
         
         // Depends on provider limit, but this should potentially trigger
         XCTAssertNotNil(viewModel, "Should handle overflow detection")
@@ -296,8 +295,6 @@ final class TTSViewModelTests: XCTestCase {
     }
     
     func testAvailableVoicesAfterProviderSwitch() {
-        let initialVoiceCount = viewModel.availableVoices.count
-        
         // Switch provider
         viewModel.selectedProvider = .tightAss
         
@@ -373,7 +370,7 @@ final class TTSViewModelTests: XCTestCase {
     
     func testArticleSummaryTaskCancellation() async {
         var viewModel: TTSViewModel? = TTSViewModel()
-        weak var weakVM = viewModel
+        weak let weakVM = viewModel
         
         // Try to trigger summarization (may not work without actual setup)
         viewModel?.inputText = "Article content"
@@ -426,7 +423,7 @@ final class TTSViewModelTests: XCTestCase {
     
     func testTranscriptionTaskCancellation() async {
         var viewModel: TTSViewModel? = TTSViewModel()
-        weak var weakVM = viewModel
+        weak let weakVM = viewModel
         
         // Release while transcription might be pending
         viewModel = nil
@@ -500,13 +497,14 @@ final class TTSViewModelTests: XCTestCase {
     func testPublisherSubscriptionsCleanup() async {
         // ViewModel has multiple Combine publishers that must be cancelled
         var viewModel: TTSViewModel? = TTSViewModel()
-        weak var weakVM = viewModel
+        weak let weakVM = viewModel
         
         // Subscribe to some publishers
         var receivedValue = false
         viewModel?.playback.$isPlaying
             .sink { _ in receivedValue = true }
             .store(in: &cancellables)
+        XCTAssertTrue(receivedValue)
         
         // Release viewModel
         viewModel = nil

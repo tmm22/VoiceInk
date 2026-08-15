@@ -1,24 +1,35 @@
+import ApplicationServices
 import Foundation
-import AppKit
-#if canImport(SelectedTextKit)
 import SelectedTextKit
-#endif
-import OSLog
+import os
 
-class SelectedTextService {
+@MainActor
+final class SelectedTextService {
+    private static let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "SelectedTextService")
+    private static let textManager = SelectedTextManager.shared
+    private static let selectedTextStrategies: [TextStrategy] = [
+        .accessibility,
+        .menuAction,
+        .appleScript,
+    ]
+
     static func fetchSelectedText() async -> String? {
-        #if canImport(SelectedTextKit)
-        let strategies: [TextStrategy] = [.accessibility, .menuAction]
-        do {
-            let selectedText = try await SelectedTextManager.shared.getSelectedText(strategies: strategies)
-            return selectedText
-        } catch {
-            AppLogger.ui.error("Failed to get selected text: \(AppLogger.errorMetadata(error), privacy: .public)")
+        guard AXIsProcessTrusted() else {
+            logger.debug("Accessibility is not trusted; selected text capture skipped")
             return nil
         }
-        #else
-        AppLogger.ui.warning("SelectedTextKit module unavailable; skipping selected text capture")
-        return nil
-        #endif
+
+        do {
+            return normalized(try await textManager.getSelectedText(strategies: selectedTextStrategies))
+        } catch {
+            logger.debug("SelectedTextKit failed to capture selected text: \(AppLogger.errorMetadata(error), privacy: .public)")
+            return nil
+        }
+    }
+
+    private static func normalized(_ text: String?) -> String? {
+        guard let text else { return nil }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

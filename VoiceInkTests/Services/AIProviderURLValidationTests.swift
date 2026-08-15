@@ -1,49 +1,25 @@
 import XCTest
 @testable import VoiceInk
 
-/// Tests for AIProvider.validateSecureURL - HTTPS enforcement for credentialed endpoints.
 @available(macOS 14.0, *)
 final class AIProviderURLValidationTests: XCTestCase {
-
-    func testHTTPSURLIsAccepted() throws {
-        let url = try AIProvider.validateSecureURL("https://api.example.com/v1/chat/completions")
-        XCTAssertEqual(url.scheme, "https")
+    func testHTTPSURLIsAccepted() {
+        XCTAssertTrue(SecureEndpointValidator.isAllowed("https://api.example.com/v1/chat/completions"))
     }
 
-    func testHTTPURLIsRejected() {
-        XCTAssertThrowsError(try AIProvider.validateSecureURL("http://api.example.com/v1/chat/completions")) { error in
-            guard case AIServiceURLError.insecureURL = error else {
-                return XCTFail("Expected insecureURL error, got \(error)")
-            }
-            XCTAssertNotNil((error as? LocalizedError)?.errorDescription)
-        }
+    func testRemoteHTTPURLIsRejected() {
+        XCTAssertFalse(SecureEndpointValidator.isAllowed("http://api.example.com/v1/chat/completions"))
     }
 
-    func testHTTPLocalhostIsAllowedWhenLocalhostAllowed() throws {
-        // The Ollama provider intentionally allows local http endpoints
-        let url = try AIProvider.validateSecureURL("http://localhost:11434/api/chat", allowLocalhost: true)
-        XCTAssertEqual(url.host, "localhost")
+    func testLoopbackHTTPURLsAreAccepted() {
+        XCTAssertTrue(SecureEndpointValidator.isAllowed("http://localhost:11434/api/chat"))
+        XCTAssertTrue(SecureEndpointValidator.isAllowed("http://127.0.0.1:11434/api/chat"))
+        XCTAssertTrue(SecureEndpointValidator.isAllowed("http://[::1]:11434/api/chat"))
     }
 
-    func testHTTPLocalhostIsRejectedWhenLocalhostNotAllowed() {
-        XCTAssertThrowsError(try AIProvider.validateSecureURL("http://localhost:11434/api/chat")) { error in
-            guard case AIServiceURLError.insecureURL = error else {
-                return XCTFail("Expected insecureURL error, got \(error)")
-            }
-        }
-    }
-
-    func testHTTPRemoteHostIsRejectedEvenWhenLocalhostAllowed() {
-        XCTAssertThrowsError(try AIProvider.validateSecureURL("http://evil.example.com/v1", allowLocalhost: true)) { error in
-            guard case AIServiceURLError.insecureURL = error else {
-                return XCTFail("Expected insecureURL error, got \(error)")
-            }
-        }
-    }
-
-    func testUnparseableURLIsRejected() {
-        XCTAssertThrowsError(try AIProvider.validateSecureURL("not a url")) { error in
-            XCTAssertTrue(error is AIServiceURLError)
-        }
+    func testLookalikeAndMalformedURLsAreRejected() {
+        XCTAssertFalse(SecureEndpointValidator.isAllowed("http://localhost.example.com/v1"))
+        XCTAssertFalse(SecureEndpointValidator.isAllowed("not a url"))
+        XCTAssertFalse(SecureEndpointValidator.isAllowed("file:///tmp/provider"))
     }
 }

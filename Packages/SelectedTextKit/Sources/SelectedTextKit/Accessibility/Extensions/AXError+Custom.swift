@@ -7,6 +7,7 @@
 
 import Foundation
 import ApplicationServices
+import AXSwift
 
 // MARK: - Custom AXError Definitions
 
