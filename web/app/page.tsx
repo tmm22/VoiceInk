@@ -17,6 +17,7 @@ import {
   type BrowserVoice,
 } from "../lib/browserSpeech";
 import { downloadTranscript } from "../lib/transcriptExport";
+import { AIEnhancementPanel } from "./ai-enhancement";
 import { AccountControls, useAccountAuth } from "./providers";
 import { HistoryView } from "./history-view";
 
@@ -424,6 +425,8 @@ export default function Home() {
         <textarea aria-label="Transcript text" value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="Your transcription will appear here…" />
       </section>
 
+      {transcript && <AIEnhancementPanel text={transcript} onApply={(value) => { setTranscript(value); setSummary(""); setSummaryError(""); }} onNarrate={setSpeechText} />}
+
       {(summary || summaryLoading || summaryError) && <section className="summary-card"><div className="summary-head"><div><small>AI SUMMARY</small><span>Cloudflare Workers AI · Llama 3.2</span></div>{summary && <div><button onClick={() => void navigator.clipboard.writeText(summary)}>Copy</button><button onClick={() => setSpeechText(summary)}>Narrate summary</button></div>}</div>{summaryLoading ? <p className="summary-loading">Finding the key points…</p> : summary ? <textarea aria-label="AI-generated transcript summary" value={summary} onChange={(event) => setSummary(event.target.value)} /> : <p className="error" role="alert">{summaryError}</p>}<p className="ai-note">AI-generated summaries can make mistakes. Check important details against the transcript.</p></section>}
 
       <section className="tts-card">
@@ -466,7 +469,7 @@ export default function Home() {
 
       </> : <HistoryView history={history} loading={historyLoading} isSignedIn={account.isSignedIn} retentionDays={retentionDays} retentionSaving={retentionSaving} retentionStatus={retentionStatus} onRefresh={() => void refreshHistory()} onRetentionChange={(days) => void changeRetention(days)} onOpen={openHistoryItem} onNarrate={setSpeechText} onSummarize={(item) => { setTranscript(item.text); setTranscriptDuration(item.durationSeconds); setActiveTranscriptionId(item._id); void summarizeText(item.text, item._id); }} onDelete={(id) => void removeHistoryItem(id)} />}
 
-      <footer><span>Cloudflare edge</span><span>Convex realtime data</span><span>Whisper V3 Turbo</span></footer>
+      <footer><span>VoiceInk Web 2.11.0</span><span>Cloudflare edge</span><span>Convex realtime data</span><span>Whisper V3 Turbo</span></footer>
     </main>
   );
 }

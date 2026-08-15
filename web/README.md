@@ -2,6 +2,8 @@
 
 VoiceInk Web is a production browser-based transcription service deployed through Cloudflare, with transcript persistence in Convex.
 
+Completed transcripts can be enhanced on demand with four focused AI presets: clean up, concise, professional, and structured notes. Enhancement is additive and explicit—the original transcript remains unchanged until the user chooses to replace it. Text is sent only when the user requests enhancement and is processed through the same private Cloudflare Workers AI path used for summaries.
+
 It also includes a separate device-local text-to-speech workspace adapted from the proven browser speech controller in [`tmm22/untitled-folder-2`](https://github.com/tmm22/untitled-folder-2). Users can paste or type independent narration text, or explicitly copy in a completed transcript, then read it aloud with voices installed in the current browser or operating system.
 
 The text-to-speech workspace can also import a public article URL. The Cloudflare Worker fetches the page with redirect, size, timeout, and private-address safeguards, extracts readable article text, and loads it directly into the narration editor.
@@ -26,6 +28,7 @@ Browser microphone
 voiceink-web Cloudflare Worker
   ├─ Next.js/Vinext interface and static assets
   ├─ POST /api/transcribe
+  ├─ POST /api/summarize and /api/enhance
   └─ Convex transcript mutation
        │ private Cloudflare service binding
        ▼
@@ -41,7 +44,7 @@ Recording is intentionally one-step: pressing Stop immediately uploads the captu
 
 Existing audio can also be uploaded into the same transcription pipeline. Completed transcripts can be downloaded as plain text, SRT, or WebVTT. A dedicated History workspace supports search across transcripts and summaries, loading an item back into the studio, sending it to narration, and ownership-checked deletion.
 
-Completed transcripts can be summarized on demand with Cloudflare Workers AI using `@cf/meta/llama-3.2-3b-instruct`. Summaries are editable, copyable, and can be sent to the narration workspace. Generated summaries are stored on their matching Convex transcription record and follow that record's retention policy.
+Completed transcripts can be summarized or enhanced on demand with Cloudflare Workers AI using `@cf/meta/llama-3.2-3b-instruct`. Summaries are editable, copyable, and can be sent to the narration workspace. Generated summaries are stored on their matching Convex transcription record and follow that record's retention policy. Enhancement results remain in the current browser session unless the user explicitly replaces the transcript and saves it through the existing history workflow.
 
 Production API routes enforce same-origin browser requests and separate Cloudflare rate limits for AI inference, content imports, and history writes. Anonymous history creation is brokered by the web Worker with a server-only secret; clients cannot write anonymous records directly to Convex. The private ASR Worker also fails closed when its shared secret is absent.
 
@@ -49,7 +52,7 @@ Transcript content is sent inside explicit transcript delimiters. If the model i
 
 ## Repository layout
 
-- `app/` — browser recorder, audio upload, automatic transcription workflow, history interface, and transcription proxy
+- `app/` — browser recorder, audio upload, automatic transcription workflow, AI enhancement, history interface, and protected API proxies
 - `lib/transcriptExport.ts` — TXT, SRT, and WebVTT transcript downloads adapted from the source project
 - `lib/browserSpeech.ts` — reused system-voice discovery and playback controller
 - `cloudflare-asr/` — secured Workers AI transcription Worker
@@ -91,6 +94,7 @@ curl --fail \
 
 - [Deployment guide](docs/DEPLOYMENT.md)
 - [Operating costs](docs/COSTS.md)
+- [Desktop-to-web feature feasibility](docs/DESKTOP_FEATURE_PARITY.md)
 
 ## Production limits
 
@@ -108,6 +112,7 @@ GitHub Actions runs the complete local regression suite for every web-related pu
 - Batch transcription only; no live partial transcript stream
 - System/device voices only for the initial TTS integration; cloud TTS adapters are not yet connected
 - Audio uploads are limited to 24 MB by the ASR Worker
+- AI enhancement input is limited to 12,000 characters and is processed only after an explicit request
 - `PARAKEET_API_URL` and `PARAKEET_API_KEY` are legacy configuration names; production inference uses Whisper Large V3 Turbo
 
 These limitations should be addressed before opening the application to untrusted public traffic.

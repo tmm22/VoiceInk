@@ -16,6 +16,13 @@ const crossOrigin = await fetch(`${base}/api/summarize`, {
 });
 assert.equal(crossOrigin.status, 403);
 
+const crossOriginEnhancement = await fetch(`${base}/api/enhance`, {
+  method: "POST",
+  headers: { origin: "https://example.invalid", "content-type": "application/json" },
+  body: JSON.stringify({ text: "This request must not reach inference.", mode: "clean" }),
+});
+assert.equal(crossOriginEnhancement.status, 403);
+
 const asrHealth = await fetch("https://voiceink-asr.paul-2eb.workers.dev/");
 assert.equal(asrHealth.status, 200);
 assert.equal((await asrHealth.json()).model, "@cf/openai/whisper-large-v3-turbo");

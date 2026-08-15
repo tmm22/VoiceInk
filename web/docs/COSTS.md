@@ -36,13 +36,13 @@ Examples:
 | 100,000 minutes | $50.00 |
 | 1,000,000 minutes | $500.00 |
 
-### Workers AI summaries
+### Workers AI summaries and text enhancement
 
-The summary feature uses `@cf/meta/llama-3.2-3b-instruct`, currently priced at approximately $0.051 per million input tokens and $0.335 per million output tokens.
+The summary and text-enhancement features use `@cf/meta/llama-3.2-3b-instruct`, currently priced at approximately $0.051 per million input tokens and $0.335 per million output tokens.
 
 Source: [Cloudflare Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
 
-For example, 10,000 summaries averaging 1,000 input tokens and 200 output tokens would cost approximately $1.18 in model usage. Actual cost depends on transcript and response length.
+For example, 10,000 summaries averaging 1,000 input tokens and 200 output tokens would cost approximately $1.18 in model usage. Enhancement uses the same token pricing; actual cost depends on source and response length.
 
 ### Convex
 
@@ -78,7 +78,7 @@ These scenarios assume:
 The simple planning formula is:
 
 ```text
-monthly cost ≈ $5 + (audio minutes × $0.0005) + summary token usage + Convex overages + Worker overages
+monthly cost ≈ $5 + (audio minutes × $0.0005) + Llama token usage + Convex overages + Worker overages
 ```
 
 ## Costs not currently incurred
@@ -88,7 +88,7 @@ monthly cost ≈ $5 + (audio minutes × $0.0005) + summary token usage + Convex 
 - No D1 database
 - No external ASR provider
 - No cloud TTS charges; current text-to-speech uses device/browser voices
-- No AI enhancement model
+- No separate AI enhancement provider; enhancement shares the existing Workers AI model and controls
 - Authentication cost depends on the active Clerk production plan and monthly active users
 - The canonical custom domain is `v.paul.im`
 
