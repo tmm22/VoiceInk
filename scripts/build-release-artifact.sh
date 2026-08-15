@@ -146,6 +146,12 @@ tar -C "$ROOT_DIR" \
   --exclude './.derivedData-local' \
   --exclude './.derivedData-local-2' \
   --exclude './release-artifacts' \
+  --exclude './web/node_modules' \
+  --exclude './web/cloudflare-asr/node_modules' \
+  --exclude './web/.next' \
+  --exclude './web/dist' \
+  --exclude './web/.wrangler' \
+  --exclude './web/.env.local' \
   --exclude './TestResults*' \
   --exclude './*.xcresult' \
   -cf - . | tar -C "$stage_dir" -xf -
