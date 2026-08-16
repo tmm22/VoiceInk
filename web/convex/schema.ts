@@ -6,6 +6,7 @@ export default defineSchema({
     clientId: v.optional(v.string()),
     ownerId: v.optional(v.string()),
     model: v.string(),
+    detectedLanguage: v.optional(v.string()),
     text: v.string(),
     summary: v.optional(v.string()),
     durationSeconds: v.number(),

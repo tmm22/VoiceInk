@@ -5,14 +5,16 @@ import {
   actualTranscriptionMicros,
   DEFAULT_DAILY_CLIENT_AUDIO_SECONDS,
   DEFAULT_DAILY_SPEND_LIMIT_MICROS,
+  ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE,
   estimateTranscriptionMicros,
   INFERENCE_TIMEOUT_MS,
+  MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE,
   parsePositiveIntegerSetting,
   RESERVATION_EXPIRY_MS,
   TEXT_GENERATION_FLAT_MICROS,
-  TRANSCRIPTION_MICROS_PER_MINUTE,
   utcDay,
   WORST_CASE_BYTES_PER_SECOND,
+  WORST_CASE_TRANSCRIPTION_MICROS_PER_MINUTE,
   worstCaseAudioSeconds,
 } from "../cloudflare-asr/src/budget.ts";
 import { MAXIMUM_AUDIO_BYTES } from "../shared/transcriptionContract.ts";
@@ -48,20 +50,26 @@ test("per-client pending seconds are scoped to the reservation day", async () =>
   assert.match(ledger, /SUM\(seconds_estimate\) AS total FROM reservations WHERE client_key = \? AND day = \?/);
 });
 
-test("a full 24 MB upload reserves a bounded worst-case amount", () => {
+test("a full 24 MB upload reserves a bounded worst-case amount for both models", () => {
   const estimate = estimateTranscriptionMicros(MAXIMUM_AUDIO_BYTES);
   const worstCaseMinutes = worstCaseAudioSeconds(MAXIMUM_AUDIO_BYTES) / 60;
-  assert.equal(estimate, Math.ceil(worstCaseMinutes * TRANSCRIPTION_MICROS_PER_MINUTE));
+  assert.equal(
+    WORST_CASE_TRANSCRIPTION_MICROS_PER_MINUTE,
+    ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE + MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE,
+    "non-English audio runs nova-3 and then whisper, so admission must price both",
+  );
+  assert.equal(estimate, Math.ceil(worstCaseMinutes * WORST_CASE_TRANSCRIPTION_MICROS_PER_MINUTE));
   assert.ok(estimate < DEFAULT_DAILY_SPEND_LIMIT_MICROS, "one upload can never consume the whole daily budget");
   assert.ok(estimate > 200_000, "24 MB at 8 kbps is several hundred audio minutes");
 });
 
-test("actual spend is settled from returned duration in integer micro-dollars", () => {
-  assert.equal(actualTranscriptionMicros(60), TRANSCRIPTION_MICROS_PER_MINUTE);
-  assert.equal(actualTranscriptionMicros(90), Math.ceil(1.5 * TRANSCRIPTION_MICROS_PER_MINUTE));
-  assert.equal(actualTranscriptionMicros(0), 0);
-  assert.equal(actualTranscriptionMicros(Number.NaN), 0);
-  assert.ok(Number.isSafeInteger(actualTranscriptionMicros(3.33)));
+test("actual spend is settled per model from returned duration in integer micro-dollars", () => {
+  assert.equal(actualTranscriptionMicros(60, ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE), ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE);
+  assert.equal(actualTranscriptionMicros(90, MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE), Math.ceil(1.5 * MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE));
+  assert.equal(actualTranscriptionMicros(0, ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE), 0);
+  assert.equal(actualTranscriptionMicros(Number.NaN, ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE), 0);
+  assert.equal(actualTranscriptionMicros(60, Number.NaN), 0);
+  assert.ok(Number.isSafeInteger(actualTranscriptionMicros(3.33, ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE)));
 });
 
 test("environment settings fall back to safe defaults instead of unlimited", () => {
@@ -85,11 +93,41 @@ test("the ASR worker admits inference only through the spend ledger", async () =
   const source = await readFile(new URL("cloudflare-asr/src/index.ts", root), "utf8");
   const reservations = source.match(/await reserveSpend\(/g) ?? [];
   const inferenceCalls = source.match(/env\.AI\.run\(/g) ?? [];
-  assert.equal(reservations.length, inferenceCalls.length, "every AI.run call needs a reservation");
+  // Enhancement, summary, and transcription each reserve once; the transcription
+  // reservation prices BOTH models (nova-3 + whisper fallback) up front, so the
+  // two transcription AI.run calls share one admission.
+  assert.equal(reservations.length, 3, "enhancement, summary, and transcription each reserve spend");
+  assert.equal(inferenceCalls.length, 4, "one text-enhancement, one summary, and two transcription models");
+  assert.match(source, /estimateMicros: estimateTranscriptionMicros\(declaredBytes\)/, "transcription admission must price the combined worst case");
   assert.match(source, /if \(!admission\.ok\) return admissionDenial\(admission\)/);
   assert.match(source, /releaseSpend\(env, admission\.id\)/);
   assert.match(source, /commitSpend\(env, admission\.id/);
   assert.match(source, /INTERNAL_CLIENT_KEY_HEADER/);
+});
+
+test("routing and fallback billing settle every model that actually ran", async () => {
+  const index = await readFile(new URL("cloudflare-asr/src/index.ts", root), "utf8");
+  // The routing decision itself: nova-3's result is used only when no
+  // non-English language was detected; missing detection counts as English.
+  assert.match(index, /const nonEnglishLanguage = detectedLanguages\.find\(\(tag\) => !isEnglishLanguageTag\(tag\)\)/);
+  assert.match(index, /if \(english && nonEnglishLanguage === undefined\)/);
+  // A completed nova-3 run is billed even when its output is routed away from...
+  assert.match(index, /\+ \(englishBilled \? actualTranscriptionMicros\(settledSeconds, ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE\) : 0\)/);
+  // ...and settled rather than released when the whisper fallback then fails.
+  assert.match(index, /if \(englishBilled\) \{\n\s*const billedSeconds = english\?\.durationSeconds \?\? estimatedSeconds;/);
+  // Whisper's reported duration is bounded before it can null the response.
+  assert.match(index, /boundedDurationSeconds\(result\.transcription_info\?\.duration\)/);
+  // Buffering runs under the same deadline as inference, so a trickled upload
+  // cannot pin the worker, and a mid-transfer disconnect resolves to null.
+  assert.match(index, /await bufferAudio\(request, mediaType, declaredBytes, deadline\)/);
+});
+
+test("admission clamps a single request's seconds to the daily client quota", async () => {
+  // Worst-case byte pricing makes a 24 MB upload look like far more audio than
+  // the whole daily quota; without the clamp every large upload would be denied.
+  assert.ok(worstCaseAudioSeconds(MAXIMUM_AUDIO_BYTES) > DEFAULT_DAILY_CLIENT_AUDIO_SECONDS);
+  const ledger = await readFile(new URL("cloudflare-asr/src/spendLedger.ts", root), "utf8");
+  assert.match(ledger, /Math\.min\(request\.secondsEstimate, request\.clientSecondsLimit\)/);
 });
 
 test("ledger failures deny paid inference instead of allowing it", async () => {
@@ -104,7 +142,7 @@ test("the spend ledger is configured as a SQLite durable object", async () => {
   assert.match(config, /"SPEND_LEDGER"/);
   assert.match(config, /"class_name": "SpendLedger"/);
   assert.match(config, /"new_sqlite_classes": \["SpendLedger"\]/);
-  assert.match(config, /"DAILY_SPEND_LIMIT_MICROS": "2000000"/);
+  assert.match(config, /"DAILY_SPEND_LIMIT_MICROS": "10000000"/);
   assert.match(config, /"DAILY_CLIENT_AUDIO_SECONDS": "7200"/);
   const ledger = await readFile(new URL("cloudflare-asr/src/spendLedger.ts", root), "utf8");
   assert.doesNotMatch(ledger, /await[^\n]*\n[^\n]*sql\.exec[\s\S]{0,400}?await fetch/, "no external awaits between ledger reads and writes");

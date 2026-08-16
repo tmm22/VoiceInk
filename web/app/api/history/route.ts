@@ -6,7 +6,7 @@ import {
   readBoundedJson,
   rejectCrossOrigin,
 } from "../../../lib/server/requestSecurity";
-import { TRANSCRIPTION_MODEL_NAME } from "../../../shared/transcriptionContract";
+import { isTranscriptionModelName, isValidLanguageTag } from "../../../shared/transcriptionContract";
 
 export const runtime = "edge";
 
@@ -48,13 +48,15 @@ export async function POST(request: Request) {
     if (secured.error) return secured.error;
     const parsed = await readBoundedJson<{
       clientId?: unknown; text?: unknown; model?: unknown; durationSeconds?: unknown; operationId?: unknown;
+      detectedLanguage?: unknown;
     }>(request, 220_000);
     if (!parsed.ok) return parsed.response;
-    const { clientId, text, model, durationSeconds, operationId } = parsed.value;
+    const { clientId, text, model, durationSeconds, operationId, detectedLanguage } = parsed.value;
     if (typeof clientId !== "string" || !uuidPattern.test(clientId)
       || typeof operationId !== "string" || !uuidPattern.test(operationId)
       || typeof text !== "string" || !text.trim() || text.length > 200_000
-      || model !== TRANSCRIPTION_MODEL_NAME
+      || !isTranscriptionModelName(model)
+      || (detectedLanguage !== undefined && !isValidLanguageTag(detectedLanguage))
       || typeof durationSeconds !== "number" || !Number.isFinite(durationSeconds)
       || durationSeconds < 0 || durationSeconds > 21_600) {
       return jsonNoStore({ error: "The history item is invalid." }, { status: 400 });
@@ -62,6 +64,7 @@ export async function POST(request: Request) {
     const save = makeFunctionReference<"mutation">("transcriptions:save");
     const id = await secured.client.mutation(save, {
       clientId, text, model, durationSeconds, operationId, serviceSecret: secured.serviceSecret,
+      ...(detectedLanguage !== undefined ? { detectedLanguage } : {}),
     });
     return jsonNoStore({ id });
   } catch {

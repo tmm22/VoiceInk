@@ -61,14 +61,22 @@ export class SpendLedger extends DurableObject {
       return { ok: false, reason: "budget" };
     }
 
-    if (request.secondsEstimate > 0) {
+    // Worst-case byte pricing overestimates audio seconds by an order of
+    // magnitude for real recordings, so a single request's seconds estimate is
+    // clamped to the full daily client quota: one request may claim at most a
+    // whole day's audio allowance and settles to the actual duration. Without
+    // the clamp, the seconds axis would deny any upload larger than
+    // clientSecondsLimit x WORST_CASE_BYTES_PER_SECOND bytes (~3.4 MB) outright.
+    // The money axis stays unclamped, so spend is still reserved at true worst case.
+    const secondsEstimate = Math.min(request.secondsEstimate, request.clientSecondsLimit);
+    if (secondsEstimate > 0) {
       const used = this.sql
         .exec<{ seconds: number }>("SELECT seconds FROM client_usage WHERE day = ? AND client_key = ?", day, request.clientKey)
         .toArray()[0]?.seconds ?? 0;
       const pending = this.sql
         .exec<{ total: number | null }>("SELECT SUM(seconds_estimate) AS total FROM reservations WHERE client_key = ? AND day = ?", request.clientKey, day)
         .toArray()[0]?.total ?? 0;
-      if (used + pending + request.secondsEstimate > request.clientSecondsLimit) {
+      if (used + pending + secondsEstimate > request.clientSecondsLimit) {
         return { ok: false, reason: "client" };
       }
     }
@@ -76,7 +84,7 @@ export class SpendLedger extends DurableObject {
     const id = crypto.randomUUID();
     this.sql.exec(
       "INSERT INTO reservations (id, day, amount_micros, client_key, seconds_estimate, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
-      id, day, request.estimateMicros, request.clientKey, request.secondsEstimate, now + RESERVATION_EXPIRY_MS);
+      id, day, request.estimateMicros, request.clientKey, secondsEstimate, now + RESERVATION_EXPIRY_MS);
     this.sql.exec(
       `INSERT INTO daily_spend (day, committed_micros, reserved_micros) VALUES (?, 0, ?)
        ON CONFLICT(day) DO UPDATE SET reserved_micros = reserved_micros + excluded.reserved_micros`,

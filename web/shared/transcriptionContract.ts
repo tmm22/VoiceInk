@@ -1,10 +1,20 @@
-export const TRANSCRIPTION_MODEL_ID = "@cf/openai/whisper-large-v3-turbo" as const;
-export const TRANSCRIPTION_MODEL_NAME = "whisper-large-v3-turbo" as const;
+export const ENGLISH_TRANSCRIPTION_MODEL_ID = "@cf/deepgram/nova-3" as const;
+export const ENGLISH_TRANSCRIPTION_MODEL_NAME = "nova-3" as const;
+export const MULTILINGUAL_TRANSCRIPTION_MODEL_ID = "@cf/openai/whisper-large-v3-turbo" as const;
+export const MULTILINGUAL_TRANSCRIPTION_MODEL_NAME = "whisper-large-v3-turbo" as const;
+
+export const TRANSCRIPTION_MODEL_NAMES = [
+  ENGLISH_TRANSCRIPTION_MODEL_NAME,
+  MULTILINGUAL_TRANSCRIPTION_MODEL_NAME,
+] as const;
+
+export type TranscriptionModelName = (typeof TRANSCRIPTION_MODEL_NAMES)[number];
 
 export const MAXIMUM_TRANSCRIPTION_REQUEST_BYTES = 25 * 1024 * 1024;
 export const MAXIMUM_AUDIO_BYTES = 24 * 1024 * 1024;
 export const MAXIMUM_TRANSCRIPT_CHARACTERS = 200_000;
 export const MAXIMUM_TRANSCRIPTION_DURATION_SECONDS = 6 * 60 * 60;
+export const MAXIMUM_LANGUAGE_TAG_LENGTH = 35;
 
 export const INTERNAL_BODY_LENGTH_HEADER = "x-voiceink-body-length";
 export const INTERNAL_CLIENT_KEY_HEADER = "x-voiceink-client-key";
@@ -22,14 +32,43 @@ const supportedAudioTypes = new Set([
   "audio/x-wav",
 ]);
 
+// BCP-47 primary subtag plus optional subtags, e.g. "en", "es-419", "zh-hans".
+const languageTagPattern = /^[a-z]{2,3}(-[a-z0-9]{2,8})*$/i;
+
 export type TranscriptionResponse = {
   text: string;
-  model: typeof TRANSCRIPTION_MODEL_NAME;
+  model: TranscriptionModelName;
   durationSeconds?: number;
+  detectedLanguage?: string;
   segments?: TranscriptionSegment[];
 };
 
 export type TranscriptionSegment = { start: number; end: number; text: string };
+
+export function isTranscriptionModelName(value: unknown): value is TranscriptionModelName {
+  return typeof value === "string" && (TRANSCRIPTION_MODEL_NAMES as readonly string[]).includes(value);
+}
+
+export function isValidLanguageTag(value: unknown): value is string {
+  return typeof value === "string"
+    && value.length <= MAXIMUM_LANGUAGE_TAG_LENGTH
+    && languageTagPattern.test(value);
+}
+
+export function isEnglishLanguageTag(value: string) {
+  return /^en(-|$)/i.test(value);
+}
+
+// Providers occasionally report absurd or non-finite durations; dropping the
+// field is always safer than rejecting an otherwise-valid billed transcript.
+export function boundedDurationSeconds(value: unknown): number | undefined {
+  return typeof value === "number"
+    && Number.isFinite(value)
+    && value > 0
+    && value <= MAXIMUM_TRANSCRIPTION_DURATION_SECONDS
+    ? value
+    : undefined;
+}
 
 export function normalizeAudioMediaType(value: string) {
   return value.split(";", 1)[0]?.trim().toLowerCase() ?? "";
@@ -70,7 +109,7 @@ export function hasMatchingAudioSignature(mediaType: string, bytes: Uint8Array) 
 export function parseTranscriptionResponse(value: unknown): TranscriptionResponse | null {
   if (!value || typeof value !== "object") return null;
   const candidate = value as Record<string, unknown>;
-  if (candidate.model !== TRANSCRIPTION_MODEL_NAME || typeof candidate.text !== "string") return null;
+  if (!isTranscriptionModelName(candidate.model) || typeof candidate.text !== "string") return null;
   const text = candidate.text.trim();
   if (!text || text.length > MAXIMUM_TRANSCRIPT_CHARACTERS) return null;
 
@@ -81,6 +120,9 @@ export function parseTranscriptionResponse(value: unknown): TranscriptionRespons
     || duration < 0
     || duration > MAXIMUM_TRANSCRIPTION_DURATION_SECONDS
   )) return null;
+
+  const detectedLanguage = candidate.detectedLanguage;
+  if (detectedLanguage !== undefined && !isValidLanguageTag(detectedLanguage)) return null;
 
   let segments: TranscriptionSegment[] | undefined;
   if (candidate.segments !== undefined) {
@@ -105,8 +147,9 @@ export function parseTranscriptionResponse(value: unknown): TranscriptionRespons
 
   return {
     text,
-    model: TRANSCRIPTION_MODEL_NAME,
+    model: candidate.model,
     ...(typeof duration === "number" ? { durationSeconds: duration } : {}),
+    ...(typeof detectedLanguage === "string" ? { detectedLanguage: detectedLanguage.toLowerCase() } : {}),
     ...(segments?.length ? { segments } : {}),
   };
 }

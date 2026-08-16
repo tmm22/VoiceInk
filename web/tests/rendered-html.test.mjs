@@ -84,6 +84,12 @@ test("brokers Convex access and enforces quotas and race-safe retention", async 
     source("lib/convex.ts"),
   ]);
   assert.match(transcriptions, /requireServiceSecret\(args\.serviceSecret\)/);
+  // English-path saves use model "nova-3"; regressing to a whisper-only check
+  // would silently break every English history save with the suite green.
+  assert.match(transcriptions, /args\.model !== "nova-3" && args\.model !== "whisper-large-v3-turbo"/);
+  assert.match(transcriptions, /args\.detectedLanguage\.length > 35 \|\| !\/\^\[a-z\]\{2,3\}\(-\[a-z0-9\]\{2,8\}\)\*\$\/i\.test\(args\.detectedLanguage\)/);
+  assert.match(transcriptions, /detectedLanguage: args\.detectedLanguage\.toLowerCase\(\)/);
+  assert.match(transcriptions, /item\.detectedLanguage \? \{ detectedLanguage: item\.detectedLanguage \}/);
   assert.match(transcriptions, /Daily transcription limit reached/);
   assert.match(transcriptions, /Account storage limit reached/);
   assert.match(transcriptions, /history\.length >= 50/);

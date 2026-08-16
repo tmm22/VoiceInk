@@ -13,7 +13,7 @@ Users can switch between the original editorial theme and a native macOS-inspire
 ## Production
 
 - Web app: the `voiceink-web` Worker in the target Cloudflare account
-- Transcription: Cloudflare Workers AI using `@cf/openai/whisper-large-v3-turbo`
+- Transcription: Cloudflare Workers AI using `@cf/deepgram/nova-3` for English (with language detection and smart formatting) and `@cf/openai/whisper-large-v3-turbo` for detected non-English audio
 - Database: the Convex deployment supplied through the build environment
 - Region: Convex US East (N. Virginia)
 
@@ -103,7 +103,7 @@ The production smoke suite is non-mutating and does not invoke paid AI. A real a
 - Signed-in accounts are limited to 10 history writes per minute, 100 per day, 50 retained records, and 10 million stored transcript/summary characters
 - Anonymous browsers can retain at most 30 active one-hour history records
 - Signed-in recordings are capped at 30 minutes and uploads at 2 hours of audio; anonymous visitors get 10 minutes for either, enforced in the browser before upload
-- A durable spend ledger in the ASR Worker caps all Workers AI inference at $2.00 per UTC day globally and 2 hours of transcribed audio per client IP per day; when the ledger cannot be reached, inference is denied
+- A durable spend ledger in the ASR Worker caps all Workers AI inference at $10.00 per UTC day globally and 2 hours of transcribed audio per client IP per day; when the ledger cannot be reached, inference is denied
 - Transcription requests require a server-verified Cloudflare Turnstile token whenever the Turnstile secret is configured (production configures it; local development uses Cloudflare's official test keys)
 - Cloudflare applies separate inference, import, and history rate limits; missing production bindings fail closed
 

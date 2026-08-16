@@ -10,7 +10,8 @@ This guide describes the live production architecture as of August 15, 2026.
 | Speech recognition, summaries, and text enhancement | Cloudflare Workers + Workers AI | `voiceink-asr` |
 | Transcript database | Convex Cloud | Supplied at deployment time |
 | Authentication | Clerk production | User accounts and cross-device ownership |
-| ASR model | Cloudflare Workers AI | `@cf/openai/whisper-large-v3-turbo` |
+| ASR model (English) | Cloudflare Workers AI | `@cf/deepgram/nova-3` |
+| ASR model (non-English fallback) | Cloudflare Workers AI | `@cf/openai/whisper-large-v3-turbo` |
 | Summary and enhancement model | Cloudflare Workers AI | `@cf/meta/llama-3.2-3b-instruct` |
 
 The public entry point is the URL returned by the `voiceink-web` deployment. The ASR Worker is reached from the web Worker through the `ASR` service binding. Do not replace this with a fetch to its public `workers.dev` hostname: same-account Worker subrequests can fail at Cloudflare routing, and the service binding is private and does not add another request charge.
@@ -120,11 +121,11 @@ npx wrangler deploy
 cd ..
 ```
 
-The web Worker streams a validated raw audio body to the private Worker, which verifies its bounded length, media type, and container signature before invoking `@cf/openai/whisper-large-v3-turbo` through its `AI` binding. It is private-only and the production application reaches it through the `ASR` service binding.
+The web Worker streams a validated raw audio body to the private Worker, which verifies its bounded length, media type, and container signature, then buffers the audio (bounded at 24 MB) and transcribes it with `@cf/deepgram/nova-3` through its `AI` binding with language detection and smart formatting enabled. When nova-3 detects a non-English language (or nova-3 fails), the same buffered audio is re-transcribed by `@cf/openai/whisper-large-v3-turbo`, which covers the long tail of languages. The Worker is private-only and the production application reaches it through the `ASR` service binding.
 
 The same private Worker handles `/v1/summaries` and `/v1/enhancements` with Llama 3.2 3B. The public web Worker exposes `/api/summarize` and `/api/enhance`, then forwards text through the private service binding. After a successful summary response, the browser stores the summary on the matching transcription through an ownership-checked Convex mutation, so both share the same retention window. Enhancement results remain browser-local unless the user explicitly replaces the transcript.
 
-The ASR Worker also owns the `SpendLedger` durable object (SQLite-backed, created by the `v1` migration on first deploy). Every inference call must reserve budget from it first; the daily ceilings are set in `cloudflare-asr/wrangler.jsonc` as `DAILY_SPEND_LIMIT_MICROS` (micro-dollars per UTC day, default 2000000 = $2.00) and `DAILY_CLIENT_AUDIO_SECONDS` (transcribed seconds per client IP per UTC day, default 7200). If the ledger is unreachable, inference is denied — fail closed is intentional.
+The ASR Worker also owns the `SpendLedger` durable object (SQLite-backed, created by the `v1` migration on first deploy). Every inference call must reserve budget from it first; the daily ceilings are set in `cloudflare-asr/wrangler.jsonc` as `DAILY_SPEND_LIMIT_MICROS` (micro-dollars per UTC day, default 10000000 = $10.00; it must stay above the ≈ $4.79 worst-case reservation for one 24 MB upload priced across both transcription models) and `DAILY_CLIENT_AUDIO_SECONDS` (transcribed seconds per client IP per UTC day, default 7200). If the ledger is unreachable, inference is denied — fail closed is intentional.
 
 ## 3b. Create the Turnstile widget
 
@@ -217,14 +218,14 @@ curl --fail \
   "https://v.paul.im/api/transcribe"
 ```
 
-The route accepts raw audio bodies only; multipart uploads are rejected. Expected response shape (`durationSeconds` and `segments` are included when the provider returns timing data):
+The route accepts raw audio bodies only; multipart uploads are rejected. English audio returns `"model": "nova-3"` with a `detectedLanguage` BCP-47 tag; non-English audio returns `"model": "whisper-large-v3-turbo"`. `durationSeconds`, `detectedLanguage`, and `segments` are included when the provider returns them:
 
 ```json
 {
   "text": "The completed transcript.",
-  "model": "whisper-large-v3-turbo",
+  "model": "nova-3",
   "durationSeconds": 4.2,
-  "segments": [{ "start": 0, "end": 4.2, "text": "The completed transcript." }]
+  "detectedLanguage": "en"
 }
 ```
 

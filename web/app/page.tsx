@@ -26,7 +26,6 @@ import { HistoryView } from "./history-view";
 import { TTSWorkspace } from "./tts-workspace";
 import {
   MAXIMUM_AUDIO_BYTES,
-  TRANSCRIPTION_MODEL_NAME,
   type TranscriptionSegment,
 } from "../shared/transcriptionContract";
 
@@ -294,7 +293,8 @@ export default function Home() {
         const savedId = await saveTranscription({
           text: transcribedText,
           durationSeconds: effectiveDuration,
-          model: TRANSCRIPTION_MODEL_NAME,
+          model: result.model,
+          detectedLanguage: result.detectedLanguage,
           operationId,
           segments: result.segments,
         }, token);

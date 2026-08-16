@@ -12,13 +12,14 @@ function requireServiceSecret(value?: string) {
 }
 
 function publicHistoryItem(item: {
-  _id: unknown; model: string; text: string; summary?: string; durationSeconds: number;
+  _id: unknown; model: string; detectedLanguage?: string; text: string; summary?: string; durationSeconds: number;
   segments?: Array<{ start: number; end: number; text: string }>; operationId?: string;
   status: "processing" | "complete" | "failed"; createdAt: number;
 }) {
   return {
     _id: item._id,
     model: item.model,
+    ...(item.detectedLanguage ? { detectedLanguage: item.detectedLanguage } : {}),
     text: item.text,
     ...(item.summary ? { summary: item.summary } : {}),
     durationSeconds: item.durationSeconds,
@@ -62,6 +63,7 @@ export const list = query({
 export const save = mutation({
   args: {
     clientId: v.string(), model: v.string(), text: v.string(), durationSeconds: v.number(), operationId: v.string(),
+    detectedLanguage: v.optional(v.string()),
     segments: v.optional(v.array(v.object({ start: v.number(), end: v.number(), text: v.string() }))),
     serviceSecret: v.optional(v.string()),
   },
@@ -72,7 +74,10 @@ export const save = mutation({
     if (!clientIdPattern.test(args.clientId)) throw new Error("Invalid client identifier.");
     if (!operationIdPattern.test(args.operationId)) throw new Error("Invalid operation identifier.");
     if (!text || text.length > 200_000) throw new Error("Transcript length is invalid.");
-    if (args.model !== "whisper-large-v3-turbo") throw new Error("Unsupported transcription model.");
+    if (args.model !== "nova-3" && args.model !== "whisper-large-v3-turbo") throw new Error("Unsupported transcription model.");
+    if (args.detectedLanguage !== undefined && (
+      args.detectedLanguage.length > 35 || !/^[a-z]{2,3}(-[a-z0-9]{2,8})*$/i.test(args.detectedLanguage)
+    )) throw new Error("Invalid detected language.");
     if (!Number.isFinite(args.durationSeconds) || args.durationSeconds < 0 || args.durationSeconds > 21_600) throw new Error("Invalid recording duration.");
     if (args.segments && (args.segments.length > 5_000 || args.segments.some((segment, index) =>
       !segment.text.trim() || segment.text.length > 2_000 || !Number.isFinite(segment.start) || !Number.isFinite(segment.end)
@@ -91,7 +96,7 @@ export const save = mutation({
       }
       return existingOperation._id;
     }
-    const transcription = { model: args.model, text: args.text, durationSeconds: args.durationSeconds, operationId: args.operationId, ...(args.segments?.length ? { segments: args.segments } : {}) };
+    const transcription = { model: args.model, text: args.text, durationSeconds: args.durationSeconds, operationId: args.operationId, ...(args.detectedLanguage ? { detectedLanguage: args.detectedLanguage.toLowerCase() } : {}), ...(args.segments?.length ? { segments: args.segments } : {}) };
     let accountRetentionDays = defaultRetentionDays;
     if (identity) {
       const history = await ctx.db.query("transcriptions").withIndex("by_owner_created", (q) => q.eq("ownerId", identity.tokenIdentifier)).order("desc").take(51);

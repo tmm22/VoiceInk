@@ -29,7 +29,8 @@ export async function checkDocumentationContracts() {
   assert.deepEqual(forbiddenDocumentationDrift(`${docs}\n${smoke}`), [], "obsolete public/fallback architecture remains documented");
   for (const text of [readme, deployment, agentGuide]) {
     assert.match(text, /https:\/\/v\.paul\.im/, "canonical origin is missing");
-    assert.match(text, /@cf\/openai\/whisper-large-v3-turbo/, "canonical transcription model is missing");
+    assert.match(text, /@cf\/deepgram\/nova-3/, "canonical English transcription model is missing");
+    assert.match(text, /@cf\/openai\/whisper-large-v3-turbo/, "canonical multilingual transcription model is missing");
   }
   for (const binding of [
     "TRANSCRIPTION_RATE_LIMITER",
@@ -48,13 +49,15 @@ export async function checkDocumentationContracts() {
   assert.match(asrConfig, /"preview_urls": false/);
   assert.match(asrConfig, /"SPEND_LEDGER"/, "spend-ledger durable object binding is missing");
   assert.match(asrConfig, /"new_sqlite_classes": \["SpendLedger"\]/, "spend-ledger migration is missing");
-  assert.match(asrConfig, /"DAILY_SPEND_LIMIT_MICROS": "2000000"/, "daily spend ceiling drifted from documentation");
+  assert.match(asrConfig, /"DAILY_SPEND_LIMIT_MICROS": "10000000"/, "daily spend ceiling drifted from documentation");
   assert.match(asrConfig, /"DAILY_CLIENT_AUDIO_SECONDS": "7200"/, "per-client audio quota drifted from documentation");
   assert.match(deployment, /TURNSTILE_SECRET_KEY/, "Turnstile secret setup is undocumented");
-  assert.match(costs, /\$2\.00 per UTC day/, "spend ceiling is undocumented in costs");
+  assert.match(costs, /\$10\.00 per UTC day/, "spend ceiling is undocumented in costs");
+  assert.match(costs, /\$4\.79/, "worst-case single-upload reservation is undocumented in costs");
   assert.match(contract, /MAXIMUM_AUDIO_BYTES = 24 \* 1024 \* 1024/);
   assert.match(docs, /24 MB/);
-  assert.match(costs, /\$0\.00051 per audio minute/);
+  assert.match(costs, /\$0\.0052 per audio minute/, "nova-3 pricing is undocumented in costs");
+  assert.match(costs, /\$0\.00051 per audio minute/, "whisper pricing is undocumented in costs");
   assert.match(docs, /no-store|not enable response caching/i);
 }
 

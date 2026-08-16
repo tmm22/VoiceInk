@@ -64,11 +64,20 @@ test("the browser, public API, and private worker agree on the ASR model", async
     source("app/api/transcribe/route.ts"),
     source("cloudflare-asr/src/index.ts"),
     source("shared/transcriptionContract.ts"),
+    source("app/api/history/route.ts"),
   ]);
-  assert.match(files[0], /TRANSCRIPTION_MODEL_NAME/);
+  assert.match(files[4], /!isTranscriptionModelName\(model\)/, "history accepts every canonical model, not just whisper");
+  assert.match(files[4], /detectedLanguage !== undefined && !isValidLanguageTag\(detectedLanguage\)/);
+  assert.match(files[4], /\.\.\.\(detectedLanguage !== undefined \? \{ detectedLanguage \} : \{\}\)/);
+  assert.match(files[0], /model: result\.model/, "history saves the model the pipeline actually used");
+  assert.match(files[0], /detectedLanguage: result\.detectedLanguage/);
   assert.match(files[1], /\/v1\/transcriptions/);
-  assert.match(files[2], /TRANSCRIPTION_MODEL_ID/);
-  assert.match(files[3], /whisper-large-v3-turbo/);
+  assert.match(files[2], /ENGLISH_TRANSCRIPTION_MODEL_ID/);
+  assert.match(files[2], /MULTILINGUAL_TRANSCRIPTION_MODEL_ID/);
+  assert.match(files[2], /isEnglishLanguageTag/);
+  assert.match(files[2], /detect_language: true/);
+  assert.match(files[2], /smart_format: true/);
+  assert.match(files[3], /@cf\/deepgram\/nova-3/);
   assert.match(files[3], /@cf\/openai\/whisper-large-v3-turbo/);
 });
 
@@ -83,8 +92,9 @@ test("transcription remains private, streamed, and separately rate limited", asy
   assert.match(route, /body: request\.body/);
   assert.match(route, /signal: request\.signal/);
   assert.doesNotMatch(route, /FormData|formData\(\)|PARAKEET_API_URL|fetch\(target/);
-  assert.match(worker, /audio: \{ body: audioStream, contentType: mediaType \}/);
-  assert.doesNotMatch(worker, /formData\(\)|function toBase64|audio\.arrayBuffer\(\)|\bbtoa\(/);
+  assert.match(worker, /audio: \{ body: audioStream\(audioBytes\), contentType: mediaType \}/);
+  assert.match(worker, /received > declaredBytes \|\| received > MAXIMUM_AUDIO_BYTES/, "buffered audio stays bounded while it is read");
+  assert.doesNotMatch(worker, /formData\(\)|function toBase64|\bbtoa\(/);
   for (const config of [webConfig, asrConfig]) {
     assert.match(config, /"enable_request_signal"/);
     assert.match(config, /"workers_dev": false/);

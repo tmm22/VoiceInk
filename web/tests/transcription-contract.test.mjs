@@ -2,12 +2,17 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
+  boundedDurationSeconds,
+  ENGLISH_TRANSCRIPTION_MODEL_NAME,
   hasMatchingAudioSignature,
+  isEnglishLanguageTag,
   isSupportedAudioMediaType,
+  isValidLanguageTag,
   MAXIMUM_TRANSCRIPT_CHARACTERS,
+  MULTILINGUAL_TRANSCRIPTION_MODEL_NAME,
   parseTranscriptionResponse,
-  TRANSCRIPTION_MODEL_NAME,
 } from "../shared/transcriptionContract.ts";
+import { extractDeepgramTranscription } from "../cloudflare-asr/src/deepgram.ts";
 import {
   jsonNoStore,
   readBoundedJson,
@@ -84,23 +89,96 @@ test("audio media types require matching container signatures", () => {
   assert.equal(hasMatchingAudioSignature("audio/webm", bytes("not audio")), false);
 });
 
-test("transcription responses require bounded nonempty text and the canonical model", () => {
-  assert.deepEqual(parseTranscriptionResponse({ text: "  hello  ", model: TRANSCRIPTION_MODEL_NAME, durationSeconds: 1.5, segments: [{ start: 0.1, end: 1.4, text: " hello " }] }), {
+test("transcription responses require bounded nonempty text and a canonical model", () => {
+  assert.deepEqual(parseTranscriptionResponse({ text: "  hello  ", model: MULTILINGUAL_TRANSCRIPTION_MODEL_NAME, durationSeconds: 1.5, segments: [{ start: 0.1, end: 1.4, text: " hello " }] }), {
     text: "hello",
-    model: TRANSCRIPTION_MODEL_NAME,
+    model: MULTILINGUAL_TRANSCRIPTION_MODEL_NAME,
     durationSeconds: 1.5,
     segments: [{ start: 0.1, end: 1.4, text: "hello" }],
   });
+  assert.deepEqual(parseTranscriptionResponse({ text: "Hello there.", model: ENGLISH_TRANSCRIPTION_MODEL_NAME, durationSeconds: 2, detectedLanguage: "EN-us" }), {
+    text: "Hello there.",
+    model: ENGLISH_TRANSCRIPTION_MODEL_NAME,
+    durationSeconds: 2,
+    detectedLanguage: "en-us",
+  });
   for (const candidate of [
     null,
-    { text: "", model: TRANSCRIPTION_MODEL_NAME },
+    { text: "", model: MULTILINGUAL_TRANSCRIPTION_MODEL_NAME },
     { text: "hello", model: "other" },
-    { text: "x".repeat(MAXIMUM_TRANSCRIPT_CHARACTERS + 1), model: TRANSCRIPTION_MODEL_NAME },
-    { text: "hello", model: TRANSCRIPTION_MODEL_NAME, durationSeconds: Number.NaN },
-    { text: "hello", model: TRANSCRIPTION_MODEL_NAME, durationSeconds: -1 },
-    { text: "hello", model: TRANSCRIPTION_MODEL_NAME, segments: [{ start: 2, end: 1, text: "bad" }] },
-    { text: "hello", model: TRANSCRIPTION_MODEL_NAME, segments: [{ start: 1, end: 2, text: "later" }, { start: 0, end: 1, text: "earlier" }] },
+    { text: "hello", model: "@cf/deepgram/nova-3" },
+    { text: "x".repeat(MAXIMUM_TRANSCRIPT_CHARACTERS + 1), model: MULTILINGUAL_TRANSCRIPTION_MODEL_NAME },
+    { text: "hello", model: MULTILINGUAL_TRANSCRIPTION_MODEL_NAME, durationSeconds: Number.NaN },
+    { text: "hello", model: MULTILINGUAL_TRANSCRIPTION_MODEL_NAME, durationSeconds: -1 },
+    { text: "hello", model: ENGLISH_TRANSCRIPTION_MODEL_NAME, detectedLanguage: "" },
+    { text: "hello", model: ENGLISH_TRANSCRIPTION_MODEL_NAME, detectedLanguage: "english language" },
+    { text: "hello", model: ENGLISH_TRANSCRIPTION_MODEL_NAME, detectedLanguage: "a".repeat(36) },
+    { text: "hello", model: ENGLISH_TRANSCRIPTION_MODEL_NAME, detectedLanguage: 3 },
+    { text: "hello", model: MULTILINGUAL_TRANSCRIPTION_MODEL_NAME, segments: [{ start: 2, end: 1, text: "bad" }] },
+    { text: "hello", model: MULTILINGUAL_TRANSCRIPTION_MODEL_NAME, segments: [{ start: 1, end: 2, text: "later" }, { start: 0, end: 1, text: "earlier" }] },
   ]) assert.equal(parseTranscriptionResponse(candidate), null);
+});
+
+test("absurd provider durations are dropped instead of rejecting the transcript", () => {
+  assert.equal(boundedDurationSeconds(4.2), 4.2);
+  for (const value of [Number.NaN, -1, 0, Number.POSITIVE_INFINITY, 21_601, "4.2", null, undefined]) {
+    assert.equal(boundedDurationSeconds(value), undefined, String(value));
+  }
+});
+
+test("language tags are validated and routed to English strictly", () => {
+  for (const tag of ["en", "en-US", "es", "es-419", "zh-hans", "pt-BR"]) assert.equal(isValidLanguageTag(tag), true, tag);
+  for (const tag of ["", "e", "english language", "en_US", "-en", "a".repeat(36), 7, null]) assert.equal(isValidLanguageTag(tag), false, String(tag));
+  for (const tag of ["en", "en-US", "EN", "en-GB"]) assert.equal(isEnglishLanguageTag(tag), true, tag);
+  for (const tag of ["es", "eng", "de", "enx"]) assert.equal(isEnglishLanguageTag(tag), false, tag);
+});
+
+test("Deepgram responses yield bounded transcript, languages, and duration", () => {
+  // Live Workers AI nova-3 shape: languages array on the alternative.
+  const live = extractDeepgramTranscription({
+    metadata: { duration: 12.4 },
+    results: { channels: [{ alternatives: [{ transcript: " Hello, world. ", languages: ["EN"], words: [{ word: "hello", start: 0.2, end: 0.8 }] }] }] },
+  });
+  assert.deepEqual(live, { text: "Hello, world.", detectedLanguages: ["en"], durationSeconds: 12.4 });
+
+  // Code-switched audio reports every spoken language, deduplicated.
+  const mixed = extractDeepgramTranscription({
+    results: { channels: [{ alternatives: [{ transcript: "Hola. Hello.", languages: ["es", "en", "es"] }] }] },
+  });
+  assert.deepEqual(mixed?.detectedLanguages, ["es", "en"]);
+
+  // Deepgram's single-language shape stays supported as a fallback.
+  const fallbackShape = extractDeepgramTranscription({
+    results: { channels: [{ alternatives: [{ transcript: "Hola.", words: [{ word: "hola", start: 0.1, end: 1.9 }] }], detected_language: "es" }] },
+  });
+  assert.deepEqual(fallbackShape, { text: "Hola.", detectedLanguages: ["es"], durationSeconds: 1.9 });
+
+  // The paragraphs feature returns newline-broken text on a sibling field; it
+  // must win over the flat transcript, and fall back cleanly when absent.
+  const withParagraphs = extractDeepgramTranscription({
+    results: { channels: [{ alternatives: [{ transcript: "One. Two.", paragraphs: { transcript: " One.\n\nTwo. " } }] }] },
+  });
+  assert.equal(withParagraphs?.text, "One.\n\nTwo.");
+  const emptyParagraphs = extractDeepgramTranscription({
+    results: { channels: [{ alternatives: [{ transcript: "One. Two.", paragraphs: { transcript: "  " } }] }] },
+  });
+  assert.equal(emptyParagraphs?.text, "One. Two.");
+
+  for (const candidate of [
+    null,
+    {},
+    { results: {} },
+    { results: { channels: [] } },
+    { results: { channels: [{ alternatives: [] }] } },
+    { results: { channels: [{ alternatives: [{ transcript: "   " }] }] } },
+    { results: { channels: [{ alternatives: [{ transcript: 42 }] }] } },
+  ]) assert.equal(extractDeepgramTranscription(candidate), null, JSON.stringify(candidate));
+
+  const badMetadata = extractDeepgramTranscription({
+    metadata: { duration: -3 },
+    results: { channels: [{ detected_language: "not a language tag!", alternatives: [{ transcript: "ok", languages: ["totally invalid tag"] }] }] },
+  });
+  assert.deepEqual(badMetadata, { text: "ok", detectedLanguages: [] });
 });
 
 test("Workers AI calls omit runtime-broken request tags", async () => {

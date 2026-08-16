@@ -2,6 +2,7 @@ type SavedTranscription = {
   text: string;
   durationSeconds: number;
   model: string;
+  detectedLanguage?: string;
   operationId: string;
   segments?: Array<{ start: number; end: number; text: string }>;
 };

@@ -1,6 +1,13 @@
 // Integer micro-dollar accounting for the daily spend ledger. Floats drift on
 // thousands of small commits, so every amount in the ledger is micro-dollars.
-export const TRANSCRIPTION_MICROS_PER_MINUTE = 510; // $0.00051 per audio minute
+export const ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE = 5_200; // $0.0052 per audio minute (@cf/deepgram/nova-3)
+export const MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE = 510; // $0.00051 per audio minute (@cf/openai/whisper-large-v3-turbo)
+
+// Non-English audio is detected by nova-3 and then re-transcribed by whisper,
+// so one request can run both models over the same audio. Admission must
+// reserve for that combined worst case.
+export const WORST_CASE_TRANSCRIPTION_MICROS_PER_MINUTE =
+  ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE + MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE;
 
 // An attacker packs the most audio minutes per byte with low-bitrate audio, so
 // admission pricing must assume the lowest plausible bitrate. Opus voice can
@@ -10,7 +17,7 @@ export const WORST_CASE_BYTES_PER_SECOND = 500;
 
 export const TEXT_GENERATION_FLAT_MICROS = 2_000; // conservative flat cost per llama call
 
-export const DEFAULT_DAILY_SPEND_LIMIT_MICROS = 2_000_000; // $2.00 per day
+export const DEFAULT_DAILY_SPEND_LIMIT_MICROS = 10_000_000; // $10.00 per day
 export const DEFAULT_DAILY_CLIENT_AUDIO_SECONDS = 7_200; // 2 hours of audio per client per day
 
 // Inference is aborted before this so a live request always settles before its
@@ -25,12 +32,13 @@ export function worstCaseAudioSeconds(declaredBytes: number) {
 }
 
 export function estimateTranscriptionMicros(declaredBytes: number) {
-  return Math.ceil((worstCaseAudioSeconds(declaredBytes) / 60) * TRANSCRIPTION_MICROS_PER_MINUTE);
+  return Math.ceil((worstCaseAudioSeconds(declaredBytes) / 60) * WORST_CASE_TRANSCRIPTION_MICROS_PER_MINUTE);
 }
 
-export function actualTranscriptionMicros(durationSeconds: number) {
+export function actualTranscriptionMicros(durationSeconds: number, microsPerMinute: number) {
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return 0;
-  return Math.ceil((durationSeconds / 60) * TRANSCRIPTION_MICROS_PER_MINUTE);
+  if (!Number.isFinite(microsPerMinute) || microsPerMinute <= 0) return 0;
+  return Math.ceil((durationSeconds / 60) * microsPerMinute);
 }
 
 export function utcDay(epochMs: number) {

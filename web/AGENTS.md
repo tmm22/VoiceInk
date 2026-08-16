@@ -18,8 +18,11 @@ The canonical and only production origin is `https://v.paul.im`. The `workers.de
 
 Current production models:
 
-- Transcription: `@cf/openai/whisper-large-v3-turbo`
+- Transcription (English, default): `@cf/deepgram/nova-3`, invoked with language detection and smart formatting
+- Transcription (non-English fallback): `@cf/openai/whisper-large-v3-turbo`, used when nova-3 detects a non-English language or nova-3 fails
 - Summarization: `@cf/meta/llama-3.2-3b-instruct`
+
+Transcription buffers the bounded audio once and may run it through both models; spend-ledger admission must always reserve the combined worst case for both.
 
 `parakeet-service/` is an experimental self-hosted reference and is not the production transcription path. The `PARAKEET_*` Worker variable names remain only for compatibility with the original adapter.
 

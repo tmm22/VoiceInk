@@ -12,7 +12,7 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SpendLedger"] }],
   "vars": {
-    "DAILY_SPEND_LIMIT_MICROS": "2000000",
+    "DAILY_SPEND_LIMIT_MICROS": "10000000",
     "DAILY_CLIENT_AUDIO_SECONDS": "7200"
   },
   "observability": { "enabled": true }

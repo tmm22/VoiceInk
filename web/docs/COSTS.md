@@ -18,23 +18,28 @@ Source: [Cloudflare Workers pricing](https://developers.cloudflare.com/workers/p
 
 ### Workers AI transcription
 
-`@cf/openai/whisper-large-v3-turbo` costs approximately:
+Transcription routes between two models. English audio (the common case) uses `@cf/deepgram/nova-3`, which costs approximately:
+
+```text
+$0.0052 per audio minute
+```
+
+Non-English audio is detected by nova-3 and re-transcribed by `@cf/openai/whisper-large-v3-turbo`, which costs approximately:
 
 ```text
 $0.00051 per audio minute
 ```
 
-Source: [Cloudflare Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
+A non-English request therefore pays for both models (≈ $0.00571 per audio minute). Source: [Cloudflare Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
 
-Examples:
+Examples (English audio on nova-3):
 
 | Audio transcribed per month | Workers AI estimate |
 | ---: | ---: |
-| 100 minutes | $0.05 |
-| 1,000 minutes | $0.50 |
-| 10,000 minutes | $5.00 |
-| 100,000 minutes | $50.00 |
-| 1,000,000 minutes | $500.00 |
+| 100 minutes | $0.52 |
+| 1,000 minutes | $5.20 |
+| 10,000 minutes | $52.00 |
+| 100,000 minutes | $520.00 |
 
 ### Workers AI summaries and text enhancement
 
@@ -78,7 +83,7 @@ These scenarios assume:
 The simple planning formula is:
 
 ```text
-monthly cost ≈ $5 + (audio minutes × $0.00051) + Llama token usage + Convex overages + Worker overages
+monthly cost ≈ $5 + (English audio minutes × $0.0052) + (non-English audio minutes × $0.00571) + Llama token usage + Convex overages + Worker overages
 ```
 
 ## Costs not currently incurred
@@ -98,8 +103,8 @@ The unused `parakeet-service/` reference would create a materially different cos
 
 Anonymous transcription remains available, but the following controls limit cost and storage abuse:
 
-1. A SQLite durable object in the ASR Worker enforces a hard global spend ceiling: every inference call must reserve budget before it runs, priced at the worst-case low bitrate for the declared bytes and settled to the provider-reported duration. The default ceiling is $2.00 per UTC day (`DAILY_SPEND_LIMIT_MICROS = 2000000`), which bounds the worst-case Workers AI bill at roughly $62 per month even under sustained attack. If the ledger is unreachable, inference is denied.
-2. The same ledger caps each client IP at 2 hours of transcribed audio per UTC day (`DAILY_CLIENT_AUDIO_SECONDS = 7200`, about $0.06 of transcription).
+1. A SQLite durable object in the ASR Worker enforces a hard global spend ceiling: every inference call must reserve budget before it runs, priced at the worst-case low bitrate for the declared bytes across both transcription models and settled to the provider-reported duration and the models that actually ran. The default ceiling is $10.00 per UTC day (`DAILY_SPEND_LIMIT_MICROS = 10000000`), which bounds the worst-case Workers AI bill at roughly $310 per month even under sustained attack. The ceiling must stay above the worst-case reservation for one full 24 MB upload (≈ $4.79), or maximum-size uploads would always be denied. If the ledger is unreachable, inference is denied.
+2. The same ledger caps each client IP at 2 hours of transcribed audio per UTC day (`DAILY_CLIENT_AUDIO_SECONDS = 7200`, about $0.62 of English transcription). A single request's seconds estimate is clamped to that daily quota at admission — worst-case byte pricing wildly overestimates real recordings, and without the clamp any upload over ~3.4 MB would be denied outright — then settles to the provider-reported duration.
 3. `/api/transcribe` requires a server-verified, single-use Cloudflare Turnstile token whenever `TURNSTILE_SECRET_KEY` is configured, stopping headless-bot volume before any inference spend.
 4. Anonymous visitors are limited to 10 minutes of audio per recording or upload; signed-in users keep 30-minute recordings and 2-hour uploads.
 5. Cloudflare applies fail-closed, route-specific limits: transcription 4/minute, summary 6/minute, enhancement 6/minute, import 10/minute, and history 30/minute per edge key.

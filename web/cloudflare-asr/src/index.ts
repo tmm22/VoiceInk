@@ -1,21 +1,28 @@
 import {
+  boundedDurationSeconds,
+  ENGLISH_TRANSCRIPTION_MODEL_ID,
+  ENGLISH_TRANSCRIPTION_MODEL_NAME,
   hasMatchingAudioSignature,
   INTERNAL_BODY_LENGTH_HEADER,
   INTERNAL_CLIENT_KEY_HEADER,
+  isEnglishLanguageTag,
   isSupportedAudioMediaType,
   MAXIMUM_AUDIO_BYTES,
+  MULTILINGUAL_TRANSCRIPTION_MODEL_ID,
+  MULTILINGUAL_TRANSCRIPTION_MODEL_NAME,
   normalizeAudioMediaType,
   parseTranscriptionResponse,
-  TRANSCRIPTION_MODEL_ID,
-  TRANSCRIPTION_MODEL_NAME,
 } from "../../shared/transcriptionContract.ts";
 import {
   actualTranscriptionMicros,
+  ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE,
   estimateTranscriptionMicros,
   INFERENCE_TIMEOUT_MS,
+  MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE,
   TEXT_GENERATION_FLAT_MICROS,
   worstCaseAudioSeconds,
 } from "./budget.ts";
+import { extractDeepgramTranscription } from "./deepgram.ts";
 import { enhancementInstructions, isEnhancementMode } from "./enhancement.ts";
 import { commitSpend, releaseSpend, reserveSpend, type Admission, type LedgerEnv } from "./ledgerClient.ts";
 import { SpendLedger } from "./spendLedger.ts";
@@ -76,56 +83,60 @@ async function hasValidAuthorization(request: Request, secret: string) {
   }
 }
 
-async function prepareAudioStream(request: Request, mediaType: string, declaredBytes: number) {
-  if (!request.body) return null;
+// The audio is buffered in full (bounded at MAXIMUM_AUDIO_BYTES) because one
+// request may feed two models: nova-3 detects the language, and non-English
+// audio is re-transcribed by whisper from the same bytes. The signal bounds a
+// stalled or trickled upload, and a mid-transfer disconnect resolves to null
+// rather than escaping as an unhandled exception.
+async function bufferAudio(request: Request, mediaType: string, declaredBytes: number, signal: AbortSignal) {
+  if (!request.body || signal.aborted) return null;
   const reader = request.body.getReader();
-  const initialChunks: Uint8Array[] = [];
-  const signature = new Uint8Array(16);
-  let signatureBytes = 0;
-  let received = 0;
-  while (signatureBytes < signature.byteLength) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    received += value.byteLength;
-    if (received > declaredBytes || received > MAXIMUM_AUDIO_BYTES) {
-      await reader.cancel();
-      return null;
-    }
-    initialChunks.push(value);
-    const copied = Math.min(value.byteLength, signature.byteLength - signatureBytes);
-    signature.set(value.subarray(0, copied), signatureBytes);
-    signatureBytes += copied;
-  }
-  if (signatureBytes === 0 || !hasMatchingAudioSignature(mediaType, signature.subarray(0, signatureBytes))) {
-    await reader.cancel();
-    return null;
-  }
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      for (const chunk of initialChunks) controller.enqueue(chunk);
-    },
-    async pull(controller) {
-      try {
-        const { done, value } = await reader.read();
-        if (done) {
-          if (received !== declaredBytes) controller.error(new Error("Audio length mismatch"));
-          else controller.close();
-          return;
-        }
-        received += value.byteLength;
-        if (received > declaredBytes || received > MAXIMUM_AUDIO_BYTES) {
-          await reader.cancel();
-          controller.error(new Error("Audio is too large"));
-          return;
-        }
-        controller.enqueue(value);
-      } catch (error) {
-        controller.error(error);
+  const cancelOnAbort = () => void reader.cancel().catch(() => {});
+  signal.addEventListener("abort", cancelOnAbort, { once: true });
+  try {
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      if (received > declaredBytes || received > MAXIMUM_AUDIO_BYTES) {
+        await reader.cancel();
+        return null;
       }
-    },
-    cancel(reason) {
-      return reader.cancel(reason);
-    },
+      chunks.push(value);
+    }
+    if (signal.aborted || received !== declaredBytes) return null;
+    const audio = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) {
+      audio.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    if (!hasMatchingAudioSignature(mediaType, audio.subarray(0, 16))) return null;
+    return audio;
+  } catch {
+    return null;
+  } finally {
+    signal.removeEventListener("abort", cancelOnAbort);
+  }
+}
+
+function audioStream(audio: Uint8Array): ReadableStream {
+  const body = new Response(audio).body;
+  if (!body) throw new Error("Audio body is unavailable");
+  return body;
+}
+
+function logInferenceFailure(event: string, error: unknown) {
+  const diagnostic = error && typeof error === "object"
+    ? error as { name?: unknown; code?: unknown }
+    : null;
+  console.error(event, {
+    errorName: typeof diagnostic?.name === "string" ? diagnostic.name.slice(0, 80) : typeof error,
+    errorCode: typeof diagnostic?.code === "string" || typeof diagnostic?.code === "number"
+      ? String(diagnostic.code).slice(0, 80)
+      : null,
   });
 }
 
@@ -146,7 +157,13 @@ function fallbackSummary(transcript: string) {
 export default {
   async fetch(request: Request, env: Env, executionContext: ExecutionContext): Promise<Response> {
     if (request.method === "GET") {
-      return json({ status: "ok", model: TRANSCRIPTION_MODEL_ID });
+      return json({
+        status: "ok",
+        models: {
+          english: ENGLISH_TRANSCRIPTION_MODEL_ID,
+          multilingual: MULTILINGUAL_TRANSCRIPTION_MODEL_ID,
+        },
+      });
     }
 
     if (request.method !== "POST") {
@@ -253,8 +270,13 @@ export default {
     if (!isSupportedAudioMediaType(mediaType)) {
       return json({ error: "Only supported audio uploads are accepted" }, { status: 415 });
     }
-    const audioStream = await prepareAudioStream(request, mediaType, declaredBytes);
-    if (!audioStream) {
+    // The deadline bounds the whole paid pipeline — buffering and inference —
+    // below the reservation-expiry window, so a live request always settles
+    // before its reservation can be swept, and a stalled or trickled upload is
+    // aborted here rather than pinning the worker for minutes.
+    const deadline = AbortSignal.any([request.signal, AbortSignal.timeout(INFERENCE_TIMEOUT_MS)]);
+    const audioBytes = await bufferAudio(request, mediaType, declaredBytes, deadline);
+    if (!audioBytes) {
       return json({ error: "The uploaded audio format is invalid" }, { status: 415 });
     }
 
@@ -268,13 +290,66 @@ export default {
     });
     if (!admission.ok) return admissionDenial(admission);
 
-    // Bound inference below the reservation-expiry window so a live request
-    // always settles before its reservation can be swept, and a stalled or
-    // trickled upload is aborted here rather than holding budget for minutes.
-    const deadline = AbortSignal.any([request.signal, AbortSignal.timeout(INFERENCE_TIMEOUT_MS)]);
+    // English-first routing: nova-3 transcribes with language detection and
+    // smart formatting. Non-English audio (and any nova-3 failure) falls back
+    // to whisper, which covers the long tail of languages. The reservation
+    // already priced both models, so the fallback never exceeds admission.
+    let english: ReturnType<typeof extractDeepgramTranscription> = null;
+    let englishBilled = false;
     try {
-      const result = await env.AI.run(TRANSCRIPTION_MODEL_ID, {
-        audio: { body: audioStream, contentType: mediaType },
+      const raw = await env.AI.run(ENGLISH_TRANSCRIPTION_MODEL_ID, {
+        audio: { body: audioStream(audioBytes), contentType: mediaType },
+        detect_language: true,
+        smart_format: true,
+        punctuate: true,
+        paragraphs: true,
+      }, { signal: deadline });
+      englishBilled = true;
+      english = extractDeepgramTranscription(raw);
+    } catch (error) {
+      if (request.signal.aborted || deadline.aborted) {
+        executionContext.waitUntil(releaseSpend(env, admission.id));
+        return json({ error: "Transcription generation failed" }, { status: 502 });
+      }
+      logInferenceFailure("voiceink_english_inference_failed", error);
+    }
+
+    // Nova-3 reports every spoken language; any non-English tag routes the
+    // request to whisper. Missing detection deliberately counts as English.
+    const detectedLanguages = english?.detectedLanguages ?? [];
+    const nonEnglishLanguage = detectedLanguages.find((tag) => !isEnglishLanguageTag(tag));
+    if (english && nonEnglishLanguage === undefined) {
+      const detectedLanguage = detectedLanguages[0];
+      const settledSeconds = english.durationSeconds ?? estimatedSeconds;
+      executionContext.waitUntil(commitSpend(
+        env,
+        admission.id,
+        actualTranscriptionMicros(settledSeconds, ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE),
+        Math.round(settledSeconds),
+      ));
+      const response = parseTranscriptionResponse({
+        text: english.text,
+        model: ENGLISH_TRANSCRIPTION_MODEL_NAME,
+        ...(english.durationSeconds !== undefined ? { durationSeconds: english.durationSeconds } : {}),
+        ...(detectedLanguage ? { detectedLanguage } : {}),
+      });
+      if (!response) {
+        console.error("voiceink_transcription_invalid_output", {
+          model: ENGLISH_TRANSCRIPTION_MODEL_NAME,
+          textCharacters: english.text.length,
+        });
+        return json({ error: "Transcription generation failed" }, { status: 502 });
+      }
+      console.log("voiceink_transcription_route", {
+        model: response.model,
+        detectedLanguage: detectedLanguage ?? null,
+      });
+      return json(response);
+    }
+
+    try {
+      const result = await env.AI.run(MULTILINGUAL_TRANSCRIPTION_MODEL_ID, {
+        audio: { body: audioStream(audioBytes), contentType: mediaType },
         task: "transcribe",
         vad_filter: true,
         beam_size: 5,
@@ -282,17 +357,23 @@ export default {
       }, { signal: deadline });
 
       const text = typeof result.text === "string" ? result.text.trim() : "";
-      const duration = result.transcription_info?.duration;
-      const settledSeconds = typeof duration === "number" && duration > 0 ? duration : estimatedSeconds;
-      executionContext.waitUntil(commitSpend(env, admission.id, actualTranscriptionMicros(settledSeconds), Math.round(settledSeconds)));
+      const duration = boundedDurationSeconds(result.transcription_info?.duration);
+      const settledSeconds = duration ?? estimatedSeconds;
+      // nova-3 inference that completed is still billed even when its output
+      // was routed away from, so the ledger reflects true provider spend.
+      const settledMicros = actualTranscriptionMicros(settledSeconds, MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE)
+        + (englishBilled ? actualTranscriptionMicros(settledSeconds, ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE) : 0);
+      executionContext.waitUntil(commitSpend(env, admission.id, settledMicros, Math.round(settledSeconds)));
       const response = parseTranscriptionResponse({
         text,
-        model: TRANSCRIPTION_MODEL_NAME,
-        ...(typeof duration === "number" ? { durationSeconds: duration } : {}),
+        model: MULTILINGUAL_TRANSCRIPTION_MODEL_NAME,
+        ...(duration !== undefined ? { durationSeconds: duration } : {}),
+        ...(nonEnglishLanguage ? { detectedLanguage: nonEnglishLanguage } : {}),
         ...(Array.isArray(result.segments) ? { segments: result.segments } : {}),
       });
       if (!response) {
         console.error("voiceink_transcription_invalid_output", {
+          model: MULTILINGUAL_TRANSCRIPTION_MODEL_NAME,
           hasText: Boolean(text),
           textCharacters: text.length,
           durationType: typeof duration,
@@ -300,18 +381,27 @@ export default {
         });
         return json({ error: "Transcription generation failed" }, { status: 502 });
       }
+      console.log("voiceink_transcription_route", {
+        model: response.model,
+        detectedLanguage: nonEnglishLanguage ?? null,
+        englishModelRan: englishBilled,
+      });
       return json(response);
     } catch (error) {
-      executionContext.waitUntil(releaseSpend(env, admission.id));
-      const diagnostic = error && typeof error === "object"
-        ? error as { name?: unknown; code?: unknown }
-        : null;
-      console.error("voiceink_transcription_inference_failed", {
-        errorName: typeof diagnostic?.name === "string" ? diagnostic.name.slice(0, 80) : typeof error,
-        errorCode: typeof diagnostic?.code === "string" || typeof diagnostic?.code === "number"
-          ? String(diagnostic.code).slice(0, 80)
-          : null,
-      });
+      // A completed nova-3 run is still real provider spend even when the
+      // whisper fallback fails, so settle it rather than releasing everything.
+      if (englishBilled) {
+        const billedSeconds = english?.durationSeconds ?? estimatedSeconds;
+        executionContext.waitUntil(commitSpend(
+          env,
+          admission.id,
+          actualTranscriptionMicros(billedSeconds, ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE),
+          Math.round(billedSeconds),
+        ));
+      } else {
+        executionContext.waitUntil(releaseSpend(env, admission.id));
+      }
+      logInferenceFailure("voiceink_transcription_inference_failed", error);
       return json({ error: "Transcription generation failed" }, { status: 502 });
     }
   },
