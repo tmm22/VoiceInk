@@ -7,7 +7,7 @@
 // Requires HISTORY_MIGRATION_ENABLED=true in the Convex environment for the
 // duration of the run (unset it afterwards). Run from web/:
 //   CONVEX_URL=https://<deployment>.convex.cloud \
-//   CONVEX_WEB_API_SECRET=... HISTORY_ENCRYPTION_KEY=... \
+//   CONVEX_WEB_API_SECRET=<value> HISTORY_ENCRYPTION_KEY=<value> \
 //   node --experimental-strip-types scripts/encrypt-history.mjs
 import { ConvexHttpClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";

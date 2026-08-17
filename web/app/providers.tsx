@@ -1,8 +1,6 @@
 "use client";
 
 import { ClerkProvider, SignInButton, UserButton, useAuth } from "@clerk/nextjs";
-import { ConvexReactClient, ConvexProvider } from "convex/react";
-import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 
 type AccountAuth = {
@@ -25,7 +23,6 @@ const AccountAuthContext = createContext<AccountAuth>(anonymousAuth);
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "/";
-const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
 
 function ClerkAuthBridge({ children }: { children: ReactNode }) {
   const { getToken, isLoaded, isSignedIn, sessionId, sessionClaims } = useAuth();
@@ -42,8 +39,9 @@ function ClerkAuthBridge({ children }: { children: ReactNode }) {
 }
 
 export function AppProviders({ children }: { children: ReactNode }) {
-  if (!convex) return children;
-  if (!clerkKey) return <ConvexProvider client={convex}>{children}</ConvexProvider>;
+  // History flows through the Worker's /api/history routes; the browser never
+  // talks to Convex directly, so no Convex client (or its WebSocket) is created.
+  if (!convexUrl || !clerkKey) return children;
 
   return (
     <ClerkProvider
@@ -51,9 +49,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
       signInForceRedirectUrl={siteUrl}
       signUpForceRedirectUrl={siteUrl}
     >
-      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        <ClerkAuthBridge>{children}</ClerkAuthBridge>
-      </ConvexProviderWithClerk>
+      <ClerkAuthBridge>{children}</ClerkAuthBridge>
     </ClerkProvider>
   );
 }
@@ -74,6 +70,8 @@ function ClerkAccountControls() {
 }
 
 export function AccountControls() {
-  if (!clerkKey) return null;
+  // Must match the AppProviders gate: ClerkAccountControls calls useAuth,
+  // which throws unless ClerkProvider is mounted above it.
+  if (!convexUrl || !clerkKey) return null;
   return <ClerkAccountControls />;
 }

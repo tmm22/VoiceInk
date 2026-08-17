@@ -61,6 +61,9 @@ test("emits a restrictive browser security policy", async () => {
   assert.match(proxy, /https:\/\/accounts\.paul\.im/);
   assert.match(proxy, /frame-src[^;]*https:\/\/challenges\.cloudflare\.com/);
   assert.match(proxy, /script-src[^;]*https:\/\/challenges\.cloudflare\.com/);
+  // The browser reaches Convex only through the brokered /api/history routes,
+  // so the page CSP must not reopen a direct channel to convex.cloud.
+  assert.doesNotMatch(proxy, /convex\.cloud/);
   assert.match(config, /"workers_dev": false/);
   assert.match(config, /"pattern": "v\.paul\.im"/);
 });
