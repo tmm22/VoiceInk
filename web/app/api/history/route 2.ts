@@ -30,8 +30,8 @@ function requestFailure() {
 }
 
 type SecuredClient =
-  | { error: Response; client?: never; serviceSecret?: never; historyKey?: never }
-  | { error?: never; client: ConvexHttpClient; serviceSecret: string; historyKey: CryptoKey };
+  | { error: Response; client?: never; serviceSecret?: never; historyKey?: never; token?: never }
+  | { error?: never; client: ConvexHttpClient; serviceSecret: string; historyKey: CryptoKey; token: string | null };
 
 // The context an envelope is sealed to and opened with. It comes from Convex's
 // VERIFIED identity (transcriptions:viewerContext), never a local token decode,
@@ -64,8 +64,9 @@ async function securedClient(request: Request): Promise<SecuredClient> {
   }
   const client = new ConvexHttpClient(convexUrl);
   const authorization = request.headers.get("authorization");
-  if (authorization?.startsWith("Bearer ")) client.setAuth(authorization.slice(7));
-  return { client, serviceSecret, historyKey: await keyPromise };
+  const token = authorization?.startsWith("Bearer ") ? authorization.slice(7) : null;
+  if (token) client.setAuth(token);
+  return { client, serviceSecret, historyKey: await keyPromise, token };
 }
 
 export async function POST(request: Request) {

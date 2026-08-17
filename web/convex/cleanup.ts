@@ -39,6 +39,47 @@ export const applyRetentionPage = internalMutation({
   },
 });
 
+// Bounded, self-rescheduling purge of a user's complete history. Drives both
+// the user-facing "delete all history" action and Clerk account-deletion
+// cleanup; `removeSettings` also drops the retention row once the history is gone.
+export const purgeHistoryPage = internalMutation({
+  args: { ownerId: v.optional(v.string()), clientId: v.optional(v.string()), removeSettings: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    let deleted = 0;
+    if (args.ownerId !== undefined) {
+      const ownerId = args.ownerId;
+      const page = await ctx.db.query("transcriptions")
+        .withIndex("by_owner_created", (q) => q.eq("ownerId", ownerId))
+        .take(cleanupBatchSize);
+      for (const item of page) {
+        await ctx.db.delete(item._id);
+        deleted += 1;
+      }
+    } else if (args.clientId !== undefined) {
+      const clientId = args.clientId;
+      const page = await ctx.db.query("transcriptions")
+        .withIndex("by_client_created", (q) => q.eq("clientId", clientId))
+        .take(cleanupBatchSize);
+      for (const item of page) {
+        if (item.ownerId) continue;
+        await ctx.db.delete(item._id);
+        deleted += 1;
+      }
+    }
+    if (deleted === cleanupBatchSize) {
+      await ctx.scheduler.runAfter(0, internal.cleanup.purgeHistoryPage, args);
+      return;
+    }
+    if (args.ownerId !== undefined && args.removeSettings) {
+      const ownerId = args.ownerId;
+      const setting = await ctx.db.query("retentionSettings")
+        .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))
+        .unique();
+      if (setting) await ctx.db.delete(setting._id);
+    }
+  },
+});
+
 export const deleteExpiredTranscriptions = internalMutation({
   args: { cursor: v.optional(v.union(v.string(), v.null())), pagesRemaining: v.optional(v.number()) },
   handler: async (ctx, { cursor, pagesRemaining }) => {

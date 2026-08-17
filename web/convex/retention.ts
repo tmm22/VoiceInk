@@ -1,6 +1,7 @@
 import { mutationGeneric as mutation, queryGeneric as query } from "convex/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import { requireServiceSecret } from "./serviceAuth";
 
 const retentionDays = v.union(v.literal(0), v.literal(7), v.literal(30), v.literal(90), v.literal(365));
 const defaultRetentionDays = 90 as const;
@@ -10,10 +11,6 @@ function requiresMigrationHold(previousDays: RetentionDays, nextDays: RetentionD
   if (migrationInProgress) return true;
   if (nextDays === 0) return true;
   return previousDays !== 0 && nextDays > previousDays;
-}
-
-function requireServiceSecret(value?: string) {
-  if (!process.env.CONVEX_WEB_API_SECRET || value !== process.env.CONVEX_WEB_API_SECRET) throw new Error("This operation must use the protected web service.");
 }
 
 export const get = query({

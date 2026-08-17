@@ -13,7 +13,13 @@ export type ReserveResult =
   | { ok: true; id: string }
   | { ok: false; reason: "budget" | "client" };
 
+// daily_spend holds no client data and keeps a month of cost telemetry;
+// client_usage rows are pseudonymous per-day quota counters that are useless
+// after the day ends, so they are dropped almost immediately (one extra day
+// covers midnight skew between the Worker's clock and this object's).
 const LEDGER_RETENTION_DAYS = 35;
+const CLIENT_USAGE_RETENTION_DAYS = 2;
+const PURGE_ALARM_INTERVAL_MS = 6 * 60 * 60 * 1_000;
 
 // Single global instance (idFromName("global")). All methods do their reads and
 // writes with synchronous sql.exec calls and no awaits in between, so the
@@ -45,6 +51,20 @@ export class SpendLedger extends DurableObject {
       seconds INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (day, client_key)
     )`);
+    // The purge must not depend on inbound traffic: an idle ledger would
+    // otherwise hold expired rows indefinitely. The alarm re-arms itself.
+    ctx.blockConcurrencyWhile(async () => {
+      if (await ctx.storage.getAlarm() === null) {
+        await ctx.storage.setAlarm(Date.now() + PURGE_ALARM_INTERVAL_MS);
+      }
+    });
+  }
+
+  async alarm(): Promise<void> {
+    const now = Date.now();
+    this.expireStaleReservations(now);
+    this.deleteExpiredHistory(now);
+    await this.ctx.storage.setAlarm(now + PURGE_ALARM_INTERVAL_MS);
   }
 
   reserve(request: ReserveRequest): ReserveResult {
@@ -148,8 +168,8 @@ export class SpendLedger extends DurableObject {
   }
 
   private deleteExpiredHistory(now: number) {
-    const cutoff = utcDay(now - LEDGER_RETENTION_DAYS * 24 * 60 * 60 * 1_000);
-    this.sql.exec("DELETE FROM daily_spend WHERE day < ?", cutoff);
-    this.sql.exec("DELETE FROM client_usage WHERE day < ?", cutoff);
+    const dayMs = 24 * 60 * 60 * 1_000;
+    this.sql.exec("DELETE FROM daily_spend WHERE day < ?", utcDay(now - LEDGER_RETENTION_DAYS * dayMs));
+    this.sql.exec("DELETE FROM client_usage WHERE day < ?", utcDay(now - CLIENT_USAGE_RETENTION_DAYS * dayMs));
   }
 }

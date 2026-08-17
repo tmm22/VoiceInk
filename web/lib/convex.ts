@@ -14,6 +14,8 @@ export type TranscriptionHistoryItem = SavedTranscription & {
   summary?: string;
   status: "processing" | "complete" | "failed";
   createdAt: number;
+  decryptError?: boolean;
+  summaryDecryptError?: boolean;
 };
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -56,6 +58,12 @@ export async function deleteTranscription(id: string, token?: string | null) {
   if (!convexUrl || typeof window === "undefined") return;
   const response = await fetch(`/api/history?id=${encodeURIComponent(id)}`, { method: "DELETE", cache: "no-store", headers: { "x-voiceink-client-id": clientId(), ...(token ? { authorization: `Bearer ${token}` } : {}) } });
   if (!response.ok) throw new Error("History item could not be deleted.");
+}
+
+export async function clearTranscriptions(token?: string | null) {
+  if (!convexUrl || typeof window === "undefined") return;
+  const response = await fetch("/api/history?all=true", { method: "DELETE", cache: "no-store", headers: { "x-voiceink-client-id": clientId(), ...(token ? { authorization: `Bearer ${token}` } : {}) } });
+  if (!response.ok) throw new Error("History could not be cleared.");
 }
 
 export async function saveTranscriptionSummary(id: string, summary: string, token?: string | null) {

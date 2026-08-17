@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { enforceRateLimit, jsonNoStore, readBoundedJson, rejectCrossOrigin } from "../../../lib/server/requestSecurity";
 import { INTERNAL_CLIENT_KEY_HEADER } from "../../../shared/transcriptionContract";
+import { pseudonymousClientKey } from "../../../lib/server/clientKey";
 
 export const runtime = "edge";
 
@@ -23,8 +24,9 @@ export async function POST(request: Request) {
   if (!allowedModes.has(mode)) return jsonNoStore({ error: "Choose a supported enhancement style" }, { status: 400 });
 
   const apiKey = process.env.PARAKEET_API_KEY;
+  const pseudonymSecret = process.env.HISTORY_ENCRYPTION_KEY;
   const bindings = env as unknown as { ASR?: Fetcher };
-  if (!bindings.ASR || !apiKey) return jsonNoStore({ error: "Text enhancement is unavailable" }, { status: 503 });
+  if (!bindings.ASR || !apiKey || !pseudonymSecret) return jsonNoStore({ error: "Text enhancement is unavailable" }, { status: 503 });
 
   let response: Response;
   try {
@@ -33,7 +35,7 @@ export async function POST(request: Request) {
       headers: {
         authorization: `Bearer ${apiKey}`,
         "content-type": "application/json",
-        [INTERNAL_CLIENT_KEY_HEADER]: request.headers.get("cf-connecting-ip") ?? "unknown",
+        [INTERNAL_CLIENT_KEY_HEADER]: await pseudonymousClientKey(pseudonymSecret, request.headers.get("cf-connecting-ip"), Date.now()),
       },
       body: JSON.stringify({ text, mode }),
       signal: request.signal,

@@ -38,11 +38,11 @@ voiceink-asr Cloudflare Worker
 Whisper Large V3 Turbo
 ```
 
-Audio is streamed through both Workers without multipart materialization and is not stored by this application. The returned transcript and provider segment timings are saved to Convex after a successful transcription. Anonymous history expires after one hour and a scheduled Convex cleanup removes it. Signed-in history is owned by the authenticated Clerk identity and persists across browsers and devices. Account holders can choose automatic deletion after 7, 30, 90, or 365 days, or keep history until they delete it; the default is 90 days.
+Audio is streamed through both Workers without multipart materialization and is not stored by this application. The returned transcript and provider segment timings are saved to Convex after a successful transcription. Transcripts and summaries are encrypted at rest before they reach Convex: the web Worker seals both fields with AES-256-GCM under per-record HKDF-SHA-256 subkeys of a Worker-held `HISTORY_ENCRYPTION_KEY`, so the storage layer only ever holds ciphertext and never the key. Anonymous history expires after one hour and a scheduled Convex cleanup removes it. Signed-in history is owned by the authenticated Clerk identity and persists across browsers and devices. Account holders can choose automatic deletion after 7, 30, 90, or 365 days, or keep history until they delete it; the default is 90 days.
 
 Recording is intentionally one-step: pressing Stop immediately uploads the captured audio, runs transcription, stores the completed transcript in Convex, and refreshes the on-page history. If transcription fails, the in-memory recording remains available for retry.
 
-Existing audio can also be uploaded into the same transcription pipeline. Completed transcripts can be downloaded as plain text, SRT, or WebVTT; subtitle timings come from real provider segments, and editing a transcript clears those timings rather than exporting stale ones. A dedicated History workspace supports search across transcripts and summaries, loading an item back into the studio, sending it to narration, and ownership-checked deletion. History loads through cursor-based pagination (25 records per page with load-more) instead of a single flat fetch.
+Existing audio can also be uploaded into the same transcription pipeline. Completed transcripts can be downloaded as plain text, SRT, or WebVTT; subtitle timings come from real provider segments, and editing a transcript clears those timings rather than exporting stale ones. A dedicated History workspace supports search across transcripts and summaries, loading an item back into the studio, sending it to narration, ownership-checked deletion, and a confirmed delete-all that purges the complete history (including pre-sign-in anonymous items from the same browser). History loads through cursor-based pagination (25 records per page with load-more) instead of a single flat fetch.
 
 Transcript saves are idempotent: every transcription carries a client-generated operation ID, and Convex deduplicates retries through dedicated indexes so a retried save can never create a duplicate record. Retention-policy changes run as versioned migrations across the complete account history, and the scheduled cleanup holds off on records mid-migration so the two processes cannot race. All `/api/*` responses are served with `no-store`, while content-hashed static assets are cached immutably.
 
@@ -103,7 +103,7 @@ The production smoke suite is non-mutating and does not invoke paid AI. A real a
 - Signed-in accounts are limited to 10 history writes per minute, 100 per day, 50 retained records, and 10 million stored transcript/summary characters
 - Anonymous browsers can retain at most 30 active one-hour history records
 - Signed-in recordings are capped at 30 minutes and uploads at 2 hours of audio; anonymous visitors get 10 minutes for either, enforced in the browser before upload
-- A durable spend ledger in the ASR Worker caps all Workers AI inference at $10.00 per UTC day globally and 2 hours of transcribed audio per client IP per day; when the ledger cannot be reached, inference is denied
+- A durable spend ledger in the ASR Worker caps all Workers AI inference at $10.00 per UTC day globally and 2 hours of transcribed audio per client per day; the per-client key is a day-rotating HMAC pseudonym (raw IP addresses are never stored, and pseudonymous quota rows are purged after two days), and when the ledger cannot be reached, inference is denied
 - Transcription requests require a server-verified Cloudflare Turnstile token whenever the Turnstile secret is configured (production configures it; local development uses Cloudflare's official test keys)
 - Cloudflare applies separate inference, import, and history rate limits; missing production bindings fail closed
 
@@ -116,7 +116,8 @@ GitHub Actions runs the complete local regression suite for every web-related pu
 ## Current limitations
 
 - Anonymous history is associated with a browser-generated client ID and retained for no more than one hour
-- Account history uses the signed-in user's configurable Convex retention policy, defaulting to 90 days
+- Account history uses the signed-in user's configurable Convex retention policy, defaulting to 90 days; deleting the Clerk account triggers a webhook-driven purge of all remaining history
+- History encryption protects data at rest in Convex; it is not end-to-end encryption, because the web Worker must hold the key to serve cross-device signed-in history
 - Batch transcription only; no live partial transcript stream
 - System/device voices only for the initial TTS integration; cloud TTS adapters are not yet connected
 - Audio uploads are limited to 24 MB at the browser, public Worker, and private ASR Worker boundaries

@@ -18,7 +18,6 @@ function siteverifyStub(body, { status = 200 } = {}) {
 const base = {
   token: "test-token",
   secret: "test-secret",
-  remoteIp: "203.0.113.7",
   expectedHostname: "v.paul.im",
   expectedAction: "transcribe",
 };
@@ -29,7 +28,7 @@ test("a successful siteverify response with matching action and hostname passes"
   assert.deepEqual(result, { ok: true });
   assert.equal(calls.length, 1);
   assert.equal(calls[0].body.response, "test-token");
-  assert.equal(calls[0].body.remoteip, "203.0.113.7");
+  assert.equal("remoteip" in calls[0].body, false, "client IPs must never be sent to siteverify");
   assert.ok(calls[0].body.idempotency_key);
 });
 

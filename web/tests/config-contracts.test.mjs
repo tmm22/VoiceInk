@@ -38,7 +38,9 @@ test("the ASR worker keeps its spend-ledger durable object and metering headers"
   assert.match(index, /export \{ SpendLedger \}/);
   for (const route of [transcribe, summarize, enhance]) {
     assert.match(route, /INTERNAL_CLIENT_KEY_HEADER/);
-    assert.match(route, /cf-connecting-ip/);
+    // The ledger key must be the day-rotating pseudonym, never the raw address.
+    assert.match(route, /INTERNAL_CLIENT_KEY_HEADER\]: await pseudonymousClientKey\(/);
+    assert.doesNotMatch(route, /INTERNAL_CLIENT_KEY_HEADER\]: request\.headers\.get/);
   }
 });
 

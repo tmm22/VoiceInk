@@ -75,7 +75,11 @@ Keep webpage import protections intact: reject private, loopback, link-local, an
 
 Production security headers live in `proxy.ts`. When Clerk domains or other browser dependencies change, update the CSP narrowly and add a regression assertion. Preserve HSTS, clickjacking protection, MIME-sniffing protection, restrictive permissions, referrer policy, `object-src 'none'`, and `frame-ancestors 'none'`.
 
-Do not log or return transcript text, summary text, authentication tokens, secrets, full imported content, or raw provider response bodies. Metadata such as status, byte count, model name, and a non-sensitive request identifier is sufficient.
+Do not log or return transcript text, summary text, authentication tokens, secrets, full imported content, or raw provider response bodies. Metadata such as status, byte count, model name, and a non-sensitive request identifier is sufficient. Numeric size telemetry about transcript content must stay coarse (bucketed), never exact.
+
+Transcripts and summaries are encrypted at rest: the web Worker seals both fields with AES-256-GCM (per-record random-salt HKDF-SHA-256 subkeys of `HISTORY_ENCRYPTION_KEY`) before calling Convex and opens them on read. The HKDF info binds BOTH the field name and the row's ownership context (`o:<clerk-subject>` or `a:<clientId>`). That context comes from Convex's VERIFIED identity via the `transcriptions:viewerContext` query (never a local token decode), so the worker's seal decision always matches the owner-vs-anonymous decision Convex uses to place and return rows — a ciphertext transplanted into another field or another user's row cannot decrypt, and a present-but-invalid token cannot make the seal context diverge from the read context. Convex must only ever store ciphertext envelopes and must never be given the history key; idempotency comparisons use the keyed `textHash` digest (bound to the operationId so it cannot correlate content across records), not plaintext. A missing key fails the history routes closed, and each row decrypts independently so one bad envelope never fails the whole page. The migration functions (`plaintextPage`/`applyCipher`) are gated by `HISTORY_MIGRATION_ENABLED` and must stay off outside a migration window. Do not weaken, bypass, or duplicate this envelope format; extend `lib/server/historyCrypto.ts` instead.
+
+Raw client IP addresses must not be persisted or forwarded beyond the edge: the spend-ledger client key is the day-rotating HMAC pseudonym from `lib/server/clientKey.ts`, keyed with `HISTORY_ENCRYPTION_KEY` (a web-Worker-only secret the ASR Worker never holds, so the party storing the pseudonyms cannot reverse them). Pseudonymous quota rows expire after two days via the durable object's self-rearming alarm, and Turnstile siteverify is called without `remoteip`. Convex service-secret checks go through `convex/serviceAuth.ts` (constant-time); never compare secrets with `!==`.
 
 ## Secrets and environment configuration
 
@@ -84,6 +88,8 @@ Never commit `.env*`, `.dev.vars*`, Wrangler state, deployment keys, Clerk secre
 Secret values belong in the relevant managed environment:
 
 - `CONVEX_WEB_API_SECRET`: web Worker and Convex production environment
+- `HISTORY_ENCRYPTION_KEY`: web Worker only — Convex must never hold it; losing it makes stored history unreadable
+- `CLERK_WEBHOOK_SECRET`: Convex environment; verifies Clerk `user.deleted` purge webhooks
 - `ASR_API_KEY`: private ASR Worker
 - `PARAKEET_API_KEY`: web Worker compatibility credential matching `ASR_API_KEY`
 - `CLERK_JWT_ISSUER_DOMAIN`: Convex environment; not secret

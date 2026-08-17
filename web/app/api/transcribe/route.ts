@@ -15,6 +15,7 @@ import {
   TURNSTILE_TOKEN_HEADER,
 } from "../../../shared/transcriptionContract";
 import { verifyTurnstileToken } from "../../../lib/server/turnstile";
+import { pseudonymousClientKey } from "../../../lib/server/clientKey";
 
 export const runtime = "edge";
 
@@ -38,7 +39,6 @@ export async function POST(request: Request) {
     const verification = await verifyTurnstileToken({
       token: request.headers.get(TURNSTILE_TOKEN_HEADER),
       secret: turnstileSecret,
-      remoteIp: request.headers.get("cf-connecting-ip"),
       expectedHostname: new URL(request.url).hostname,
       expectedAction: "transcribe",
     });
@@ -48,8 +48,9 @@ export async function POST(request: Request) {
   }
 
   const apiKey = process.env.PARAKEET_API_KEY;
+  const pseudonymSecret = process.env.HISTORY_ENCRYPTION_KEY;
   const bindings = env as unknown as { ASR?: Fetcher };
-  if (!bindings.ASR || !apiKey || !request.body) {
+  if (!bindings.ASR || !apiKey || !pseudonymSecret || !request.body) {
     return jsonNoStore({ error: "Transcription is unavailable." }, { status: 503 });
   }
 
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
         authorization: `Bearer ${apiKey}`,
         "content-type": mediaType,
         [INTERNAL_BODY_LENGTH_HEADER]: String(size.bytes),
-        [INTERNAL_CLIENT_KEY_HEADER]: request.headers.get("cf-connecting-ip") ?? "unknown",
+        [INTERNAL_CLIENT_KEY_HEADER]: await pseudonymousClientKey(pseudonymSecret, request.headers.get("cf-connecting-ip"), Date.now()),
       },
       body: request.body,
       signal: request.signal,

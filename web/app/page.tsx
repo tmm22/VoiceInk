@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  clearTranscriptions,
   deleteTranscription,
   listTranscriptions,
   saveTranscription,
@@ -361,6 +362,17 @@ export default function Home() {
     }
   }
 
+  async function removeAllHistory() {
+    try {
+      const token = await account.getConvexToken();
+      await clearTranscriptions(token);
+      setHistory([]);
+      setHistoryCursor(null);
+    } catch {
+      setError("History could not be cleared.");
+    }
+  }
+
   async function copyTranscript() {
     await navigator.clipboard.writeText(transcript);
     setCopied(true);
@@ -478,7 +490,7 @@ export default function Home() {
 
       <TTSWorkspace transcript={transcript} text={speechText} onTextChange={setSpeechText} />
 
-      </> : <HistoryView history={history} loading={historyLoading} hasMore={historyCursor !== null} isSignedIn={account.isSignedIn} retentionDays={retentionDays} retentionSaving={retentionSaving} retentionStatus={retentionStatus} onRefresh={() => void refreshHistory()} onLoadMore={() => void loadMoreHistory()} onRetentionChange={(days) => void changeRetention(days)} onOpen={openHistoryItem} onNarrate={setSpeechText} onSummarize={(item) => { setTranscript(item.text); setTranscriptSegments(item.segments ?? []); setActiveTranscriptionId(item._id); void summarizeText(item.text, item._id); }} onDelete={(id) => void removeHistoryItem(id)} />}
+      </> : <HistoryView history={history} loading={historyLoading} hasMore={historyCursor !== null} isSignedIn={account.isSignedIn} retentionDays={retentionDays} retentionSaving={retentionSaving} retentionStatus={retentionStatus} onRefresh={() => void refreshHistory()} onLoadMore={() => void loadMoreHistory()} onRetentionChange={(days) => void changeRetention(days)} onOpen={openHistoryItem} onNarrate={setSpeechText} onSummarize={(item) => { setTranscript(item.text); setTranscriptSegments(item.segments ?? []); setActiveTranscriptionId(item._id); void summarizeText(item.text, item._id); }} onDelete={(id) => void removeHistoryItem(id)} onDeleteAll={() => void removeAllHistory()} />}
 
       <footer><span>VoiceInk Web 2.11.0</span><span>Deepgram Nova-3 · Whisper large-v3 turbo</span></footer>
     </main>

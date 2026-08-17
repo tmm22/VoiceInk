@@ -8,6 +8,7 @@ export default defineSchema({
     model: v.string(),
     detectedLanguage: v.optional(v.string()),
     text: v.string(),
+    textHash: v.optional(v.string()),
     summary: v.optional(v.string()),
     durationSeconds: v.number(),
     operationId: v.optional(v.string()),

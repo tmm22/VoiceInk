@@ -24,15 +24,17 @@ const TEST_KEY_HOSTNAME = "example.com";
 const FAILED = { ok: false, status: 403, error: "Verification failed. Please try again." } as const;
 const UNAVAILABLE = { ok: false, status: 503, error: "Verification is unavailable." } as const;
 
+// The caller's IP is deliberately never forwarded to siteverify: `remoteip` is
+// optional in the Turnstile API and omitting it keeps client addresses from
+// leaving this Worker.
 export async function verifyTurnstileToken(options: {
   token: string | null;
   secret: string;
-  remoteIp: string | null;
   expectedHostname: string;
   expectedAction: string;
   fetcher?: typeof fetch;
 }): Promise<TurnstileVerification> {
-  const { token, secret, remoteIp, expectedHostname, expectedAction } = options;
+  const { token, secret, expectedHostname, expectedAction } = options;
   const fetcher = options.fetcher ?? fetch;
   if (!token || token.length > MAXIMUM_TOKEN_LENGTH) return FAILED;
 
@@ -48,7 +50,6 @@ export async function verifyTurnstileToken(options: {
         body: JSON.stringify({
           secret,
           response: token,
-          ...(remoteIp ? { remoteip: remoteIp } : {}),
           idempotency_key: idempotencyKey,
         }),
         signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),

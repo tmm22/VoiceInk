@@ -1,14 +1,28 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
+import { requireServiceSecret } from "./serviceAuth";
 
 const dayMs = 24 * 60 * 60 * 1000;
 const defaultRetentionDays = 90;
 const clientIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const operationIdPattern = clientIdPattern;
+// Web-Worker-produced envelope prefix (see lib/server/historyCrypto.ts) and
+// the base64 shape of its keyed idempotency digest. The Worker encrypts before
+// calling Convex, so stored text is a ciphertext envelope, never plaintext.
+const envelopePrefix = "$venc1$";
+const textHashPattern = /^[A-Za-z0-9+/]{43}=$/;
+// A 200k-character plaintext cap becomes ~267k characters of base64 envelope.
+const maximumStoredTextLength = 320_000;
+const clearAllBatchSize = 100;
 
-function requireServiceSecret(value?: string) {
-  if (!process.env.CONVEX_WEB_API_SECRET || value !== process.env.CONVEX_WEB_API_SECRET) throw new Error("This operation must use the protected web service.");
+// The one-off encryption migration reads plaintext across all rows, so its two
+// functions are inert unless this flag is explicitly set in the Convex
+// environment for the migration window and removed afterwards. Without it, no
+// holder of the web service secret can page through every user's plaintext.
+function requireMigrationEnabled() {
+  if (process.env.HISTORY_MIGRATION_ENABLED !== "true") throw new Error("History migration is not enabled.");
 }
 
 function publicHistoryItem(item: {
@@ -29,6 +43,22 @@ function publicHistoryItem(item: {
     createdAt: item.createdAt,
   };
 }
+
+// The single source of truth for the envelope ownership context. Convex
+// verifies the caller's token here exactly as save/list/saveSummary do, so the
+// worker seals and opens with the SAME owner-vs-anonymous decision Convex uses
+// to place and return rows — a present-but-invalid token can never make the
+// seal context (worker) diverge from the storage/read context (Convex). The
+// subject is the tokenIdentifier's final segment, matching the read path and
+// the migration.
+export const viewerContext = query({
+  args: { serviceSecret: v.optional(v.string()) },
+  handler: async (ctx, { serviceSecret }) => {
+    requireServiceSecret(serviceSecret);
+    const identity = await ctx.auth.getUserIdentity();
+    return { ownerContext: identity ? `o:${identity.tokenIdentifier.split("|").pop()}` : null };
+  },
+});
 
 export const list = query({
   args: { clientId: v.string(), paginationOpts: paginationOptsValidator, serviceSecret: v.optional(v.string()) },
@@ -63,6 +93,7 @@ export const list = query({
 export const save = mutation({
   args: {
     clientId: v.string(), model: v.string(), text: v.string(), durationSeconds: v.number(), operationId: v.string(),
+    textHash: v.optional(v.string()),
     detectedLanguage: v.optional(v.string()),
     segments: v.optional(v.array(v.object({ start: v.number(), end: v.number(), text: v.string() }))),
     serviceSecret: v.optional(v.string()),
@@ -73,7 +104,8 @@ export const save = mutation({
     const text = args.text.trim();
     if (!clientIdPattern.test(args.clientId)) throw new Error("Invalid client identifier.");
     if (!operationIdPattern.test(args.operationId)) throw new Error("Invalid operation identifier.");
-    if (!text || text.length > 200_000) throw new Error("Transcript length is invalid.");
+    if (!text || text.length > maximumStoredTextLength) throw new Error("Transcript length is invalid.");
+    if (args.textHash !== undefined && !textHashPattern.test(args.textHash)) throw new Error("Invalid transcript digest.");
     if (args.model !== "nova-3" && args.model !== "whisper-large-v3-turbo") throw new Error("Unsupported transcription model.");
     if (args.detectedLanguage !== undefined && (
       args.detectedLanguage.length > 35 || !/^[a-z]{2,3}(-[a-z0-9]{2,8})*$/i.test(args.detectedLanguage)
@@ -91,12 +123,21 @@ export const save = mutation({
       : await ctx.db.query("transcriptions")
         .withIndex("by_client_operation", (q) => q.eq("clientId", clientId).eq("operationId", args.operationId)).unique();
     if (existingOperation) {
-      if (existingOperation.text !== text || existingOperation.model !== args.model || existingOperation.durationSeconds !== args.durationSeconds) {
+      // Ciphertext envelopes differ on every encryption, so content equality is
+      // checked through the keyed digest. A legacy plaintext row retried after
+      // the encryption rollout has no digest to compare; the operation id plus
+      // model and duration is the best remaining evidence, so trust it.
+      const sameContent = existingOperation.textHash !== undefined && args.textHash !== undefined
+        ? existingOperation.textHash === args.textHash
+        : existingOperation.textHash === undefined && args.textHash === undefined
+          ? existingOperation.text === text
+          : true;
+      if (!sameContent || existingOperation.model !== args.model || existingOperation.durationSeconds !== args.durationSeconds) {
         throw new Error("Operation identifier was already used for different content.");
       }
       return existingOperation._id;
     }
-    const transcription = { model: args.model, text: args.text, durationSeconds: args.durationSeconds, operationId: args.operationId, ...(args.detectedLanguage ? { detectedLanguage: args.detectedLanguage.toLowerCase() } : {}), ...(args.segments?.length ? { segments: args.segments } : {}) };
+    const transcription = { model: args.model, text: args.text, durationSeconds: args.durationSeconds, operationId: args.operationId, ...(args.textHash ? { textHash: args.textHash } : {}), ...(args.detectedLanguage ? { detectedLanguage: args.detectedLanguage.toLowerCase() } : {}), ...(args.segments?.length ? { segments: args.segments } : {}) };
     let accountRetentionDays = defaultRetentionDays;
     if (identity) {
       const history = await ctx.db.query("transcriptions").withIndex("by_owner_created", (q) => q.eq("ownerId", identity.tokenIdentifier)).order("desc").take(51);
@@ -142,9 +183,40 @@ export const remove = mutation({
     if (!item) return;
     const identity = await ctx.auth.getUserIdentity();
     const ownsAccountItem = identity && item.ownerId === identity.tokenIdentifier;
-    const ownsAnonymousItem = !identity && item.clientId === clientId && !item.ownerId;
+    // Anonymous rows stay reachable after sign-in: the browser still holds the
+    // clientId that created them, so it may delete them.
+    const ownsAnonymousItem = item.clientId === clientId && !item.ownerId;
     if (!ownsAccountItem && !ownsAnonymousItem) throw new Error("Not authorized to delete this transcription.");
     await ctx.db.delete(id);
+  },
+});
+
+export const clearAll = mutation({
+  args: { clientId: v.string(), serviceSecret: v.optional(v.string()) },
+  handler: async (ctx, { clientId, serviceSecret }) => {
+    requireServiceSecret(serviceSecret);
+    if (!clientIdPattern.test(clientId)) throw new Error("Invalid client identifier.");
+    const identity = await ctx.auth.getUserIdentity();
+    // Delete the first page of each set inline so a caller that refetches
+    // immediately after the { ok } response sees them gone; larger histories
+    // continue draining in scheduled batches. Small histories are fully
+    // consistent before this mutation returns.
+    if (identity) {
+      const ownerId = identity.tokenIdentifier;
+      const owned = await ctx.db.query("transcriptions").withIndex("by_owner_created", (q) => q.eq("ownerId", ownerId)).take(clearAllBatchSize);
+      for (const item of owned) await ctx.db.delete(item._id);
+      if (owned.length === clearAllBatchSize) await ctx.scheduler.runAfter(0, internal.cleanup.purgeHistoryPage, { ownerId });
+    }
+    // Always purge this browser's anonymous rows too, so pre-sign-in items go
+    // with the rest.
+    const anon = await ctx.db.query("transcriptions").withIndex("by_client_created", (q) => q.eq("clientId", clientId)).take(clearAllBatchSize);
+    let anonDeleted = 0;
+    for (const item of anon) {
+      if (item.ownerId) continue;
+      await ctx.db.delete(item._id);
+      anonDeleted += 1;
+    }
+    if (anonDeleted === clearAllBatchSize) await ctx.scheduler.runAfter(0, internal.cleanup.purgeHistoryPage, { clientId });
   },
 });
 
@@ -154,13 +226,84 @@ export const saveSummary = mutation({
     requireServiceSecret(serviceSecret);
     if (!clientIdPattern.test(clientId)) throw new Error("Invalid client identifier.");
     const normalizedSummary = summary.trim();
-    if (!normalizedSummary || normalizedSummary.length > 20_000) throw new Error("Summary length is invalid.");
+    // The PATCH body is bounded at 25,000 bytes upstream; a UTF-8 payload that
+    // large seals to at most 4*ceil((25000+44)/3)+7 = 33,399 envelope
+    // characters, so 34,000 admits every multi-byte summary the route accepts.
+    if (!normalizedSummary || normalizedSummary.length > 34_000) throw new Error("Summary length is invalid.");
     const item = await ctx.db.get(id);
     if (!item) throw new Error("Transcription not found.");
     const identity = await ctx.auth.getUserIdentity();
     const ownsAccountItem = identity && item.ownerId === identity.tokenIdentifier;
+    // Unlike remove (which is context-free), a summary write must be sealed to a
+    // context the read path can reconstruct. A signed-in request seals to the
+    // Clerk subject, but an anonymous row is only ever read back under its
+    // clientId context, so a signed-in patch on one would store a summary that
+    // can never decrypt. Require the anonymous branch to be genuinely anonymous.
     const ownsAnonymousItem = !identity && item.clientId === clientId && !item.ownerId;
     if (!ownsAccountItem && !ownsAnonymousItem) throw new Error("Not authorized to update this transcription.");
     await ctx.db.patch(id, { summary: normalizedSummary });
+  },
+});
+
+// Migration support for rows written before encryption at rest. Gated by both
+// the web service secret and the HISTORY_MIGRATION_ENABLED flag so the broad
+// plaintext read cannot be invoked during normal operation. The migration
+// script (web/scripts/encrypt-history.mjs) drives them with the history key,
+// which Convex itself never holds; ownerId/clientId are returned so the script
+// can seal each row to the same ownership context the read path reconstructs.
+// A row is unmigrated when it has no textHash (text still plaintext) or carries
+// a non-envelope summary.
+export const plaintextPage = query({
+  args: { cursor: v.union(v.string(), v.null()), serviceSecret: v.optional(v.string()) },
+  handler: async (ctx, { cursor, serviceSecret }) => {
+    requireServiceSecret(serviceSecret);
+    requireMigrationEnabled();
+    const page = await ctx.db.query("transcriptions").paginate({ cursor, numItems: 50 });
+    return {
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+      items: page.page
+        .filter((item) => item.textHash === undefined || (item.summary !== undefined && !item.summary.startsWith(envelopePrefix)))
+        .map((item) => ({ id: item._id, text: item.text, summary: item.summary, ownerId: item.ownerId, clientId: item.clientId, operationId: item.operationId })),
+    };
+  },
+});
+
+export const applyCipher = mutation({
+  args: {
+    id: v.id("transcriptions"),
+    text: v.optional(v.string()), textHash: v.optional(v.string()), expectedTextLength: v.optional(v.number()),
+    operationId: v.optional(v.string()),
+    summary: v.optional(v.string()), expectedSummaryLength: v.optional(v.number()),
+    serviceSecret: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    requireServiceSecret(args.serviceSecret);
+    requireMigrationEnabled();
+    const item = await ctx.db.get(args.id);
+    if (!item) return;
+    const patch: { text?: string; textHash?: string; summary?: string; operationId?: string } = {};
+    if (args.text !== undefined) {
+      if (!args.text.startsWith(envelopePrefix) || args.text.length > maximumStoredTextLength) throw new Error("Invalid ciphertext.");
+      if (args.textHash === undefined || !textHashPattern.test(args.textHash)) throw new Error("Invalid transcript digest.");
+      // Patch only if the row is still the plaintext the script read.
+      if (item.textHash === undefined && item.text.length === args.expectedTextLength) {
+        patch.text = args.text;
+        patch.textHash = args.textHash;
+        // Legacy rows predating operation ids get one backfilled so the digest
+        // stays bound to an operationId and the row is never reselected.
+        if (item.operationId === undefined && args.operationId !== undefined) {
+          if (!operationIdPattern.test(args.operationId)) throw new Error("Invalid operation identifier.");
+          patch.operationId = args.operationId;
+        }
+      }
+    }
+    if (args.summary !== undefined) {
+      if (!args.summary.startsWith(envelopePrefix)) throw new Error("Invalid summary ciphertext.");
+      if (item.summary !== undefined && !item.summary.startsWith(envelopePrefix) && item.summary.length === args.expectedSummaryLength) {
+        patch.summary = args.summary;
+      }
+    }
+    if (Object.keys(patch).length) await ctx.db.patch(args.id, patch);
   },
 });

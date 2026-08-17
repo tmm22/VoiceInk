@@ -125,7 +125,9 @@ The web Worker streams a validated raw audio body to the private Worker, which v
 
 The same private Worker handles `/v1/summaries` and `/v1/enhancements` with Llama 3.2 3B. The public web Worker exposes `/api/summarize` and `/api/enhance`, then forwards text through the private service binding. After a successful summary response, the browser stores the summary on the matching transcription through an ownership-checked Convex mutation, so both share the same retention window. Enhancement results remain browser-local unless the user explicitly replaces the transcript.
 
-The ASR Worker also owns the `SpendLedger` durable object (SQLite-backed, created by the `v1` migration on first deploy). Every inference call must reserve budget from it first; the daily ceilings are set in `cloudflare-asr/wrangler.jsonc` as `DAILY_SPEND_LIMIT_MICROS` (micro-dollars per UTC day, default 10000000 = $10.00; it must stay above the ≈ $4.79 worst-case reservation for one 24 MB upload priced across both transcription models) and `DAILY_CLIENT_AUDIO_SECONDS` (transcribed seconds per client IP per UTC day, default 7200). If the ledger is unreachable, inference is denied — fail closed is intentional.
+The ASR Worker also owns the `SpendLedger` durable object (SQLite-backed, created by the `v1` migration on first deploy). Every inference call must reserve budget from it first; the daily ceilings are set in `cloudflare-asr/wrangler.jsonc` as `DAILY_SPEND_LIMIT_MICROS` (micro-dollars per UTC day, default 10000000 = $10.00; it must stay above the ≈ $4.79 worst-case reservation for one 24 MB upload priced across both transcription models) and `DAILY_CLIENT_AUDIO_SECONDS` (transcribed seconds per client per UTC day, default 7200). If the ledger is unreachable, inference is denied — fail closed is intentional.
+
+The per-client quota is keyed by a day-rotating pseudonym: the web Worker HMACs the caller's address with a web-Worker-only secret (`HISTORY_ENCRYPTION_KEY`, which the ASR Worker never holds) and the UTC day before forwarding it, so the ledger never stores raw IP addresses, the party that stores the pseudonyms cannot reverse them, the rows are unlinkable across days, and pseudonymous usage rows are purged after two days by a self-rearming durable-object alarm. Client IPs are also never forwarded to Turnstile's siteverify endpoint.
 
 ## 3b. Create the Turnstile widget
 
@@ -171,6 +173,37 @@ unset ASR_KEY
 ```
 
 Wrangler expects the terminating newline. Omitting it can result in a secret value that does not authenticate correctly.
+
+## 4b. Create the history encryption key
+
+Transcripts and summaries are encrypted at rest: the web Worker seals both fields with AES-256-GCM (per-record HKDF-SHA-256 subkeys derived from `HISTORY_ENCRYPTION_KEY`) before they reach Convex and opens them again on read. Convex only ever stores ciphertext envelopes and never holds the key, so the storage layer and the key sit in separate trust domains. The history API fails closed (503) if the key is missing, so install it before deploying a Worker build that includes encryption:
+
+```bash
+openssl rand -base64 32 | \
+  npx wrangler secret put HISTORY_ENCRYPTION_KEY \
+    --config wrangler.production.jsonc \
+    --name voiceink-web
+```
+
+Keep an offline copy of the value in a password manager: losing the key makes every stored transcript permanently unreadable, and rotating it requires re-encrypting existing rows.
+
+After the first deploy with encryption enabled, seal any rows written before the rollout. The migration reads plaintext across every row, so it is inert unless you deliberately enable it: set `HISTORY_MIGRATION_ENABLED=true` in the Convex production environment for the run, then remove it. Idempotent; safe to re-run:
+
+```bash
+npx convex env set HISTORY_MIGRATION_ENABLED true            # enable the migration window
+CONVEX_URL=https://<your-convex-deployment>.convex.cloud \
+CONVEX_WEB_API_SECRET=<value> HISTORY_ENCRYPTION_KEY=<value> \
+node --experimental-strip-types scripts/encrypt-history.mjs
+npx convex env remove HISTORY_MIGRATION_ENABLED             # close it again
+```
+
+Key rotation is not a re-run of this script — it only seals still-plaintext rows and skips existing envelopes. Rotating `HISTORY_ENCRYPTION_KEY` would leave every previously sealed row unreadable, so treat the key as long-lived; a genuine rotation needs a dedicated decrypt-with-old, re-encrypt-with-new pass that this one-off script does not implement.
+
+For local development put a throwaway key in `.dev.vars` (`HISTORY_ENCRYPTION_KEY=$(openssl rand -base64 32)`).
+
+## 4c. Configure the Clerk account-deletion webhook
+
+Deleting a Clerk account must also delete that account's Convex history. Convex serves an HTTP action at `https://<your-convex-deployment>.convex.site/clerk-users-webhook` that verifies the Svix signature and purges every row owned by the deleted identity, including its retention setting. In the Clerk dashboard add a webhook endpoint with that URL subscribed to the `user.deleted` event, then store its signing secret (starts with `whsec_`) in the Convex production environment as `CLERK_WEBHOOK_SECRET`. The endpoint responds 503 until the secret is configured.
 
 ## 5. Build and deploy the web Worker
 
@@ -274,6 +307,9 @@ curl --fail \
 | `PARAKEET_API_KEY` | Web Worker | Yes | Credential sent to ASR Worker |
 | `ASR_API_KEY` | ASR Worker | Yes | Credential checked by ASR Worker |
 | `TURNSTILE_SECRET_KEY` | Web Worker | Yes | Server-side Turnstile verification for `/api/transcribe` |
+| `HISTORY_ENCRYPTION_KEY` | Web Worker | Yes | AES-256-GCM encryption at rest for transcripts and summaries in Convex |
+| `CLERK_WEBHOOK_SECRET` | Convex environment | Yes | Verifies Clerk `user.deleted` webhooks that purge account history |
+| `HISTORY_MIGRATION_ENABLED` | Convex environment | No | Set to `true` only during the one-off encryption migration; leave unset otherwise |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Build | No | Renders the Turnstile widget in the browser |
 | `DAILY_SPEND_LIMIT_MICROS` | ASR Worker var | No | Global daily inference ceiling in micro-dollars |
 | `DAILY_CLIENT_AUDIO_SECONDS` | ASR Worker var | No | Per-client daily transcribed-audio cap |
@@ -311,5 +347,7 @@ npx wrangler versions list --name voiceink-asr
 ```
 
 Use the Cloudflare dashboard or Wrangler rollback command to restore a known-good Worker version. For Convex, check out the known-good source revision and run `npx convex deploy`; schema changes should be reviewed for backward compatibility before rollback.
+
+**History-encryption rollback floor.** Once an encryption-capable `voiceink-web` has shipped — and especially after `scripts/encrypt-history.mjs` has run — stored transcripts and summaries are AES-256-GCM ciphertext that only a Worker version with decrypt support and the current `HISTORY_ENCRYPTION_KEY` can render. Never roll `voiceink-web` back past the first encryption-capable version: an older Worker would return raw `$venc1$…` envelopes to browsers and there is no unseal tooling. If a regression forces a rollback, roll back only to an encryption-capable version, or roll forward with a fix.
 
 Always repeat the production transcription smoke test after a rollback.

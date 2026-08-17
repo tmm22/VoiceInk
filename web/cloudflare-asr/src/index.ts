@@ -49,6 +49,12 @@ function requestClientKey(request: Request) {
   return request.headers.get(INTERNAL_CLIENT_KEY_HEADER) ?? "unknown";
 }
 
+// Length telemetry is rounded up to a coarse bucket so logs never carry an
+// exact transcript size.
+function characterBucket(length: number) {
+  return length === 0 ? 0 : Math.ceil(length / 250) * 250;
+}
+
 function json(body: unknown, init: ResponseInit = {}) {
   const headers = new Headers(init.headers);
   headers.set("cache-control", "no-store");
@@ -336,7 +342,7 @@ export default {
       if (!response) {
         console.error("voiceink_transcription_invalid_output", {
           model: ENGLISH_TRANSCRIPTION_MODEL_NAME,
-          textCharacters: english.text.length,
+          textCharacters: characterBucket(english.text.length),
         });
         return json({ error: "Transcription generation failed" }, { status: 502 });
       }
@@ -375,7 +381,7 @@ export default {
         console.error("voiceink_transcription_invalid_output", {
           model: MULTILINGUAL_TRANSCRIPTION_MODEL_NAME,
           hasText: Boolean(text),
-          textCharacters: text.length,
+          textCharacters: characterBucket(text.length),
           durationType: typeof duration,
           segmentCount: Array.isArray(result.segments) ? result.segments.length : null,
         });

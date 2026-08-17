@@ -147,3 +147,14 @@ test("the spend ledger is configured as a SQLite durable object", async () => {
   const ledger = await readFile(new URL("cloudflare-asr/src/spendLedger.ts", root), "utf8");
   assert.doesNotMatch(ledger, /await[^\n]*\n[^\n]*sql\.exec[\s\S]{0,400}?await fetch/, "no external awaits between ledger reads and writes");
 });
+
+test("ledger client rows are pseudonymous, short-lived, and purged without traffic", async () => {
+  const ledger = await readFile(new URL("cloudflare-asr/src/spendLedger.ts", root), "utf8");
+  // Quota rows only matter for the current day; one extra day covers clock skew.
+  assert.match(ledger, /CLIENT_USAGE_RETENTION_DAYS = 2/);
+  assert.match(ledger, /DELETE FROM client_usage WHERE day < \?", utcDay\(now - CLIENT_USAGE_RETENTION_DAYS \* dayMs\)/);
+  // An idle ledger must still purge: the alarm re-arms itself.
+  assert.match(ledger, /async alarm\(\)/);
+  assert.match(ledger, /setAlarm\(now \+ PURGE_ALARM_INTERVAL_MS\)/);
+  assert.match(ledger, /blockConcurrencyWhile/);
+});
