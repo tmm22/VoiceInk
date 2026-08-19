@@ -65,6 +65,61 @@ test("anonymous visitors never load the Clerk SDK and signed-in flows keep the v
   assert.match(providers, /setAccountAuth\(anonymousAuth\)/);
 });
 
+test("session-hint warm start preloads clerk-js and avoids a Sign in flash", async () => {
+  const [providers, clerkSubtree] = await Promise.all([
+    source("app/providers.tsx"),
+    source("app/clerk-subtree.tsx"),
+  ]);
+  // Module-scope kickoff: browser-only, only when the __client_uat hint says
+  // a session may exist, and it warms the same lazy chunk the gate mounts.
+  assert.match(providers, /export function hasClerkSessionHint/);
+  assert.match(
+    providers,
+    /typeof document !== "undefined" && accountsConfigured && hasClerkSessionHint\(\)/,
+  );
+  assert.match(providers, /void import\("\.\/clerk-subtree"\)/);
+  // Preconnect plus a pinned clerk-js preload that matches the
+  // crossorigin="anonymous" script request loadClerkJsScript makes — an
+  // attribute mismatch would silently double-fetch the script.
+  assert.match(providers, /rel = "preconnect"/);
+  assert.match(providers, /CLERK_FRONTEND_API = "https:\/\/clerk\.paul\.im"/);
+  assert.match(providers, /rel = "preload"/);
+  assert.match(providers, /as = "script"/);
+  assert.match(providers, /crossOrigin = "anonymous"/);
+  assert.match(providers, /npm\/@clerk\/clerk-js@\$\{CLERK_JS_VERSION\}\/dist\/clerk\.browser\.js/);
+  // The as="script" preload must carry the page CSP nonce: under the proxy's
+  // 'nonce-…' 'strict-dynamic' script-src, an un-nonced link preload is
+  // blocked ('strict-dynamic' trust does not extend to link preloads and the
+  // host allowlist is ignored). The nonce is copied from a nonced script's
+  // readable nonce IDL property.
+  assert.match(providers, /document\.querySelector<HTMLScriptElement>\("script\[nonce\]"\)\?\.nonce/);
+  assert.match(providers, /if \(nonce\) preload\.nonce = nonce;/);
+  // The version pin is deliberately duplicated (importing it from the subtree
+  // would statically link the Clerk chunk into the eager module and defeat
+  // the lazy gate); the two copies must never drift apart. The subtree copy
+  // is separately asserted against the installed @clerk packages.
+  const providersPin = providers.match(/CLERK_JS_VERSION = "([0-9.]+)"/)?.[1];
+  const subtreePin = clerkSubtree.match(/CLERK_JS_VERSION = "([0-9.]+)"/)?.[1];
+  assert.ok(providersPin, "providers.tsx must pin an exact clerk-js version");
+  assert.equal(
+    providersPin,
+    subtreePin,
+    "the providers.tsx clerk-js pin must match app/clerk-subtree.tsx",
+  );
+  // No Sign in flash: with the hint present (and Clerk not failed) the header
+  // renders the same Loading placeholder ClerkAccountControls starts with.
+  // The hint is read through useSyncExternalStore with a false server
+  // snapshot so the hydration render still matches the anonymous SSR markup,
+  // and a Clerk load failure falls back to the retryable Sign in button.
+  assert.match(
+    providers,
+    /useSyncExternalStore\(subscribeToNothing, hasClerkSessionHint, noServerHint\)/,
+  );
+  assert.match(providers, /const noServerHint = \(\) => false/);
+  assert.match(providers, /sessionHint && !clerkFailed/);
+  assert.match(providers, /<span>Loading<\/span>/);
+});
+
 test("immutable cache rule covers the path vinext actually emits assets under", async () => {
   const headers = await source("public/_headers");
   // vinext 0.2.x writes hashed chunks/css to dist/client/_next/static/; a rule
@@ -130,6 +185,15 @@ test("emits a restrictive browser security policy", async () => {
   // The browser reaches Convex only through the brokered /api/history routes,
   // so the page CSP must not reopen a direct channel to convex.cloud.
   assert.doesNotMatch(proxy, /convex\.cloud/);
+  // Document responses warm the third-party connections early via a Link
+  // header: Clerk FAPI (crossorigin, matching clerk-js's anonymous fetch) and
+  // the Turnstile challenge origin. Preconnect only — a script preload in a
+  // Link header would be rejected by the per-request CSP nonce.
+  assert.match(proxy, /<https:\/\/clerk\.paul\.im>; rel=preconnect; crossorigin/);
+  assert.match(proxy, /<https:\/\/challenges\.cloudflare\.com>; rel=preconnect/);
+  assert.doesNotMatch(proxy, /rel=preload/);
+  // The Link header is appended only on the non-/api branch.
+  assert.match(proxy, /\} else \{\s*response\.headers\.append\("Link", documentLinkHeader\);\s*\}/);
   assert.match(config, /"workers_dev": false/);
   assert.match(config, /"pattern": "v\.paul\.im"/);
 });

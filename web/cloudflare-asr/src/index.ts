@@ -49,6 +49,33 @@ function requestClientKey(request: Request) {
   return request.headers.get(INTERNAL_CLIENT_KEY_HEADER) ?? "unknown";
 }
 
+// The worker-observed Cloudflare colo, so reserve-latency telemetry can be
+// correlated with where the request landed relative to the ledger DO.
+function requestColo(request: Request) {
+  const colo = (request.cf as { colo?: unknown } | undefined)?.colo;
+  return typeof colo === "string" ? colo.slice(0, 8) : null;
+}
+
+// Every paid request pays one SpendLedger round trip before inference, so the
+// reserve duration is logged (metadata only — never the client key) to make
+// the durable object's placement cost readable from observability before any
+// locationHint migration decision.
+async function reserveSpendLogged(
+  env: Env,
+  request: Request,
+  spend: { estimateMicros: number; secondsEstimate: number; clientKey: string },
+): Promise<Admission> {
+  const startedAt = Date.now();
+  const admission = await reserveSpend(env, spend);
+  console.log("voiceink_spend_reserve", {
+    durationMs: Date.now() - startedAt,
+    admitted: admission.ok,
+    denialReason: admission.ok ? null : admission.reason,
+    colo: requestColo(request),
+  });
+  return admission;
+}
+
 // Length telemetry is rounded up to a coarse bucket so logs never carry an
 // exact transcript size.
 function characterBucket(length: number) {
@@ -192,7 +219,7 @@ export default {
       if (text.length > 12_000) return json({ error: "Text is too long to enhance" }, { status: 413 });
       if (!isEnhancementMode(body.mode)) return json({ error: "Unsupported enhancement style" }, { status: 400 });
 
-      const admission = await reserveSpend(env, {
+      const admission = await reserveSpendLogged(env, request, {
         estimateMicros: TEXT_GENERATION_FLAT_MICROS,
         secondsEstimate: 0,
         clientKey: requestClientKey(request),
@@ -231,7 +258,7 @@ export default {
       if (!text) return json({ error: "Transcript text is required" }, { status: 400 });
       if (text.length > 60_000) return json({ error: "Transcript is too long to summarize" }, { status: 413 });
 
-      const admission = await reserveSpend(env, {
+      const admission = await reserveSpendLogged(env, request, {
         estimateMicros: TEXT_GENERATION_FLAT_MICROS,
         secondsEstimate: 0,
         clientKey: requestClientKey(request),
@@ -292,7 +319,7 @@ export default {
     const estimatedSeconds = worstCaseAudioSeconds(declaredBytes);
     const [audioBytes, admission] = await Promise.all([
       bufferAudio(request, mediaType, declaredBytes, deadline),
-      reserveSpend(env, {
+      reserveSpendLogged(env, request, {
         estimateMicros: estimateTranscriptionMicros(declaredBytes),
         secondsEstimate: estimatedSeconds,
         clientKey: requestClientKey(request),

@@ -91,13 +91,17 @@ test("ledger days key by UTC date", () => {
 
 test("the ASR worker admits inference only through the spend ledger", async () => {
   const source = await readFile(new URL("cloudflare-asr/src/index.ts", root), "utf8");
-  const reservations = source.match(/\breserveSpend\(env, \{/g) ?? [];
+  const reservations = source.match(/\breserveSpendLogged\(env, request, \{/g) ?? [];
   const inferenceCalls = source.match(/env\.AI\.run\(/g) ?? [];
   // Enhancement, summary, and transcription each reserve once; the transcription
   // reservation prices BOTH models (nova-3 + whisper fallback) up front, so the
   // two transcription AI.run calls share one admission.
   assert.equal(reservations.length, 3, "enhancement, summary, and transcription each reserve spend");
   assert.equal(inferenceCalls.length, 4, "one text-enhancement, one summary, and two transcription models");
+  // Every reservation still goes through the fail-closed ledger client: the
+  // logging wrapper is the only direct reserveSpend caller.
+  assert.equal((source.match(/\breserveSpend\(/g) ?? []).length, 1, "only the logging wrapper calls reserveSpend directly");
+  assert.match(source, /const admission = await reserveSpend\(env, spend\);/);
   assert.match(source, /estimateMicros: estimateTranscriptionMicros\(declaredBytes\)/, "transcription admission must price the combined worst case");
   assert.match(source, /if \(!admission\.ok\) return admissionDenial\(admission\)/);
   assert.match(source, /releaseSpend\(env, admission\.id\)/);
@@ -128,7 +132,7 @@ test("buffering and admission run concurrently and a failed buffer releases the 
   // up front, so it does not wait for the body — and vice versa.
   assert.match(
     index,
-    /const \[audioBytes, admission\] = await Promise\.all\(\[\s*bufferAudio\(request, mediaType, declaredBytes, deadline\),\s*reserveSpend\(env, \{\s*estimateMicros: estimateTranscriptionMicros\(declaredBytes\),/,
+    /const \[audioBytes, admission\] = await Promise\.all\(\[\s*bufferAudio\(request, mediaType, declaredBytes, deadline\),\s*reserveSpendLogged\(env, request, \{\s*estimateMicros: estimateTranscriptionMicros\(declaredBytes\),/,
     "bufferAudio and reserveSpend must run under one Promise.all",
   );
   // An admitted reservation whose upload then fails validation (415) must be

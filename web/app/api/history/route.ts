@@ -44,11 +44,37 @@ type SecuredClient =
 // answer null — binds to its anonymous clientId locally without the round
 // trip. Reconstructed per request, so a ciphertext transplanted into another
 // row cannot open.
-async function resolveContext(secured: { client: ConvexHttpClient; serviceSecret: string; hasToken: boolean }, clientId: string): Promise<string> {
+async function resolveContext(
+  secured: { hasToken: boolean },
+  pendingContext: Promise<{ ownerContext: string | null }> | null,
+  clientId: string,
+): Promise<string> {
   if (!secured.hasToken) return anonymousContext(clientId);
-  const viewerContext = makeFunctionReference<"query">("transcriptions:viewerContext");
-  const result = await secured.client.query(viewerContext, { serviceSecret: secured.serviceSecret }) as { ownerContext: string | null };
+  // Fail closed: a token-bearing request must have started the verified
+  // round trip; the route-level catch turns this into the 503 failure.
+  if (!pendingContext) throw new Error("viewer context was not started for a token-bearing request");
+  const result = await pendingContext;
   return result.ownerContext ?? anonymousContext(clientId);
+}
+
+// The viewer-context round trip depends only on the auth header, so it starts
+// the moment securedClient returns — BEFORE the body is parsed and validated —
+// and resolveContext awaits it at encryption time, overlapping the Convex
+// round trip with body processing. Fail-closed semantics are unchanged: any
+// present token still resolves through Convex, and a query error still rejects
+// at the await before any write happens.
+function startViewerContext(
+  secured: { client: ConvexHttpClient; serviceSecret: string; hasToken: boolean },
+): Promise<{ ownerContext: string | null }> | null {
+  if (!secured.hasToken) return null;
+  const viewerContext = makeFunctionReference<"query">("transcriptions:viewerContext");
+  const pending = secured.client.query(viewerContext, { serviceSecret: secured.serviceSecret }) as Promise<{ ownerContext: string | null }>;
+  // A request rejected during parse/validation never reaches the await, so the
+  // rejection is observed here to keep that early return from raising an
+  // unhandled rejection. resolveContext awaits the ORIGINAL promise, so the
+  // real error still propagates into the route's fail-closed catch.
+  void pending.catch(() => {});
+  return pending;
 }
 
 // History is stored encrypted at rest: transcripts and summaries are sealed in
@@ -78,6 +104,7 @@ export async function POST(request: Request) {
   try {
     const secured = await securedClient(request);
     if (secured.error) return secured.error;
+    const pendingContext = startViewerContext(secured);
     const parsed = await readBoundedJson<{
       clientId?: unknown; text?: unknown; model?: unknown; durationSeconds?: unknown; operationId?: unknown;
       detectedLanguage?: unknown;
@@ -94,7 +121,7 @@ export async function POST(request: Request) {
       return jsonNoStore({ error: "The history item is invalid." }, { status: 400 });
     }
     const plaintext = text.trim();
-    const context = await resolveContext(secured, clientId);
+    const context = await resolveContext(secured, pendingContext, clientId);
     const [cipherText, textHash] = await Promise.all([
       encryptHistoryField(secured.historyKey, "text", context, plaintext),
       historyTextDigest(secured.historyKey, operationId, plaintext),
@@ -173,6 +200,7 @@ export async function PATCH(request: Request) {
   try {
     const secured = await securedClient(request);
     if (secured.error) return secured.error;
+    const pendingContext = startViewerContext(secured);
     const parsed = await readBoundedJson<{
       action?: unknown; clientId?: unknown; id?: unknown; summary?: unknown; days?: unknown;
     }>(request, 25_000);
@@ -193,7 +221,7 @@ export async function PATCH(request: Request) {
       || typeof body.summary !== "string" || !body.summary.trim() || body.summary.length > 20_000) {
       return jsonNoStore({ error: "The summary update is invalid." }, { status: 400 });
     }
-    const context = await resolveContext(secured, body.clientId);
+    const context = await resolveContext(secured, pendingContext, body.clientId);
     const saveSummary = makeFunctionReference<"mutation">("transcriptions:saveSummary");
     await secured.client.mutation(saveSummary, {
       id: body.id,

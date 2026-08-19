@@ -82,17 +82,19 @@ export function AIEnhancementPanel({ text, onApply, onNarrate }: Props) {
           {isEnhancing ? "Rewriting…" : "Rewrite transcript"}
         </button>
       </div>
-      {enhancedText && (
+      {(enhancedText || isEnhancing) && (
         <div className="enhancement-result">
           <div className="enhancement-result-head">
             <span>Rewritten transcript</span>
-            <div>
+            {enhancedText && <div>
               <button type="button" onClick={() => void copyEnhancedText()}>{copied ? "Copied" : "Copy"}</button>
               <button type="button" onClick={() => onNarrate(enhancedText)}>Narrate</button>
               <button className="apply" type="button" onClick={() => onApply(enhancedText)} disabled={sourceHasChanged}>Replace transcript</button>
-            </div>
+            </div>}
           </div>
-          <textarea aria-label="Rewritten transcript" value={enhancedText} onChange={(event) => setEnhancedText(event.target.value)} />
+          {isEnhancing
+            ? <div className="result-placeholder" role="status" aria-label="Rewriting transcript"><span /><span /><span /></div>
+            : <textarea aria-label="Rewritten transcript" value={enhancedText} onChange={(event) => setEnhancedText(event.target.value)} />}
           {sourceHasChanged && <p className="enhancement-stale" role="status">The transcript changed after this result was generated. Rewrite it again before replacing the transcript.</p>}
         </div>
       )}

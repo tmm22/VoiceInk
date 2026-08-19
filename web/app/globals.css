@@ -86,7 +86,15 @@ small { display:block; font-size:10px; letter-spacing:.8px; font-weight:600; col
 .summary-head > div:first-child > span { color:#839088; font-size:10px; }
 .summary-head button { border:0; background:transparent; color:#12704a; font-size:11px; font-weight:600; cursor:pointer; }
 .summary-card textarea { min-height:125px; }
-.summary-loading { margin:0; padding:30px 20px; color:#64736b; font:italic 15px Georgia,serif; text-align:center; }
+/* Obviously-placeholder shimmer shown while a summary/rewrite generates: it
+   reserves the result area at the textarea's min-height so nothing shifts,
+   and contains no text that could read as generated content. */
+.result-placeholder { display:flex; flex-direction:column; justify-content:center; gap:14px; min-height:125px; padding:24px; }
+.result-placeholder span { display:block; height:13px; border-radius:6px; background:linear-gradient(90deg,#e3e7e1 25%,#f1f3ee 50%,#e3e7e1 75%); background-size:200% 100%; animation:history-skeleton-shimmer 1.3s linear infinite; }
+.result-placeholder span:nth-child(2) { width:82%; }
+.result-placeholder span:nth-child(3) { width:58%; }
+.enhancement-result .result-placeholder { min-height:150px; }
+.summary-notice { margin:0; padding:10px 20px 0; color:#8a6d3b; font-size:12px; }
 .ai-note { margin:0; padding:9px 20px; border-top:1px solid var(--line); color:#839088; font-size:10px; }
 textarea { width:100%; min-height:145px; border:0; resize:vertical; padding:24px; background:transparent; color:var(--ink); font:17px/1.65 Georgia,serif; outline:none; }
 textarea::placeholder { color:#a4afa9; }
@@ -155,6 +163,12 @@ textarea::placeholder { color:#a4afa9; }
 .history-library-tools { display:flex; flex-wrap:wrap; gap:7px; margin-top:17px; }
 .history-library-tools button { border:1px solid var(--line); border-radius:8px; padding:8px 10px; background:#fff; color:#12704a; font-size:10px; font-weight:600; cursor:pointer; }
 .history-library-tools button.delete { margin-left:auto; color:#a73531; }
+.history-skeleton-item .history-item-meta { margin-bottom:14px; }
+.history-skeleton-bar { display:block; height:13px; border-radius:6px; background:linear-gradient(90deg,#e3e7e1 25%,#f1f3ee 50%,#e3e7e1 75%); background-size:200% 100%; animation:history-skeleton-shimmer 1.3s linear infinite; }
+.history-skeleton-bar.meta { width:120px; height:10px; }
+.history-skeleton-bar.summary { width:70%; }
+@keyframes history-skeleton-shimmer { from { background-position:200% 0; } to { background-position:-200% 0; } }
+@media (prefers-reduced-motion:reduce) { .history-skeleton-bar, .result-placeholder span { animation:none; } }
 footer { display:flex; justify-content:center; gap:35px; margin-top:27px; color:#819087; font-size:11px; }
 
 /* Optional native macOS-inspired appearance. The original theme remains the default. */
@@ -214,5 +228,6 @@ html[data-theme="mac"] .history-title h1,html[data-theme="mac"] .history-transcr
 html[data-theme="mac"] .history-library-item { border-color:rgba(60,60,67,.13); background:rgba(248,248,250,.65); }
 html[data-theme="mac"] .history-summary { border-color:#007aff; background:rgba(0,122,255,.055); }
 html[data-theme="mac"] .history-library-tools button { border-color:rgba(60,60,67,.2); border-radius:7px; color:#007aff; }
+html[data-theme="mac"] .history-skeleton-bar, html[data-theme="mac"] .result-placeholder span { background:linear-gradient(90deg,#e4e4e7 25%,#f2f2f4 50%,#e4e4e7 75%); background-size:200% 100%; }
 
 @media(max-width:650px){ main{width:min(100% - 22px,1100px)} .topbar{height:72px}.header-actions{gap:6px}.recorder-card{padding:22px 18px 28px}.privacy{display:none}.wave{gap:3px}.audio-upload{align-items:stretch;flex-direction:column;text-align:center}.audio-upload>span{display:none}.transcript-head{gap:10px}.transcript-tools{flex-wrap:wrap;justify-content:flex-end}.enhancement-controls{grid-template-columns:1fr}.enhancement-mode-grid{grid-template-columns:repeat(2,1fr)}.enhance-button{width:100%}.enhancement-result-head{align-items:flex-start;flex-direction:column}.enhancement-result-head>div{flex-wrap:wrap}.tts-head > div:first-child > span{display:none}.import-content > div{flex-direction:column}.import-content button{width:100%}.tts-grid{grid-template-columns:1fr}.history-title{align-items:stretch;flex-direction:column}.history-actions{align-items:stretch!important;flex-direction:column}.history-actions input{width:100%}.history-head{align-items:flex-start;gap:10px}.history-head span{display:none}.retention-settings{align-items:flex-start;flex-direction:column}.history-item-meta{flex-direction:column;gap:4px}.history-library-tools button.delete{margin-left:0}footer{gap:12px;flex-wrap:wrap}.brand em{display:none}html[data-theme="mac"] .topbar{height:58px;margin-top:8px;padding:0 9px} }

@@ -112,31 +112,32 @@ test("never log or echo the turnstile token or secret", async () => {
   assert.doesNotMatch(source, /console\./);
 });
 
-test("recording start warms turnstile while token acquisition stays at stop time", async () => {
+test("recording start pre-executes turnstile; stop consumes the held single-use token", async () => {
   const [page, request, client] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("lib/transcriptionRequest.ts", root), "utf8"),
     readFile(new URL("lib/turnstileClient.ts", root), "utf8"),
   ]);
-  assert.match(client, /export function warmTranscriptionChallenge/);
+  assert.match(client, /export function beginTranscriptionTokenHold/);
   const startBody = page.slice(page.indexOf("async function startRecording"), page.indexOf("function stopRecording"));
-  assert.match(startBody, /warmTranscriptionChallenge\(\)/, "startRecording must warm the widget fire-and-forget");
-  // Tokens are single-use: the transcription request still acquires a fresh
-  // token at stop time, and the warm path never executes a challenge.
-  assert.match(request, /acquireTranscriptionToken\(\)/);
-  const warmBody = client.slice(
-    client.indexOf("export function warmTranscriptionChallenge"),
-    client.indexOf("export async function acquireTranscriptionToken"),
-  );
-  assert.doesNotMatch(warmBody, /\.execute\(/, "warming must never execute a challenge");
+  assert.match(startBody, /beginTranscriptionTokenHold\(\)/, "startRecording must kick off the challenge fire-and-forget");
+  // Tokens are single-use: stop consumes the held token exactly once and
+  // otherwise falls back to a fresh stop-time acquisition. The token is
+  // still sent per-request and verified server-side unchanged.
+  assert.match(request, /takeHeldTranscriptionToken\(\) \?\? await acquireTranscriptionToken\(\)/);
+  assert.match(request, /TURNSTILE_TOKEN_HEADER/);
+  // Abandoned recordings (encoder failure, size limit, mic denial, unmount)
+  // release the hold so the expiry re-execution loop stops.
+  assert.match(page, /releaseTranscriptionTokenHold\(\)/);
 });
 
-test("warming renders the widget once without executing; acquisition reuses it", async (t) => {
+test("held tokens are refreshed on expiry, consumed once, and discarded on release", async (t) => {
   process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY = "test-site-key";
   const rendered = [];
   const executed = [];
   const resets = [];
   let widgetParameters = null;
+  let tokenCounter = 0;
   const fakeTurnstile = {
     render(container, parameters) {
       rendered.push(container);
@@ -145,7 +146,7 @@ test("warming renders the widget once without executing; acquisition reuses it",
     },
     execute(id) {
       executed.push(id);
-      widgetParameters.callback(`token-${executed.length}`);
+      widgetParameters.callback(`token-${++tokenCounter}`);
     },
     reset(id) {
       resets.push(id);
@@ -168,20 +169,44 @@ test("warming renders the widget once without executing; acquisition reuses it",
     delete process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   });
 
-  const { acquireTranscriptionToken, warmTranscriptionChallenge } = await import("../lib/turnstileClient.ts");
-  warmTranscriptionChallenge();
-  warmTranscriptionChallenge();
+  const {
+    acquireTranscriptionToken,
+    beginTranscriptionTokenHold,
+    releaseTranscriptionTokenHold,
+    takeHeldTranscriptionToken,
+  } = await import("../lib/turnstileClient.ts");
+
+  // Recording start renders the widget once and executes one challenge.
+  beginTranscriptionTokenHold();
+  beginTranscriptionTokenHold();
   await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.equal(rendered.length, 1, "warming renders the widget exactly once");
-  assert.equal(executed.length, 0, "warming must never execute a challenge");
+  assert.equal(rendered.length, 1, "the hold kickoff renders the widget exactly once");
+  assert.deepEqual(executed, ["widget-1", "widget-1"], "each hold kickoff executes a fresh challenge");
+  assert.deepEqual(resets, ["widget-1"], "a used widget is reset before re-execution");
 
-  const first = await acquireTranscriptionToken();
-  assert.equal(first, "token-1");
-  assert.equal(rendered.length, 1, "acquisition reuses the pre-warmed widget");
-  assert.deepEqual(resets, [], "a never-used widget needs no reset");
+  // Token expiry during a long recording replaces the held token.
+  widgetParameters["expired-callback"]();
+  assert.equal(executed.length, 3, "expiry during the hold re-executes for a fresh token");
 
-  const second = await acquireTranscriptionToken();
-  assert.equal(second, "token-2");
-  assert.deepEqual(resets, ["widget-1"], "single-use tokens require a reset before re-execution");
-  assert.equal(rendered.length, 1);
+  // Stop consumes the held token exactly once.
+  assert.equal(takeHeldTranscriptionToken(), "token-3");
+  assert.equal(takeHeldTranscriptionToken(), null, "a consumed token is never returned twice");
+
+  // After the hold ends, expiry must not keep executing challenges.
+  widgetParameters["expired-callback"]();
+  assert.equal(executed.length, 3, "no re-execution once the hold is over");
+
+  // Stop-time fallback acquisition still works when nothing is held.
+  const fallback = await acquireTranscriptionToken();
+  assert.equal(fallback, "token-4");
+  assert.equal(rendered.length, 1, "acquisition reuses the same widget");
+
+  // An abandoned recording discards its held token.
+  beginTranscriptionTokenHold();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(executed.length, 5);
+  releaseTranscriptionTokenHold();
+  assert.equal(takeHeldTranscriptionToken(), null, "released tokens are discarded, never reused");
+  widgetParameters["expired-callback"]();
+  assert.equal(executed.length, 5, "expiry after release stays quiet");
 });

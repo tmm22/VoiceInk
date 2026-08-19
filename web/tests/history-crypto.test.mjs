@@ -139,6 +139,38 @@ test("routes seal with ownership context, key the pseudonym off the web-only key
   assert.match(convex, /existingOperation\.textHash === args\.textHash/);
 });
 
+test("history writes start the verified-context round trip before parsing the body", async () => {
+  const route = await source("app/api/history/route.ts");
+  // POST and PATCH overlap the Convex viewerContext round trip with body
+  // parse/validation: the query starts as soon as securedClient returns and is
+  // awaited only at encryption time.
+  for (const name of ["POST", "PATCH"]) {
+    const start = route.indexOf(`export async function ${name}`);
+    assert.ok(start >= 0, `${name} handler exists`);
+    const next = route.indexOf("export async function", start + 1);
+    const block = route.slice(start, next === -1 ? route.length : next);
+    const kickoff = block.indexOf("startViewerContext(secured)");
+    const parse = block.indexOf("readBoundedJson");
+    assert.ok(kickoff >= 0, `${name} starts the viewer-context query eagerly`);
+    assert.ok(parse >= 0 && kickoff < parse, `${name} starts context resolution before parsing the body`);
+  }
+  // The eager query observes its own rejection so an early 400 exit cannot
+  // raise an unhandled rejection, while resolveContext awaits the original
+  // promise so the real error still lands in the fail-closed catch.
+  assert.match(route, /void pending\.catch\(\(\) => \{\}\);/);
+  assert.match(route, /await resolveContext\(secured, pendingContext, clientId\)/);
+  assert.match(route, /await resolveContext\(secured, pendingContext, body\.clientId\)/);
+  // Fail closed: a token-bearing request that somehow skipped the kickoff must
+  // throw into the 503 path, never guess a context locally.
+  assert.match(route, /if \(!pendingContext\) throw new Error/);
+  // GET and DELETE never resolve a write context, so they must not pay the
+  // extra viewerContext query.
+  const readBlock = route.slice(route.indexOf("export async function GET"), route.indexOf("export async function PATCH"));
+  const deleteBlock = route.slice(route.indexOf("export async function DELETE"));
+  assert.doesNotMatch(readBlock, /startViewerContext/);
+  assert.doesNotMatch(deleteBlock, /startViewerContext/);
+});
+
 test("history GET is one combined Convex query whose ownerContext comes from the same verified identity as the page", async () => {
   const [route, convex, retention] = await Promise.all([
     source("app/api/history/route.ts"),

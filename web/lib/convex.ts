@@ -20,6 +20,15 @@ export type TranscriptionHistoryItem = SavedTranscription & {
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 
+// Newest-first re-insert used when an optimistic history delete has to be
+// rolled back after a failed network call.
+export function insertSortedByCreatedAt(
+  items: TranscriptionHistoryItem[],
+  item: TranscriptionHistoryItem,
+): TranscriptionHistoryItem[] {
+  return [...items, item].sort((a, b) => b.createdAt - a.createdAt);
+}
+
 function clientId() {
   const key = "voiceink-client-id";
   const existing = window.localStorage.getItem(key);

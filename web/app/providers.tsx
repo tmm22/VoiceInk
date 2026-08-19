@@ -11,6 +11,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
@@ -37,11 +38,13 @@ export const AccountAuthContext = createContext<AccountAuth>(anonymousAuth);
 
 type ClerkGateValue = {
   clerkMounted: boolean;
+  clerkFailed: boolean;
   requestSignIn: () => void;
   setControlsHost: (element: HTMLElement | null) => void;
 };
 const ClerkGateContext = createContext<ClerkGateValue>({
   clerkMounted: false,
+  clerkFailed: false,
   requestSignIn: () => {},
   setControlsHost: () => {},
 });
@@ -59,8 +62,8 @@ const ClerkSubtree = lazy(() => import("./clerk-subtree"));
 // ("updated at"; suffixed with an instance hash when several Clerk apps share
 // a registrable domain). A non-zero value means a session may exist, so the
 // Clerk subtree must mount and verify it; absent or "0" means signed out and
-// clerk-js is never loaded.
-function hasClerkSessionHint(): boolean {
+// clerk-js is never loaded. SSR-safe: without a document it reports false.
+export function hasClerkSessionHint(): boolean {
   if (typeof document === "undefined") return false;
   return document.cookie.split(";").some((pair) => {
     const separator = pair.indexOf("=");
@@ -70,6 +73,45 @@ function hasClerkSessionHint(): boolean {
     const value = pair.slice(separator + 1).trim();
     return value !== "" && value !== "0";
   });
+}
+
+// Duplicated from app/clerk-subtree.tsx: importing the constant from there
+// would statically link the whole Clerk chunk into this eagerly hydrated
+// module and defeat the lazy gate. A regression test asserts the two copies
+// stay equal (and the subtree's copy is itself asserted against the installed
+// @clerk packages).
+const CLERK_JS_VERSION = "6.29.1";
+const CLERK_FRONTEND_API = "https://clerk.paul.im";
+
+// Module-scope warm start: when the session hint is already present at client
+// module evaluation, the Clerk subtree is certain to mount, so start the
+// chunk download plus the clerk-js network work (preconnect + pinned script
+// preload, matching the crossorigin="anonymous" request loadClerkJsScript
+// makes) immediately instead of waiting for the post-hydration effect. The
+// cookie-effect gate in AppProviders stays the mount trigger; this only
+// overlaps network latency with hydration. Server-side evaluation is skipped
+// by the document guard.
+if (typeof document !== "undefined" && accountsConfigured && hasClerkSessionHint()) {
+  void import("./clerk-subtree");
+  const preconnect = document.createElement("link");
+  preconnect.rel = "preconnect";
+  preconnect.href = CLERK_FRONTEND_API;
+  document.head.appendChild(preconnect);
+  const preload = document.createElement("link");
+  preload.rel = "preload";
+  preload.as = "script";
+  preload.crossOrigin = "anonymous";
+  // as="script" preloads are checked against script-src, and under the
+  // proxy's 'nonce-…' 'strict-dynamic' policy only the per-request nonce
+  // admits them ('strict-dynamic' trust propagates to dynamically created
+  // scripts, not to link preloads, and it disables the host allowlist).
+  // Copy the page nonce from any nonced script element — the nonce IDL
+  // property stays readable to same-origin scripts even though browsers
+  // hide the content attribute.
+  const nonce = document.querySelector<HTMLScriptElement>("script[nonce]")?.nonce;
+  if (nonce) preload.nonce = nonce;
+  preload.href = `${CLERK_FRONTEND_API}/npm/@clerk/clerk-js@${CLERK_JS_VERSION}/dist/clerk.browser.js`;
+  document.head.appendChild(preload);
 }
 
 type ClerkGateState = "anonymous" | "mounted" | "sign-in";
@@ -136,8 +178,8 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
   const clerkMounted = gate !== "anonymous" && !clerkFailed;
   const gateValue = useMemo<ClerkGateValue>(
-    () => ({ clerkMounted, requestSignIn, setControlsHost }),
-    [clerkMounted, requestSignIn],
+    () => ({ clerkMounted, clerkFailed, requestSignIn, setControlsHost }),
+    [clerkMounted, clerkFailed, requestSignIn],
   );
 
   if (!accountsConfigured) return children;
@@ -178,8 +220,20 @@ function SignInRequestButton() {
   );
 }
 
+// Mount-safe session-hint read for render decisions. The server render and
+// the hydration render use the server snapshot (false), so the markup always
+// matches SSR; right after hydration React re-reads the cookie-backed
+// snapshot and re-renders if it differs. Cookies emit no change events, so
+// the subscription is a no-op.
+const subscribeToNothing = () => () => {};
+const noServerHint = () => false;
+function useClerkSessionHint(): boolean {
+  return useSyncExternalStore(subscribeToNothing, hasClerkSessionHint, noServerHint);
+}
+
 export function AccountControls() {
-  const { clerkMounted, setControlsHost } = useContext(ClerkGateContext);
+  const { clerkMounted, clerkFailed, setControlsHost } = useContext(ClerkGateContext);
+  const sessionHint = useClerkSessionHint();
   if (!accountsConfigured) return null;
   // Before the Clerk subtree mounts, show a plain Sign in button; clicking it
   // mounts the sibling Clerk subtree, which then opens the sign-in modal.
@@ -187,6 +241,21 @@ export function AccountControls() {
   // Clerk-backed controls into — useAuth is never called outside
   // ClerkProvider, because those controls render inside it (portals keep the
   // React context of their render position, not their DOM position).
-  if (!clerkMounted) return <SignInRequestButton />;
+  if (!clerkMounted) {
+    // A present session hint means the gate is about to mount the Clerk
+    // subtree, which will almost certainly resolve to a signed-in session, so
+    // show the same Loading placeholder ClerkAccountControls starts with
+    // instead of flashing Sign in. If the Clerk chunk failed to load or
+    // crashed, drop back to the Sign in button so the visitor can retry
+    // (fail-closed anonymous).
+    if (sessionHint && !clerkFailed) {
+      return (
+        <div className="account-controls">
+          <span>Loading</span>
+        </div>
+      );
+    }
+    return <SignInRequestButton />;
+  }
   return <div style={{ display: "contents" }} ref={setControlsHost} />;
 }

@@ -3,11 +3,21 @@ import {
   TURNSTILE_TOKEN_HEADER,
   type TranscriptionResponse,
 } from "../shared/transcriptionContract";
-import { acquireTranscriptionToken } from "./turnstileClient";
+import { acquireTranscriptionToken, takeHeldTranscriptionToken } from "./turnstileClient";
 
-export async function requestTranscription(recording: Blob, signal: AbortSignal): Promise<TranscriptionResponse> {
-  const turnstileToken = await acquireTranscriptionToken();
+export type TranscriptionStage = "verifying" | "transcribing";
+
+export async function requestTranscription(
+  recording: Blob,
+  signal: AbortSignal,
+  onStage?: (stage: TranscriptionStage) => void,
+): Promise<TranscriptionResponse> {
+  onStage?.("verifying");
+  // The token pre-executed at recording start is consumed when present
+  // (single-use, never reused); otherwise fall back to stop-time acquisition.
+  const turnstileToken = takeHeldTranscriptionToken() ?? await acquireTranscriptionToken();
   signal.throwIfAborted();
+  onStage?.("transcribing");
   const response = await fetch("/api/transcribe", {
     method: "POST",
     headers: {

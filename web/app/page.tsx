@@ -1,14 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  clearTranscriptions,
-  deleteTranscription,
-  listTranscriptions,
   saveTranscription,
-  saveTranscriptionSummary,
-  setRetention,
-  type RetentionDays,
   type TranscriptionHistoryItem,
 } from "../lib/convex";
 import { downloadTranscript } from "../lib/transcriptExport";
@@ -21,17 +15,19 @@ import {
   uploadSizeError,
 } from "../lib/recording";
 import { requestTranscription, transcriptionFailureMessage } from "../lib/transcriptionRequest";
-import { warmTranscriptionChallenge } from "../lib/turnstileClient";
+import { beginTranscriptionTokenHold, releaseTranscriptionTokenHold } from "../lib/turnstileClient";
 import { AIEnhancementPanel } from "./ai-enhancement";
 import { AccountControls, useAccountAuth } from "./providers";
 import { HistoryView } from "./history-view";
 import { TTSWorkspace } from "./tts-workspace";
+import { useTranscriptionHistory } from "./use-transcription-history";
+import { useTranscriptSummary } from "./use-transcript-summary";
 import {
   MAXIMUM_AUDIO_BYTES,
   type TranscriptionSegment,
 } from "../shared/transcriptionContract";
 
-type Status = "idle" | "starting" | "recording" | "validating" | "transcribing" | "done" | "error";
+type Status = "idle" | "starting" | "recording" | "validating" | "stopping" | "verifying" | "transcribing" | "saving" | "done" | "error";
 type Theme = "editorial" | "mac";
 type WorkspaceTab = "studio" | "history";
 const transcriptionTimeoutMs = 5 * 60 * 1_000;
@@ -53,57 +49,50 @@ export default function Home() {
   const activeTranscription = useRef<{ id: string; controller: AbortController } | null>(null);
   const operationGeneration = useRef(0);
   const recordingStartPending = useRef(false);
+  const transcribeTicker = useRef<ReturnType<typeof setInterval> | null>(null);
+  // The in-flight history save for the current transcript, so a summary
+  // generated during that window serializes its PATCH after the save settles.
+  const pendingSave = useRef<Promise<string | null> | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [elapsed, setElapsed] = useState(0);
+  const [transcribeElapsed, setTranscribeElapsed] = useState(0);
   const [audio, setAudio] = useState<Blob | null>(null);
   const [transcript, setTranscript] = useState("");
   const [transcriptSegments, setTranscriptSegments] = useState<TranscriptionSegment[]>([]);
   const [activeTranscriptionId, setActiveTranscriptionId] = useState<string | null>(null);
-  const [summary, setSummary] = useState("");
-  const [summaryLoading, setSummaryLoading] = useState(false);
-  const [summaryError, setSummaryError] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-  const [history, setHistory] = useState<TranscriptionHistoryItem[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(true);
-  const [historyCursor, setHistoryCursor] = useState<string | null>(null);
   const [speechText, setSpeechText] = useState("");
   const [theme, setTheme] = useState<Theme>("editorial");
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("studio");
-  const [retentionDays, setRetentionDays] = useState<RetentionDays>(90);
-  const [retentionSaving, setRetentionSaving] = useState(false);
-  const [retentionStatus, setRetentionStatus] = useState("");
-
-  const refreshHistory = useCallback(async () => {
-    setHistoryLoading(true);
-    try {
-      const token = await account.getConvexToken();
-      const result = await listTranscriptions(token);
-      setHistory(result.items);
-      setHistoryCursor(result.nextCursor);
-      if (account.isSignedIn && result.retentionDays !== null) setRetentionDays(result.retentionDays);
-    } catch {
-      setHistory([]);
-      setError("History is temporarily unavailable. Recording and transcription can still be used.");
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [account]);
-
-  async function loadMoreHistory() {
-    if (!historyCursor || historyLoading) return;
-    setHistoryLoading(true);
-    try {
-      const token = await account.getConvexToken();
-      const result = await listTranscriptions(token, historyCursor);
-      setHistory((items) => [...items, ...result.items.filter((item) => !items.some((existing) => existing._id === item._id))]);
-      setHistoryCursor(result.nextCursor);
-    } catch {
-      setError("More history could not be loaded. Please try again.");
-    } finally {
-      setHistoryLoading(false);
-    }
-  }
+  const {
+    history,
+    setHistory,
+    historyLoading,
+    historyCursor,
+    bootShape,
+    retentionDays,
+    retentionSaving,
+    retentionStatus,
+    refreshHistory,
+    loadMoreHistory,
+    removeHistoryItem,
+    removeAllHistory,
+    changeRetention,
+  } = useTranscriptionHistory(account, setError);
+  const {
+    summary,
+    setSummary,
+    summaryLoading,
+    summarizingId,
+    summaryError,
+    setSummaryError,
+    summaryNotice,
+    setSummaryNotice,
+    summaryCopied,
+    summarizeText,
+    copySummary,
+  } = useTranscriptSummary(account, setHistory);
 
   useEffect(() => {
     let themeUpdate: number | undefined;
@@ -115,6 +104,8 @@ export default function Home() {
     return () => {
       if (themeUpdate !== undefined) window.clearTimeout(themeUpdate);
       if (ticker.current) clearInterval(ticker.current);
+      if (transcribeTicker.current) clearInterval(transcribeTicker.current);
+      releaseTranscriptionTokenHold();
       const pendingTranscription = activeTranscription.current;
       activeTranscription.current = null;
       pendingTranscription?.controller.abort();
@@ -132,51 +123,44 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => {
-    if (account.isLoaded) {
-      queueMicrotask(() => {
-        void refreshHistory();
-      });
-    }
-  }, [account.identityKey, account.isLoaded, refreshHistory]);
-
   function selectTheme(nextTheme: Theme) {
     setTheme(nextTheme);
     document.documentElement.dataset.theme = nextTheme;
     window.localStorage.setItem("voiceink-theme", nextTheme);
   }
 
-  async function changeRetention(days: RetentionDays) {
-    setRetentionDays(days);
-    setRetentionSaving(true);
-    setRetentionStatus("");
-    try {
-      const token = await account.getConvexToken();
-      await setRetention(days, token);
-      await refreshHistory();
-      setRetentionStatus(days === 0 ? "History will be kept until you delete it." : `History older than ${days} days will be deleted automatically.`);
-    } catch {
-      setRetentionStatus("Retention could not be updated.");
-    } finally {
-      setRetentionSaving(false);
-    }
+  // Elapsed-seconds ticker for the transcribing stage (same pattern as the
+  // recording ticker). No fake progress — only real elapsed time.
+  function startTranscribeTicker() {
+    stopTranscribeTicker();
+    const startedAt = performance.now();
+    transcribeTicker.current = setInterval(() => setTranscribeElapsed(elapsedRecordingSeconds(startedAt, performance.now())), 1000);
+  }
+  function stopTranscribeTicker() {
+    if (transcribeTicker.current) clearInterval(transcribeTicker.current);
+    transcribeTicker.current = null;
+    setTranscribeElapsed(0);
   }
 
   async function startRecording() {
     if (recordingStartPending.current || recorder.current) return;
     recordingStartPending.current = true;
-    warmTranscriptionChallenge(); // preload the Turnstile script/widget; single-use tokens are still acquired at stop time
+    // Pre-execute the Turnstile challenge and hold the single-use token for
+    // the stop click; the widget re-executes on expiry during long recordings.
+    beginTranscriptionTokenHold();
     const generation = ++operationGeneration.current;
     let stream: MediaStream | undefined;
     try {
       const previousTranscription = activeTranscription.current;
       activeTranscription.current = null;
       previousTranscription?.controller.abort();
+      pendingSave.current = null;
       setError("");
       setTranscript("");
       setTranscriptSegments([]);
       setActiveTranscriptionId(null);
       setSummary("");
+      setSummaryNotice("");
       setAudio(null);
       setElapsed(0);
       setStatus("starting");
@@ -223,12 +207,14 @@ export default function Home() {
         acquiredStream.getTracks().forEach((track) => track.stop());
         if (generation !== operationGeneration.current) return;
         if (recordingTooLarge.current) {
+          releaseTranscriptionTokenHold();
           setAudio(null);
           setError("The recording reached the 24 MB safety limit. Record a shorter clip and try again.");
           setStatus("error");
           return;
         }
         if (recordingFailed.current) {
+          releaseTranscriptionTokenHold();
           setAudio(null);
           setStatus("error");
           return;
@@ -252,12 +238,14 @@ export default function Home() {
         if (elapsedRef.current >= recordingLimitSeconds(isSignedInRef.current)) {
           if (ticker.current) clearInterval(ticker.current);
           ticker.current = null;
+          if (recorder.current) setStatus("stopping");
           recorder.current?.stop();
         }
       }, 1000);
     } catch {
       stream?.getTracks().forEach((track) => track.stop());
       if (generation === operationGeneration.current) {
+        releaseTranscriptionTokenHold();
         setError("Microphone access is required to record a transcription.");
         setStatus("error");
       }
@@ -269,7 +257,12 @@ export default function Home() {
   function stopRecording() {
     if (ticker.current) clearInterval(ticker.current);
     ticker.current = null;
-    if (recorder.current?.state === "recording") recorder.current.stop();
+    if (recorder.current?.state === "recording") {
+      // Synchronous feedback for the stop click; the transcribe pipeline
+      // replaces it with the verifying/transcribing/saving stages.
+      setStatus("stopping");
+      recorder.current.stop();
+    }
   }
 
   async function transcribe(recording: Blob, durationSeconds: number, operationId = audioOperationId.current ?? crypto.randomUUID()) {
@@ -279,19 +272,35 @@ export default function Home() {
     activeTranscription.current = job;
     audioOperationId.current = operationId;
     const timeout = window.setTimeout(() => controller.abort(), transcriptionTimeoutMs);
-    setStatus("transcribing");
+    // Warm-up only: start a Convex token fetch now so Clerk's token cache is
+    // primed while upload and inference run. The save path below fetches its
+    // own fresh token — this result is never consumed, and the marker only
+    // prevents an unhandled rejection when transcription fails first.
+    const convexToken = account.getConvexToken();
+    convexToken.catch(() => {});
+    setStatus("verifying");
     setError("");
     try {
-      const result = await requestTranscription(recording, controller.signal);
+      const result = await requestTranscription(recording, controller.signal, (stage) => {
+        if (activeTranscription.current?.id !== job.id) return;
+        setStatus(stage);
+        if (stage === "transcribing") startTranscribeTicker();
+      });
       const transcribedText = result.text;
       const effectiveDuration = result.durationSeconds ?? durationSeconds;
       if (activeTranscription.current?.id !== job.id) return;
+      stopTranscribeTicker();
       setAudio(null);
       chunks.current = [];
       setTranscript(transcribedText);
       setTranscriptSegments(result.segments ?? []);
-      setStatus("done");
-      try {
+      setStatus("saving");
+      const savePromise = (async () => {
+        // Fetch the token fresh at save time: Clerk session JWTs live about a
+        // minute while upload+inference can run for several, so the warm-up
+        // token above may already be expired server-side — Convex would then
+        // resolve a null identity and silently file the row as anonymous.
+        // Clerk caches tokens, so this call is near-free while still valid.
         const token = await account.getConvexToken();
         const savedId = await saveTranscription({
           text: transcribedText,
@@ -301,11 +310,23 @@ export default function Home() {
           operationId,
           segments: result.segments,
         }, token);
+        return savedId ?? null;
+      })();
+      // A summary requested before the save settles serializes on this.
+      pendingSave.current = savePromise.then((id) => id, () => null);
+      try {
+        const savedId = await savePromise;
         if (activeTranscription.current?.id !== job.id) return;
-        setActiveTranscriptionId(savedId ?? null);
-        await refreshHistory();
+        setActiveTranscriptionId(savedId);
+        // Prepend the saved row locally instead of refetching the whole page.
+        if (savedId) {
+          const savedItem: TranscriptionHistoryItem = { _id: savedId, text: transcribedText, durationSeconds: effectiveDuration, model: result.model, detectedLanguage: result.detectedLanguage, operationId, segments: result.segments, status: "complete", createdAt: Date.now() };
+          setHistory((items) => items.some((item) => item._id === savedId) ? items : [savedItem, ...items]);
+        }
       } catch {
         setError("The transcript is ready, but it could not be saved to history. Check your quota or retention settings.");
+      } finally {
+        if (activeTranscription.current?.id === job.id) setStatus("done");
       }
     } catch (cause) {
       if (activeTranscription.current?.id !== job.id) return;
@@ -318,6 +339,7 @@ export default function Home() {
       setStatus("error");
     } finally {
       window.clearTimeout(timeout);
+      stopTranscribeTicker();
       if (activeTranscription.current?.id === job.id) activeTranscription.current = null;
     }
   }
@@ -332,6 +354,7 @@ export default function Home() {
     const previousTranscription = activeTranscription.current;
     activeTranscription.current = null;
     previousTranscription?.controller.abort();
+    pendingSave.current = null;
     setError("");
     setStatus("validating");
     setTranscript("");
@@ -339,6 +362,7 @@ export default function Home() {
     setActiveTranscriptionId(null);
     setSummary("");
     setSummaryError("");
+    setSummaryNotice("");
     const duration = await readAudioDuration(file);
     if (generation !== operationGeneration.current) return;
     const durationError = uploadDurationError(duration, isSignedInRef.current);
@@ -354,68 +378,30 @@ export default function Home() {
     await transcribe(file, duration, audioOperationId.current);
   }
 
-  async function removeHistoryItem(id: string) {
-    try {
-      const token = await account.getConvexToken();
-      await deleteTranscription(id, token);
-      setHistory((items) => items.filter((item) => item._id !== id));
-    } catch {
-      setError("That history item could not be deleted.");
-    }
-  }
-
-  async function removeAllHistory() {
-    try {
-      const token = await account.getConvexToken();
-      await clearTranscriptions(token);
-      setHistory([]);
-      setHistoryCursor(null);
-    } catch {
-      setError("History could not be cleared.");
-    }
-  }
-
   async function copyTranscript() {
     await navigator.clipboard.writeText(transcript);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
 
-  async function summarizeText(value = transcript, transcriptionId = activeTranscriptionId) {
-    if (!value.trim() || summaryLoading) return;
-    setSummaryLoading(true);
-    setSummaryError("");
-    setSummary("");
-    try {
-      const response = await fetch("/api/summarize", {
-        method: "POST",
-        cache: "no-store",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text: value }),
-      });
-      const result = await response.json() as { summary?: string; error?: string };
-      if (!response.ok || !result.summary) throw new Error(result.error ?? "Summary generation failed");
-      const generatedSummary = result.summary;
-      setSummary(generatedSummary);
-      if (transcriptionId) {
-        const token = await account.getConvexToken();
-        await saveTranscriptionSummary(transcriptionId, generatedSummary, token);
-        setHistory((items) => items.map((item) => item._id === transcriptionId ? { ...item, summary: generatedSummary } : item));
-      }
-    } catch {
-      setSummaryError("Summarizing failed. Try again.");
-    } finally {
-      setSummaryLoading(false);
-    }
-  }
-
   const time = `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
+  const busyStatus = status === "starting" || status === "validating" || status === "stopping" || status === "verifying" || status === "transcribing" || status === "saving";
+  const stageHeadings: Partial<Record<Status, string>> = { starting: "Requesting microphone…", recording: "Recording", validating: "Checking audio…", stopping: "Processing audio…", verifying: "Verifying…", transcribing: "Transcribing…", saving: "Saving to history…" };
+  const stageDetails: Partial<Record<Status, [string, string]>> = {
+    recording: [time, "Stop to upload and transcribe"],
+    stopping: ["Processing audio…", "Preparing the recording for upload"],
+    verifying: ["Verifying…", "Running the security check before upload"],
+    transcribing: [`Transcribing… ${transcribeElapsed}s`, "The transcript will be saved to history"],
+    saving: ["Saving…", "Adding the transcript to history"],
+  };
+  const [stageStrong, stageSmall] = stageDetails[status] ?? ["Press to record", "Microphone access stays in this tab"];
   function openHistoryItem(item: TranscriptionHistoryItem) {
     setTranscript(item.text);
     setTranscriptSegments(item.segments ?? []);
     setActiveTranscriptionId(item._id);
     setSummary(item.summary ?? "");
     setSummaryError("");
+    setSummaryNotice("");
     setActiveTab("studio");
   }
 
@@ -446,7 +432,7 @@ export default function Home() {
 
       <section className={`recorder-card ${status === "recording" ? "is-recording" : ""}`}>
         <div className="card-header">
-          <div><h2>{status === "starting" ? "Requesting microphone…" : status === "recording" ? "Recording" : status === "validating" ? "Checking audio…" : status === "transcribing" ? "Transcribing…" : "Ready to record"}</h2></div>
+          <div><h2>{stageHeadings[status] ?? "Ready to record"}</h2></div>
           <span className="privacy">Audio deleted after transcription</span>
         </div>
 
@@ -456,15 +442,15 @@ export default function Home() {
 
         <div className="record-controls">
           {status !== "recording" ? (
-            <button className="record-button" onClick={startRecording} disabled={status === "starting" || status === "validating" || status === "transcribing"} aria-label="Start recording"><span /></button>
+            <button className="record-button" onClick={startRecording} disabled={busyStatus} aria-label="Start recording"><span /></button>
           ) : (
             <button className="record-button stop" onClick={stopRecording} aria-label="Stop recording"><span /></button>
           )}
-          <div><strong>{status === "recording" ? time : status === "transcribing" ? "Uploading and transcribing…" : "Press to record"}</strong><small>{status === "recording" ? "Stop to upload and transcribe" : status === "transcribing" ? "The transcript will be saved to history" : "Microphone access stays in this tab"}</small></div>
+          <div><strong>{stageStrong}</strong><small>{stageSmall}</small></div>
         </div>
         <div className="audio-upload">
           <span>or</span>
-          <button type="button" onClick={() => audioFileInput.current?.click()} disabled={status === "starting" || status === "recording" || status === "validating" || status === "transcribing"}>Upload audio file</button>
+          <button type="button" onClick={() => audioFileInput.current?.click()} disabled={busyStatus || status === "recording"}>Upload audio file</button>
           <small>MP3, WAV, M4A, WebM and other browser-supported audio · 24 MB maximum · {account.isSignedIn ? "up to 2 hours" : "up to 10 minutes for guests"}</small>
           <input ref={audioFileInput} type="file" accept="audio/*" hidden onChange={(event) => {
             const file = event.target.files?.[0];
@@ -482,17 +468,17 @@ export default function Home() {
       </section>
 
       <section className="transcript-card">
-        <div className="transcript-head"><div><small>TRANSCRIPT</small><span>{transcript ? `${transcript.split(/\s+/).length} words` : "Waiting for audio"}</span></div>{transcript && <div className="transcript-tools"><button className="summarize" onClick={() => void summarizeText()} disabled={summaryLoading}>{summaryLoading ? "Summarizing…" : "Summarize"}</button><button onClick={copyTranscript}>{copied ? "Copied" : "Copy"}</button><button onClick={() => downloadTranscript(transcript, "txt")}>TXT</button><button disabled={!transcriptSegments.length} title={transcriptSegments.length ? "Download timed subtitles" : "Timing is unavailable after editing"} onClick={() => downloadTranscript(transcript, "srt", transcriptSegments)}>SRT</button><button disabled={!transcriptSegments.length} title={transcriptSegments.length ? "Download timed subtitles" : "Timing is unavailable after editing"} onClick={() => downloadTranscript(transcript, "vtt", transcriptSegments)}>VTT</button></div>}</div>
+        <div className="transcript-head"><div><small>TRANSCRIPT</small><span>{transcript ? `${transcript.split(/\s+/).length} words` : "Waiting for audio"}</span></div>{transcript && <div className="transcript-tools"><button className="summarize" onClick={() => void summarizeText(transcript, activeTranscriptionId, pendingSave.current)} disabled={summaryLoading}>{summaryLoading ? "Summarizing…" : "Summarize"}</button><button onClick={copyTranscript}>{copied ? "Copied" : "Copy"}</button><button onClick={() => downloadTranscript(transcript, "txt")}>TXT</button><button disabled={!transcriptSegments.length} title={transcriptSegments.length ? "Download timed subtitles" : "Timing is unavailable after editing"} onClick={() => downloadTranscript(transcript, "srt", transcriptSegments)}>SRT</button><button disabled={!transcriptSegments.length} title={transcriptSegments.length ? "Download timed subtitles" : "Timing is unavailable after editing"} onClick={() => downloadTranscript(transcript, "vtt", transcriptSegments)}>VTT</button></div>}</div>
         <textarea aria-label="Transcript text" value={transcript} onChange={(event) => { setTranscript(event.target.value); setTranscriptSegments([]); }} placeholder="Your transcription will appear here…" />
       </section>
 
-      {transcript && <AIEnhancementPanel text={transcript} onApply={(value) => { setTranscript(value); setTranscriptSegments([]); setSummary(""); setSummaryError(""); }} onNarrate={setSpeechText} />}
+      {transcript && <AIEnhancementPanel text={transcript} onApply={(value) => { setTranscript(value); setTranscriptSegments([]); setSummary(""); setSummaryError(""); setSummaryNotice(""); }} onNarrate={setSpeechText} />}
 
-      {(summary || summaryLoading || summaryError) && <section className="summary-card"><div className="summary-head"><div><small>SUMMARY</small><span>Llama 3.2</span></div>{summary && <div><button onClick={() => void navigator.clipboard.writeText(summary)}>Copy</button><button onClick={() => setSpeechText(summary)}>Narrate summary</button></div>}</div>{summaryLoading ? <p className="summary-loading">Summarizing…</p> : summary ? <textarea aria-label="AI-generated transcript summary" value={summary} onChange={(event) => setSummary(event.target.value)} /> : <p className="error" role="alert">{summaryError}</p>}<p className="ai-note">AI-generated summaries can make mistakes. Check important details against the transcript.</p></section>}
+      {(summary || summaryLoading || summaryError) && <section className="summary-card"><div className="summary-head"><div><small>SUMMARY</small><span>Llama 3.2</span></div>{summary && <div><button onClick={() => void copySummary()}>{summaryCopied ? "Copied" : "Copy"}</button><button onClick={() => setSpeechText(summary)}>Narrate summary</button></div>}</div>{summaryLoading ? <div className="result-placeholder" role="status" aria-label="Summarizing"><span /><span /><span /></div> : summary ? <textarea aria-label="AI-generated transcript summary" value={summary} onChange={(event) => setSummary(event.target.value)} /> : <p className="error" role="alert">{summaryError}</p>}{summaryNotice && <p className="summary-notice" role="status">{summaryNotice}</p>}<p className="ai-note">AI-generated summaries can make mistakes. Check important details against the transcript.</p></section>}
 
       <TTSWorkspace transcript={transcript} text={speechText} onTextChange={setSpeechText} />
 
-      </> : <HistoryView history={history} loading={historyLoading} hasMore={historyCursor !== null} isSignedIn={account.isSignedIn} retentionDays={retentionDays} retentionSaving={retentionSaving} retentionStatus={retentionStatus} onRefresh={() => void refreshHistory()} onLoadMore={() => void loadMoreHistory()} onRetentionChange={(days) => void changeRetention(days)} onOpen={openHistoryItem} onNarrate={setSpeechText} onSummarize={(item) => { setTranscript(item.text); setTranscriptSegments(item.segments ?? []); setActiveTranscriptionId(item._id); void summarizeText(item.text, item._id); }} onDelete={(id) => void removeHistoryItem(id)} onDeleteAll={() => void removeAllHistory()} />}
+      </> : <HistoryView history={history} loading={historyLoading} bootShape={bootShape} summarizingId={summarizingId} hasMore={historyCursor !== null} isSignedIn={account.isSignedIn} retentionDays={retentionDays} retentionSaving={retentionSaving} retentionStatus={retentionStatus} onRefresh={() => void refreshHistory()} onLoadMore={() => void loadMoreHistory()} onRetentionChange={(days) => void changeRetention(days)} onOpen={openHistoryItem} onNarrate={setSpeechText} onSummarize={(item) => { setTranscript(item.text); setTranscriptSegments(item.segments ?? []); setActiveTranscriptionId(item._id); setActiveTab("studio"); void summarizeText(item.text, item._id); }} onDelete={(id) => void removeHistoryItem(id)} onDeleteAll={() => void removeAllHistory()} />}
 
       <footer><span>VoiceInk Web 2.11.0</span><span>Deepgram Nova-3 · Whisper large-v3 turbo</span></footer>
     </main>

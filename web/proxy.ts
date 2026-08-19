@@ -14,6 +14,15 @@ const sensitiveResponseHeaders: Record<string, string> = {
   Expires: "0",
 };
 
+// Early connection warm-up for the third-party origins the page will contact
+// (Clerk FAPI ~300ms+ from AU; Turnstile challenge). Preconnect only — script
+// preloads must stay out of Link headers because scripts are admitted by the
+// per-request CSP nonce, which a Link-initiated fetch would not carry.
+const documentLinkHeader = [
+  "<https://clerk.paul.im>; rel=preconnect; crossorigin",
+  "<https://challenges.cloudflare.com>; rel=preconnect",
+].join(", ");
+
 export function proxy(request: NextRequest) {
   const nonce = btoa(crypto.randomUUID());
   const contentSecurityPolicy = `default-src 'self'; script-src 'nonce-${nonce}' 'strict-dynamic' https://challenges.cloudflare.com https://clerk.paul.im https://accounts.paul.im https://*.clerk.accounts.dev https://*.clerk.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://img.clerk.com; font-src 'self'; connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://clerk.paul.im; media-src 'self' blob:; frame-src https://challenges.cloudflare.com https://*.clerk.accounts.dev https://*.clerk.com https://clerk.paul.im https://accounts.paul.im; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://*.clerk.accounts.dev https://clerk.paul.im https://accounts.paul.im; frame-ancestors 'none'; upgrade-insecure-requests`;
@@ -25,6 +34,8 @@ export function proxy(request: NextRequest) {
   for (const [name, value] of Object.entries(securityHeaders)) response.headers.set(name, value);
   if (request.nextUrl.pathname === "/api" || request.nextUrl.pathname.startsWith("/api/")) {
     for (const [name, value] of Object.entries(sensitiveResponseHeaders)) response.headers.set(name, value);
+  } else {
+    response.headers.append("Link", documentLinkHeader);
   }
   return response;
 }
