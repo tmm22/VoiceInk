@@ -15,7 +15,7 @@ assert.match(home.headers.get("cache-control") ?? "", noStore);
 const html = await home.text();
 assert.match(html, /VoiceInk/);
 
-const assetPath = html.match(/(?:href|src)="(\/assets\/[^"]+)"/)?.[1];
+const assetPath = html.match(/(?:href|src)="(\/_next\/static\/[^"]+)"/)?.[1];
 assert.ok(assetPath, "A content-hashed production asset must be discoverable");
 const asset = await fetch(`${base}${assetPath}`, { redirect: "error" });
 assert.equal(asset.status, 200);
