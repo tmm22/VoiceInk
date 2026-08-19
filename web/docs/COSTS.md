@@ -109,7 +109,7 @@ Anonymous transcription remains available, but the following controls limit cost
 4. Anonymous visitors are limited to 10 minutes of audio per recording or upload; signed-in users keep 30-minute recordings and 2-hour uploads.
 5. Cloudflare applies fail-closed, route-specific limits: transcription 4/minute, summary 6/minute, enhancement 6/minute, import 10/minute, and history 30/minute per edge key.
 6. All Convex history access is brokered through the protected web Worker.
-7. Convex independently enforces per-minute, daily, record-count, and stored-character account quotas.
+7. Convex independently enforces per-minute, record-count, and stored-character account quotas.
 8. Anonymous history is limited to 30 active records and expires after one hour.
 9. Request, upload, transcript, summary, and imported-content sizes are bounded.
 10. The private ASR Worker requires its shared secret and rejects non-audio uploads.

@@ -114,6 +114,12 @@ test("routes seal with ownership context, key the pseudonym off the web-only key
   assert.match(route, /result\.ownerContext \?\? anonymousContext\(clientId\)/);
   assert.match(convex, /export const viewerContext = query/);
   assert.doesNotMatch(route, /clerkSubjectFromToken/);
+  // The local anonymous shortcut applies ONLY when NO bearer token exists (so
+  // setAuth was never called); whenever ANY token is present — valid or not —
+  // the context must come from the Convex-verified query, never a local guess.
+  assert.match(route, /if \(!secured\.hasToken\) return anonymousContext\(clientId\);/);
+  assert.match(route, /const hasToken = authorization\?\.startsWith\("Bearer "\) \?\? false;/);
+  assert.match(route, /if \(hasToken\) client\.setAuth/);
   // Per-row, per-field isolation: one bad envelope must not 503 the whole page,
   // and a failed summary must be dropped (not leaked as ciphertext via ...item).
   assert.match(route, /catch \{\s*return \{ value: "", failed: true \}/);
@@ -131,6 +137,36 @@ test("routes seal with ownership context, key the pseudonym off the web-only key
   assert.match(schema, /textHash: v\.optional\(v\.string\(\)\)/);
   assert.doesNotMatch(convex, /HISTORY_ENCRYPTION_KEY/, "Convex must never hold the history key");
   assert.match(convex, /existingOperation\.textHash === args\.textHash/);
+});
+
+test("history GET is one combined Convex query whose ownerContext comes from the same verified identity as the page", async () => {
+  const [route, convex, retention] = await Promise.all([
+    source("app/api/history/route.ts"),
+    source("convex/transcriptions.ts"),
+    source("convex/retention.ts"),
+  ]);
+  // One round trip: page + retention + ownership context from a single
+  // getUserIdentity(), so the open context can never diverge from the identity
+  // that selected the rows.
+  assert.match(route, /transcriptions:historyPage/);
+  assert.match(route, /const context = result\.ownerContext \?\? anonymousContext\(clientId\);/);
+  assert.match(route, /retentionDays: result\.retentionDays \?\? null/);
+  // The replaced per-request calls are gone from the GET path and their dead
+  // Convex exports are removed.
+  assert.doesNotMatch(route, /transcriptions:list/);
+  assert.doesNotMatch(route, /retention:get/);
+  assert.doesNotMatch(convex, /export const list = query/);
+  assert.doesNotMatch(retention, /export const get = query/);
+  // The combined query stays service-secret-gated, validates the clientId, and
+  // derives ownerContext through the same helper viewerContext uses.
+  const historyPageBlock = convex.slice(convex.indexOf("export const historyPage"), convex.indexOf("export const save"));
+  assert.match(historyPageBlock, /requireServiceSecret\(serviceSecret\)/);
+  assert.match(historyPageBlock, /clientIdPattern\.test\(clientId\)/);
+  assert.match(historyPageBlock, /ownerContext: verifiedOwnerContext\(identity\)/);
+  assert.match(historyPageBlock, /ownerContext: null/);
+  assert.match(historyPageBlock, /retentionDays: null/);
+  assert.match(convex, /identity \? verifiedOwnerContext\(identity\) : null/);
+  assert.equal(convex.match(/getUserIdentity\(\)/g).length >= 1, true);
 });
 
 test("Convex service-secret checks are constant-time and shared; migration is gated", async () => {
@@ -180,7 +216,7 @@ test("every user history row is reachable by a bulk purge that deletes before it
   ]);
   assert.match(transcriptions, /export const clearAll = mutation/);
   // First batch is deleted inline so an immediate refetch sees them gone.
-  assert.match(transcriptions, /for \(const item of owned\) await ctx\.db\.delete/);
+  assert.match(transcriptions, /for \(const item of owned\) \{\s*await ctx\.db\.delete\(item\._id\);/);
   assert.match(transcriptions, /if \(owned\.length === clearAllBatchSize\)/);
   assert.match(cleanup, /export const purgeHistoryPage = internalMutation/);
   assert.match(cleanup, /if \(deleted === cleanupBatchSize\)/);

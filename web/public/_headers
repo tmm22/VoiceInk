@@ -1,5 +1,6 @@
 # Content-hashed Vinext assets are safe to keep for the lifetime of their URL.
-/assets/*
+# vinext 0.2.x emits them under /_next/static/ (chunks and css).
+/_next/static/*
   Cache-Control: public, max-age=31536000, immutable
 
 # These public filenames can change between deployments, so keep their browser

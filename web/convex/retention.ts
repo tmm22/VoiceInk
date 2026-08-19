@@ -1,4 +1,4 @@
-import { mutationGeneric as mutation, queryGeneric as query } from "convex/server";
+import { mutationGeneric as mutation } from "convex/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { requireServiceSecret } from "./serviceAuth";
@@ -13,20 +13,9 @@ function requiresMigrationHold(previousDays: RetentionDays, nextDays: RetentionD
   return previousDays !== 0 && nextDays > previousDays;
 }
 
-export const get = query({
-  args: { serviceSecret: v.optional(v.string()) },
-  handler: async (ctx, { serviceSecret }) => {
-    requireServiceSecret(serviceSecret);
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-    const setting = await ctx.db
-      .query("retentionSettings")
-      .withIndex("by_owner", (q) => q.eq("ownerId", identity.tokenIdentifier))
-      .unique();
-    return { days: setting?.days ?? defaultRetentionDays };
-  },
-});
-
+// Reads of the current retention setting ride along with the history page:
+// transcriptions:historyPage returns retentionDays from the same verified
+// identity in the same round trip, so there is no separate retention:get.
 export const set = mutation({
   args: { days: retentionDays, serviceSecret: v.optional(v.string()) },
   handler: async (ctx, { days, serviceSecret }) => {

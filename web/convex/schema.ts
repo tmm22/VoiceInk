@@ -28,4 +28,15 @@ export default defineSchema({
     updatedAt: v.number(),
     migrationRevision: v.optional(v.number()),
   }).index("by_owner", ["ownerId"]),
+  // Per-owner aggregate maintained transactionally by every mutation that
+  // inserts, deletes, or resizes an owned transcription (save, remove,
+  // clearAll, saveSummary, and the cleanup deletions), so quota checks on save
+  // read one tiny row instead of every ciphertext document. Lazily initialized
+  // from a bounded read of the owner's existing rows; counts stored envelope
+  // characters (text + summary), matching the pre-aggregate quota math.
+  ownerStats: defineTable({
+    ownerId: v.string(),
+    itemCount: v.number(),
+    storedChars: v.number(),
+  }).index("by_owner", ["ownerId"]),
 });

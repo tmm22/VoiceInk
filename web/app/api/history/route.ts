@@ -30,17 +30,22 @@ function requestFailure() {
 }
 
 type SecuredClient =
-  | { error: Response; client?: never; serviceSecret?: never; historyKey?: never }
-  | { error?: never; client: ConvexHttpClient; serviceSecret: string; historyKey: CryptoKey };
+  | { error: Response; client?: never; serviceSecret?: never; historyKey?: never; hasToken?: never }
+  | { error?: never; client: ConvexHttpClient; serviceSecret: string; historyKey: CryptoKey; hasToken: boolean };
 
-// The context an envelope is sealed to and opened with. It comes from Convex's
-// VERIFIED identity (transcriptions:viewerContext), never a local token decode,
-// so the worker's owner-vs-anonymous decision always matches the one Convex
-// uses to place and return rows — a present-but-invalid token cannot make the
-// seal context diverge from the read context. Anonymous callers bind to their
-// clientId. Reconstructed per request, so a ciphertext transplanted into
-// another row cannot open.
-async function resolveContext(secured: { client: ConvexHttpClient; serviceSecret: string }, clientId: string): Promise<string> {
+// The context an envelope is sealed to and opened with. Whenever ANY bearer
+// token accompanies the request it comes from Convex's VERIFIED identity
+// (transcriptions:viewerContext), never a local token decode, so the worker's
+// owner-vs-anonymous decision always matches the one Convex uses to place and
+// return rows — a present-but-invalid token cannot make the seal context
+// diverge from the read context (Convex sees the same invalid token and
+// resolves the same null identity). Only a request that carries NO token at
+// all — where setAuth was never called, so Convex would verify nothing and
+// answer null — binds to its anonymous clientId locally without the round
+// trip. Reconstructed per request, so a ciphertext transplanted into another
+// row cannot open.
+async function resolveContext(secured: { client: ConvexHttpClient; serviceSecret: string; hasToken: boolean }, clientId: string): Promise<string> {
+  if (!secured.hasToken) return anonymousContext(clientId);
   const viewerContext = makeFunctionReference<"query">("transcriptions:viewerContext");
   const result = await secured.client.query(viewerContext, { serviceSecret: secured.serviceSecret }) as { ownerContext: string | null };
   return result.ownerContext ?? anonymousContext(clientId);
@@ -64,8 +69,9 @@ async function securedClient(request: Request): Promise<SecuredClient> {
   }
   const client = new ConvexHttpClient(convexUrl);
   const authorization = request.headers.get("authorization");
-  if (authorization?.startsWith("Bearer ")) client.setAuth(authorization.slice(7));
-  return { client, serviceSecret, historyKey: await keyPromise };
+  const hasToken = authorization?.startsWith("Bearer ") ?? false;
+  if (hasToken) client.setAuth(authorization!.slice(7));
+  return { client, serviceSecret, historyKey: await keyPromise, hasToken };
 }
 
 export async function POST(request: Request) {
@@ -111,18 +117,22 @@ export async function GET(request: Request) {
     const clientId = request.headers.get("x-voiceink-client-id") ?? "";
     const cursor = new URL(request.url).searchParams.get("cursor");
     if (!uuidPattern.test(clientId)) return jsonNoStore({ error: "A valid client identifier is required." }, { status: 400 });
-    const list = makeFunctionReference<"query">("transcriptions:list");
-    const retention = makeFunctionReference<"query">("retention:get");
-    const [items, setting, context] = await Promise.all([
-      secured.client.query(list, {
-        clientId,
-        paginationOpts: { cursor, numItems: 25 },
-        serviceSecret: secured.serviceSecret,
-      }),
-      secured.client.query(retention, { serviceSecret: secured.serviceSecret }),
-      resolveContext(secured, clientId),
-    ]);
-    const page = items as { page: Array<{ text: string; summary?: string }>; isDone: boolean; continueCursor: string };
+    // One combined Convex round trip: the page, the retention setting, and the
+    // verified ownership context all come from the same getUserIdentity()
+    // inside transcriptions:historyPage, so the open context below can never
+    // diverge from the identity that selected the rows. Anonymous requests
+    // (no token) get ownerContext null and bind to their clientId locally.
+    const historyPage = makeFunctionReference<"query">("transcriptions:historyPage");
+    const result = await secured.client.query(historyPage, {
+      clientId,
+      paginationOpts: { cursor, numItems: 25 },
+      serviceSecret: secured.serviceSecret,
+    }) as {
+      page: Array<{ text: string; summary?: string }>; isDone: boolean; continueCursor: string;
+      retentionDays: number | null; ownerContext: string | null;
+    };
+    const context = result.ownerContext ?? anonymousContext(clientId);
+    const page = result;
     // Each row is opened independently: rows written before encryption pass
     // through unchanged, and a single envelope that fails to open (corruption,
     // a superseded key) degrades to a flagged field instead of failing the whole
@@ -152,7 +162,7 @@ export async function GET(request: Request) {
     return jsonNoStore({
       items: opened,
       nextCursor: page.isDone ? null : page.continueCursor,
-      retentionDays: (setting as { days?: number } | null)?.days ?? null,
+      retentionDays: result.retentionDays ?? null,
     });
   } catch {
     return requestFailure();

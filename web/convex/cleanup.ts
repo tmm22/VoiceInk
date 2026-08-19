@@ -1,6 +1,7 @@
-import { internalMutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
+import { adjustOwnerStats, historyItemChars, removeOwnerStats } from "./ownerStats";
 
 const anonymousRetentionMs = 60 * 60 * 1000;
 const dayMs = 24 * 60 * 60 * 1000;
@@ -51,10 +52,13 @@ export const purgeHistoryPage = internalMutation({
       const page = await ctx.db.query("transcriptions")
         .withIndex("by_owner_created", (q) => q.eq("ownerId", ownerId))
         .take(cleanupBatchSize);
+      let deletedChars = 0;
       for (const item of page) {
         await ctx.db.delete(item._id);
+        deletedChars += historyItemChars(item);
         deleted += 1;
       }
+      await adjustOwnerStats(ctx, ownerId, -deleted, -deletedChars);
     } else if (args.clientId !== undefined) {
       const clientId = args.clientId;
       const page = await ctx.db.query("transcriptions")
@@ -76,6 +80,9 @@ export const purgeHistoryPage = internalMutation({
         .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))
         .unique();
       if (setting) await ctx.db.delete(setting._id);
+      // Account deletion: the per-owner aggregate goes with the history so no
+      // row keyed to the identity outlives the account.
+      await removeOwnerStats(ctx, ownerId);
     }
   },
 });
@@ -90,6 +97,7 @@ export const deleteExpiredTranscriptions = internalMutation({
       .paginate({ cursor: cursor ?? null, numItems: cleanupBatchSize });
     const retentionSettings = new Map<string, { days: 0 | 7 | 30 | 90 | 365; updatedAt: number; migrationRevision?: number } | null>();
     const restartedMigrations = new Set<string>();
+    const ownerDeltas = new Map<string, { items: number; chars: number }>();
     let expiredDeleted = 0;
     for (const item of expiredPage.page) {
       if (item.ownerId) {
@@ -114,25 +122,18 @@ export const deleteExpiredTranscriptions = internalMutation({
           }
           continue;
         }
+        const delta = ownerDeltas.get(ownerId) ?? { items: 0, chars: 0 };
+        delta.items += 1;
+        delta.chars += historyItemChars(item);
+        ownerDeltas.set(ownerId, delta);
       }
       await ctx.db.delete(item._id);
       expiredDeleted += 1;
     }
-
-    const legacyAnonymous = await ctx.db
-      .query("transcriptions")
-      .filter((q) => q.and(
-        q.eq(q.field("ownerId"), undefined),
-        q.eq(q.field("expiresAt"), undefined),
-      ))
-      .order("asc")
-      .take(cleanupBatchSize);
-    let legacyDeleted = 0;
-    for (const item of legacyAnonymous) {
-      if (item.createdAt + anonymousRetentionMs > now) break;
-      await ctx.db.delete(item._id);
-      legacyDeleted += 1;
+    for (const [ownerId, delta] of ownerDeltas) {
+      await adjustOwnerStats(ctx, ownerId, -delta.items, -delta.chars);
     }
+
     // Continue only after actually draining a complete deletable batch. Merely
     // reading 100 held or fresh records must not create a zero-delay spin loop.
     const scansLeft = Math.min(Math.max(pagesRemaining ?? cleanupScanPages, 1), cleanupScanPages);
@@ -141,9 +142,59 @@ export const deleteExpiredTranscriptions = internalMutation({
         cursor: expiredPage.continueCursor,
         pagesRemaining: scansLeft - 1,
       });
-    } else if (expiredDeleted === cleanupBatchSize || legacyDeleted === cleanupBatchSize) {
+    } else if (expiredDeleted === cleanupBatchSize) {
       await ctx.scheduler.runAfter(0, internal.cleanup.deleteExpiredTranscriptions, {});
     }
-    return { deleted: expiredDeleted + legacyDeleted };
+    return { deleted: expiredDeleted };
+  },
+});
+
+// Legacy pre-`expiresAt` anonymous rows (no ownerId AND no expiresAt) used to
+// be swept by an unindexed full-table `.filter` on every cron tick. That scan
+// is gone: the two functions below let an operator check for and drain any
+// remaining legacy rows once (before or right after deploy); after the
+// backfill stamps `expiresAt`, the indexed `by_expires_at` sweep above owns
+// them like every other anonymous row. Both walk the `by_expires_at` index at
+// `expiresAt === undefined` — a bounded range, not a table scan — and skip the
+// owned keep-until-deleted rows that legitimately live there.
+
+export const countLegacyAnonymous = internalQuery({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => {
+    const bounded = Math.min(Math.max(Math.trunc(limit ?? cleanupBatchSize), 1), 1_000);
+    const rows = await ctx.db
+      .query("transcriptions")
+      .withIndex("by_expires_at", (q) => q.eq("expiresAt", undefined))
+      .take(bounded);
+    return {
+      legacyAnonymous: rows.filter((item) => item.ownerId === undefined).length,
+      scanned: rows.length,
+      // More unexpired-`expiresAt` rows exist past the bound; re-run with a
+      // larger limit (or just backfill) for the full picture.
+      truncated: rows.length === bounded,
+    };
+  },
+});
+
+export const backfillLegacyAnonymous = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db
+      .query("transcriptions")
+      .withIndex("by_expires_at", (q) => q.eq("expiresAt", undefined))
+      .paginate({ cursor: cursor ?? null, numItems: cleanupBatchSize });
+    let stamped = 0;
+    for (const item of page.page) {
+      if (item.ownerId !== undefined) continue;
+      // The anonymous retention policy these rows predate: one hour from
+      // creation. Rows already past it become immediately eligible for the
+      // indexed expiry sweep.
+      await ctx.db.patch(item._id, { expiresAt: item.createdAt + anonymousRetentionMs });
+      stamped += 1;
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.cleanup.backfillLegacyAnonymous, { cursor: page.continueCursor });
+    }
+    return { stamped, isDone: page.isDone };
   },
 });

@@ -11,6 +11,7 @@
 import type * as cleanup from "../cleanup.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
+import type * as ownerStats from "../ownerStats.js";
 import type * as retention from "../retention.js";
 import type * as serviceAuth from "../serviceAuth.js";
 import type * as transcriptions from "../transcriptions.js";
@@ -25,6 +26,7 @@ declare const fullApi: ApiFromModules<{
   cleanup: typeof cleanup;
   crons: typeof crons;
   http: typeof http;
+  ownerStats: typeof ownerStats;
   retention: typeof retention;
   serviceAuth: typeof serviceAuth;
   transcriptions: typeof transcriptions;

@@ -281,19 +281,27 @@ export default {
     // before its reservation can be swept, and a stalled or trickled upload is
     // aborted here rather than pinning the worker for minutes.
     const deadline = AbortSignal.any([request.signal, AbortSignal.timeout(INFERENCE_TIMEOUT_MS)]);
-    const audioBytes = await bufferAudio(request, mediaType, declaredBytes, deadline);
-    if (!audioBytes) {
-      return json({ error: "The uploaded audio format is invalid" }, { status: 415 });
-    }
 
     // Admission prices the declared bytes at the worst-case (lowest) bitrate;
-    // the stream above enforces that actual bytes never exceed what was priced.
+    // the buffering stream enforces that actual bytes never exceed what was
+    // priced. Both inputs to the reservation — declared byte count and client
+    // key — are known before the body arrives, so buffering and the ledger
+    // round trip run concurrently. Inference still starts only after
+    // admission.ok, and an admitted reservation whose upload then fails
+    // validation is released immediately.
     const estimatedSeconds = worstCaseAudioSeconds(declaredBytes);
-    const admission = await reserveSpend(env, {
-      estimateMicros: estimateTranscriptionMicros(declaredBytes),
-      secondsEstimate: estimatedSeconds,
-      clientKey: requestClientKey(request),
-    });
+    const [audioBytes, admission] = await Promise.all([
+      bufferAudio(request, mediaType, declaredBytes, deadline),
+      reserveSpend(env, {
+        estimateMicros: estimateTranscriptionMicros(declaredBytes),
+        secondsEstimate: estimatedSeconds,
+        clientKey: requestClientKey(request),
+      }),
+    ]);
+    if (!audioBytes) {
+      if (admission.ok) executionContext.waitUntil(releaseSpend(env, admission.id));
+      return json({ error: "The uploaded audio format is invalid" }, { status: 415 });
+    }
     if (!admission.ok) return admissionDenial(admission);
 
     // English-first routing: nova-3 transcribes with language detection and

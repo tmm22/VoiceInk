@@ -18,7 +18,9 @@ test("API responses are centrally private while HTML retains per-request CSP non
 
 test("tracked static header policy caches only content-hashed assets immutably", async () => {
   const headers = await readFile(new URL("../public/_headers", import.meta.url), "utf8");
-  assert.match(headers, /\/assets\/\*[\s\S]*public, max-age=31536000, immutable/);
+  // vinext 0.2.x emits hashed assets under /_next/static/ (chunks and css).
+  assert.match(headers, /\/_next\/static\/\*[\s\S]*public, max-age=31536000, immutable/);
+  assert.doesNotMatch(headers, /\/assets\/\*/);
   assert.match(headers, /\/og\.png[\s\S]*public, max-age=3600, must-revalidate/);
   assert.doesNotMatch(headers, /\/og\.png[\s\S]*immutable/);
 });

@@ -6,19 +6,85 @@ const root = new URL("../", import.meta.url);
 const source = (path) => readFile(new URL(path, root), "utf8");
 
 test("ships the VoiceInk production interface instead of the starter preview", async () => {
-  const [page, layout, providers] = await Promise.all([
+  const [page, layout, clerkSubtree] = await Promise.all([
     source("app/page.tsx"),
     source("app/layout.tsx"),
-    source("app/providers.tsx"),
+    source("app/clerk-subtree.tsx"),
   ]);
   assert.match(page, /Ready to record/);
   assert.match(page, /History/);
   assert.match(page, /Summarize/);
   assert.match(layout, /VoiceInk Web/);
-  assert.match(providers, /signInForceRedirectUrl=\{siteUrl\}/);
-  assert.match(providers, /signUpForceRedirectUrl=\{siteUrl\}/);
+  assert.match(clerkSubtree, /signInForceRedirectUrl=\{siteUrl\}/);
+  assert.match(clerkSubtree, /signUpForceRedirectUrl=\{siteUrl\}/);
   assert.doesNotMatch(`${page}\n${layout}`, /codex-preview|SkeletonPreview|Your site is taking shape/);
   await assert.rejects(access(new URL("app/_sites-preview", root)));
+});
+
+test("anonymous visitors never load the Clerk SDK and signed-in flows keep the verified bridge", async () => {
+  const [providers, clerkSubtree] = await Promise.all([
+    source("app/providers.tsx"),
+    source("app/clerk-subtree.tsx"),
+  ]);
+  // The eagerly hydrated module must not import Clerk statically; the whole
+  // Clerk subtree loads through one lazy chunk behind the session-hint gate.
+  assert.doesNotMatch(providers, /from "@clerk\//);
+  assert.match(providers, /lazy\(/);
+  assert.match(providers, /import\("\.\/clerk-subtree"\)/);
+  // The gate: mount on a non-zero __client_uat session hint, checked in an
+  // effect so SSR and the first client render stay anonymous, or on an
+  // explicit Sign in click.
+  assert.match(providers, /__client_uat/);
+  assert.match(providers, /value !== "" && value !== "0"/);
+  assert.match(providers, /useEffect/);
+  assert.match(providers, /requestSignIn/);
+  // Anonymous consumers keep the fail-closed anonymous identity by default.
+  assert.match(providers, /identityKey: "anonymous"/);
+  assert.match(providers, /getConvexToken: async \(\) => null/);
+  // The moved bridge preserves the verified-identity contract for signed-in
+  // users, including the aud === "convex" template selection.
+  assert.match(clerkSubtree, /sessionClaims\?\.aud === "convex"/);
+  assert.match(clerkSubtree, /getToken\(\{ template: "convex" \}\)/);
+  assert.match(clerkSubtree, /identityKey: sessionId \?\? "anonymous"/);
+  // The Clerk-backed controls (which call useAuth) live only in the lazy
+  // subtree module, never in the always-hydrated providers module.
+  assert.doesNotMatch(providers, /useAuth\(\)/);
+  assert.match(clerkSubtree, /export function ClerkAccountControls/);
+  // Opening the gate must never remount the app: {children} keeps one fixed
+  // tree position while the Clerk machinery mounts as a childless sibling
+  // that lifts the verified identity up via state and portals the account
+  // controls into their header host.
+  assert.match(providers, /AccountAuthContext\.Provider value=\{accountAuth\}>\{children\}<\/AccountAuthContext\.Provider>/);
+  assert.match(providers, /onAuthChange=\{setAccountAuth\}/);
+  assert.doesNotMatch(providers, /<ClerkSubtree[^>]*>\s*\{children\}/);
+  assert.match(clerkSubtree, /createPortal\(<ClerkAccountControls \/>, controlsHost\)/);
+  // The error boundary wraps only the Clerk sibling (an app crash must still
+  // reach Next.js error handling) and the fallback to anonymous auth is
+  // logged, never silent.
+  assert.match(providers, /console\.error\("Clerk subtree failed/);
+  assert.match(providers, /setAccountAuth\(anonymousAuth\)/);
+});
+
+test("immutable cache rule covers the path vinext actually emits assets under", async () => {
+  const headers = await source("public/_headers");
+  // vinext 0.2.x writes hashed chunks/css to dist/client/_next/static/; a rule
+  // scoped to a stale path would silently deploy every chunk uncached.
+  assert.match(headers, /^\/_next\/static\/\*\n\s+Cache-Control: public, max-age=31536000, immutable/m);
+  const { readdir } = await import("node:fs/promises");
+  const chunkDir = new URL("dist/client/_next/static/chunks/", root);
+  const chunks = await readdir(chunkDir).catch(() => []);
+  assert.ok(chunks.some((f) => f.endsWith(".js")), "expected built chunks under dist/client/_next/static/chunks");
+});
+
+test("pins clerk-js to the exact version the installed Clerk SDK resolves", async () => {
+  const clerkSubtree = await source("app/clerk-subtree.tsx");
+  assert.match(clerkSubtree, /__internal_clerkJSVersion: CLERK_JS_VERSION/);
+  assert.match(clerkSubtree, /\{\.\.\.clerkScriptPin\}/);
+  const pin = clerkSubtree.match(/CLERK_JS_VERSION = "([0-9.]+)"/)?.[1];
+  assert.ok(pin, "the clerk-js pin must be an exact x.y.z version");
+  const selector = await source("node_modules/@clerk/shared/dist/versionSelector.mjs");
+  const resolved = selector.match(/packageVersion = "([0-9.]+)"/)?.[1];
+  assert.equal(pin, resolved, "the clerk-js pin must match the version the installed @clerk packages resolve to");
 });
 
 test("keeps costly production routes behind edge controls", async () => {
@@ -80,11 +146,12 @@ test("enforces origin and declared body-size boundaries behaviorally", async () 
 });
 
 test("brokers Convex access and enforces quotas and race-safe retention", async () => {
-  const [transcriptions, retention, cleanup, client] = await Promise.all([
+  const [transcriptions, retention, cleanup, client, ownerStats] = await Promise.all([
     source("convex/transcriptions.ts"),
     source("convex/retention.ts"),
     source("convex/cleanup.ts"),
     source("lib/convex.ts"),
+    source("convex/ownerStats.ts"),
   ]);
   assert.match(transcriptions, /requireServiceSecret\(args\.serviceSecret\)/);
   // English-path saves use model "nova-3"; regressing to a whisper-only check
@@ -93,9 +160,18 @@ test("brokers Convex access and enforces quotas and race-safe retention", async 
   assert.match(transcriptions, /args\.detectedLanguage\.length > 35 \|\| !\/\^\[a-z\]\{2,3\}\(-\[a-z0-9\]\{2,8\}\)\*\$\/i\.test\(args\.detectedLanguage\)/);
   assert.match(transcriptions, /detectedLanguage: args\.detectedLanguage\.toLowerCase\(\)/);
   assert.match(transcriptions, /item\.detectedLanguage \? \{ detectedLanguage: item\.detectedLanguage \}/);
-  assert.match(transcriptions, /Daily transcription limit reached/);
+  // Quotas now read the per-owner aggregate but keep the same limits and
+  // messages: 50 items, 10,000,000 stored characters, 10 writes per minute.
+  // (The former "100 per day" check was unreachable — it needed a count of 100
+  // from a read bounded at 51 rows — and is deliberately absent.)
+  assert.match(transcriptions, /Account history limit reached/);
   assert.match(transcriptions, /Account storage limit reached/);
-  assert.match(transcriptions, /history\.length >= 50/);
+  assert.match(transcriptions, /Transcription write limit reached/);
+  assert.match(transcriptions, /stats\.itemCount >= ownerItemLimit/);
+  assert.match(transcriptions, /stats\.storedChars \+ text\.length > ownerStoredCharsLimit/);
+  assert.match(transcriptions, /recent\.length >= 10 && recent\[9\]\.createdAt > createdAt - 60_000/);
+  assert.match(ownerStats, /export const ownerItemLimit = 50;/);
+  assert.match(ownerStats, /export const ownerStoredCharsLimit = 10_000_000;/);
   assert.match(transcriptions, /by_owner_operation/);
   assert.match(transcriptions, /by_client_operation/);
   assert.match(transcriptions, /Operation identifier was already used for different content/);

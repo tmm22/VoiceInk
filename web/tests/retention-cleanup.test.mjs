@@ -25,12 +25,39 @@ test("retention extensions hold expiry cleanup until the current migration finis
 test("cleanup continuation requires a fully deleted batch, not a fully read batch", async () => {
   const cleanup = await source("convex/cleanup.ts");
 
-  assert.match(cleanup, /expiredDeleted === cleanupBatchSize \|\| legacyDeleted === cleanupBatchSize/);
+  assert.match(cleanup, /else if \(expiredDeleted === cleanupBatchSize\)/);
   assert.doesNotMatch(cleanup, /expired\.length === 100/);
-  assert.doesNotMatch(cleanup, /legacyAnonymous\.length === 100/);
-  assert.match(cleanup, /if \(item\.createdAt \+ anonymousRetentionMs > now\) break/);
+  assert.doesNotMatch(cleanup, /expiredPage\.page\.length === cleanupBatchSize/);
   assert.match(cleanup, /!expiredPage\.isDone && scansLeft > 1/);
   assert.match(cleanup, /cursor: expiredPage\.continueCursor/);
+});
+
+test("the cron never table-scans for legacy rows; a bounded backfill drains them onto the indexed sweep", async () => {
+  const cleanup = await source("convex/cleanup.ts");
+
+  // The per-tick unindexed `.filter` over ownerId/expiresAt-undefined is gone:
+  // every database query in cleanup walks an index.
+  assert.doesNotMatch(cleanup, /\.filter\(\(q\)/);
+  assert.doesNotMatch(cleanup, /q\.field\(/);
+  const sweep = cleanup.slice(cleanup.indexOf("export const deleteExpiredTranscriptions"), cleanup.indexOf("export const countLegacyAnonymous"));
+  assert.doesNotMatch(sweep, /expiresAt", undefined/);
+  assert.match(sweep, /withIndex\("by_expires_at", \(q\) => q\.gt\("expiresAt", 0\)\.lte\("expiresAt", now\)\)/);
+
+  // The one-off operator tools are bounded and use the by_expires_at index at
+  // expiresAt === undefined instead of scanning the table.
+  assert.match(cleanup, /export const countLegacyAnonymous = internalQuery/);
+  assert.match(cleanup, /export const backfillLegacyAnonymous = internalMutation/);
+  const count = cleanup.slice(cleanup.indexOf("export const countLegacyAnonymous"), cleanup.indexOf("export const backfillLegacyAnonymous"));
+  assert.match(count, /withIndex\("by_expires_at", \(q\) => q\.eq\("expiresAt", undefined\)\)/);
+  assert.match(count, /\.take\(bounded\)/);
+  const backfill = cleanup.slice(cleanup.indexOf("export const backfillLegacyAnonymous"));
+  assert.match(backfill, /withIndex\("by_expires_at", \(q\) => q\.eq\("expiresAt", undefined\)\)/);
+  assert.match(backfill, /paginate\(\{ cursor: cursor \?\? null, numItems: cleanupBatchSize \}\)/);
+  // Owned keep-until-deleted rows share the expiresAt-undefined range and must
+  // never be stamped; legacy anonymous rows get the one-hour policy they predate.
+  assert.match(backfill, /if \(item\.ownerId !== undefined\) continue;/);
+  assert.match(backfill, /expiresAt: item\.createdAt \+ anonymousRetentionMs/);
+  assert.match(backfill, /internal\.cleanup\.backfillLegacyAnonymous, \{ cursor: page\.continueCursor \}/);
 });
 
 test("held rows cannot head-of-line block cleanup and stale migrations restart", async () => {

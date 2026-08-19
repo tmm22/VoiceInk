@@ -201,6 +201,17 @@ Key rotation is not a re-run of this script — it only seals still-plaintext ro
 
 For local development put a throwaway key in `.dev.vars` (`HISTORY_ENCRYPTION_KEY=$(openssl rand -base64 32)`).
 
+## 4b-2. Drain legacy anonymous rows (one-off, around the cleanup-cron change)
+
+The expiry cron no longer scans for legacy anonymous rows written before `expiresAt` existed (rows with neither `ownerId` nor `expiresAt`); it only walks the `by_expires_at` index. Before or right after deploying that Convex change, check for and drain any remaining legacy rows once — the backfill stamps their original one-hour policy so the indexed sweep deletes them, and it skips signed-in keep-until-deleted rows:
+
+```bash
+npx convex run cleanup:countLegacyAnonymous --prod        # expect { legacyAnonymous: 0, ... }
+npx convex run cleanup:backfillLegacyAnonymous --prod     # only needed when the count is non-zero; pages itself to completion
+```
+
+Both are bounded, internal-only functions; re-running them is safe and a no-op once the count is zero.
+
 ## 4c. Configure the Clerk account-deletion webhook
 
 Deleting a Clerk account must also delete that account's Convex history. Convex serves an HTTP action at `https://<your-convex-deployment>.convex.site/clerk-users-webhook` that verifies the Svix signature and purges every row owned by the deleted identity, including its retention setting. In the Clerk dashboard add a webhook endpoint with that URL subscribed to the `user.deleted` event, then store its signing secret (starts with `whsec_`) in the Convex production environment as `CLERK_WEBHOOK_SECRET`. The endpoint responds 503 until the secret is configured.

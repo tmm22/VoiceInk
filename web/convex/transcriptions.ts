@@ -2,6 +2,7 @@ import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
+import { adjustOwnerStats, ensureOwnerStats, historyItemChars, ownerItemLimit, ownerStoredCharsLimit } from "./ownerStats";
 import { requireServiceSecret } from "./serviceAuth";
 
 const dayMs = 24 * 60 * 60 * 1000;
@@ -44,36 +45,60 @@ function publicHistoryItem(item: {
   };
 }
 
+// The envelope ownership context for a verified identity: the
+// tokenIdentifier's final segment, matching the read path and the migration.
+function verifiedOwnerContext(identity: { tokenIdentifier: string }): string {
+  return `o:${identity.tokenIdentifier.split("|").pop()}`;
+}
+
 // The single source of truth for the envelope ownership context. Convex
-// verifies the caller's token here exactly as save/list/saveSummary do, so the
-// worker seals and opens with the SAME owner-vs-anonymous decision Convex uses
-// to place and return rows — a present-but-invalid token can never make the
-// seal context (worker) diverge from the storage/read context (Convex). The
-// subject is the tokenIdentifier's final segment, matching the read path and
-// the migration.
+// verifies the caller's token here exactly as save/historyPage/saveSummary do,
+// so the worker seals and opens with the SAME owner-vs-anonymous decision
+// Convex uses to place and return rows — a present-but-invalid token can never
+// make the seal context (worker) diverge from the storage/read context
+// (Convex). Used by the write paths; the read path gets the same context from
+// historyPage's single round trip.
 export const viewerContext = query({
   args: { serviceSecret: v.optional(v.string()) },
   handler: async (ctx, { serviceSecret }) => {
     requireServiceSecret(serviceSecret);
     const identity = await ctx.auth.getUserIdentity();
-    return { ownerContext: identity ? `o:${identity.tokenIdentifier.split("|").pop()}` : null };
+    return { ownerContext: identity ? verifiedOwnerContext(identity) : null };
   },
 });
 
-export const list = query({
+// The one query behind history GET: page, retention setting, and the verified
+// ownership context in a single getUserIdentity() round trip. ownerContext is
+// derived from the SAME verified identity that selects which rows are
+// returned, so the worker's open context can never diverge from the storage
+// context — a present-but-invalid token yields a null identity, no owned rows,
+// and a null ownerContext together.
+export const historyPage = query({
   args: { clientId: v.string(), paginationOpts: paginationOptsValidator, serviceSecret: v.optional(v.string()) },
   handler: async (ctx, { clientId, paginationOpts, serviceSecret }) => {
     requireServiceSecret(serviceSecret);
     if (!clientIdPattern.test(clientId)) throw new Error("Invalid client identifier.");
     const identity = await ctx.auth.getUserIdentity();
     if (identity) {
-      const result = await ctx.db
-        .query("transcriptions")
-        .withIndex("by_owner_created", (q) => q.eq("ownerId", identity.tokenIdentifier))
-        .order("desc")
-        .paginate({ ...paginationOpts, numItems: Math.min(paginationOpts.numItems, 25) });
+      const [result, setting] = await Promise.all([
+        ctx.db
+          .query("transcriptions")
+          .withIndex("by_owner_created", (q) => q.eq("ownerId", identity.tokenIdentifier))
+          .order("desc")
+          .paginate({ ...paginationOpts, numItems: Math.min(paginationOpts.numItems, 25) }),
+        ctx.db
+          .query("retentionSettings")
+          .withIndex("by_owner", (q) => q.eq("ownerId", identity.tokenIdentifier))
+          .unique(),
+      ]);
       const now = Date.now();
-      return { ...result, page: result.page.filter((item) => item.expiresAt === undefined || item.expiresAt > now).map(publicHistoryItem) };
+      return {
+        page: result.page.filter((item) => item.expiresAt === undefined || item.expiresAt > now).map(publicHistoryItem),
+        isDone: result.isDone,
+        continueCursor: result.continueCursor,
+        retentionDays: setting?.days ?? defaultRetentionDays,
+        ownerContext: verifiedOwnerContext(identity),
+      };
     }
 
     const now = Date.now();
@@ -86,6 +111,8 @@ export const list = query({
       page: items.filter((item) => (item.expiresAt ?? item.createdAt + 60 * 60 * 1000) > now).map(publicHistoryItem),
       isDone: true,
       continueCursor: "",
+      retentionDays: null,
+      ownerContext: null,
     };
   },
 });
@@ -140,11 +167,20 @@ export const save = mutation({
     const transcription = { model: args.model, text: args.text, durationSeconds: args.durationSeconds, operationId: args.operationId, ...(args.textHash ? { textHash: args.textHash } : {}), ...(args.detectedLanguage ? { detectedLanguage: args.detectedLanguage.toLowerCase() } : {}), ...(args.segments?.length ? { segments: args.segments } : {}) };
     let accountRetentionDays = defaultRetentionDays;
     if (identity) {
-      const history = await ctx.db.query("transcriptions").withIndex("by_owner_created", (q) => q.eq("ownerId", identity.tokenIdentifier)).order("desc").take(51);
-      if (history.length >= 50) throw new Error("Account history limit reached. Delete older items or shorten retention.");
-      if (history.filter((item) => item.createdAt > createdAt - 60_000).length >= 10) throw new Error("Transcription write limit reached. Please wait.");
-      if (history.filter((item) => item.createdAt > createdAt - dayMs).length >= 100) throw new Error("Daily transcription limit reached.");
-      if (history.reduce((total, item) => total + item.text.length + (item.summary?.length ?? 0), 0) + text.length > 10_000_000) throw new Error("Account storage limit reached.");
+      // Quota math reads the tiny per-owner aggregate instead of paging full
+      // ciphertext documents; the aggregate is maintained transactionally by
+      // every mutation that inserts, deletes, or resizes an owned row.
+      const stats = await ensureOwnerStats(ctx, identity.tokenIdentifier);
+      if (stats.itemCount >= ownerItemLimit) throw new Error("Account history limit reached. Delete older items or shorten retention.");
+      if (stats.storedChars + text.length > ownerStoredCharsLimit) throw new Error("Account storage limit reached.");
+      // Burst limit: ten writes per minute. Newest-first, so ten-or-more items
+      // inside the window is exactly "the tenth-newest item is inside it" —
+      // the same decision the previous 51-row filter made, from ten rows.
+      // (The former "100 per day" check was unreachable: it filtered a read
+      // bounded at 51 rows for a count of 100, and the 50-item cap above keeps
+      // any equivalent count unreachable, so it is deliberately removed.)
+      const recent = await ctx.db.query("transcriptions").withIndex("by_owner_created", (q) => q.eq("ownerId", identity.tokenIdentifier)).order("desc").take(10);
+      if (recent.length >= 10 && recent[9].createdAt > createdAt - 60_000) throw new Error("Transcription write limit reached. Please wait.");
       const setting = await ctx.db
         .query("retentionSettings")
         .withIndex("by_owner", (q) => q.eq("ownerId", identity.tokenIdentifier))
@@ -159,7 +195,7 @@ export const save = mutation({
       const recent = await ctx.db.query("transcriptions").withIndex("by_client_created", (q) => q.eq("clientId", clientId)).order("desc").take(31);
       if (recent.filter((item) => (item.expiresAt ?? 0) > createdAt).length >= 30) throw new Error("Anonymous history limit reached. Sign in or wait for older items to expire.");
     }
-    return ctx.db.insert("transcriptions", {
+    const id = await ctx.db.insert("transcriptions", {
       ...transcription,
       text,
       ...(identity
@@ -171,6 +207,10 @@ export const save = mutation({
       status: "complete",
       createdAt,
     });
+    // The aggregate was ensured above (before this insert), so the new row is
+    // never double counted by the lazy initialization read.
+    if (identity) await adjustOwnerStats(ctx, identity.tokenIdentifier, 1, text.length);
+    return id;
   },
 });
 
@@ -188,6 +228,7 @@ export const remove = mutation({
     const ownsAnonymousItem = item.clientId === clientId && !item.ownerId;
     if (!ownsAccountItem && !ownsAnonymousItem) throw new Error("Not authorized to delete this transcription.");
     await ctx.db.delete(id);
+    if (item.ownerId) await adjustOwnerStats(ctx, item.ownerId, -1, -historyItemChars(item));
   },
 });
 
@@ -204,7 +245,12 @@ export const clearAll = mutation({
     if (identity) {
       const ownerId = identity.tokenIdentifier;
       const owned = await ctx.db.query("transcriptions").withIndex("by_owner_created", (q) => q.eq("ownerId", ownerId)).take(clearAllBatchSize);
-      for (const item of owned) await ctx.db.delete(item._id);
+      let ownedChars = 0;
+      for (const item of owned) {
+        await ctx.db.delete(item._id);
+        ownedChars += historyItemChars(item);
+      }
+      await adjustOwnerStats(ctx, ownerId, -owned.length, -ownedChars);
       if (owned.length === clearAllBatchSize) await ctx.scheduler.runAfter(0, internal.cleanup.purgeHistoryPage, { ownerId });
     }
     // Always purge this browser's anonymous rows too, so pre-sign-in items go
@@ -242,6 +288,9 @@ export const saveSummary = mutation({
     const ownsAnonymousItem = !identity && item.clientId === clientId && !item.ownerId;
     if (!ownsAccountItem && !ownsAnonymousItem) throw new Error("Not authorized to update this transcription.");
     await ctx.db.patch(id, { summary: normalizedSummary });
+    if (item.ownerId) {
+      await adjustOwnerStats(ctx, item.ownerId, 0, normalizedSummary.length - (item.summary?.length ?? 0));
+    }
   },
 });
 
@@ -304,6 +353,16 @@ export const applyCipher = mutation({
         patch.summary = args.summary;
       }
     }
-    if (Object.keys(patch).length) await ctx.db.patch(args.id, patch);
+    if (Object.keys(patch).length) {
+      await ctx.db.patch(args.id, patch);
+      // Keep the per-owner storage aggregate consistent if a migration ever
+      // runs after an owner's stats row exists (ciphertext is longer than the
+      // plaintext it replaces).
+      if (item.ownerId) {
+        const textDelta = patch.text !== undefined ? patch.text.length - item.text.length : 0;
+        const summaryDelta = patch.summary !== undefined ? patch.summary.length - (item.summary?.length ?? 0) : 0;
+        await adjustOwnerStats(ctx, item.ownerId, 0, textDelta + summaryDelta);
+      }
+    }
   },
 });

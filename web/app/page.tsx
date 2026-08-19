@@ -21,6 +21,7 @@ import {
   uploadSizeError,
 } from "../lib/recording";
 import { requestTranscription, transcriptionFailureMessage } from "../lib/transcriptionRequest";
+import { warmTranscriptionChallenge } from "../lib/turnstileClient";
 import { AIEnhancementPanel } from "./ai-enhancement";
 import { AccountControls, useAccountAuth } from "./providers";
 import { HistoryView } from "./history-view";
@@ -164,6 +165,7 @@ export default function Home() {
   async function startRecording() {
     if (recordingStartPending.current || recorder.current) return;
     recordingStartPending.current = true;
+    warmTranscriptionChallenge(); // preload the Turnstile script/widget; single-use tokens are still acquired at stop time
     const generation = ++operationGeneration.current;
     let stream: MediaStream | undefined;
     try {

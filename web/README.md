@@ -100,7 +100,7 @@ The production smoke suite is non-mutating and does not invoke paid AI. A real a
 
 ## Production limits
 
-- Signed-in accounts are limited to 10 history writes per minute, 100 per day, 50 retained records, and 10 million stored transcript/summary characters
+- Signed-in accounts are limited to 10 history writes per minute, 50 retained records, and 10 million stored transcript/summary characters (enforced from a per-owner aggregate that every history mutation maintains transactionally)
 - Anonymous browsers can retain at most 30 active one-hour history records
 - Signed-in recordings are capped at 30 minutes and uploads at 2 hours of audio; anonymous visitors get 10 minutes for either, enforced in the browser before upload
 - A durable spend ledger in the ASR Worker caps all Workers AI inference at $10.00 per UTC day globally and 2 hours of transcribed audio per client per day; the per-client key is a day-rotating HMAC pseudonym (raw IP addresses are never stored, and pseudonymous quota rows are purged after two days), and when the ledger cannot be reached, inference is denied

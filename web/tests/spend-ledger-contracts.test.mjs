@@ -91,7 +91,7 @@ test("ledger days key by UTC date", () => {
 
 test("the ASR worker admits inference only through the spend ledger", async () => {
   const source = await readFile(new URL("cloudflare-asr/src/index.ts", root), "utf8");
-  const reservations = source.match(/await reserveSpend\(/g) ?? [];
+  const reservations = source.match(/\breserveSpend\(env, \{/g) ?? [];
   const inferenceCalls = source.match(/env\.AI\.run\(/g) ?? [];
   // Enhancement, summary, and transcription each reserve once; the transcription
   // reservation prices BOTH models (nova-3 + whisper fallback) up front, so the
@@ -119,7 +119,31 @@ test("routing and fallback billing settle every model that actually ran", async 
   assert.match(index, /boundedDurationSeconds\(result\.transcription_info\?\.duration\)/);
   // Buffering runs under the same deadline as inference, so a trickled upload
   // cannot pin the worker, and a mid-transfer disconnect resolves to null.
-  assert.match(index, /await bufferAudio\(request, mediaType, declaredBytes, deadline\)/);
+  assert.match(index, /bufferAudio\(request, mediaType, declaredBytes, deadline\)/);
+});
+
+test("buffering and admission run concurrently and a failed buffer releases the reservation", async () => {
+  const index = await readFile(new URL("cloudflare-asr/src/index.ts", root), "utf8");
+  // The reservation needs only declared bytes and the client key, both known
+  // up front, so it does not wait for the body — and vice versa.
+  assert.match(
+    index,
+    /const \[audioBytes, admission\] = await Promise\.all\(\[\s*bufferAudio\(request, mediaType, declaredBytes, deadline\),\s*reserveSpend\(env, \{\s*estimateMicros: estimateTranscriptionMicros\(declaredBytes\),/,
+    "bufferAudio and reserveSpend must run under one Promise.all",
+  );
+  // An admitted reservation whose upload then fails validation (415) must be
+  // released in the background instead of squatting on daily headroom.
+  assert.match(
+    index,
+    /if \(!audioBytes\) \{\s*if \(admission\.ok\) executionContext\.waitUntil\(releaseSpend\(env, admission\.id\)\);\s*return json\(\{ error: "The uploaded audio format is invalid" \}, \{ status: 415 \}\);/,
+    "buffer failure with a successful admission must release the reservation via waitUntil",
+  );
+  // Paid inference still runs only behind an admitted reservation: the
+  // admission gate sits before any transcription AI.run call.
+  const admissionGate = index.indexOf("if (!admission.ok) return admissionDenial(admission);", index.indexOf("Promise.all"));
+  const firstTranscriptionRun = index.indexOf("env.AI.run(ENGLISH_TRANSCRIPTION_MODEL_ID");
+  assert.ok(admissionGate !== -1 && firstTranscriptionRun !== -1 && admissionGate < firstTranscriptionRun,
+    "inference must remain gated on admission.ok");
 });
 
 test("admission clamps a single request's seconds to the daily client quota", async () => {
