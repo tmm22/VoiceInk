@@ -14,7 +14,6 @@ final class ModelPrewarmService: ObservableObject {
         modelsDirectory: whisperModelManager.modelsDirectory,
         modelContext: modelContext
     )
-    private let prewarmAudioURL = Bundle.main.url(forResource: "sound7", withExtension: "wav")
     private let prewarmEnabledKey = "PrewarmModelOnWake"
     private var lifecycleCancellable: AnyCancellable?
 
@@ -56,13 +55,14 @@ final class ModelPrewarmService: ObservableObject {
 
     // MARK: - Core Prewarming Logic
 
+    /// Loads the selected local model into memory without running any inference.
+    ///
+    /// For Whisper this creates the whisper.cpp context, which already reads the weights,
+    /// initialises the Metal backend, compiles kernels and allocates the compute graphs; a
+    /// throwaway transcription would add nothing but CPU/GPU time and a spurious log entry.
+    /// FluidAudio likewise loads its CoreML models at manager-load time.
     private func performPrewarm() async {
         guard shouldPrewarm() else { return }
-
-        guard let audioURL = prewarmAudioURL else {
-            logger.error("❌ Prewarm audio file (sound7.wav) not found")
-            return
-        }
 
         guard
             let transcriptionConfiguration = ModeRuntimeResolver.transcriptionConfiguration(
@@ -78,11 +78,7 @@ final class ModelPrewarmService: ObservableObject {
         let startTime = Date()
 
         do {
-            let _ = try await serviceRegistry.transcribe(
-                audioURL: audioURL,
-                model: currentModel,
-                context: transcriptionConfiguration.requestContext
-            )
+            try await serviceRegistry.prewarm(model: currentModel)
             let duration = Date().timeIntervalSince(startTime)
 
             logger.notice("Prewarm completed in \(String(format: "%.2f", duration), privacy: .public)s")

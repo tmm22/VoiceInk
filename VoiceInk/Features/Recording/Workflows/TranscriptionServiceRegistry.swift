@@ -69,6 +69,20 @@ class TranscriptionServiceRegistry {
         return try await service.transcribe(audioURL: audioURL, model: model, context: context.scoped(to: model))
     }
 
+    /// Loads the runtime for `model` without transcribing anything, so the first real request
+    /// skips model load. Providers whose services load lazily per request (cloud, Apple, ONNX,
+    /// TranscribeCpp) are intentionally left alone.
+    func prewarm(model: any TranscriptionModel) async throws {
+        switch model.provider {
+        case .whisper:
+            try await localTranscriptionService.prepareModel(model)
+        case .fluidAudio:
+            try await fluidAudioTranscriptionService.prepareModels(for: model)
+        default:
+            logger.debug("No prewarm path for provider \(model.provider.rawValue, privacy: .public)")
+        }
+    }
+
     /// Creates a streaming or file-based session for the resolved transcription configuration.
     func createSession(
         for configuration: TranscriptionRuntimeConfiguration, onPartialTranscript: ((String) -> Void)? = nil

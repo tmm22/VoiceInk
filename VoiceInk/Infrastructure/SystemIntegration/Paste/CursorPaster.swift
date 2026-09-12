@@ -17,9 +17,15 @@ class CursorPaster {
         }
     }
 
-    private static let prePasteDelay: TimeInterval = 0.10
-    private static let pasteShortcutEventDelay: TimeInterval = 0.01
+    /// Hold V for one event-loop turn; several apps drop a key whose down/up arrive back-to-back.
+    private static let pasteKeyHoldDelay: TimeInterval = 0.01
+    /// Never restore the clipboard before the target app has had a chance to read it.
     private static let minimumClipboardRestoreDelay: TimeInterval = 0.25
+    private static let prePasteWaitPolicy = PrePasteWaitPolicy.default
+
+    private static let watchedModifierFlags: CGEventFlags = [
+        .maskCommand, .maskAlternate, .maskControl, .maskShift, .maskSecondaryFn, .maskHelp,
+    ]
 
     static func pasteAtCursor(_ text: String) {
         Task {
@@ -46,7 +52,13 @@ class CursorPaster {
     @MainActor
     private static func performPasteSession(_ text: String) async -> PasteResult {
         let pasteboard = NSPasteboard.general
-        let shouldRestoreClipboard = UserDefaults.standard.bool(forKey: "restoreClipboardAfterPaste")
+        let defaults = UserDefaults.standard
+        let shouldRestoreClipboard = defaults.bool(forKey: "restoreClipboardAfterPaste")
+        // Read the user's restore delay once, up front, so the restore path does no defaults I/O later.
+        let clipboardRestoreDelay =
+            shouldRestoreClipboard
+            ? max(defaults.double(forKey: "clipboardRestoreDelay"), minimumClipboardRestoreDelay)
+            : 0
         let savedContents = shouldRestoreClipboard ? snapshotClipboard(from: pasteboard) : []
         let sessionID = UUID().uuidString
 
@@ -60,8 +72,9 @@ class CursorPaster {
             logger.error("Failed to prepare clipboard for paste")
             return .commandNotPosted
         }
+        let clipboardWrittenAt = ContinuousClock.now
 
-        await wait(prePasteDelay)
+        await waitUntilReadyToPaste(since: clipboardWrittenAt)
 
         let pasteResult = await postPasteCommand()
         if shouldRestoreClipboard {
@@ -69,11 +82,35 @@ class CursorPaster {
                 savedContents,
                 expectedText: text,
                 sessionID: sessionID,
+                after: clipboardRestoreDelay,
                 on: pasteboard
             )
         }
 
         return pasteResult
+    }
+
+    /// Adaptive replacement for the old fixed pre-paste delay. See `PrePasteWaitPolicy`.
+    @MainActor
+    private static func waitUntilReadyToPaste(since clipboardWrittenAt: ContinuousClock.Instant) async {
+        let outcome = await prePasteWaitPolicy.run(
+            modifiersHeld: { anyModifierHeld() },
+            elapsed: { secondsSince(clipboardWrittenAt) },
+            sleep: { await wait($0) }
+        )
+        if !outcome.modifiersReleased {
+            logger.notice("Posting paste while a modifier key is still held; wait cap reached")
+        }
+    }
+
+    private static func anyModifierHeld() -> Bool {
+        !CGEventSource.flagsState(.combinedSessionState).intersection(watchedModifierFlags).isEmpty
+    }
+
+    private static func secondsSince(_ instant: ContinuousClock.Instant) -> TimeInterval {
+        let elapsed = ContinuousClock.now - instant
+        let (seconds, attoseconds) = elapsed.components
+        return TimeInterval(seconds) + TimeInterval(attoseconds) / 1e18
     }
 
     private static func snapshotClipboard(from pasteboard: NSPasteboard) -> ClipboardSnapshot {
@@ -100,13 +137,9 @@ class CursorPaster {
         _ savedContents: ClipboardSnapshot,
         expectedText: String,
         sessionID: String,
+        after delay: TimeInterval,
         on pasteboard: NSPasteboard
     ) {
-        let delay = max(
-            UserDefaults.standard.double(forKey: "clipboardRestoreDelay"),
-            minimumClipboardRestoreDelay
-        )
-
         Task { @MainActor in
             await wait(delay)
             guard pasteboardStillOwnedByPasteSession(pasteboard, expectedText: expectedText, sessionID: sessionID)
@@ -155,8 +188,36 @@ class CursorPaster {
     private static let pasteScriptKeyCode = makeScript(
         "tell application \"System Events\" to key code 9 using command down")
 
+    // The current input source is queried lazily and cached; the cache is dropped whenever the
+    // system reports an input source change so we never call TIS on every paste.
+    @MainActor private static var cachedLayoutSwitchesToQWERTYOnCommand: Bool?
+    @MainActor private static var inputSourceObserver: NSObjectProtocol?
+
     @MainActor
     private static var layoutSwitchesToQWERTYOnCommand: Bool {
+        installInputSourceObserverIfNeeded()
+        if let cached = cachedLayoutSwitchesToQWERTYOnCommand {
+            return cached
+        }
+        let value = computeLayoutSwitchesToQWERTYOnCommand()
+        cachedLayoutSwitchesToQWERTYOnCommand = value
+        return value
+    }
+
+    @MainActor
+    private static func installInputSourceObserverIfNeeded() {
+        guard inputSourceObserver == nil else { return }
+        let name = Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String)
+        inputSourceObserver = DistributedNotificationCenter.default().addObserver(
+            forName: name, object: nil, queue: .main
+        ) { _ in
+            MainActor.assumeIsolated {
+                cachedLayoutSwitchesToQWERTYOnCommand = nil
+            }
+        }
+    }
+
+    private static func computeLayoutSwitchesToQWERTYOnCommand() -> Bool {
         let source = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
         guard let nameRef = TISGetInputSourceProperty(source, kTISPropertyLocalizedName) else { return false }
         return (Unmanaged<CFString>.fromOpaque(nameRef).takeUnretainedValue() as String).hasSuffix("⌘")
@@ -202,12 +263,12 @@ class CursorPaster {
         vDown.flags = .maskCommand
         vUp.flags = .maskCommand
 
+        // Events posted from one source are delivered in order, so the only gap that matters is
+        // holding V for an event-loop turn between its down and up.
         cmdDown.post(tap: .cghidEventTap)
-        await wait(pasteShortcutEventDelay)
         vDown.post(tap: .cghidEventTap)
-        await wait(pasteShortcutEventDelay)
+        await wait(pasteKeyHoldDelay)
         vUp.post(tap: .cghidEventTap)
-        await wait(pasteShortcutEventDelay)
         cmdUp.post(tap: .cghidEventTap)
 
         return .commandPosted

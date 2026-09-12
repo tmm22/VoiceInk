@@ -8,16 +8,12 @@ final class VoiceInkRefineXPCService: NSObject, VoiceInkRefineXPCProtocol {
     private var isShuttingDown = false
 
     func prepare(
-        _ requestData: NSData,
+        modelDirectoryPath: String,
+        systemPrompt: String,
+        requestID: String,
         withReply reply: @escaping (NSError?) -> Void
     ) {
-        let request: VoiceInkRefinePrepareRequest
-        do {
-            request = try JSONDecoder().decode(
-                VoiceInkRefinePrepareRequest.self,
-                from: requestData as Data
-            )
-        } catch {
+        guard let taskID = UUID(uuidString: requestID), !modelDirectoryPath.isEmpty else {
             reply(
                 makeVoiceInkRefineXPCError(
                     .invalidRequest,
@@ -27,12 +23,12 @@ final class VoiceInkRefineXPCService: NSObject, VoiceInkRefineXPCProtocol {
             return
         }
 
-        let didStart = startTask(id: request.requestID, priority: .utility) {
+        let didStart = startTask(id: taskID, priority: .utility) {
             [engine] in
             do {
                 try await engine.prepare(
-                    modelDirectory: URL(fileURLWithPath: request.modelDirectoryPath),
-                    systemPrompt: request.systemPrompt
+                    modelDirectory: URL(fileURLWithPath: modelDirectoryPath),
+                    systemPrompt: systemPrompt
                 )
                 reply(nil)
             } catch {
@@ -56,16 +52,13 @@ final class VoiceInkRefineXPCService: NSObject, VoiceInkRefineXPCProtocol {
     }
 
     func enhance(
-        _ requestData: NSData,
-        withReply reply: @escaping (NSData?, NSError?) -> Void
+        transcript: String,
+        modelDirectoryPath: String,
+        systemPrompt: String,
+        requestID: String,
+        withReply reply: @escaping (String?, NSError?) -> Void
     ) {
-        let request: VoiceInkRefineEnhanceRequest
-        do {
-            request = try JSONDecoder().decode(
-                VoiceInkRefineEnhanceRequest.self,
-                from: requestData as Data
-            )
-        } catch {
+        guard let taskID = UUID(uuidString: requestID), !modelDirectoryPath.isEmpty else {
             reply(
                 nil,
                 makeVoiceInkRefineXPCError(
@@ -76,20 +69,15 @@ final class VoiceInkRefineXPCService: NSObject, VoiceInkRefineXPCProtocol {
             return
         }
 
-        let didStart = startTask(id: request.requestID, priority: .userInitiated) {
+        let didStart = startTask(id: taskID, priority: .userInitiated) {
             [engine] in
             do {
                 let output = try await engine.enhance(
-                    transcript: request.transcript,
-                    modelDirectory: URL(fileURLWithPath: request.modelDirectoryPath),
-                    systemPrompt: request.systemPrompt
+                    transcript: transcript,
+                    modelDirectory: URL(fileURLWithPath: modelDirectoryPath),
+                    systemPrompt: systemPrompt
                 )
-                let response = VoiceInkRefineEnhanceResponse(
-                    requestID: request.requestID,
-                    output: output
-                )
-                let responseData = try JSONEncoder().encode(response)
-                reply(responseData as NSData, nil)
+                reply(output, nil)
             } catch {
                 reply(
                     nil,

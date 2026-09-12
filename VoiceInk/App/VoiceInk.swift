@@ -46,13 +46,8 @@ struct VoiceInkApp: App {
         OnboardingV2Migration.prepareIfNeeded()
 
         let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "Initialization")
-        // Keep existing model order stable; append new models after synced entities.
-        let schema = Schema([
-            Transcription.self,
-            VocabularyWord.self,
-            WordReplacement.self,
-            SessionMetric.self,
-        ])
+        // Model list and order live in VoiceInkSchemaV1; future changes go through VoiceInkMigrationPlan.
+        let schema = Schema(versionedSchema: VoiceInkSchemaV1.self)
         let resolvedContainer: ModelContainer
 
         // Tests must never open a user's persistent or CloudKit-backed stores.
@@ -97,7 +92,7 @@ struct VoiceInkApp: App {
         }
 
         container = resolvedContainer
-        DictionaryService.removeExactDuplicateContent(context: resolvedContainer.mainContext, source: "launch")
+        Self.scheduleLaunchMaintenance(container: resolvedContainer)
 
         // Initialize services with proper sharing of instances
         let aiService = AIService()
@@ -182,7 +177,10 @@ struct VoiceInkApp: App {
         }
 
         if !AppRuntimeEnvironment.isRunningTests {
-            AppShortcuts.updateAppShortcutParameters()
+            // Donating App Shortcuts is IPC-bound and nothing reads it at startup; keep it off the first frame.
+            Task.detached(priority: .utility) {
+                AppShortcuts.updateAppShortcutParameters()
+            }
         }
 
         let statsMigrationTask = SessionMetricMigrationService.shared.runStatsMigrationIfNeeded(
@@ -195,6 +193,19 @@ struct VoiceInkApp: App {
             let tokenBackfillTask = SessionMetricMigrationService.shared.runEnhancementTokenBackfillIfNeeded(
                 modelContainer: resolvedContainer)
             await tokenBackfillTask?.value
+        }
+    }
+
+    // MARK: - Deferred Launch Work
+
+    /// Housekeeping that used to run synchronously in `init` before the first frame. It touches
+    /// only the dictionary store through its own background context, so the main context never
+    /// blocks on it. Skipped in tests along with the rest of the launch-only work.
+    private static func scheduleLaunchMaintenance(container: ModelContainer) {
+        guard !AppRuntimeEnvironment.isRunningTests else { return }
+        Task.detached(priority: .utility) {
+            let backgroundContext = ModelContext(container)
+            DictionaryService.removeExactDuplicateContent(context: backgroundContext, source: "launch")
         }
     }
 
@@ -265,7 +276,11 @@ struct VoiceInkApp: App {
         )
 
         do {
-            return try ModelContainer(for: schema, configurations: transcriptConfig, dictionaryConfig, statsConfig)
+            return try ModelContainer(
+                for: schema,
+                migrationPlan: VoiceInkMigrationPlan.self,
+                configurations: transcriptConfig, dictionaryConfig, statsConfig
+            )
         } catch {
             logger.error(
                 "❌ Failed to create persistent ModelContainer:\n\(Self.fullErrorDescription(error), privacy: .public)")
@@ -284,7 +299,11 @@ struct VoiceInkApp: App {
         let statsConfig = ModelConfiguration("stats", schema: statsSchema, isStoredInMemoryOnly: true)
 
         do {
-            return try ModelContainer(for: schema, configurations: transcriptConfig, dictionaryConfig, statsConfig)
+            return try ModelContainer(
+                for: schema,
+                migrationPlan: VoiceInkMigrationPlan.self,
+                configurations: transcriptConfig, dictionaryConfig, statsConfig
+            )
         } catch {
             logger.error(
                 "❌ Failed to create in-memory ModelContainer:\n\(Self.fullErrorDescription(error), privacy: .public)")
