@@ -22,10 +22,10 @@
     {
       "identity" : "fluidaudio",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/FluidInference/FluidAudio.git",
+      "location" : "https://github.com/FluidInference/FluidAudio",
       "state" : {
         "branch" : "main",
-        "revision" : "88d6d8166880dee1ac7c32c80f8e10cd782f8ca8"
+        "revision" : "ec07aabfa6990133fee483705432b4cbd4dbe7d5"
       }
     },
     {
@@ -42,8 +42,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Beingpax/LLMkit.git",
       "state" : {
-        "branch" : "main",
-        "revision" : "3b9086e3df729f39c2ca8951d09fb6ef4d4a193b"
+        "revision" : "1fc213b8e37ea8b8a755dd30eaf50fa090cd4241"
       }
     },
     {
@@ -52,7 +51,7 @@
       "location" : "https://github.com/Beingpax/mediaremote-adapter",
       "state" : {
         "branch" : "master",
-        "revision" : "b97fa53f0654c8e33519e8a601b0bead3abd310a"
+        "revision" : "cf30c4f1af29b5829d859f088f8dbdf12611a046"
       }
     },
     {
@@ -67,7 +66,7 @@
     {
       "identity" : "mlx-swift-lm",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/ml-explore/mlx-swift-lm",
+      "location" : "https://github.com/ml-explore/mlx-swift-lm.git",
       "state" : {
         "revision" : "cd1ab3dd98ceb02d095490aa25e61298ea3e2f5b"
       }

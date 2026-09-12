@@ -1,8 +1,46 @@
 # Upstream Integration Progress
 
 **Date Started:** December 8, 2025
-**Date Updated:** May 5, 2026
+**Date Updated:** September 12, 2026
 **Objective:** Incorporate upstream fixes from `Beingpax/VoiceInk` into VoiceLink Community fork
+
+---
+
+## Session 7: September 12, 2026
+
+**Objective:** Merge `upstream/main` (59 commits, `eb5d0b30` → `10e70d59`, including the VoiceInk 2.13 release) while preserving the fork's features, privacy hardening, and branding.
+
+### Sync Result
+
+- Full `git merge upstream/main` on branch `codex/upstream-sync-20260912` (38 conflicted paths resolved by hand).
+- Upstream's source-folder reorganization (`App/`, `Core/`, `DesignSystem/`, `Features/`, `Infrastructure/`, `Tests/`) was accepted. Git followed the renames for shared files; fork-only Swift files remain at their previous paths inside `VoiceInk/`, which the folder-synchronized Xcode group still compiles.
+- Fork-only unit tests were moved from `VoiceInkTests/` to `Tests/VoiceInkTests/` to match the relocated test target; fork UI tests landed in `Tests/VoiceInkUITests/`.
+
+### What Was Adopted
+
+- Gemini transcription (batch + streaming), SenseVoice Small, Cohere transcribe, updated Deepgram/Mistral/Gemini model defaults.
+- Configurable cloud transcription timeout (fork's `OpenAICompatibleTranscriptionService` keeps `SecureEndpointValidator` and gained the `timeout:` parameter).
+- Centralized AI requests / OpenRouter reliability, OpenRouter model migration on launch (kept behind the fork's test-run guard).
+- Mouse shortcuts, Escape-to-cancel improvements, audio lifecycle recovery via `LifecycleObserver`, recorder panel rebuild after wake, clamshell microphone routing, whisper language prompts, word-agreement punctuation fix, copy button on collapsed history cards.
+- Notification dismissal keyed to the current notification ID (`NotificationManager`).
+- Xcode warning / concurrency cleanups, refreshed app icons, `-skipPackagePluginValidation` / `-skipMacroValidation` build flags, `make local` now builds Release with stable local signing, launch scheme uses Debug.
+- German and Simplified Chinese localizations; README acknowledgements for TranscribeCpp and SenseVoice.
+
+### What Was Explicitly Preserved
+
+- Community branding, bundle identifiers (`com.tmm22.VoiceLinkCommunity*`), single app identity (upstream's separate "VoiceInk Dev" debug product was not adopted), version 2.11 / build 211.
+- Runtime `AppBrand.isCommunityEdition` onboarding logic instead of upstream's `#if LOCAL_BUILD` branches.
+- Privacy-hardened logging (no error descriptions in streaming logs), `nonisolated` screen-capture timeout, `TextNormalizer` for streaming confirmations.
+- Fork's off-main-actor cleanup workers (`AudioCleanupManager`, `TranscriptionAutoCleanupService`) and simplified Whisper model download path.
+- Fork's `CoreAudioRecorder` split (`CoreAudioRecorder+Setup.swift`) and `Unmanaged<CFString>` device-name handling; upstream's `invalidatePreparation()` merged on top.
+- Removal of upstream's `CustomSoundManager` / `CustomSoundSettingsView` (fork uses its own sound handling).
+- Local `Packages/SelectedTextKit`, `onnxruntime` dependency, fork README feature list, web app untouched.
+
+### Validation
+
+- `xcodebuild -scheme VoiceInk -configuration Debug build` succeeded with zero errors.
+- Localizable/InfoPlist string catalogs and `Package.resolved` validated as well-formed JSON after the merge.
+- `xcodebuild -scheme VoiceInk -configuration Debug build-for-testing` succeeded (unit + UI test bundles, including the relocated fork tests).
 
 ---
 
