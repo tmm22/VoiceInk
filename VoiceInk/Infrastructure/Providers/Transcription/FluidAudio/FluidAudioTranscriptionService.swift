@@ -135,11 +135,24 @@ class FluidAudioTranscriptionService: TranscriptionService {
         try await ensureModelsLoaded(for: version(for: model))
     }
 
+    /// Loads every manager `transcribe` will need for `model` without running inference.
+    /// Used by both `transcribe` and the launch/wake prewarm so the two stay in lockstep.
+    func prepareModels(for model: any TranscriptionModel) async throws {
+        if FluidAudioModelManager.isParakeetUnifiedModel(named: model.name) {
+            try await ensureUnifiedModelsLoaded()
+        } else if FluidAudioModelManager.isNemotronModel(named: model.name) {
+            try await ensureNemotronModelsLoaded(named: model.name)
+        } else {
+            try await ensureModelsLoaded(for: version(for: model))
+        }
+    }
+
     func transcribe(audioURL: URL, model: any TranscriptionModel, context: TranscriptionRequestContext) async throws
         -> String
     {
+        try await prepareModels(for: model)
+
         if FluidAudioModelManager.isParakeetUnifiedModel(named: model.name) {
-            try await ensureUnifiedModelsLoaded()
             guard let unifiedAsrManager else {
                 throw ASRError.notInitialized
             }
@@ -150,7 +163,6 @@ class FluidAudioTranscriptionService: TranscriptionService {
         }
 
         if FluidAudioModelManager.isNemotronModel(named: model.name) {
-            try await ensureNemotronModelsLoaded(named: model.name)
             guard let nemotronAsrManager else {
                 throw ASRError.notInitialized
             }
@@ -174,9 +186,6 @@ class FluidAudioTranscriptionService: TranscriptionService {
             let text = try await nemotronAsrManager.finish()
             return text
         }
-
-        let targetVersion = version(for: model)
-        try await ensureModelsLoaded(for: targetVersion)
 
         guard let asrManager = asrManager else {
             throw ASRError.notInitialized

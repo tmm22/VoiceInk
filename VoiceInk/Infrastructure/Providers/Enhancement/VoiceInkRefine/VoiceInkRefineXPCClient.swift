@@ -82,12 +82,8 @@ actor VoiceInkRefineXPCClient {
         try Task.checkCancellation()
         cancelIdleShutdown()
 
-        let request = VoiceInkRefinePrepareRequest(
-            requestID: UUID(),
-            modelDirectoryPath: modelDirectory.path,
-            systemPrompt: systemPrompt
-        )
-        let requestData = try JSONEncoder().encode(request)
+        let requestID = UUID().uuidString
+        let modelDirectoryPath = modelDirectory.path
         let activeConnection = connectionForRequest()
         let cancellationHandle = VoiceInkRefineXPCCancellationHandle(activeConnection)
 
@@ -112,7 +108,11 @@ actor VoiceInkRefineXPCClient {
                         return
                     }
 
-                    proxy.prepare(requestData as NSData) { error in
+                    proxy.prepare(
+                        modelDirectoryPath: modelDirectoryPath,
+                        systemPrompt: systemPrompt,
+                        requestID: requestID
+                    ) { error in
                         if let error {
                             reply.resolve(.failure(error))
                         } else {
@@ -145,20 +145,15 @@ actor VoiceInkRefineXPCClient {
         try Task.checkCancellation()
         cancelIdleShutdown()
 
-        let request = VoiceInkRefineEnhanceRequest(
-            requestID: UUID(),
-            modelDirectoryPath: modelDirectory.path,
-            systemPrompt: systemPrompt,
-            transcript: transcript
-        )
-        let requestData = try JSONEncoder().encode(request)
+        let requestID = UUID().uuidString
+        let modelDirectoryPath = modelDirectory.path
         let activeConnection = connectionForRequest()
         let cancellationHandle = VoiceInkRefineXPCCancellationHandle(activeConnection)
 
         do {
-            let responseData: Data = try await withTaskCancellationHandler {
+            let output: String = try await withTaskCancellationHandler {
                 try await withCheckedThrowingContinuation { continuation in
-                    let reply = VoiceInkRefineXPCReply<Data>(continuation)
+                    let reply = VoiceInkRefineXPCReply<String>(continuation)
                     guard
                         let proxy = activeConnection.remoteObjectProxyWithErrorHandler({
                             error in
@@ -176,11 +171,16 @@ actor VoiceInkRefineXPCClient {
                         return
                     }
 
-                    proxy.enhance(requestData as NSData) { responseData, error in
+                    proxy.enhance(
+                        transcript: transcript,
+                        modelDirectoryPath: modelDirectoryPath,
+                        systemPrompt: systemPrompt,
+                        requestID: requestID
+                    ) { output, error in
                         if let error {
                             reply.resolve(.failure(error))
-                        } else if let responseData {
-                            reply.resolve(.success(responseData as Data))
+                        } else if let output {
+                            reply.resolve(.success(output))
                         } else {
                             reply.resolve(
                                 .failure(
@@ -199,19 +199,8 @@ actor VoiceInkRefineXPCClient {
             }
             try Task.checkCancellation()
 
-            let response = try JSONDecoder().decode(
-                VoiceInkRefineEnhanceResponse.self,
-                from: responseData
-            )
-            guard response.requestID == request.requestID else {
-                throw makeVoiceInkRefineXPCError(
-                    .invalidResponse,
-                    description: "VoiceInk Refine returned a mismatched response."
-                )
-            }
-
             scheduleIdleShutdown(for: activeConnection)
-            return response.output
+            return output
         } catch {
             invalidateIfCurrent(activeConnection)
             if Task.isCancelled {
