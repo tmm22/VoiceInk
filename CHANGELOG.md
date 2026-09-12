@@ -2,6 +2,28 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-09-12
+
+### Release Preparation
+- Prepared community version `2.13` (`v2.13-community`) from the merged upstream VoiceInk 2.13 codebase.
+
+### Upstream Sync
+- Merged upstream VoiceInk through `10e70d59` (59 commits), adopting upstream's feature-based source layout while keeping every community-fork file compiling in place.
+- Added Gemini transcription (batch and streaming), SenseVoice Small, Cohere Transcribe, and refreshed Deepgram, Mistral, and Gemini model defaults.
+- Added a configurable cloud transcription timeout, centralized AI requests with more reliable OpenRouter handling, mouse shortcuts, improved Escape-to-cancel behavior, audio lifecycle recovery after sleep and device changes, and a recorder panel that rebuilds correctly after wake.
+- Picked up upstream's clamshell microphone routing fix, Whisper language prompt fix, word-agreement punctuation fix, copy button on collapsed history cards, refreshed app icons, and German and Simplified Chinese localizations.
+
+### Community Fork Preserved
+- Kept community branding, bundle identifiers, the single app identity, runtime community-edition onboarding, the TTS workspace, dictionary and history tools, custom model support, the local SelectedTextKit package, and the web app unchanged.
+- Kept privacy-hardened logging, secure custom endpoint validation, off-main-actor cleanup workers, the simplified Whisper download path, and the split Core Audio recorder implementation.
+
+### Privacy, Security & Reliability
+- Removed the upstream local-build UserDefaults credential fallback so credentials stay Keychain-only and fail closed in every build configuration.
+- Logged custom vocabulary fetch failures in the Gemini streaming provider instead of silently continuing without the user's terms.
+
+### Quality
+- Moved the community unit tests into the relocated `Tests/VoiceInkTests` target; Debug build, test-bundle compilation, and the 181-test unit suite all pass on the merged codebase.
+
 ## 2026-08-15
 
 ### Release Preparation
