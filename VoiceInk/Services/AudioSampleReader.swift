@@ -5,7 +5,10 @@ enum AudioSampleReaderError: Error {
 }
 
 enum AudioSampleReader {
-    static func readPCM16LE(from url: URL, headerSize: Int = 44, chunkSize: Int = 16_384) throws -> [Float] {
+    /// Reads a 16-bit little-endian PCM file body (after `headerSize` bytes) as normalised Float32 samples.
+    /// Conversion is vectorised per chunk; a trailing odd byte is carried into the next chunk and any
+    /// final unpaired byte is ignored, matching the previous scalar reader.
+    static func readPCM16LE(from url: URL, headerSize: Int = 44, chunkSize: Int = 1 << 20) throws -> [Float] {
         let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }
 
@@ -34,14 +37,18 @@ enum AudioSampleReader {
             if data.count % 2 != 0 {
                 carryByte = data.removeLast()
             }
+
+            let sampleCount = data.count / MemoryLayout<Int16>.size
+            guard sampleCount > 0 else { continue }
+
+            let existingCount = samples.count
+            samples.append(contentsOf: repeatElement(0, count: sampleCount))
             data.withUnsafeBytes { rawBuffer in
-                guard let base = rawBuffer.bindMemory(to: Int16.self).baseAddress else { return }
-                let count = rawBuffer.count / MemoryLayout<Int16>.size
-                samples.reserveCapacity(samples.count + count)
-                for index in 0..<count {
-                    let littleEndianSample = Int16(littleEndian: base[index])
-                    let normalized = Float(littleEndianSample) / Float(Int16.max)
-                    samples.append(max(-1.0, min(normalized, 1.0)))
+                samples.withUnsafeMutableBufferPointer { output in
+                    PCMSampleConversion.writeFloatSamples(
+                        fromPCM16LittleEndian: rawBuffer,
+                        into: output.baseAddress! + existingCount
+                    )
                 }
             }
         }

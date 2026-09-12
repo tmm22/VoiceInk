@@ -1,56 +1,72 @@
 import SwiftUI
 
 struct AudioVisualizer: View {
-    let audioMeterProvider: () -> AudioMeter
+    let audioMeter: AudioMeter
     let color: Color
     let isActive: Bool
 
-    private let barCount = 15
-    private let barWidth: CGFloat = 3
-    private let barSpacing: CGFloat = 2
-    private let minHeight: CGFloat = 4
-    private let maxHeight: CGFloat = 28
+    private static let barCount = 15
+    private static let barWidth: CGFloat = 3
+    private static let barSpacing: CGFloat = 2
+    private static let minHeight: CGFloat = 4
+    private static let maxHeight: CGFloat = 28
+    private static let frameInterval = 1.0 / 30.0
 
-    private let phases: [Double]
+    /// Per-bar sine phase and centre emphasis; depend only on the bar index.
+    private static let phases: [Double] = (0..<barCount).map { Double($0) * 0.4 }
+    private static let centerBoosts: [Double] = (0..<barCount).map { index in
+        let centerDistance = abs(Double(index) - Double(barCount) / 2) / Double(barCount / 2)
+        return 1.0 - (centerDistance * 0.4)
+    }
 
-    init(audioMeterProvider: @escaping () -> AudioMeter, color: Color, isActive: Bool) {
-        self.audioMeterProvider = audioMeterProvider
+    init(audioMeter: AudioMeter, color: Color, isActive: Bool) {
+        self.audioMeter = audioMeter
         self.color = color
         self.isActive = isActive
-        self.phases = (0..<barCount).map { Double($0) * 0.4 }
+    }
+
+    /// Boosted for visibility; computed once per meter value rather than once per bar per frame.
+    private var amplitude: Double {
+        guard isActive else { return 0 }
+        return max(0, min(1, pow(audioMeter.averagePower, 0.7)))
     }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 0.016)) { context in
-            let audioMeter = audioMeterProvider()
+        let amplitude = amplitude
+        let fill = color.opacity(0.85)
 
-            HStack(spacing: barSpacing) {
-                ForEach(0..<barCount, id: \.self) { index in
-                    RoundedRectangle(cornerRadius: barWidth / 2)
-                        .fill(color.opacity(0.85))
+        TimelineView(.animation(minimumInterval: Self.frameInterval, paused: !isActive)) { context in
+            let time = context.date.timeIntervalSince1970
+
+            HStack(spacing: Self.barSpacing) {
+                ForEach(0..<Self.barCount, id: \.self) { index in
+                    RoundedRectangle(cornerRadius: Self.barWidth / 2)
+                        .fill(fill)
                         .frame(
-                            width: barWidth,
-                            height: barHeight(
-                                for: index,
-                                at: context.date,
-                                audioMeter: audioMeter
-                            )
+                            width: Self.barWidth,
+                            height: Self.barHeight(for: index, time: time, amplitude: amplitude)
                         )
                 }
             }
         }
     }
 
-    private func barHeight(for index: Int, at date: Date, audioMeter: AudioMeter) -> CGFloat {
-        guard isActive else { return minHeight }
+    private static func barHeight(for index: Int, time: TimeInterval, amplitude: Double) -> CGFloat {
+        guard amplitude > 0 else { return minHeight }
 
-        let time = date.timeIntervalSince1970
-        let amplitude = max(0, min(1, pow(audioMeter.averagePower, 0.7)))  // boosted for visibility
         let wave = sin(time * 8 + phases[index]) * 0.5 + 0.5
-        let centerDistance = abs(Double(index) - Double(barCount) / 2) / Double(barCount / 2)
-        let centerBoost = 1.0 - (centerDistance * 0.4)
+        return max(minHeight, minHeight + CGFloat(amplitude * wave * centerBoosts[index]) * (maxHeight - minHeight))
+    }
+}
 
-        return max(minHeight, minHeight + CGFloat(amplitude * wave * centerBoost) * (maxHeight - minHeight))
+/// Leaf view that observes the recorder so meter updates invalidate only the visualiser, not the
+/// surrounding recorder chrome.
+struct RecorderMeterVisualizer: View {
+    @ObservedObject var recorder: Recorder
+    let color: Color
+
+    var body: some View {
+        AudioVisualizer(audioMeter: recorder.audioMeter, color: color, isActive: true)
     }
 }
 

@@ -340,16 +340,18 @@ struct LiveTranscriptView: View {
 
 struct RecorderStatusDisplay: View {
     let currentState: RecordingState
-    let audioMeterProvider: () -> AudioMeter
+    /// Held as a plain reference; only `RecorderMeterVisualizer` observes it, so meter updates do not
+    /// invalidate this view or its parents.
+    let recorder: Recorder
     let menuBarHeight: CGFloat?
 
     init(
         currentState: RecordingState,
-        audioMeterProvider: @escaping () -> AudioMeter,
+        recorder: Recorder,
         menuBarHeight: CGFloat? = nil
     ) {
         self.currentState = currentState
-        self.audioMeterProvider = audioMeterProvider
+        self.recorder = recorder
         self.menuBarHeight = menuBarHeight
     }
 
@@ -360,11 +362,7 @@ struct RecorderStatusDisplay: View {
             } else if currentState == .transcribing {
                 ProcessingStatusDisplay(mode: .transcribing, color: .white).transition(.opacity)
             } else if currentState == .recording {
-                AudioVisualizer(
-                    audioMeterProvider: audioMeterProvider,
-                    color: .white,
-                    isActive: true
-                )
+                RecorderMeterVisualizer(recorder: recorder, color: .white)
                     .scaleEffect(y: menuBarHeight != nil ? min(1.0, (menuBarHeight! - 8) / 25) : 1.0, anchor: .center)
                     .transition(.opacity)
             } else {

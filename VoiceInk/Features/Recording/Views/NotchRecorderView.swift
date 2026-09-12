@@ -2,7 +2,8 @@ import SwiftUI
 
 struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     @ObservedObject var stateProvider: S
-    @ObservedObject var recorder: Recorder
+    /// Not observed here: the meter is the only published state and `RecorderMeterVisualizer` observes it.
+    let recorder: Recorder
     @ObservedObject var assistantSession: AssistantSession
     let onRecordButtonTapped: () -> Void
     let onCloseTapped: () -> Void
@@ -196,7 +197,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
                 Spacer(minLength: 0)
                 RecorderStatusDisplay(
                     currentState: stateProvider.recordingState,
-                    audioMeterProvider: recorder.audioMeterSnapshot,
+                    recorder: recorder,
                     menuBarHeight: notchHeight
                 )
             }
