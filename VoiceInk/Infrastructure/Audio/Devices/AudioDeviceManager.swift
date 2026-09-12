@@ -613,6 +613,6 @@ class AudioDeviceManager: ObservableObject {
     }
 
     func notifyDeviceChange() {
-        NotificationCenter.default.post(name: NSNotification.Name("AudioDeviceChanged"), object: nil)
+        NotificationCenter.default.post(name: .audioDeviceChanged, object: nil)
     }
 }
