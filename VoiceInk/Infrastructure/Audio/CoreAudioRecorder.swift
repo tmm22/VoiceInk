@@ -1,4 +1,5 @@
 import AVFoundation
+import Accelerate
 import Atomics
 import AudioToolbox
 import CoreAudio
@@ -70,9 +71,9 @@ final class CoreAudioRecorder: @unchecked Sendable {
     // Output format (16kHz mono PCM Int16 for transcription)
     var outputFormat = AudioStreamBasicDescription()
 
-    // Conversion buffer, used only on audioProcessingQueue.
-    var conversionBuffer: UnsafeMutablePointer<Int16>?
-    var conversionBufferSize: UInt32 = 0
+    // Downmix + resample + Int16 conversion. Used only on audioProcessingQueue; replaced from the
+    // setup path only while that queue is drained (setup, device switch, teardown).
+    var formatConverter: RecordingAudioFormatConverter?
 
     // Audio metering. Store bit patterns so the render callback never locks.
     let averagePowerBits = ManagedAtomic<UInt32>(Float32(-160.0).bitPattern)
@@ -227,6 +228,7 @@ final class CoreAudioRecorder: @unchecked Sendable {
         }
 
         drainAudioProcessingQueue()
+        flushFormatConverterToFile()
         logDroppedInputBufferCounters(context: "stop")
 
         closeOutputFile()
@@ -270,6 +272,8 @@ final class CoreAudioRecorder: @unchecked Sendable {
 
         waitForRenderCallbacksToFinish()
         drainAudioProcessingQueue()
+        // The converter is rebuilt for the new format below; emit the frames it still holds first.
+        flushFormatConverterToFile()
         logDroppedInputBufferCounters(context: "device-switch")
 
         // Step 2: Uninitialize to allow reconfiguration
@@ -448,6 +452,7 @@ final class CoreAudioRecorder: @unchecked Sendable {
         return noErr
     }
 
+    /// Runs on the real-time render thread: vectorised, lock-free, allocation-free.
     func calculateMeters(from bufferList: inout AudioBufferList, frameCount: UInt32) {
         guard let data = bufferList.mBuffers.mData else { return }
         guard frameCount > 0 else { return }
@@ -458,23 +463,23 @@ final class CoreAudioRecorder: @unchecked Sendable {
 
         guard totalSamples > 0 else { return }
 
-        var sum: Float = 0.0
-        var peak: Float = 0.0
-
-        for i in 0..<totalSamples {
-            let sample = abs(samples[i])
-            sum += sample * sample
-            if sample > peak {
-                peak = sample
-            }
-        }
-
-        let rms = sqrt(sum / Float(totalSamples))
-        let avgDb = 20.0 * log10(max(rms, 0.000001))
-        let peakDb = 20.0 * log10(max(peak, 0.000001))
+        let (avgDb, peakDb) = Self.meterLevels(samples: samples, count: totalSamples)
 
         averagePowerBits.store(avgDb.bitPattern, ordering: .relaxed)
         peakPowerBits.store(peakDb.bitPattern, ordering: .relaxed)
+    }
+
+    /// Returns (rms dBFS, peak dBFS) over the interleaved samples, floored at -120 dBFS.
+    static func meterLevels(samples: UnsafePointer<Float32>, count: Int) -> (average: Float, peak: Float) {
+        var meanSquare: Float = 0
+        var peak: Float = 0
+        vDSP_measqv(samples, 1, &meanSquare, vDSP_Length(count))
+        vDSP_maxmgv(samples, 1, &peak, vDSP_Length(count))
+
+        let rms = sqrt(meanSquare)
+        let avgDb = 20.0 * log10(max(rms, 0.000001))
+        let peakDb = 20.0 * log10(max(peak, 0.000001))
+        return (avgDb, peakDb)
     }
 
     func enqueueInputBuffer(
@@ -570,9 +575,27 @@ final class CoreAudioRecorder: @unchecked Sendable {
         }
     }
 
-    func waitForRenderCallbacksToFinish() {
+    /// Waits for in-flight render callbacks to return, bounded so a wedged HAL cannot hang the caller.
+    func waitForRenderCallbacksToFinish(timeout: TimeInterval = 0.2) {
+        guard renderCallbacksInFlight.load(ordering: .acquiring) > 0 else { return }
+
+        let deadline = DispatchTime.now().uptimeNanoseconds + UInt64(timeout * 1_000_000_000)
+        var spins = 0
         while renderCallbacksInFlight.load(ordering: .acquiring) > 0 {
-            Thread.sleep(forTimeInterval: 0.001)
+            if DispatchTime.now().uptimeNanoseconds >= deadline {
+                let inFlight = renderCallbacksInFlight.load(ordering: .acquiring)
+                logger.warning(
+                    "🎙️ Timed out after \(Int(timeout * 1000), privacy: .public)ms waiting for \(inFlight, privacy: .public) render callback(s) to finish"
+                )
+                return
+            }
+            // A render callback is a few hundred microseconds at most; yield first, then back off.
+            if spins < 64 {
+                sched_yield()
+            } else {
+                usleep(100)
+            }
+            spins += 1
         }
     }
 
@@ -591,6 +614,7 @@ final class CoreAudioRecorder: @unchecked Sendable {
         inputWriteIndex.store(0, ordering: .relaxed)
         inputReadIndex.store(0, ordering: .relaxed)
         audioProcessingScheduled.store(false, ordering: .relaxed)
+        formatConverter?.reset()
     }
 
     func convertAndWriteToFile(
@@ -599,68 +623,50 @@ final class CoreAudioRecorder: @unchecked Sendable {
         inputChannels: UInt32,
         inputSampleRate: Double
     ) {
-        guard let file = audioFile else { return }
+        guard audioFile != nil, let converter = formatConverter else { return }
 
-        let outputSampleRate = outputFormat.mSampleRate
-
-        // Calculate output frame count after sample rate conversion
-        let ratio = outputSampleRate / inputSampleRate
-        let outputFrameCount = UInt32(Double(frameCount) * ratio)
-
-        guard outputFrameCount > 0,
-            let outputBuffer = conversionBuffer,
-            outputFrameCount <= conversionBufferSize
-        else { return }
-
-        // Convert Float32 multi-channel → Int16 mono (with sample rate conversion if needed)
-        if inputSampleRate == outputSampleRate {
-            // Direct conversion, just format change and channel mixing
-            for i in 0..<Int(frameCount) {
-                var sample: Float32 = 0
-                // Mix all channels to mono
-                for ch in 0..<Int(inputChannels) {
-                    sample += inputSamples[i * Int(inputChannels) + ch]
-                }
-                sample /= Float32(inputChannels)
-
-                // Convert to Int16 with clipping
-                let scaled = sample * 32767.0
-                let clipped = max(-32768.0, min(32767.0, scaled))
-                outputBuffer[i] = Int16(clipped)
-            }
-        } else {
-            // Sample rate conversion needed - use linear interpolation
-            for i in 0..<Int(outputFrameCount) {
-                let inputIndex = Double(i) / ratio
-                let inputIndexInt = Int(inputIndex)
-                let frac = Float32(inputIndex - Double(inputIndexInt))
-
-                var sample: Float32 = 0
-                let idx1 = min(inputIndexInt, Int(frameCount) - 1)
-                let idx2 = min(inputIndexInt + 1, Int(frameCount) - 1)
-
-                // Mix channels and interpolate
-                for ch in 0..<Int(inputChannels) {
-                    let s1 = inputSamples[idx1 * Int(inputChannels) + ch]
-                    let s2 = inputSamples[idx2 * Int(inputChannels) + ch]
-                    sample += s1 + frac * (s2 - s1)
-                }
-                sample /= Float32(inputChannels)
-
-                // Convert to Int16
-                let scaled = sample * 32767.0
-                let clipped = max(-32768.0, min(32767.0, scaled))
-                outputBuffer[i] = Int16(clipped)
-            }
+        guard converter.inputSampleRate == inputSampleRate,
+            let output = converter.convert(
+                interleavedInput: inputSamples,
+                frameCount: frameCount,
+                channelCount: inputChannels
+            )
+        else {
+            droppedInputBuffersCapacity.wrappingIncrement(ordering: .relaxed)
+            return
         }
 
-        // Write to file
+        writeConvertedFrames(output)
+    }
+
+    /// Emits the frames the sample-rate converter is still holding. Call on the setup queue with the
+    /// processing queue drained, before closing the file or replacing the converter.
+    func flushFormatConverterToFile() {
+        guard audioFile != nil, let converter = formatConverter, converter.isResampling else { return }
+
+        let flushAndWrite = {
+            if let flushed = converter.flush() {
+                self.writeConvertedFrames(flushed)
+            }
+        }
+        if DispatchQueue.getSpecific(key: audioProcessingQueueKey) != nil {
+            flushAndWrite()
+        } else {
+            audioProcessingQueue.sync(execute: flushAndWrite)
+        }
+    }
+
+    /// Writes Int16 mono frames to the file and forwards them to the streaming callback.
+    func writeConvertedFrames(_ output: UnsafeBufferPointer<Int16>) {
+        guard let file = audioFile, output.count > 0, let base = output.baseAddress else { return }
+        let outputFrameCount = UInt32(output.count)
+
         var outputBufferList = AudioBufferList(
             mNumberBuffers: 1,
             mBuffers: AudioBuffer(
                 mNumberChannels: 1,
-                mDataByteSize: outputFrameCount * 2,
-                mData: outputBuffer
+                mDataByteSize: outputFrameCount * UInt32(MemoryLayout<Int16>.size),
+                mData: UnsafeMutableRawPointer(mutating: base)
             )
         )
 
@@ -671,8 +677,7 @@ final class CoreAudioRecorder: @unchecked Sendable {
 
         // Send the same PCM data to the streaming callback if set.
         if let audioChunk = onAudioChunk {
-            let byteCount = Int(outputFrameCount) * MemoryLayout<Int16>.size
-            let data = Data(bytes: outputBuffer, count: byteCount)
+            let data = Data(bytes: base, count: output.count * MemoryLayout<Int16>.size)
             audioChunk(data)
         }
     }

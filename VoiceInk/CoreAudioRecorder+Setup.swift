@@ -235,11 +235,25 @@ extension CoreAudioRecorder {
             inputBufferCapacitySamples = bufferSamples
         }
 
-        let maxOutputFrames = UInt32(ceil(Double(maxFrames) * (outputFormat.mSampleRate / inputSampleRate))) + 1
-        if maxOutputFrames > conversionBufferSize {
-            conversionBuffer?.deallocate()
-            conversionBuffer = UnsafeMutablePointer<Int16>.allocate(capacity: Int(maxOutputFrames))
-            conversionBufferSize = maxOutputFrames
+        let needsNewConverter =
+            formatConverter.map {
+                $0.inputSampleRate != inputSampleRate || $0.inputChannelCount != channelCount
+                    || $0.outputSampleRate != outputFormat.mSampleRate || $0.maxInputFrames < maxFrames
+            } ?? true
+        if needsNewConverter {
+            formatConverter = RecordingAudioFormatConverter(
+                inputSampleRate: inputSampleRate,
+                inputChannelCount: channelCount,
+                outputSampleRate: outputFormat.mSampleRate,
+                maxInputFrames: maxFrames
+            )
+            if formatConverter == nil {
+                logger.error(
+                    "🎙️ Failed to create audio format converter: \(inputSampleRate, privacy: .public)Hz x\(channelCount, privacy: .public) → \(self.outputFormat.mSampleRate, privacy: .public)Hz"
+                )
+            }
+        } else {
+            formatConverter?.reset()
         }
 
         if resetQueuedAudio {
@@ -384,11 +398,7 @@ extension CoreAudioRecorder {
     func freeBuffers() {
         drainAudioProcessingQueue()
 
-        if let buffer = conversionBuffer {
-            buffer.deallocate()
-            conversionBuffer = nil
-            conversionBufferSize = 0
-        }
+        formatConverter = nil
 
         if let buffer = renderBuffer {
             buffer.deallocate()

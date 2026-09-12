@@ -2,7 +2,8 @@ import SwiftUI
 
 struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     @ObservedObject var stateProvider: S
-    @ObservedObject var recorder: Recorder
+    /// Not observed here: the meter is the only published state and `RecorderMeterVisualizer` observes it.
+    let recorder: Recorder
     @ObservedObject var assistantSession: AssistantSession
     let onRecordButtonTapped: () -> Void
     let onCloseTapped: () -> Void
@@ -56,7 +57,7 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
 
             RecorderStatusDisplay(
                 currentState: stateProvider.recordingState,
-                audioMeterProvider: recorder.audioMeterSnapshot
+                recorder: recorder
             )
 
             Spacer(minLength: 0)
