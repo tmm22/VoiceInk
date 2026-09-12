@@ -19,7 +19,7 @@ final class RecordingAudioFormatConverter {
 
     var isResampling: Bool { converter != nil }
 
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "RecordingAudioFormatConverter")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "RecordingAudioFormatConverter")
 
     private let converter: AVAudioConverter?
     /// Float32 mono at the input rate. Doubles as the downmix target on both paths.
