@@ -21,7 +21,7 @@ actor WhisperContextManager {
     private var contextLoads: [String: ContextLoad] = [:]
     private var activeInferenceCounts: [String: Int] = [:]
     private var retiringContexts: [String: [WhisperContext]] = [:]
-    private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "WhisperContextManager")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "WhisperContextManager")
 
     private init() {}
 

@@ -14,7 +14,7 @@ struct AIEnhancementResult: Sendable {
 
 @MainActor
 class AIEnhancementService: ObservableObject {
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "AIEnhancementService")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "AIEnhancementService")
 
     @Published var customPrompts: [CustomPrompt] {
         didSet {

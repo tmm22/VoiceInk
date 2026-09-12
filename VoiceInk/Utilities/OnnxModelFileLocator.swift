@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
 
-private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "OnnxModelFileLocator")
+private let logger = Logger(subsystem: AppLogger.subsystem, category: "OnnxModelFileLocator")
 
 enum OnnxModelFileLocator {
     private static let preferredFilenames = ["model.int8.onnx", "model.onnx"]

@@ -4,7 +4,7 @@ import os
 
 /// True streaming provider backed by FluidAudio's Nemotron multilingual manager.
 final class FluidAudioNemotronStreamingProvider: StreamingTranscriptionProvider {
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "FluidAudioNemotronStreaming")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "FluidAudioNemotronStreaming")
     private var manager: StreamingNemotronMultilingualAsrManager?
     private var eventsContinuation: AsyncStream<StreamingTranscriptionEvent>.Continuation?
 

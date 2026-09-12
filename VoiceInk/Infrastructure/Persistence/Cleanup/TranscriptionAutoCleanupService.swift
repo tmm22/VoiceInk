@@ -8,7 +8,7 @@ final class TranscriptionAutoCleanupService {
 
     private let cleanupWorker = AudioFileCleanupWorker()
     private let logger = Logger(
-        subsystem: "com.prakashjoshipax.voiceink",
+        subsystem: AppLogger.subsystem,
         category: "TranscriptionAutoCleanupService"
     )
     private var modelContext: ModelContext?

@@ -23,7 +23,7 @@ final class KeychainService {
         case unavailable(OSStatus)
     }
 
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "KeychainService")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "KeychainService")
     // Local builds are ad-hoc signed and cannot use the Data Protection Keychain, so they get a
     // separate, non-syncing login-Keychain namespace. Credentials never fall back to UserDefaults.
     #if LOCAL_BUILD

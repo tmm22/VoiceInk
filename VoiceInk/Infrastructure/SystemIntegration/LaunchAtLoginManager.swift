@@ -10,7 +10,7 @@ final class LaunchAtLoginManager: ObservableObject {
     @Published private(set) var isEnabled = false
     @Published private(set) var isUpdating = false
 
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "LaunchAtLogin")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "LaunchAtLogin")
     private var isRefreshing = false
     private var operationGeneration = 0
     private var pendingEnabledState: Bool?

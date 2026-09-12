@@ -7,7 +7,7 @@ import os
 final class GeminiStreamingProvider: StreamingTranscriptionProvider {
     private let client = LLMkit.GeminiStreamingClient()
     private let modelContext: ModelContext
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "GeminiStreaming")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "GeminiStreaming")
     private var eventsContinuation: AsyncStream<StreamingTranscriptionEvent>.Continuation?
     private var forwardingTask: Task<Void, Never>?
 

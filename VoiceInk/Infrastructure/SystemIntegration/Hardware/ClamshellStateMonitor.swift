@@ -3,7 +3,7 @@ import IOKit
 import os
 
 final class ClamshellStateMonitor {
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "ClamshellStateMonitor")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "ClamshellStateMonitor")
     private let onChange: (Bool) -> Void
 
     private var rootDomain: io_registry_entry_t = 0

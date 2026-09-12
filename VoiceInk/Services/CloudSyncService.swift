@@ -7,7 +7,7 @@ class CloudSyncService: ObservableObject {
     static let shared = CloudSyncService()
     
     private let store = NSUbiquitousKeyValueStore.default
-    private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "CloudSyncService")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "CloudSyncService")
     
     // Keys for data storage
     private let customPromptsKey = "cloud_sync_custom_prompts"

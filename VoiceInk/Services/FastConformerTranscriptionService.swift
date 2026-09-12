@@ -3,7 +3,7 @@ import AVFoundation
 import OnnxRuntimeBindings
 import OSLog
 
-private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "FastConformerTranscriptionService")
+private let logger = Logger(subsystem: AppLogger.subsystem, category: "FastConformerTranscriptionService")
 
 final class FastConformerTranscriptionService: TranscriptionService {
     private let modelsDirectory: URL

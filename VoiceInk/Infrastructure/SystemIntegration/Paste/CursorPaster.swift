@@ -6,7 +6,7 @@ import os
 class CursorPaster {
     private typealias ClipboardItemSnapshot = [(NSPasteboard.PasteboardType, Data)]
     private typealias ClipboardSnapshot = [ClipboardItemSnapshot]
-    private static let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "CursorPaster")
+    private static let logger = Logger(subsystem: AppLogger.subsystem, category: "CursorPaster")
 
     enum PasteResult: Equatable {
         case commandPosted

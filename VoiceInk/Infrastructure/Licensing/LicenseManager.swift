@@ -33,7 +33,7 @@ final class LicenseManager: LicenseStoring {
 
     private let keychain = KeychainService.shared
     private let accessibilityMigration = LicenseKeychainAccessibilityMigration()
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "LicenseManager")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "LicenseManager")
 
     private let licenseKeyIdentifier = LicenseKeychainKeys.licenseKey
     private let trialStartDateIdentifier = LicenseKeychainKeys.trialStartDate

@@ -3,7 +3,7 @@ import Foundation
 import os
 
 class WhisperTranscriptionService: TranscriptionService {
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "WhisperTranscriptionService")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "WhisperTranscriptionService")
     private let modelsDirectory: URL
     private weak var modelProvider: (any WhisperModelProvider)?
 

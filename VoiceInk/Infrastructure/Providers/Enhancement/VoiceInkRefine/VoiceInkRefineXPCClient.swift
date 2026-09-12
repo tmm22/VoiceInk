@@ -64,7 +64,7 @@ actor VoiceInkRefineXPCClient {
     private static let warmGracePeriod: Duration = .seconds(10)
 
     private let logger = Logger(
-        subsystem: "com.prakashjoshipax.voiceink",
+        subsystem: AppLogger.subsystem,
         category: "VoiceInkRefineXPCClient"
     )
 
