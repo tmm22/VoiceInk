@@ -21,4 +21,6 @@ extension Notification.Name {
     static let sessionMetricsDidChange = Notification.Name("sessionMetricsDidChange")
     static let openFileForTranscription = Notification.Name("openFileForTranscription")
     static let recordingDeviceChangeRequired = Notification.Name("recordingDeviceChangeRequired")
+    /// Posted by AudioDeviceManager whenever the input device list or default device changes.
+    static let audioDeviceChanged = Notification.Name("AudioDeviceChanged")
 }
