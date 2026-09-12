@@ -18,7 +18,22 @@ class VoiceInkEngine: NSObject, ObservableObject {
 
     @Published var recordingState: RecordingState = .idle
     @Published var shouldCancelRecording = false
-    @Published var partialTranscript: String = ""
+    /// Published only on empty <-> non-empty transitions; the text itself lives in `liveTranscript`.
+    @Published private(set) var hasPartialTranscript = false
+    let liveTranscript = LiveTranscriptState()
+
+    /// Streaming partial transcript. Writes go to `liveTranscript` and only flip
+    /// `hasPartialTranscript` when emptiness changes, so engine observers are not re-rendered per partial.
+    var partialTranscript: String {
+        get { liveTranscript.text }
+        set {
+            liveTranscript.update(newValue)
+            let hasText = !newValue.isEmpty
+            if hasText != hasPartialTranscript {
+                hasPartialTranscript = hasText
+            }
+        }
+    }
     var currentSession: TranscriptionSession?
     private var currentSessionTranscriptionConfiguration: TranscriptionRuntimeConfiguration?
     private var activeRecordingStartID: UUID?

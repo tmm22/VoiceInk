@@ -30,7 +30,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
 
         switch stateProvider.recordingState {
         case .recording:
-            let shouldShowLive = showLiveTranscript && !stateProvider.partialTranscript.isEmpty
+            let shouldShowLive = showLiveTranscript && stateProvider.hasPartialTranscript
             return shouldShowLive ? .liveText : .active
         case .transcribing, .enhancing:
             return .active
@@ -120,9 +120,8 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         displayState == .assistant && stateProvider.recordingState == .idle && !assistantSession.isBusy
     }
 
-    private var liveAssistantFollowUpText: String {
-        guard showLiveTranscript, stateProvider.recordingState == .recording else { return "" }
-        return stateProvider.partialTranscript
+    private var showsLiveAssistantFollowUpText: Bool {
+        showLiveTranscript && stateProvider.recordingState == .recording
     }
 
     // MARK: - Animation
@@ -219,7 +218,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         VStack(spacing: 0) {
             if displayState == .liveText {
                 Divider().background(Color.white.opacity(0.15))
-                LiveTranscriptView(text: stateProvider.partialTranscript)
+                LiveTranscriptView(liveTranscript: stateProvider.liveTranscript)
                     .padding(.horizontal, 8)
             }
         }
@@ -233,7 +232,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
                 Divider().background(Color.white.opacity(0.15))
                 AssistantPanelView(
                     session: assistantSession,
-                    liveFollowUpText: liveAssistantFollowUpText,
+                    liveFollowUpText: showsLiveAssistantFollowUpText ? stateProvider.liveTranscript : nil,
                     onSend: onAssistantFollowUp
                 )
             }

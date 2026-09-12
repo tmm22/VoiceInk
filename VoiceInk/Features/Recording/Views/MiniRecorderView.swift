@@ -23,7 +23,7 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     private var hasLiveTranscript: Bool {
         showLiveTranscript
             && stateProvider.recordingState == .recording
-            && !stateProvider.partialTranscript.isEmpty
+            && stateProvider.hasPartialTranscript
     }
 
     private var hasAssistantResponse: Bool {
@@ -34,9 +34,8 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         hasAssistantResponse && stateProvider.recordingState == .idle && !assistantSession.isBusy
     }
 
-    private var liveAssistantFollowUpText: String {
-        guard showLiveTranscript, stateProvider.recordingState == .recording else { return "" }
-        return stateProvider.partialTranscript
+    private var showsLiveAssistantFollowUpText: Bool {
+        showLiveTranscript && stateProvider.recordingState == .recording
     }
 
     private var controlBar: some View {
@@ -74,7 +73,7 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     private var transcriptSection: some View {
         VStack(spacing: 0) {
             if hasLiveTranscript {
-                LiveTranscriptView(text: stateProvider.partialTranscript)
+                LiveTranscriptView(liveTranscript: stateProvider.liveTranscript)
                 Divider().background(Color.white.opacity(0.15))
             }
         }
@@ -85,7 +84,7 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
             if hasAssistantResponse {
                 AssistantPanelView(
                     session: assistantSession,
-                    liveFollowUpText: liveAssistantFollowUpText,
+                    liveFollowUpText: showsLiveAssistantFollowUpText ? stateProvider.liveTranscript : nil,
                     onSend: onAssistantFollowUp
                 )
                 Divider().background(Color.white.opacity(0.15))

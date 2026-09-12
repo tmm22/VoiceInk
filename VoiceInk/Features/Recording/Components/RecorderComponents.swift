@@ -303,7 +303,10 @@ struct RecorderModeButton: View {
 // MARK: - Live Transcript View
 
 struct LiveTranscriptView: View {
-    let text: String
+    /// Leaf observer: only this view re-renders when a streaming partial arrives.
+    @ObservedObject var liveTranscript: LiveTranscriptState
+
+    private var text: String { liveTranscript.text }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -379,7 +382,8 @@ struct RecorderStatusDisplay: View {
 
 struct AssistantPanelView: View {
     @ObservedObject var session: AssistantSession
-    let liveFollowUpText: String
+    /// Streaming follow-up preview shown in the empty draft field; `nil` hides it.
+    let liveFollowUpText: LiveTranscriptState?
     let onSend: (String) -> Void
 
     @State private var draftMessage = ""
@@ -459,13 +463,8 @@ struct AssistantPanelView: View {
     private var followUpRow: some View {
         HStack(spacing: 8) {
             ZStack(alignment: .leading) {
-                if shouldShowLiveFollowUpText {
-                    Text(liveFollowUpText)
-                        .font(.system(size: 12))
-                        .foregroundStyle(followUpTextColor)
-                        .lineLimit(1)
-                        .truncationMode(.head)
-                        .allowsHitTesting(false)
+                if draftMessage.isEmpty, let liveFollowUpText {
+                    LiveFollowUpTextLabel(liveTranscript: liveFollowUpText, color: followUpTextColor)
                 }
 
                 TextField("", text: $draftMessage)
@@ -495,10 +494,6 @@ struct AssistantPanelView: View {
             .disabled(!canSendDraft)
             .help("Send follow up")
         }
-    }
-
-    private var shouldShowLiveFollowUpText: Bool {
-        draftMessage.isEmpty && !liveFollowUpText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var canSendDraft: Bool {
@@ -568,6 +563,23 @@ private struct AssistantMessageBubble: View {
             if !isUser {
                 Spacer(minLength: 36)
             }
+        }
+    }
+}
+
+/// Leaf observer for the assistant follow-up preview so partials do not re-render the whole panel.
+private struct LiveFollowUpTextLabel: View {
+    @ObservedObject var liveTranscript: LiveTranscriptState
+    let color: Color
+
+    var body: some View {
+        if !liveTranscript.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Text(liveTranscript.text)
+                .font(.system(size: 12))
+                .foregroundStyle(color)
+                .lineLimit(1)
+                .truncationMode(.head)
+                .allowsHitTesting(false)
         }
     }
 }
