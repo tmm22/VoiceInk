@@ -3,19 +3,22 @@
     <channel>
         <title>VoiceInk Releases</title>
         <item>
-            <title>1.71</title>
-            <description><![CDATA[
-                <h3>What's New in V 1.71</h3>
-                <ul>
-                    <li>🦜 Fix Parakeet model issue</li>
-                    <li>🔄 Fix Dictionary sync issue</li>
-                    <li>🐛 Minor bug fixes and improvements</li>
-                </ul>
-            ]]></description>
-            <pubDate>Wed, 25 Feb 2026 18:12:40 +0545</pubDate>
-            <sparkle:version>171</sparkle:version>
-            <sparkle:shortVersionString>1.71</sparkle:shortVersionString>
+            <title>2.13</title>
+            <pubDate>Thu, 27 Aug 2026 22:54:28 +0545</pubDate>
+            <sparkle:version>213</sparkle:version>
+            <sparkle:shortVersionString>2.13</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.4</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/Beingpax/VoiceInk/releases/download/v1.71/VoiceInk.dmg" length="12654280" type="application/octet-stream" sparkle:edSignature="KpwVj6LM5w8TsphMG4ouQrYJJ3ii279W2H8gAOPuxXZsKAxpHzVS2mhlpUwjOifcjOikMYi26coy0DZTUd6gAw=="/>
+            <description><![CDATA[<h3>What's New in VoiceInk 2.13</h3>
+<ul>
+  <li>✨ Added Gemini 3.5 Transcribe support</li>
+  <li>✨ Added SenseVoice Small support</li>
+  <li>⌨️ Improved cancellation handling</li>
+  <li>🎙️ Fixed the recorder panel issue — by @AlexSarbu</li>
+  <li>🎧 Fixed microphone routing issue in clamshell mode</li>
+  <li>🐛 Minor bug fixes and improvements</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/Beingpax/VoiceInk/releases/download/v2.13/VoiceInk.dmg" length="50174451" type="application/octet-stream" sparkle:edSignature="EZyhSWJgi1u+VLfXBrlEci/V9T4bolvqsBIO2+1vHICIdb5gnq4IwSkk0FN9wagAm+f3v2UfIBEfQSSDC8OhAA=="/>
+        </item>
     </channel>
 </rss>
