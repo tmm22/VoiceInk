@@ -24,10 +24,10 @@ final class KeychainService {
     }
 
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "KeychainService")
+    // Local builds are ad-hoc signed and cannot use the Data Protection Keychain, so they get a
+    // separate, non-syncing login-Keychain namespace. Credentials never fall back to UserDefaults.
     #if LOCAL_BUILD
         private let service = "com.prakashjoshipax.VoiceInk.Local"
-        private let defaults = UserDefaults.standard
-        private let legacyLocalPrefix = "LocalKeychain_"
     #else
         private let service = "com.prakashjoshipax.VoiceInk"
     #endif
@@ -66,7 +66,6 @@ final class KeychainService {
 
         if updateStatus == errSecSuccess {
             logger.info("Successfully updated keychain item for key: \(key, privacy: .public)")
-            removeLegacyLocalFallback(forKey: key)
             return true
         }
 
@@ -84,7 +83,6 @@ final class KeychainService {
 
         if addStatus == errSecSuccess {
             logger.info("Successfully saved keychain item for key: \(key, privacy: .public)")
-            removeLegacyLocalFallback(forKey: key)
             return true
         }
 
@@ -92,7 +90,6 @@ final class KeychainService {
             let retryStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
             if retryStatus == errSecSuccess {
                 logger.info("Successfully updated concurrently created keychain item for key: \(key, privacy: .public)")
-                removeLegacyLocalFallback(forKey: key)
                 return true
             }
 
@@ -158,13 +155,6 @@ final class KeychainService {
         }
 
         if status == errSecItemNotFound {
-            #if LOCAL_BUILD
-                if let legacyData = defaults.data(forKey: legacyLocalPrefix + key) {
-                    _ = save(data: legacyData, forKey: key, syncable: false)
-                    return .value(legacyData)
-                }
-            #endif
-
             return .notFound
         }
 
@@ -181,7 +171,6 @@ final class KeychainService {
         let status = SecItemDelete(query as CFDictionary)
 
         if status == errSecSuccess || status == errSecItemNotFound {
-            removeLegacyLocalFallback(forKey: key)
             if status == errSecSuccess {
                 logger.info("Successfully deleted keychain item for key: \(key, privacy: .public)")
             }
@@ -200,12 +189,6 @@ final class KeychainService {
         query[kSecReturnData as String] = kCFBooleanFalse
 
         let status = SecItemCopyMatching(query as CFDictionary, nil)
-        #if LOCAL_BUILD
-            if status == errSecItemNotFound {
-                return defaults.data(forKey: legacyLocalPrefix + key) != nil
-            }
-        #endif
-
         return status == errSecSuccess
     }
 
@@ -235,13 +218,6 @@ final class KeychainService {
             if let accessibility {
                 attributes[kSecAttrAccessible as String] = accessibility.value
             }
-        #endif
-    }
-
-    // Removes the old local UserDefaults copy after secure storage succeeds or the credential is deleted.
-    private func removeLegacyLocalFallback(forKey key: String) {
-        #if LOCAL_BUILD
-            defaults.removeObject(forKey: legacyLocalPrefix + key)
         #endif
     }
 }

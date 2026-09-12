@@ -1,11 +1,13 @@
 import Foundation
 import LLMkit
 import SwiftData
+import os
 
 /// Gemini streaming provider wrapping `LLMkit.GeminiStreamingClient`.
 final class GeminiStreamingProvider: StreamingTranscriptionProvider {
     private let client = LLMkit.GeminiStreamingClient()
     private let modelContext: ModelContext
+    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "GeminiStreaming")
     private var eventsContinuation: AsyncStream<StreamingTranscriptionEvent>.Continuation?
     private var forwardingTask: Task<Void, Never>?
 
@@ -90,7 +92,14 @@ final class GeminiStreamingProvider: StreamingTranscriptionProvider {
 
     private func customVocabularyTerms() -> [String] {
         let descriptor = FetchDescriptor<VocabularyWord>(sortBy: [SortDescriptor(\.word)])
-        guard let vocabularyWords = try? modelContext.fetch(descriptor) else {
+        let vocabularyWords: [VocabularyWord]
+        do {
+            vocabularyWords = try modelContext.fetch(descriptor)
+        } catch {
+            // Recoverable: stream without custom vocabulary, but leave a diagnostic trail.
+            logger.error(
+                "Failed to fetch custom vocabulary for Gemini streaming; continuing without it: \(AppLogger.errorMetadata(error), privacy: .public)"
+            )
             return []
         }
 
