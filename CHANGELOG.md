@@ -16,6 +16,9 @@ All notable changes to the VoiceLink Community application are documented here.
 - If the clipboard changes while it is being saved for later restoration, VoiceInk retries the snapshot once before skipping the paste.
 - The clipboard is rechecked immediately before the transcript is written. A copy made after the snapshot is kept instead of being overwritten and later replaced by the older snapshot.
 
+### Web
+- Updated Next.js to 16.3.6, Wrangler to 4.136.3 and related Cloudflare tooling, and pinned a patched `image-size`, clearing the high and critical npm advisories that failed the web regression check (#56). Production picks this up on the next web and ASR Worker deploy.
+
 ### Reliability and diagnostics
 - The update checker no longer starts inside the unit-test host.
 - Audio buffers rejected by the sample-rate converter are logged separately from buffers dropped for capacity.
