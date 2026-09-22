@@ -3,62 +3,94 @@ import OSLog
 
 /// The sole owner of local Whisper contexts and their inference lifetimes.
 actor WhisperContextManager {
-    private final class ContextLoad: @unchecked Sendable {
-        let task: Task<WhisperContext, Error>
+    // All mutable generation state is accessed only by this manager actor.
+    private final class Generation {
+        let task: Task<any ManagedWhisperContext, Error>
+        var context: (any ManagedWhisperContext)?
         var isInvalidated = false
         var didReleaseResult = false
+        var activeInferenceCount = 0
+        var loadWaiterCount = 0
 
-        init(modelURL: URL) {
-            task = Task {
-                try await WhisperContext.createContext(path: modelURL.path)
-            }
+        deinit { task.cancel() }
+
+        init(modelURL: URL, loader: @escaping ContextLoader) {
+            task = Task { try await loader(modelURL) }
         }
     }
 
+    typealias ContextLoader = @Sendable (URL) async throws -> any ManagedWhisperContext
+    typealias SampleLoader = @Sendable (URL) async throws -> [Float]
+
     static let shared = WhisperContextManager()
 
-    private var contexts: [String: WhisperContext] = [:]
-    private var contextLoads: [String: ContextLoad] = [:]
-    private var activeInferenceCounts: [String: Int] = [:]
-    private var retiringContexts: [String: [WhisperContext]] = [:]
+    private var generations: [String: Generation] = [:]
+    private let contextLoader: ContextLoader
+    private let sampleLoader: SampleLoader
     private let logger = Logger(subsystem: AppLogger.subsystem, category: "WhisperContextManager")
 
-    private init() {}
-
-    func loadContext(for modelName: String, modelURL: URL) async throws -> WhisperContext {
-        if let context = contexts[modelName] {
-            return context
+    init(
+        contextLoader: @escaping ContextLoader = { try await WhisperContext.createContext(path: $0.path) },
+        sampleLoader: @escaping SampleLoader = { audioURL in
+            try await Task.detached(priority: .userInitiated) {
+                try AudioSampleReader.readPCM16LE(from: audioURL)
+            }.value
         }
+    ) {
+        self.contextLoader = contextLoader
+        self.sampleLoader = sampleLoader
+    }
 
-        let load: ContextLoad
-        if let existingLoad = contextLoads[modelName] {
-            load = existingLoad
+    func loadContext(for modelName: String, modelURL: URL) async throws -> any ManagedWhisperContext {
+        let generation = try await loadGeneration(for: modelName, modelURL: modelURL)
+        try Task.checkCancellation()
+        guard !generation.isInvalidated, let context = generation.context else {
+            throw CancellationError()
+        }
+        return context
+    }
+
+    private func loadGeneration(for modelName: String, modelURL: URL) async throws -> Generation {
+        try Task.checkCancellation()
+        let generation: Generation
+        if let existing = generations[modelName] {
+            generation = existing
         } else {
-            load = ContextLoad(modelURL: modelURL)
-            contextLoads[modelName] = load
+            generation = Generation(modelURL: modelURL, loader: contextLoader)
+            generations[modelName] = generation
         }
 
+        generation.loadWaiterCount += 1
+        defer { generation.loadWaiterCount -= 1 }
+        let context: any ManagedWhisperContext
         do {
-            let context = try await load.task.value
-            guard contextLoads[modelName] === load, !load.isInvalidated else {
-                if !load.didReleaseResult {
-                    load.didReleaseResult = true
-                    await context.releaseResources()
-                }
-                throw CancellationError()
-            }
-
-            contexts[modelName] = context
-            contextLoads[modelName] = nil
-            logger.info("Loaded Whisper context for \(modelName, privacy: .public)")
-            return context
+            context = try await generation.task.value
         } catch {
-            if contextLoads[modelName] === load {
-                contextLoads[modelName] = nil
+            // A failed old load must never remove a replacement generation.
+            if generations[modelName] === generation {
+                generations[modelName] = nil
             }
-            logger.error("Failed to load Whisper context for \(modelName, privacy: .public): \(AppLogger.errorMetadata(error), privacy: .public)")
+            if error is CancellationError {
+                logger.notice("Whisper context load for \(modelName, privacy: .public) was cancelled before completion")
+            } else {
+                logger.error("Failed to load Whisper context for \(modelName, privacy: .public): \(AppLogger.errorMetadata(error), privacy: .public)")
+            }
             throw error
         }
+
+        // Keep publication distinct from invalidation. Every waiter on a successful
+        // generation receives the same live context, including after publication.
+        if generation.context == nil {
+            generation.context = context
+        }
+        guard !generation.isInvalidated else {
+            await releaseIfRetired(generation)
+            throw CancellationError()
+        }
+        // Cancelling one waiter does not cancel a shared load or discard its cache.
+        // The cancelled waiter finishes after the shared loader completes.
+        try Task.checkCancellation()
+        return generation
     }
 
     func performInference(
@@ -68,77 +100,80 @@ actor WhisperContextManager {
         language: String?,
         prompt: String?
     ) async throws -> String {
-        let context = try await loadContext(for: modelName, modelURL: modelURL)
-        activeInferenceCounts[modelName, default: 0] += 1
+        let generation = try await loadGeneration(for: modelName, modelURL: modelURL)
+        try Task.checkCancellation()
+        // Unload may run while loadGeneration returns across an actor suspension.
+        // Acquire the inference lifetime without another suspension after this check.
+        guard !generation.isInvalidated, let context = generation.context else {
+            throw CancellationError()
+        }
+        generation.activeInferenceCount += 1
 
         do {
-            let samples = try await Task.detached(priority: .userInitiated) {
-                try AudioSampleReader.readPCM16LE(from: audioURL)
-            }.value
-            await context.setLanguage(language)
-            await context.setPrompt(prompt ?? "")
-
-            guard await context.fullTranscribe(samples: samples) else {
-                throw WhisperContextError.transcriptionFailed
-            }
-
-            let transcription = await context.getTranscription()
-            await finishInference(for: modelName)
+            let samples = try await sampleLoader(audioURL)
+            try Task.checkCancellation()
+            let transcription = try await context.transcribe(samples: samples, language: language, prompt: prompt)
+            try Task.checkCancellation()
+            await finishInference(generation)
             return transcription
         } catch {
-            await finishInference(for: modelName)
+            await finishInference(generation)
             throw error
         }
     }
 
-    func isContextLoaded(for modelName: String) -> Bool {
-        contexts[modelName] != nil
+    /// Also used to synchronize race tests without scheduler-dependent sleeps.
+    func pendingLoadWaiterCount(for modelName: String) -> Int {
+        generations[modelName]?.loadWaiterCount ?? 0
     }
 
-    func updatePrompt(_ prompt: String, for modelName: String) async {
-        await contexts[modelName]?.setPrompt(prompt)
+    func isContextLoaded(for modelName: String) -> Bool {
+        generations[modelName]?.context != nil
     }
 
     func unloadContext(for modelName: String) async {
-        invalidateLoad(for: modelName)
-        await retireContext(for: modelName)
+        guard let generation = generations.removeValue(forKey: modelName) else { return }
+        invalidate(generation)
+        await releaseIfRetired(generation)
     }
 
     func unloadAllContexts() async {
-        let loadingModelNames = Array(contextLoads.keys)
-        for modelName in loadingModelNames {
-            invalidateLoad(for: modelName)
+        await unloadAllContexts(except: nil)
+    }
+
+    /// Retires every model except `keptModelName`, so switching to an already prewarmed model reuses
+    /// its live generation instead of unloading and rebuilding it.
+    func unloadAllContexts(except keptModelName: String?) async {
+        // Detach and invalidate the entire snapshot before any release suspends.
+        // Loads started afterward belong to a new generation and remain untouched.
+        let retiredNames = generations.keys.filter { $0 != keptModelName }
+        let retired = retiredNames.compactMap { generations.removeValue(forKey: $0) }
+        for generation in retired {
+            invalidate(generation)
         }
-        for modelName in Array(contexts.keys) {
-            await retireContext(for: modelName)
+        for generation in retired {
+            await releaseIfRetired(generation)
         }
     }
 
-    private func invalidateLoad(for modelName: String) {
-        guard let load = contextLoads.removeValue(forKey: modelName) else { return }
-        load.isInvalidated = true
-        load.task.cancel()
+    private func invalidate(_ generation: Generation) {
+        generation.isInvalidated = true
+        generation.task.cancel()
     }
 
-    private func retireContext(for modelName: String) async {
-        guard let context = contexts.removeValue(forKey: modelName) else { return }
-        if activeInferenceCounts[modelName, default: 0] > 0 {
-            retiringContexts[modelName, default: []].append(context)
-        } else {
-            await context.releaseResources()
-        }
+    private func finishInference(_ generation: Generation) async {
+        generation.activeInferenceCount -= 1
+        await releaseIfRetired(generation)
     }
 
-    private func finishInference(for modelName: String) async {
-        let remaining = max(0, activeInferenceCounts[modelName, default: 1] - 1)
-        if remaining == 0 {
-            activeInferenceCounts[modelName] = nil
-            for context in retiringContexts.removeValue(forKey: modelName) ?? [] {
-                await context.releaseResources()
-            }
-        } else {
-            activeInferenceCounts[modelName] = remaining
-        }
+    private func releaseIfRetired(_ generation: Generation) async {
+        guard generation.isInvalidated,
+              generation.activeInferenceCount == 0,
+              !generation.didReleaseResult,
+              let context = generation.context else { return }
+        // Claim release before awaiting so other waiters cannot release it twice.
+        generation.didReleaseResult = true
+        await context.releaseResources()
     }
 }
 

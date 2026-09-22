@@ -54,6 +54,8 @@ class CloudTranscriptionService: TranscriptionService {
         let fileName = audioURL.lastPathComponent
         let language = selectedLanguage(from: context)
         let timeout = CloudTranscriptionSettings.timeout
+        // The dictionary lives in the main context; read it on the main actor.
+        let vocabulary = await DictionaryVocabulary.terms(from: modelContext, limit: nil, logger: AppLogger.transcription)
 
         do {
             if model.provider == .custom {
@@ -74,7 +76,7 @@ class CloudTranscriptionService: TranscriptionService {
                 apiKey: apiKey,
                 model: model.name,
                 language: language,
-                customVocabulary: getCustomDictionaryTerms(),
+                customVocabulary: vocabulary,
                 timeout: timeout
             )
         } catch let error as CloudTranscriptionError {
@@ -105,25 +107,6 @@ class CloudTranscriptionService: TranscriptionService {
     private func selectedLanguage(from context: TranscriptionRequestContext) -> String? {
         let lang = context.language ?? "auto"
         return (lang == "auto" || lang.isEmpty) ? nil : lang
-    }
-
-    private func getCustomDictionaryTerms() -> [String] {
-        let descriptor = FetchDescriptor<VocabularyWord>(sortBy: [SortDescriptor(\.word)])
-        guard let vocabularyWords = try? modelContext.fetch(descriptor) else {
-            return []
-        }
-        var seen = Set<String>()
-        var unique: [String] = []
-        for word in vocabularyWords {
-            let trimmed = word.word.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
-            let key = trimmed.lowercased()
-            if !seen.contains(key) {
-                seen.insert(key)
-                unique.append(trimmed)
-            }
-        }
-        return unique
     }
 
     private func mapLLMKitError(_ error: LLMKitError) -> CloudTranscriptionError {

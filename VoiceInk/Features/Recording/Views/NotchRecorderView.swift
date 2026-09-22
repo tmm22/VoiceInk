@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var stateProvider: S
     /// Not observed here: the meter is the only published state and `RecorderMeterVisualizer` observes it.
     let recorder: Recorder
@@ -139,7 +140,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         GeometryReader { geo in
             pill.position(x: geo.size.width / 2, y: pillHeight / 2)
         }
-        .animation(pillAnimation, value: displayState)
+        .animation(reduceMotion ? nil : pillAnimation, value: displayState)
         .onReceive(
             LifecycleObserver.shared.publisher(for: .screenConfigurationChanged)
         ) { _ in
@@ -188,7 +189,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .opacity(displayState != .collapsed ? 1 : 0)
             .animation(
-                displayState != .collapsed ? expandAnimation.delay(0.09) : collapseAnimation,
+                reduceMotion ? nil : (displayState != .collapsed ? expandAnimation.delay(0.09) : collapseAnimation),
                 value: displayState
             )
 
@@ -205,7 +206,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
             .frame(maxWidth: .infinity, alignment: .trailing)
             .opacity(displayState != .collapsed ? 1 : 0)
             .animation(
-                displayState != .collapsed ? expandAnimation.delay(0.09) : collapseAnimation,
+                reduceMotion ? nil : (displayState != .collapsed ? expandAnimation.delay(0.09) : collapseAnimation),
                 value: displayState
             )
         }

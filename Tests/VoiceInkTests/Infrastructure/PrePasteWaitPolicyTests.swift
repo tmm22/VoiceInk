@@ -109,6 +109,44 @@ final class PrePasteWaitPolicyTests: XCTestCase {
         XCTAssertEqual(clock.now, 0.020, accuracy: 1e-9)
     }
 
+    func testModifierPressedDuringFloorIsPolledUntilRelease() async {
+        let clock = FakeClock()
+        let outcome = await policy.run(
+            modifiersHeld: { clock.now >= 0.010 && clock.now < 0.040 },
+            elapsed: { clock.now },
+            sleep: { clock.sleep($0) }
+        )
+        XCTAssertTrue(outcome.modifiersReleased)
+        XCTAssertEqual(clock.now, 0.040, accuracy: 1e-9)
+        XCTAssertEqual(outcome.pollCount, 4)
+    }
+
+    func testModifierPressedDuringFloorStillHonoursCap() async {
+        let clock = FakeClock()
+        let outcome = await policy.run(
+            modifiersHeld: { clock.now >= 0.010 },
+            elapsed: { clock.now },
+            sleep: { clock.sleep($0) }
+        )
+        XCTAssertFalse(outcome.modifiersReleased)
+        XCTAssertEqual(clock.now, 0.150, accuracy: 1e-9)
+    }
+
+    func testCancellationDoesNotSpinWhenSleepReturnsImmediately() async {
+        let clock = FakeClock()
+        let task = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return await policy.run(
+                modifiersHeld: { true },
+                elapsed: { clock.now },
+                sleep: { clock.sleep($0) }
+            )
+        }
+        let outcome = await task.value
+        XCTAssertFalse(outcome.modifiersReleased)
+        XCTAssertTrue(clock.sleeps.isEmpty)
+    }
+
     func testDefaultPolicyMatchesDocumentedTimings() {
         let defaults = PrePasteWaitPolicy.default
         XCTAssertEqual(defaults.pollInterval, 0.005, accuracy: 1e-9)

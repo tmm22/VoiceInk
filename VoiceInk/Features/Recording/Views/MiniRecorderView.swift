@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var stateProvider: S
     /// Not observed here: the meter is the only published state and `RecorderMeterVisualizer` observes it.
     let recorder: Recorder
@@ -100,8 +101,8 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
                 cornerRadius: hasLiveTranscript || hasAssistantResponse ? expandedCornerRadius : compactCornerRadius,
                 style: .continuous)
         )
-        .animation(.easeInOut(duration: 0.3), value: hasLiveTranscript)
-        .animation(.easeInOut(duration: 0.3), value: hasAssistantResponse)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: hasLiveTranscript)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: hasAssistantResponse)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
     }
 }

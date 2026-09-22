@@ -16,6 +16,8 @@ final class CartesiaStreamingProvider: LLMKitStreamingProvider<LLMkit.CartesiaSt
 
     override var finishesEventsWhenClientStreamEnds: Bool { true }
 
+    override var sendsCustomVocabulary: Bool { false }
+
     override func connectionParameters(model: any TranscriptionModel, language: String?) -> LLMKitStreamingConnection {
         LLMKitStreamingConnection(model: model.name, language: nil, customVocabulary: [])
     }

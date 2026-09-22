@@ -142,7 +142,7 @@ extension CoreAudioRecorder {
 
         freeBuffers()
 
-        allocateAudioBuffers(
+        try allocateAudioBuffers(
             maxFrames: renderFrameCapacity(for: currentDeviceID),
             channelCount: captureChannelCount,
             inputSampleRate: deviceFormat.mSampleRate,
@@ -218,7 +218,7 @@ extension CoreAudioRecorder {
         channelCount: UInt32,
         inputSampleRate: Double,
         resetQueuedAudio: Bool
-    ) {
+    ) throws {
         let bufferSamples = maxFrames * channelCount
 
         if bufferSamples > renderBufferSize {
@@ -251,6 +251,7 @@ extension CoreAudioRecorder {
                 logger.error(
                     "🎙️ Failed to create audio format converter: \(inputSampleRate, privacy: .public)Hz x\(channelCount, privacy: .public) → \(self.outputFormat.mSampleRate, privacy: .public)Hz"
                 )
+                throw CoreAudioRecorderError.failedToSetFormat(status: kAudio_ParamError)
             }
         } else {
             formatConverter?.reset()
@@ -267,7 +268,7 @@ extension CoreAudioRecorder {
         }
 
         var callbackStruct = AURenderCallbackStruct(
-            inputProc: inputCallback,
+            inputProc: Self.inputCallback,
             inputProcRefCon: Unmanaged.passUnretained(self).toOpaque()
         )
 
@@ -303,8 +304,8 @@ extension CoreAudioRecorder {
             &fileRef
         )
 
-        if status != noErr {
-            logger.error("Failed to create audio file at \(url.path, privacy: .public): \(status, privacy: .public)")
+        guard status == noErr, let fileRef else {
+            logger.error("Failed to create audio file: \(status, privacy: .public)")
             throw CoreAudioRecorderError.failedToCreateFile(status: status)
         }
 
@@ -312,7 +313,7 @@ extension CoreAudioRecorder {
 
         // Set client format (what we'll write)
         status = ExtAudioFileSetProperty(
-            fileRef!,
+            fileRef,
             kExtAudioFileProperty_ClientDataFormat,
             UInt32(MemoryLayout<AudioStreamBasicDescription>.size),
             &outputFormat
@@ -345,11 +346,11 @@ extension CoreAudioRecorder {
         }
 
         isRecording = true
-        recordingActive.store(true, ordering: .releasing)
+        callbackGate.open()
         let status = AudioOutputUnitStart(audioUnit)
         if status != noErr {
             isRecording = false
-            recordingActive.store(false, ordering: .releasing)
+            callbackGate.close()
             logger.error("Failed to start AudioUnit: \(status, privacy: .public)")
             throw CoreAudioRecorderError.failedToStart(status: status)
         }
@@ -379,7 +380,7 @@ extension CoreAudioRecorder {
     }
 
     func teardownPreparedAudioUnit() {
-        recordingActive.store(false, ordering: .releasing)
+        callbackGate.close()
         if let unit = audioUnit {
             AudioOutputUnitStop(unit)
             waitForRenderCallbacksToFinish()
@@ -389,7 +390,9 @@ extension CoreAudioRecorder {
             AudioComponentInstanceDispose(unit)
             audioUnit = nil
         }
+        waitForRenderCallbacksToFinish()
         drainAudioProcessingQueue()
+        flushFormatConverterToFile()
         logDroppedInputBufferCounters(context: "teardown")
         isAudioUnitInitialized = false
         freeBuffers()

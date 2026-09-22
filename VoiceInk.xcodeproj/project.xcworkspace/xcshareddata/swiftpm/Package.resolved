@@ -1,5 +1,5 @@
 {
-  "originHash" : "5f1b4e39e843ea66378e61adc21770b45f70a0ac349dba56e2597a67dabc2165",
+  "originHash" : "6594d0d122aa9bb0dd3cdc2af51531437c839354832cf05ee67177c02b85841c",
   "pins" : [
     {
       "identity" : "axswift",
@@ -24,7 +24,6 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/FluidInference/FluidAudio",
       "state" : {
-        "branch" : "main",
         "revision" : "ec07aabfa6990133fee483705432b4cbd4dbe7d5"
       }
     },
@@ -50,7 +49,6 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Beingpax/mediaremote-adapter",
       "state" : {
-        "branch" : "master",
         "revision" : "cf30c4f1af29b5829d859f088f8dbdf12611a046"
       }
     },

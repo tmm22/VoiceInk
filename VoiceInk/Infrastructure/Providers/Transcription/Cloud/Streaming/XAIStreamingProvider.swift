@@ -7,6 +7,8 @@ final class XAIStreamingProvider: LLMKitStreamingProvider<LLMkit.XAIStreamingCli
         super.init(client: LLMkit.XAIStreamingClient(), apiKeyProviderName: "xAI", modelContext: nil)
     }
 
+    override var sendsCustomVocabulary: Bool { false }
+
     override func connectionParameters(model: any TranscriptionModel, language: String?) -> LLMKitStreamingConnection {
         LLMKitStreamingConnection(model: model.name, language: language, customVocabulary: [])
     }

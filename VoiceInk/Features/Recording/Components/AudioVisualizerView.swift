@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct AudioVisualizer: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let audioMeter: AudioMeter
     let color: Color
     let isActive: Bool
@@ -35,8 +36,8 @@ struct AudioVisualizer: View {
         let amplitude = amplitude
         let fill = color.opacity(0.85)
 
-        TimelineView(.animation(minimumInterval: Self.frameInterval, paused: !isActive)) { context in
-            let time = context.date.timeIntervalSince1970
+        TimelineView(.animation(minimumInterval: Self.frameInterval, paused: !isActive || amplitude == 0 || reduceMotion)) { context in
+            let time = reduceMotion ? 0 : context.date.timeIntervalSince1970
 
             HStack(spacing: Self.barSpacing) {
                 ForEach(0..<Self.barCount, id: \.self) { index in
@@ -67,6 +68,8 @@ struct RecorderMeterVisualizer: View {
 
     var body: some View {
         AudioVisualizer(audioMeter: recorder.audioMeter, color: color, isActive: true)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("Recording"))
     }
 }
 
@@ -86,6 +89,8 @@ struct StaticVisualizer: View {
                     .frame(width: barWidth, height: barHeight)
             }
         }
+        // Flat placeholder bars convey nothing to assistive technology.
+        .accessibilityHidden(true)
     }
 }
 

@@ -222,6 +222,12 @@ class TranscriptionPipeline {
 
             transcription.transcriptionStatus = TranscriptionStatus.completed.rawValue
         } catch {
+            // A user cancel can surface as a thrown error (for example a cancelled streaming stop);
+            // record it as cancelled, never as a failed transcription.
+            if shouldCancel() {
+                await finishCanceledTranscription()
+                return
+            }
             let errorDescription = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
 
             if let nativeAppleError = error as? NativeAppleTranscriptionService.ServiceError,

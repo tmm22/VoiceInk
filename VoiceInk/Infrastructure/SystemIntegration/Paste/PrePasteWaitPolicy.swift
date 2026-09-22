@@ -42,17 +42,20 @@ struct PrePasteWaitPolicy: Sendable {
         var pollCount = 0
         var released = !modifiersHeld()
 
-        while !released, elapsed() < maximumModifierWait {
-            await sleep(pollInterval)
-            pollCount += 1
+        while !Task.isCancelled {
+            let now = elapsed()
+            if !released, now < maximumModifierWait {
+                await sleep(min(pollInterval, maximumModifierWait - now))
+                pollCount += 1
+            } else if now < minimumTotalDelay {
+                await sleep(minimumTotalDelay - now)
+            } else {
+                return Outcome(modifiersReleased: released, pollCount: pollCount)
+            }
+            // The user can press a modifier during the clipboard settling delay too.
             released = !modifiersHeld()
         }
 
-        let remaining = minimumTotalDelay - elapsed()
-        if remaining > 0 {
-            await sleep(remaining)
-        }
-
-        return Outcome(modifiersReleased: released, pollCount: pollCount)
+        return Outcome(modifiersReleased: false, pollCount: pollCount)
     }
 }

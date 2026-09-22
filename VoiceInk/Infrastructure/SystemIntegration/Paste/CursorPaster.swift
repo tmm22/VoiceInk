@@ -4,13 +4,13 @@ import Foundation
 import os
 
 class CursorPaster {
-    private typealias ClipboardItemSnapshot = [(NSPasteboard.PasteboardType, Data)]
-    private typealias ClipboardSnapshot = [ClipboardItemSnapshot]
     private static let logger = Logger(subsystem: AppLogger.subsystem, category: "CursorPaster")
 
     enum PasteResult: Equatable {
         case commandPosted
         case commandNotPosted
+        /// The pasteboard changed between the transcript write and the paste; nothing was posted.
+        case skippedClipboardChanged
 
         var didPostPasteCommand: Bool {
             self == .commandPosted
@@ -28,11 +28,8 @@ class CursorPaster {
     ]
 
     static func pasteAtCursor(_ text: String) {
-        Task {
-            let pasteTask = await MainActor.run {
-                startPasteAtCursor(text)
-            }
-            _ = await pasteTask.value
+        Task { @MainActor in
+            notifyIfSkipped(await startPasteAtCursor(text).value)
         }
     }
 
@@ -50,44 +47,112 @@ class CursorPaster {
     }
 
     @MainActor
-    private static func performPasteSession(_ text: String) async -> PasteResult {
-        let pasteboard = NSPasteboard.general
-        let defaults = UserDefaults.standard
+    static func performPasteSession(
+        _ text: String, on pasteboard: NSPasteboard = .general,
+        defaults: UserDefaults = .standard,
+        waitForPaste: (@MainActor () async -> Void)? = nil,
+        postCommand: (@MainActor () async -> PasteResult)? = nil,
+        restoreScheduler: (@MainActor (ClipboardSnapshot, String, String, Int, TimeInterval, NSPasteboard) -> Void)? = nil
+    ) async -> PasteResult {
         let shouldRestoreClipboard = defaults.bool(forKey: "restoreClipboardAfterPaste")
         // Read the user's restore delay once, up front, so the restore path does no defaults I/O later.
         let clipboardRestoreDelay =
             shouldRestoreClipboard
             ? max(defaults.double(forKey: "clipboardRestoreDelay"), minimumClipboardRestoreDelay)
             : 0
-        let savedContents = shouldRestoreClipboard ? snapshotClipboard(from: pasteboard) : []
+        var savedContents: ClipboardSnapshot?
+        if shouldRestoreClipboard {
+            guard let captured = await captureStableSnapshot(of: pasteboard) else {
+                // Cancellation is not a clipboard change; it must not show the skip warning.
+                return Task.isCancelled ? .commandNotPosted : .skippedClipboardChanged
+            }
+            savedContents = captured
+        }
+        guard !Task.isCancelled else { return .commandNotPosted }
         let sessionID = UUID().uuidString
 
         guard
             ClipboardManager.setClipboard(
                 text,
                 transient: shouldRestoreClipboard,
-                sessionID: shouldRestoreClipboard ? sessionID : nil
+                sessionID: shouldRestoreClipboard ? sessionID : nil,
+                on: pasteboard
             )
         else {
             logger.error("Failed to prepare clipboard for paste")
             return .commandNotPosted
         }
+        let clipboardChangeCount = pasteboard.changeCount
         let clipboardWrittenAt = ContinuousClock.now
-
-        await waitUntilReadyToPaste(since: clipboardWrittenAt)
-
-        let pasteResult = await postPasteCommand()
-        if shouldRestoreClipboard {
-            scheduleClipboardRestore(
-                savedContents,
-                expectedText: text,
-                sessionID: sessionID,
-                after: clipboardRestoreDelay,
-                on: pasteboard
-            )
+        defer {
+            if let savedContents {
+                if let restoreScheduler {
+                    restoreScheduler(savedContents, text, sessionID, clipboardChangeCount, clipboardRestoreDelay, pasteboard)
+                } else {
+                    scheduleClipboardRestore(
+                        savedContents, expectedText: text, sessionID: sessionID,
+                        expectedChangeCount: clipboardChangeCount, after: clipboardRestoreDelay, on: pasteboard
+                    )
+                }
+            }
         }
 
-        return pasteResult
+        if let waitForPaste {
+            await waitForPaste()
+        } else {
+            await waitUntilReadyToPaste(since: clipboardWrittenAt)
+        }
+
+        guard !Task.isCancelled else {
+            logger.notice("Paste cancelled before posting")
+            return .commandNotPosted
+        }
+        // Do not paste unrelated content copied while waiting for shortcut keys to be released.
+        guard
+            !shouldSkipPaste(on: pasteboard, expectedChangeCount: clipboardChangeCount, expectedText: text)
+        else {
+            logger.notice("Paste skipped because the clipboard no longer holds the transcript")
+            return .skippedClipboardChanged
+        }
+        if let postCommand { return await postCommand() }
+        return await postPasteCommand()
+    }
+
+    /// Captures the user's clipboard for later restoration. A copy or clipboard-manager rewrite that
+    /// lands during capture gets one fresh attempt; a clipboard that keeps changing is left alone and
+    /// the paste is skipped rather than risk restoring stale contents over the user's newest copy.
+    @MainActor
+    static func captureStableSnapshot(
+        of pasteboard: NSPasteboard, attempts: Int = 2,
+        capture: (NSPasteboard.Name) async -> (snapshot: ClipboardSnapshot, revision: Int)? = {
+            await ClipboardSnapshot.capture(name: $0)
+        }
+    ) async -> ClipboardSnapshot? {
+        for attempt in 1...max(1, attempts) {
+            guard !Task.isCancelled else { return nil }
+            if let captured = await capture(pasteboard.name),
+               pasteboard.changeCount == captured.revision {
+                return captured.snapshot
+            }
+            logger.notice("Clipboard changed during snapshot capture attempt=\(attempt, privacy: .public)")
+        }
+        return nil
+    }
+
+    /// Permit only a stable, single plain-text rewrite. Equal text does not make RTF, HTML,
+    /// attachments or additional items safe. NSPasteboard offers no atomic check-and-paste API;
+    /// another process can still write after the final check and before the target reads Cmd+V.
+    @MainActor
+    static func shouldSkipPaste(
+        on pasteboard: NSPasteboard, expectedChangeCount: Int, expectedText: String
+    ) -> Bool {
+        let revision = pasteboard.changeCount
+        guard revision != expectedChangeCount else { return false }
+        guard let items = pasteboard.pasteboardItems, items.count == 1,
+              let item = items.first,
+              Set(item.types).isSubset(of: ClipboardManager.plainTextPasteTypes),
+              item.string(forType: .string) == expectedText else { return true }
+        return pasteboard.changeCount != revision
     }
 
     /// Adaptive replacement for the old fixed pre-paste delay. See `PrePasteWaitPolicy`.
@@ -98,7 +163,8 @@ class CursorPaster {
             elapsed: { secondsSince(clipboardWrittenAt) },
             sleep: { await wait($0) }
         )
-        if !outcome.modifiersReleased {
+        // A cancelled wait also reports the modifiers as held; nothing is posted in that case.
+        if !outcome.modifiersReleased, !Task.isCancelled {
             logger.notice("Posting paste while a modifier key is still held; wait cap reached")
         }
     }
@@ -111,17 +177,6 @@ class CursorPaster {
         let elapsed = ContinuousClock.now - instant
         let (seconds, attoseconds) = elapsed.components
         return TimeInterval(seconds) + TimeInterval(attoseconds) / 1e18
-    }
-
-    private static func snapshotClipboard(from pasteboard: NSPasteboard) -> ClipboardSnapshot {
-        (pasteboard.pasteboardItems ?? []).map { item in
-            item.types.compactMap { type in
-                if let data = item.data(forType: type) {
-                    return (type, data)
-                }
-                return nil
-            }
-        }
     }
 
     @MainActor
@@ -137,38 +192,16 @@ class CursorPaster {
         _ savedContents: ClipboardSnapshot,
         expectedText: String,
         sessionID: String,
+        expectedChangeCount: Int,
         after delay: TimeInterval,
         on pasteboard: NSPasteboard
     ) {
         Task { @MainActor in
             await wait(delay)
-            guard pasteboardStillOwnedByPasteSession(pasteboard, expectedText: expectedText, sessionID: sessionID)
-            else {
-                return
-            }
-            pasteboard.clearContents()
-            if !savedContents.isEmpty {
-                pasteboard.writeObjects(pasteboardItems(from: savedContents))
-            }
-        }
-    }
-
-    private static func pasteboardStillOwnedByPasteSession(
-        _ pasteboard: NSPasteboard,
-        expectedText: String,
-        sessionID: String
-    ) -> Bool {
-        pasteboard.string(forType: .string) == expectedText
-            && pasteboard.string(forType: ClipboardManager.pasteSessionType) == sessionID
-    }
-
-    private static func pasteboardItems(from snapshot: ClipboardSnapshot) -> [NSPasteboardItem] {
-        snapshot.map { itemSnapshot in
-            let item = NSPasteboardItem()
-            for (type, data) in itemSnapshot {
-                item.setData(data, forType: type)
-            }
-            return item
+            savedContents.restoreIfOwned(
+                to: pasteboard, expectedText: expectedText, sessionID: sessionID,
+                expectedChangeCount: expectedChangeCount
+            )
         }
     }
 

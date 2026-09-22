@@ -22,24 +22,35 @@ class LLMKitStreamingProvider<Client: LLMkit.StreamingTranscriptionProvider>: St
     let apiKeyProviderName: String
     let logger: Logger
 
+    private let apiKeyLookup: (String) -> String?
     private var eventsContinuation: AsyncStream<StreamingTranscriptionEvent>.Continuation?
     private var forwardingTask: Task<Void, Never>?
+    /// Vocabulary fetched on the main actor for the connection in progress.
+    private var connectionVocabulary: [String] = []
 
     private(set) var transcriptionEvents: AsyncStream<StreamingTranscriptionEvent>
 
-    init(client: Client, apiKeyProviderName: String, modelContext: ModelContext?) {
+    init(
+        client: Client, apiKeyProviderName: String, modelContext: ModelContext?,
+        apiKeyLookup: @escaping (String) -> String? = { APIKeyManager.shared.getAPIKey(forProvider: $0) }
+    ) {
+        self.apiKeyLookup = apiKeyLookup
         self.client = client
         self.apiKeyProviderName = apiKeyProviderName
         self.modelContext = modelContext
         self.logger = Logger(subsystem: AppLogger.subsystem, category: "\(apiKeyProviderName)Streaming")
-        var continuation: AsyncStream<StreamingTranscriptionEvent>.Continuation!
-        transcriptionEvents = AsyncStream { continuation = $0 }
+        let (stream, continuation) = AsyncStream<StreamingTranscriptionEvent>.makeStream()
+        transcriptionEvents = stream
         eventsContinuation = continuation
     }
 
     deinit {
         forwardingTask?.cancel()
         eventsContinuation?.finish()
+        // Some clients retain their own receive task until explicitly disconnected.
+        // Capture only the client: cleanup must not extend this provider's lifetime.
+        let client = client
+        Task { await client.disconnect() }
     }
 
     // MARK: - Vendor hooks
@@ -52,6 +63,9 @@ class LLMKitStreamingProvider<Client: LLMkit.StreamingTranscriptionProvider>: St
 
     /// Upper bound on custom vocabulary terms sent to the vendor; `nil` means no limit.
     var vocabularyLimit: Int? { nil }
+
+    /// Whether `connectionParameters` sends dictionary terms. Providers that never send them skip the fetch.
+    var sendsCustomVocabulary: Bool { true }
 
     /// Whether the client should be torn down when `connect` fails.
     var disconnectsClientOnConnectFailure: Bool { false }
@@ -76,10 +90,15 @@ class LLMKitStreamingProvider<Client: LLMkit.StreamingTranscriptionProvider>: St
     // MARK: - StreamingTranscriptionProvider
 
     final func connect(model: any TranscriptionModel, language: String?) async throws {
-        guard let apiKey = APIKeyManager.shared.getAPIKey(forProvider: apiKeyProviderName), !apiKey.isEmpty else {
+        guard let apiKey = apiKeyLookup(apiKeyProviderName), !apiKey.isEmpty else {
             throw StreamingTranscriptionError.missingAPIKey
         }
 
+        // The dictionary lives in the main context; SwiftData contexts must stay on their actor.
+        connectionVocabulary =
+            sendsCustomVocabulary
+            ? await DictionaryVocabulary.terms(from: modelContext, limit: vocabularyLimit, logger: logger)
+            : []
         let parameters = connectionParameters(model: model, language: language)
 
         // Cancel any existing forwarding task before starting a new one.
@@ -99,6 +118,11 @@ class LLMKitStreamingProvider<Client: LLMkit.StreamingTranscriptionProvider>: St
             forwardingTask = nil
             if disconnectsClientOnConnectFailure {
                 await client.disconnect()
+            }
+            // Cancelling forwarding no longer runs the end-of-stream hook, so end the app-facing
+            // stream explicitly for providers whose stream ends with the client's (Cartesia).
+            if finishesEventsWhenClientStreamEnds {
+                eventsContinuation?.finish()
             }
             throw Self.mapError(error)
         }
@@ -136,15 +160,11 @@ class LLMKitStreamingProvider<Client: LLMkit.StreamingTranscriptionProvider>: St
     }
 
     private func startEventForwarding() {
+        // Hold the stream, never the provider, across the unbounded next-event await.
+        let stream = client.transcriptionEvents
         forwardingTask = Task { [weak self] in
-            guard let self else { return }
-            defer {
-                if self.finishesEventsWhenClientStreamEnds {
-                    self.clientEventStreamDidEnd()
-                    self.eventsContinuation?.finish()
-                }
-            }
-            for await event in self.client.transcriptionEvents {
+            for await event in stream {
+                guard !Task.isCancelled, let self else { return }
                 switch event {
                 case .sessionStarted:
                     self.yield(.sessionStarted)
@@ -156,35 +176,20 @@ class LLMKitStreamingProvider<Client: LLMkit.StreamingTranscriptionProvider>: St
                     self.yield(.error(StreamingTranscriptionError.serverError(message)))
                 }
             }
+            // Cancellation is not a vendor finalization acknowledgement. In particular,
+            // it must not synthesize Cartesia's successful empty committed event.
+            guard !Task.isCancelled, let self else { return }
+            if self.finishesEventsWhenClientStreamEnds {
+                self.clientEventStreamDidEnd()
+                self.eventsContinuation?.finish()
+            }
         }
     }
 
-    /// Unique, trimmed custom vocabulary terms from the dictionary, capped at `vocabularyLimit`.
+    /// Unique, trimmed custom vocabulary terms for the current connection, capped at `vocabularyLimit`.
+    /// Fetched on the main actor at the start of `connect`; vendor hooks read the prepared list.
     final func customVocabularyTerms() -> [String] {
-        guard let modelContext else { return [] }
-
-        let descriptor = FetchDescriptor<VocabularyWord>(sortBy: [SortDescriptor(\.word)])
-        let vocabularyWords: [VocabularyWord]
-        do {
-            vocabularyWords = try modelContext.fetch(descriptor)
-        } catch {
-            // Recoverable: stream without custom vocabulary, but leave a diagnostic trail.
-            logger.error(
-                "Failed to fetch custom vocabulary for streaming; continuing without it: \(AppLogger.errorMetadata(error), privacy: .public)"
-            )
-            return []
-        }
-
-        var seen = Set<String>()
-        var unique: [String] = []
-        for word in vocabularyWords {
-            let trimmed = word.word.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
-            guard seen.insert(trimmed.lowercased()).inserted else { continue }
-            unique.append(trimmed)
-            if let vocabularyLimit, unique.count == vocabularyLimit { break }
-        }
-        return unique
+        connectionVocabulary
     }
 
     static func mapError(_ error: Error) -> Error {
@@ -201,5 +206,37 @@ class LLMKitStreamingProvider<Client: LLMkit.StreamingTranscriptionProvider>: St
         default:
             return StreamingTranscriptionError.serverError(llmError.localizedDescription)
         }
+    }
+}
+
+enum DictionaryVocabulary {
+    /// Unique, trimmed dictionary terms, capped at `vocabularyLimit`. Runs on the main actor because
+    /// the dictionary's `ModelContext` is the app's main context.
+    @MainActor
+    static func terms(from modelContext: ModelContext?, limit vocabularyLimit: Int?, logger: Logger) -> [String] {
+        guard let modelContext else { return [] }
+
+        let descriptor = FetchDescriptor<VocabularyWord>(sortBy: [SortDescriptor(\.word)])
+        let vocabularyWords: [VocabularyWord]
+        do {
+            vocabularyWords = try modelContext.fetch(descriptor)
+        } catch {
+            // Recoverable: stream without custom vocabulary, but leave a diagnostic trail.
+            logger.error(
+                "Failed to fetch custom vocabulary; continuing without it: \(AppLogger.errorMetadata(error), privacy: .public)"
+            )
+            return []
+        }
+
+        var seen = Set<String>()
+        var unique: [String] = []
+        for word in vocabularyWords {
+            let trimmed = word.word.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            guard seen.insert(trimmed.lowercased()).inserted else { continue }
+            unique.append(trimmed)
+            if let vocabularyLimit, unique.count == vocabularyLimit { break }
+        }
+        return unique
     }
 }

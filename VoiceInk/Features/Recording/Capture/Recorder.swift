@@ -11,6 +11,8 @@ class Recorder: NSObject, ObservableObject {
     let deviceManager = AudioDeviceManager.shared
     private var lifecycleCancellable: AnyCancellable?
     var recordingDeviceChangeObserver: NSObjectProtocol?
+    /// The engine saves the partial recording through its normal cancellation path.
+    var onRecordingDeviceFailure: (() async -> Void)?
     private let mediaController = MediaController.shared
     private let playbackController = PlaybackController.shared
     /// Dedicated serial queue for hardware setup.
@@ -69,7 +71,7 @@ class Recorder: NSObject, ObservableObject {
         pauseMedia()
         muteSystemAudio()
 
-        let coreAudioRecorder = recorder ?? CoreAudioRecorder()
+        let coreAudioRecorder = recorder ?? makeCoreAudioRecorder()
         coreAudioRecorder.onAudioChunk = onAudioChunk
         recorder = coreAudioRecorder
 
@@ -114,6 +116,19 @@ class Recorder: NSObject, ObservableObject {
         // Capture current recorder to stop it on the serial hardware queue.
         let currentRecorder = self.recorder
 
+        // Normally keep media quiet until capture stops. If a driver stalls, restore it without
+        // releasing any audio resources or making the recording available before its file closes.
+        var restoredMedia = false
+        let mediaRestoreWatchdog = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(5))
+            } catch { return } // Normal stop cancels this watchdog.
+            guard !Task.isCancelled else { return }
+            restoredMedia = true
+            self?.restoreSystemAudioAfterRecording()
+        }
+        defer { mediaRestoreWatchdog.cancel() }
+
         await withCheckedContinuation { continuation in
             audioSetupQueue.async {
                 currentRecorder?.stopRecording()
@@ -124,12 +139,16 @@ class Recorder: NSObject, ObservableObject {
 
         resetAudioMeter()
 
+        if !restoredMedia { restoreSystemAudioAfterRecording() }
+        deviceManager.recordingDidStop()
+    }
+
+    private func restoreSystemAudioAfterRecording() {
         audioRestorationTask?.cancel()
-        audioRestorationTask = Task {
+        audioRestorationTask = Task { [mediaController, playbackController] in
             await mediaController.unmuteSystemAudio()
             await playbackController.resumeMedia()
         }
-        deviceManager.recordingDidStop()
     }
 
     private func muteSystemAudio() {
@@ -157,11 +176,12 @@ class Recorder: NSObject, ObservableObject {
 
         let deviceID = deviceManager.getCurrentDevice()
         guard deviceID != 0 else {
-            recorder?.teardown()
+            let currentRecorder = recorder
+            audioSetupQueue.async { currentRecorder?.teardown() }
             return
         }
 
-        let coreAudioRecorder = recorder ?? CoreAudioRecorder()
+        let coreAudioRecorder = recorder ?? makeCoreAudioRecorder()
         coreAudioRecorder.onAudioChunk = onAudioChunk
         recorder = coreAudioRecorder
 
@@ -183,6 +203,19 @@ class Recorder: NSObject, ObservableObject {
         }
     }
 
+    private func makeCoreAudioRecorder() -> CoreAudioRecorder {
+        CoreAudioRecorder(onStalledCallbackDrain: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard self != nil else { return }
+                NotificationManager.shared.showNotification(
+                    title: String(localized: "Waiting for the microphone driver to finish. Recording resources are being kept safe."),
+                    type: .warning,
+                    duration: 10.0
+                )
+            }
+        })
+    }
+
     /// The most recently published meter value. Views should observe `audioMeter` directly.
     func audioMeterSnapshot() -> AudioMeter {
         audioMeter
@@ -192,10 +225,11 @@ class Recorder: NSObject, ObservableObject {
 
     private func startMeterUpdates(for coreAudioRecorder: CoreAudioRecorder) {
         meterUpdateTask?.cancel()
-        meterUpdateTask = Task { [weak self, interval = meterUpdateInterval] in
+        // Weak capture: the setup queue must be the last owner of the core so its deinit never runs here.
+        meterUpdateTask = Task { [weak self, weak coreAudioRecorder, interval = meterUpdateInterval] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: interval)
-                guard !Task.isCancelled, let self else { return }
+                guard !Task.isCancelled, let self, let coreAudioRecorder else { return }
                 self.updateAudioMeter(
                     averagePowerDb: coreAudioRecorder.averagePower,
                     peakPowerDb: coreAudioRecorder.peakPower
@@ -259,7 +293,12 @@ class Recorder: NSObject, ObservableObject {
         if let observer = recordingDeviceChangeObserver {
             NotificationCenter.default.removeObserver(observer)
         }
-        recorder?.teardown()
+        // Retain the core through teardown on the serial hardware queue. Earlier queue closures release
+        // their captures before this one runs, main-actor holders live only inside methods that keep
+        // `self` alive, `recorder` is never reassigned, and the meter task holds it weakly, so in
+        // practice this closure performs the final release and CoreAudioRecorder.deinit runs here.
+        let currentRecorder = recorder
+        audioSetupQueue.async { currentRecorder?.teardown() }
     }
 }
 

@@ -98,7 +98,11 @@ class VoiceInkEngine: NSObject, ObservableObject {
 
         super.init()
 
-        setupNotifications()
+        recorder.onRecordingDeviceFailure = { [weak self] in
+            guard let self,
+                  self.recordingState == .starting || self.recordingState == .recording else { return }
+            await self.cancelRecording()
+        }
         createRecordingsDirectoryIfNeeded()
     }
 
@@ -805,27 +809,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
         logger.notice("cleanupResources: completed")
     }
 
-    // MARK: - Notification Handling
 
-    func setupNotifications() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handlePromptChange),
-            name: .promptDidChange,
-            object: nil
-        )
-    }
-
-    @objc func handlePromptChange() {
-        Task {
-            let currentPrompt =
-                UserDefaults.standard.string(forKey: "TranscriptionPrompt")
-                ?? whisperModelManager.whisperPrompt.transcriptionPrompt
-            if let modelName = whisperModelManager.loadedWhisperModel?.name {
-                await WhisperContextManager.shared.updatePrompt(currentPrompt, for: modelName)
-            }
-        }
-    }
 }
 
 enum AudioFileMetadata {

@@ -7,6 +7,8 @@ final class MistralStreamingProvider: LLMKitStreamingProvider<LLMkit.MistralStre
         super.init(client: LLMkit.MistralStreamingClient(), apiKeyProviderName: "Mistral", modelContext: nil)
     }
 
+    override var sendsCustomVocabulary: Bool { false }
+
     override func connectionParameters(model: any TranscriptionModel, language: String?) -> LLMKitStreamingConnection {
         LLMKitStreamingConnection(model: "voxtral-mini-transcribe-realtime-2602", language: language, customVocabulary: [])
     }

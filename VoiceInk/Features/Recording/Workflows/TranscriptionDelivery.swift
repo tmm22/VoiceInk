@@ -166,12 +166,8 @@ final class TranscriptionDelivery {
 
         let autoSendKey = output.outputMode == .paste ? output.autoSendKey : .none
         Task { @MainActor in
-            _ = await pasteTask.value
-
-            if autoSendKey.isEnabled {
-                try? await Task.sleep(nanoseconds: 500_000_000)
-                CursorPaster.performAutoSend(autoSendKey)
-            }
+            CursorPaster.notifyIfSkipped(await pasteTask.value)
+            await CursorPaster.autoSendAfterPaste(pasteTask, key: autoSendKey)
         }
     }
 
