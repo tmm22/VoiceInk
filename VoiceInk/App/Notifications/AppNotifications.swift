@@ -3,7 +3,6 @@ import Foundation
 extension Notification.Name {
     static let AppSettingsDidChange = Notification.Name("appSettingsDidChange")
     static let languageDidChange = Notification.Name("languageDidChange")
-    static let promptDidChange = Notification.Name("promptDidChange")
     static let toggleRecorderPanel = Notification.Name("toggleRecorderPanel")
     static let dismissRecorderPanel = Notification.Name("dismissRecorderPanel")
     static let didChangeModel = Notification.Name("didChangeModel")
@@ -21,4 +20,6 @@ extension Notification.Name {
     static let sessionMetricsDidChange = Notification.Name("sessionMetricsDidChange")
     static let openFileForTranscription = Notification.Name("openFileForTranscription")
     static let recordingDeviceChangeRequired = Notification.Name("recordingDeviceChangeRequired")
+    /// Posted by AudioDeviceManager whenever the input device list or default device changes.
+    static let audioDeviceChanged = Notification.Name("AudioDeviceChanged")
 }

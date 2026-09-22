@@ -12717,6 +12717,22 @@
         }
       }
     },
+    "Paste skipped because the clipboard changed. The transcript is saved in History." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einfügen übersprungen, da sich die Zwischenablage geändert hat. Die Transkription ist im Verlauf gespeichert."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剪贴板已更改，已跳过粘贴。转录内容已保存在历史记录中。"
+          }
+        }
+      }
+    },
     "Pasting" : {
       "localizations" : {
         "de" : {
@@ -13550,6 +13566,22 @@
         }
       }
     },
+    "Recording" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aufnahme"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "录音"
+          }
+        }
+      }
+    },
     "Recording Behavior" : {
       "localizations" : {
         "de" : {
@@ -13578,6 +13610,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无法开始录音"
+          }
+        }
+      }
+    },
+    "Recording mode" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aufnahmemodus"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "录音模式"
           }
         }
       }
@@ -19169,6 +19217,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "等待中"
+          }
+        }
+      }
+    },
+    "Waiting for the microphone driver to finish. Recording resources are being kept safe." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warten, bis der Mikrofontreiber fertig ist. Die Aufnahmeressourcen werden sicher aufbewahrt."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在等待麦克风驱动程序完成。录音资源将保留，以确保安全。"
           }
         }
       }

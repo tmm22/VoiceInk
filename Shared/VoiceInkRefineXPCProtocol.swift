@@ -3,24 +3,6 @@ import Foundation
 let voiceInkRefineXPCServiceName = "com.prakashjoshipax.VoiceInk.RefineXPC"
 let voiceInkRefineXPCErrorDomain = "com.prakashjoshipax.VoiceInk.RefineXPC"
 
-struct VoiceInkRefinePrepareRequest: Codable, Sendable {
-    let requestID: UUID
-    let modelDirectoryPath: String
-    let systemPrompt: String
-}
-
-struct VoiceInkRefineEnhanceRequest: Codable, Sendable {
-    let requestID: UUID
-    let modelDirectoryPath: String
-    let systemPrompt: String
-    let transcript: String
-}
-
-struct VoiceInkRefineEnhanceResponse: Codable, Sendable {
-    let requestID: UUID
-    let output: String
-}
-
 enum VoiceInkRefineXPCErrorCode: Int {
     case invalidRequest = 1
     case inferenceFailed = 2
@@ -28,15 +10,23 @@ enum VoiceInkRefineXPCErrorCode: Int {
     case connectionFailed = 4
 }
 
+/// Arguments are passed as plain values; NSXPCInterface serializes String and NSError natively,
+/// so no intermediate JSON encoding of the transcript is needed on either side.
+/// `requestID` is a UUID string used by the service to track in-flight work.
 @objc protocol VoiceInkRefineXPCProtocol {
     func prepare(
-        _ requestData: NSData,
+        modelDirectoryPath: String,
+        systemPrompt: String,
+        requestID: String,
         withReply reply: @escaping (NSError?) -> Void
     )
 
     func enhance(
-        _ requestData: NSData,
-        withReply reply: @escaping (NSData?, NSError?) -> Void
+        transcript: String,
+        modelDirectoryPath: String,
+        systemPrompt: String,
+        requestID: String,
+        withReply reply: @escaping (String?, NSError?) -> Void
     )
 
     func shutdown(withReply reply: @escaping () -> Void)

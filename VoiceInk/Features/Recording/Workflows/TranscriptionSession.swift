@@ -60,9 +60,11 @@ final class StreamingTranscriptionSession: TranscriptionSession {
     private var model: (any TranscriptionModel)?
     private var context: TranscriptionRequestContext = .currentDefaults
     private var streamingFailed = false
+    /// Set by `cancel()`; a cancelled session never starts a batch upload.
+    private var wasCancelled = false
     private var startupTask: Task<Void, Never>?
     private var startupTaskID: UUID?
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "StreamingTranscriptionSession")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "StreamingTranscriptionSession")
 
     init(streamingService: StreamingTranscriptionService, fallbackService: TranscriptionService) {
         self.streamingService = streamingService
@@ -75,6 +77,7 @@ final class StreamingTranscriptionSession: TranscriptionSession {
 
         self.model = model
         self.context = context
+        wasCancelled = false
         logger.notice("Streaming session prepare model=\(model.displayName, privacy: .public)")
 
         // Return callback immediately; WebSocket connects in background
@@ -137,7 +140,23 @@ final class StreamingTranscriptionSession: TranscriptionSession {
                     return text
                 case .requiresBatchFallback:
                     logger.notice("Streaming provider requested full batch transcription")
+                case .timedOut(let partialText):
+                    return try await Self.transcribeAfterStreamingTimeout(
+                        partialText: partialText,
+                        canTranscribeInBatch: Self.supportsBatchFallback(model),
+                        fallback: { [fallbackService, context] in
+                            try await fallbackService.transcribe(audioURL: audioURL, model: model, context: context)
+                        },
+                        logger: logger
+                    )
                 }
+            } catch is CancellationError {
+                // A cancelled session must not fall through to a batch upload.
+                startupTask?.cancel()
+                startupTask = nil
+                startupTaskID = nil
+                streamingService.cancel()
+                throw CancellationError()
             } catch {
                 logger.error("❌ Streaming failed, falling back to batch: \(AppLogger.errorMetadata(error), privacy: .public)")
                 startupTask?.cancel()
@@ -152,6 +171,11 @@ final class StreamingTranscriptionSession: TranscriptionSession {
             streamingService.cancel()
         }
 
+        // Streaming errors caused by a cancel (for example a disconnect during commit) are not
+        // failures to recover from.
+        if wasCancelled || Task.isCancelled {
+            throw CancellationError()
+        }
         let fallbackStart = Date()
         logger.notice(
             "Using batch fallback for \(model.displayName, privacy: .public) file=\(audioURL.lastPathComponent, privacy: .public)"
@@ -164,10 +188,51 @@ final class StreamingTranscriptionSession: TranscriptionSession {
     }
 
     func cancel() {
+        wasCancelled = true
         startupTask?.cancel()
         startupTask = nil
         startupTaskID = nil
         streamingService.cancel()
+    }
+
+    /// A stream that missed its final acknowledgement may be truncated, so transcribe the complete
+    /// recording instead. If that also fails, keep the previous behaviour and return whatever the
+    /// stream committed, rather than turning a partial transcript into a failure.
+    static func transcribeAfterStreamingTimeout(
+        partialText: String,
+        canTranscribeInBatch: Bool,
+        fallback: () async throws -> String,
+        logger: Logger
+    ) async throws -> String {
+        guard canTranscribeInBatch else {
+            logger.warning("Streaming-only provider missed its final commit; using committed text chars=\(partialText.count, privacy: .public)")
+            return partialText
+        }
+        try Task.checkCancellation()
+        do {
+            let text = try await fallback()
+            logger.notice("Batch transcription replaced a timed-out stream chars=\(text.count, privacy: .public)")
+            return text
+        } catch {
+            if Task.isCancelled || Self.isCancellation(error) { throw CancellationError() }
+            logger.error(
+                "Batch fallback after streaming timeout failed; using committed streaming text chars=\(partialText.count, privacy: .public) error=\(AppLogger.errorMetadata(error), privacy: .public)"
+            )
+            return partialText
+        }
+    }
+
+    /// Streaming-only cloud providers (for example Cartesia) have no batch endpoint to fall back to.
+    static func supportsBatchFallback(_ model: any TranscriptionModel) -> Bool {
+        !(CloudProviderRegistry.provider(for: model.provider)?.isStreamingOnly ?? false)
+    }
+
+    /// Cloud services wrap cancellation in their own network error.
+    static func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let urlError = error as? URLError, urlError.code == .cancelled { return true }
+        if case CloudTranscriptionError.networkError(let underlying) = error { return isCancellation(underlying) }
+        return false
     }
 
     func requireBatchFallback() {

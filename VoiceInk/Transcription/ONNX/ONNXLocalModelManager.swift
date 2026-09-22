@@ -13,7 +13,7 @@ final class ONNXLocalModelManager: ObservableObject {
 
     private let fileManager: FileManager
     private let applicationSupportDirectory: URL
-    private let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "ONNXLocalModels")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "ONNXLocalModels")
 
     init(fileManager: FileManager = .default, applicationSupportDirectory: URL? = nil) {
         self.fileManager = fileManager

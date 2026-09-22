@@ -94,9 +94,6 @@ class WhisperPrompt: ObservableObject {
         transcriptionPrompt = prompt
         UserDefaults.standard.set(prompt, forKey: "TranscriptionPrompt")
         UserDefaults.standard.synchronize()  // Force immediate synchronization
-
-        // Notify that the prompt has changed
-        NotificationCenter.default.post(name: .promptDidChange, object: nil)
     }
 
     func getLanguagePrompt(for language: String) -> String {

@@ -2,111 +2,6 @@ import Foundation
 import SwiftData
 import os
 
-/// Sendable source that bridges audio chunks from any thread into an AsyncStream.
-private final class AudioChunkSource: @unchecked Sendable {
-    let stream: AsyncStream<Data>
-    private let continuation: AsyncStream<Data>.Continuation
-
-    init() {
-        let (stream, continuation) = AsyncStream.makeStream(
-            of: Data.self,
-            bufferingPolicy: .bufferingOldest(2_048)
-        )
-        self.stream = stream
-        self.continuation = continuation
-    }
-
-    deinit {
-        continuation.finish()
-    }
-
-    func send(_ data: Data) -> Bool {
-        switch continuation.yield(data) {
-        case .enqueued(_):
-            return true
-        case .dropped(_), .terminated:
-            return false
-        @unknown default:
-            return false
-        }
-    }
-
-    func finish() {
-        continuation.finish()
-    }
-}
-
-private final class StreamingMetrics: @unchecked Sendable {
-    private let lock = NSLock()
-    private var receivedChunks = 0
-    private var receivedBytes = 0
-    private var sentChunks = 0
-    private var sentBytes = 0
-    private var droppedChunks = 0
-    private var droppedBytes = 0
-
-    func reset() {
-        lock.lock()
-        receivedChunks = 0
-        receivedBytes = 0
-        sentChunks = 0
-        sentBytes = 0
-        droppedChunks = 0
-        droppedBytes = 0
-        lock.unlock()
-    }
-
-    func recordReceived(_ byteCount: Int) {
-        lock.lock()
-        receivedChunks += 1
-        receivedBytes += byteCount
-        lock.unlock()
-    }
-
-    func recordSent(_ byteCount: Int) {
-        lock.lock()
-        sentChunks += 1
-        sentBytes += byteCount
-        lock.unlock()
-    }
-
-    func recordDropped(_ byteCount: Int) {
-        lock.lock()
-        droppedChunks += 1
-        droppedBytes += byteCount
-        lock.unlock()
-    }
-
-    func snapshot() -> (
-        receivedChunks: Int,
-        receivedBytes: Int,
-        sentChunks: Int,
-        sentBytes: Int,
-        droppedChunks: Int,
-        droppedBytes: Int
-    ) {
-        lock.lock()
-        defer { lock.unlock() }
-        return (receivedChunks, receivedBytes, sentChunks, sentBytes, droppedChunks, droppedBytes)
-    }
-}
-
-/// Lifecycle states for a streaming transcription session.
-enum StreamingState {
-    case idle
-    case connecting
-    case streaming
-    case committing
-    case done
-    case failed
-    case cancelled
-}
-
-enum StreamingStopResult {
-    case finalized(text: String)
-    case requiresBatchFallback
-}
-
 private enum StreamingFinalizationWait {
     case provider(AsyncStream<String>)
     case committedEvent(AsyncStream<Void>)
@@ -116,7 +11,7 @@ private enum StreamingFinalizationWait {
 @MainActor
 class StreamingTranscriptionService {
 
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "StreamingTranscriptionService")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "StreamingTranscriptionService")
     private var provider: StreamingTranscriptionProvider?
     private var sendTask: Task<Void, Never>?
     private var eventConsumerTask: Task<Void, Never>?
@@ -130,14 +25,20 @@ class StreamingTranscriptionService {
     private var stopStartedAt: Date?
     private var firstPartialLogged = false
     private var firstCommitLogged = false
+    private let finalizationTimeout: Duration
+    /// Test seam; production always creates the provider from the model.
+    private let providerFactory: ((any TranscriptionModel) -> StreamingTranscriptionProvider)?
 
     init(
         modelContext: ModelContext, fluidAudioService: FluidAudioTranscriptionService? = nil,
-        onPartialTranscript: ((String) -> Void)? = nil
+        onPartialTranscript: ((String) -> Void)? = nil, finalizationTimeout: Duration = .seconds(10),
+        providerFactory: ((any TranscriptionModel) -> StreamingTranscriptionProvider)? = nil
     ) {
         self.modelContext = modelContext
         self.fluidAudioService = fluidAudioService
         self.onPartialTranscript = onPartialTranscript
+        self.finalizationTimeout = finalizationTimeout
+        self.providerFactory = providerFactory
     }
 
     deinit {
@@ -163,7 +64,7 @@ class StreamingTranscriptionService {
         firstPartialLogged = false
         firstCommitLogged = false
 
-        let provider = createProvider(for: model)
+        let provider = providerFactory?(model) ?? createProvider(for: model)
         self.provider = provider
 
         let selectedLanguage = context.language ?? "auto"
@@ -219,6 +120,7 @@ class StreamingTranscriptionService {
 
         // Finish the chunk source so the send loop drains remaining chunks and exits naturally.
         await drainRemainingChunks()
+        try throwIfCancelled()
 
         // Providers with a documented terminal acknowledgement expose an authoritative
         // full-transcript stream. All other providers retain the existing committed-event behavior.
@@ -236,6 +138,8 @@ class StreamingTranscriptionService {
         do {
             try await provider.commit()
         } catch {
+            // `cancel()` disconnects the provider, which can make an in-flight commit throw.
+            try throwIfCancelled()
             commitSignal?.finish()
             commitSignal = nil
             logger.error("Failed to send commit: \(AppLogger.errorMetadata(error), privacy: .public)")
@@ -248,6 +152,8 @@ class StreamingTranscriptionService {
         switch finalizationWait {
         case .provider(let events):
             let finalization = await waitForExplicitFinalization(events: events)
+            // `cancel()` ends the wait early; a user cancel is neither a timeout nor a fallback request.
+            try throwIfCancelled()
             guard finalization.received else {
                 logger.warning("Provider did not confirm full stream finalization; using batch fallback")
                 state = .done
@@ -256,7 +162,16 @@ class StreamingTranscriptionService {
             }
             finalText = finalization.text
         case .committedEvent(let signalStream):
-            finalText = await waitForFinalCommit(signalStream: signalStream)
+            let commit = await waitForFinalCommit(signalStream: signalStream)
+            // `cancel()` finishes the commit signal; do not mistake that for a missed deadline.
+            try throwIfCancelled()
+            guard commit.received else {
+                logger.warning("Provider did not acknowledge the final commit; preferring batch fallback")
+                state = .done
+                await cleanupStreaming()
+                return .timedOut(partialText: commit.text)
+            }
+            finalText = commit.text
         }
         if let stopStartedAt {
             logger.notice(
@@ -268,6 +183,14 @@ class StreamingTranscriptionService {
         await cleanupStreaming()
 
         return .finalized(text: finalText)
+    }
+
+    /// `cancel()` already tore the session down; stop finalizing without starting any fallback.
+    private func throwIfCancelled() throws {
+        if state == .cancelled {
+            logger.notice("Streaming stop abandoned because the session was cancelled")
+            throw CancellationError()
+        }
     }
 
     /// Cancels the streaming session without waiting for results.
@@ -418,9 +341,10 @@ class StreamingTranscriptionService {
         }
     }
 
-    /// Waits for the server to acknowledge our explicit commit, with a 10-second timeout.
-    private func waitForFinalCommit(signalStream: AsyncStream<Void>) async -> String {
+    /// Waits for the server to acknowledge our explicit commit, bounded by `finalizationTimeout` (10 s by default).
+    private func waitForFinalCommit(signalStream: AsyncStream<Void>) async -> (received: Bool, text: String) {
         // Race: wait for commit acknowledgment vs timeout
+        let timeout = finalizationTimeout
         let receivedInTime = await withTaskGroup(of: Bool.self) { group in
             group.addTask { @MainActor in
                 for await _ in signalStream {
@@ -430,7 +354,8 @@ class StreamingTranscriptionService {
             }
 
             group.addTask {
-                try? await Task.sleep(nanoseconds: 10_000_000_000)  // 10 seconds
+                // Cancellation only means the acknowledgement won the race; either way this arm loses.
+                try? await Task.sleep(for: timeout)
                 return false
             }
 
@@ -450,11 +375,12 @@ class StreamingTranscriptionService {
             logger.warning("No transcript received from streaming")
         }
 
-        return committedSegments.isEmpty ? "" : committedSegments.joined(separator: " ")
+        return (receivedInTime, committedSegments.isEmpty ? "" : committedSegments.joined(separator: " "))
     }
 
     /// Waits for a provider's documented end-of-stream acknowledgement and authoritative full transcript.
     private func waitForExplicitFinalization(events: AsyncStream<String>) async -> (received: Bool, text: String) {
+        let timeout = finalizationTimeout
         let result = await withTaskGroup(of: (Bool, String).self) { group in
             group.addTask {
                 for await text in events {
@@ -464,7 +390,8 @@ class StreamingTranscriptionService {
             }
 
             group.addTask {
-                try? await Task.sleep(nanoseconds: 10_000_000_000)
+                // Cancellation only means finalization won the race; either way this arm loses.
+                try? await Task.sleep(for: timeout)
                 return (false, "")
             }
 

@@ -305,20 +305,16 @@ VoiceInk/
 - ✅ Files MUST NOT exceed **1,000 lines** of code without explicit justification
 - ⛔ Never let a file grow beyond 2,000 lines - refactor immediately
 
-**Current inventory snapshot (2026-07-12):**
-- `>=500` source files are currently concentrated in tests:
- - `VoiceInkTests/TTS/TTSServiceTests.swift` (~765)
- - `VoiceInkTests/TTS/TTSViewModelTests.swift` (~609)
- - `VoiceInkTests/Services/CloudTranscriptionServiceTests.swift` (~529)
- - `VoiceInkTests/Transcription/WhisperStateTests.swift` (~517)
-- `VoiceInk/` production sources are currently below 500, but seven files sit in the 450-499 watch band and should be split before new feature scope is added:
- - `Views/KeyboardShortcutsListView.swift` (~496; extract `ShortcutCard` + badge components)
- - `VoiceInk.swift` (~488; extract ModelContainer helpers and `UpdaterViewModel`)
- - `Whisper/WhisperState.swift` (~488; extract recording lifecycle / transcription pipeline)
- - `Views/History/TranscriptionHistoryView.swift` (~473; extract sidebars + pagination)
- - `Views/Metrics/PerformanceAnalysisView.swift` (~468; extract card subviews)
- - `TTS/Services/ElevenLabsTTSService.swift` (~468)
- - `Views/Onboarding/OnboardingPermissionsView.swift` (~481)
+**Current inventory snapshot (2026-09-23, `perf/mac-architecture-overhaul`):**
+- The earlier "all production files below 500" statement no longer holds. 22 production Swift files exceed 500 lines; none exceed 1,000. The largest are:
+ - `Infrastructure/Providers/Enhancement/VoiceInkRefine/VoiceInkRefineModelDownloader.swift` (~950)
+ - `Features/ModelLibrary/Views/CustomProviderManagementView.swift` (~917)
+ - `Features/Dashboard/Views/DashboardContent.swift` (~903)
+ - `Features/Licensing/Views/LicenseManagementView.swift` (~872)
+ - `Features/Recording/Workflows/VoiceInkEngine.swift` (~822; split recording lifecycle from pipeline delivery before adding scope)
+- Ten further production files sit in the 450-500 watch band.
+- One test file exceeds 500: `Tests/VoiceInkTests/TTS/TTSServiceTests.swift` (~767).
+- Recount with `find VoiceInk -name '*.swift' | xargs wc -l | sort -rn | head` before relying on these figures.
 
 ### Resource-Bounded Runtime Architecture
 
@@ -333,6 +329,8 @@ The 2026-07-12 resource audit established these production invariants:
 - `PartialTranscriptState` is the narrow streaming-transcript observation source. Avoid publishing high-frequency partial text through all of `WhisperState`.
 - File inspection/deletion belongs in `AudioFileCleanupWorker`, off the main actor. Deletes must remain confined to the resolved recordings root and must reject symlink escapes.
 - Large PCM inputs should be read incrementally. Do not restore whole-file `Data(contentsOf:)` reads in transcription paths.
+- Locate WAV audio by walking RIFF chunks to `data` (`AudioSampleReader.locatePCMPayload`). Core Audio and `AVAudioFile` insert padding chunks, so the payload is not at byte 44; a fixed offset feeds header bytes to the model as audio.
+- Model prewarm must use the engine's `TranscriptionServiceRegistry`. A private registry loads a second runtime that transcription never uses. Runtimes shared by prewarm and transcription must serialize their own preparation, keep loaded models alive while an inference is using them, and verify the loaded model matches the request before inferring (see `FluidAudioTranscriptionService`).
 - Prefer notifications or state changes over recurring UI polling. Do not add permanent `TimelineView` or timer refresh loops for values that already emit changes.
 
 **Split trigger guidance:**
@@ -2062,6 +2060,9 @@ Task { @MainActor [weak self] in
 
 ## Version History
 
+- **v1.15** (2026-09-23) - Performance Overhaul Audit
+ - Replaced the stale file-size inventory with measured figures
+ - Added invariants for RIFF-chunk WAV payload location and a single shared prewarm runtime
 - **v1.14** (2026-07-12) - Resource and Concurrency Audit Architecture
  - Documented the single-owner, generation-safe Whisper context lifecycle and removal of duplicate model-management/inference layers
  - Added bounded audio tap and streaming-startup buffer rules, including explicit overflow behavior
@@ -2124,6 +2125,6 @@ To keep this guide maintainable and reduce drift:
 
 ---
 
-**Last Updated:** July 12, 2026
+**Last Updated:** September 23, 2026
 **Maintained By:** VoiceInk Community
 **License:** GPL v3 (same as project)

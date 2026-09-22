@@ -339,21 +339,5 @@ enum TestCaseError: Error {
     case mockError
 }
 
-// MARK: - XCTest Additions for macOS 14+
-
-#if compiler(>=5.9)
-@available(macOS 14.0, *)
-extension XCTestCase {
-    /// Modern async fulfillment for expectations
-    func fulfillment(
-        of expectations: [XCTestExpectation],
-        timeout: TimeInterval,
-        enforceOrder: Bool = false
-    ) async {
-        await withCheckedContinuation { continuation in
-            wait(for: expectations, timeout: timeout, enforceOrder: enforceOrder)
-            continuation.resume()
-        }
-    }
-}
-#endif
+// Use XCTest's native async fulfillment(of:timeout:enforceOrder:). A synchronous wait
+// wrapped in a continuation still blocks its executor and can pump a nested run loop.

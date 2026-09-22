@@ -45,7 +45,7 @@ extension TTSSettingsView {
         GroupBox("Appearance") {
             VStack(alignment: .leading, spacing: 12) {
                 Picker("Appearance", selection: $settings.appearancePreference) {
-                    ForEach(AppearancePreference.allCases) { preference in
+                    ForEach(AppAppearancePreference.allCases) { preference in
                         Text(preference.displayName).tag(preference)
                     }
                 }

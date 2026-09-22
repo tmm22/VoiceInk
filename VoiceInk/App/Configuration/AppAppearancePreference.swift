@@ -43,6 +43,19 @@ enum AppAppearancePreference: String, CaseIterable, Hashable, Identifiable {
         }
     }
 
+    /// Explicit SwiftUI color scheme override, or `nil` to follow the system.
+    /// Used by views that let the user pick an appearance independently of the app-wide setting.
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system:
+            return nil
+        case .light:
+            return .light
+        case .dark:
+            return .dark
+        }
+    }
+
     var resolvedColorScheme: ColorScheme {
         switch self {
         case .system:

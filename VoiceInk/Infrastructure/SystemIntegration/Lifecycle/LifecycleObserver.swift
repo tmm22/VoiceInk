@@ -21,7 +21,7 @@ final class LifecycleObserver {
 
     private init() {
         observeDefaultCenter(
-            Notification.Name("AudioDeviceChanged"),
+            .audioDeviceChanged,
             as: .audioDeviceChanged
         )
         observeDefaultCenter(

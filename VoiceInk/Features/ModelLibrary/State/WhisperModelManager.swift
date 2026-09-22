@@ -54,7 +54,7 @@ class WhisperModelManager: ObservableObject {
     /// TranscriptionModelManager can rebuild allAvailableModels.
     var onModelsChanged: (() -> Void)?
 
-    let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "WhisperModelManager")
+    let logger = Logger(subsystem: AppLogger.subsystem, category: "WhisperModelManager")
 
     init(modelsDirectory: URL) {
         self.modelsDirectory = modelsDirectory
@@ -93,7 +93,8 @@ class WhisperModelManager: ObservableObject {
         defer { isModelLoading = false }
 
         do {
-            await WhisperContextManager.shared.unloadAllContexts()
+            // Keep a context the prewarm service already built for this model.
+            await WhisperContextManager.shared.unloadAllContexts(except: model.name)
             _ = try await WhisperContextManager.shared.loadContext(for: model.name, modelURL: model.url)
 
             isModelLoaded = true

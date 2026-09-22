@@ -93,6 +93,10 @@ extension Recorder {
             }
         } catch {
             deviceManager.recordingDeviceChangeFinished()
+            if let failure = error as? RecordingDeviceSwitch.Failure, failure.recordingStopped {
+                await stopRecording()
+                await onRecordingDeviceFailure?()
+            }
             logger.error("Failed to switch recording devices: \(AppLogger.errorMetadata(error), privacy: .public)")
             NotificationManager.shared.showNotification(
                 title: String(localized: "VoiceInk could not switch to another microphone."),

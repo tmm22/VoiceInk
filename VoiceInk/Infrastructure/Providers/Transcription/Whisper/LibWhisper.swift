@@ -15,7 +15,7 @@ actor WhisperContext {
     private var prompt: String?
     private var promptCString: [CChar]?
     private var vadModelPath: String?
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "WhisperContext")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "WhisperContext")
 
     private init() {}
 
@@ -46,8 +46,8 @@ actor WhisperContext {
             params.language = nil
         }
 
-        if prompt != nil {
-            promptCString = Array(prompt!.utf8CString)
+        if let prompt {
+            promptCString = Array(prompt.utf8CString)
             params.initial_prompt = promptCString?.withUnsafeBufferPointer { ptr in
                 ptr.baseAddress
             }
@@ -56,9 +56,10 @@ actor WhisperContext {
             params.initial_prompt = nil
         }
 
-        params.print_realtime = true
+        // Native console output must not expose dictated text.
+        params.print_realtime = false
         params.print_progress = false
-        params.print_timestamps = true
+        params.print_timestamps = false
         params.print_special = false
         params.translate = false
         params.n_threads = Int32(maxThreads)

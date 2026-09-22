@@ -18,7 +18,22 @@ class VoiceInkEngine: NSObject, ObservableObject {
 
     @Published var recordingState: RecordingState = .idle
     @Published var shouldCancelRecording = false
-    @Published var partialTranscript: String = ""
+    /// Published only on empty <-> non-empty transitions; the text itself lives in `liveTranscript`.
+    @Published private(set) var hasPartialTranscript = false
+    let liveTranscript = LiveTranscriptState()
+
+    /// Streaming partial transcript. Writes go to `liveTranscript` and only flip
+    /// `hasPartialTranscript` when emptiness changes, so engine observers are not re-rendered per partial.
+    var partialTranscript: String {
+        get { liveTranscript.text }
+        set {
+            liveTranscript.update(newValue)
+            let hasText = !newValue.isEmpty
+            if hasText != hasPartialTranscript {
+                hasPartialTranscript = hasText
+            }
+        }
+    }
     var currentSession: TranscriptionSession?
     private var currentSessionTranscriptionConfiguration: TranscriptionRuntimeConfiguration?
     private var activeRecordingStartID: UUID?
@@ -46,7 +61,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
     let assistantChat: AssistantChatService?
     private let pipeline: TranscriptionPipeline
 
-    let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "VoiceInkEngine")
+    let logger = Logger(subsystem: AppLogger.subsystem, category: "VoiceInkEngine")
 
     init(
         modelContext: ModelContext,
@@ -83,7 +98,11 @@ class VoiceInkEngine: NSObject, ObservableObject {
 
         super.init()
 
-        setupNotifications()
+        recorder.onRecordingDeviceFailure = { [weak self] in
+            guard let self,
+                  self.recordingState == .starting || self.recordingState == .recording else { return }
+            await self.cancelRecording()
+        }
         createRecordingsDirectoryIfNeeded()
     }
 
@@ -790,27 +809,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
         logger.notice("cleanupResources: completed")
     }
 
-    // MARK: - Notification Handling
 
-    func setupNotifications() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handlePromptChange),
-            name: .promptDidChange,
-            object: nil
-        )
-    }
-
-    @objc func handlePromptChange() {
-        Task {
-            let currentPrompt =
-                UserDefaults.standard.string(forKey: "TranscriptionPrompt")
-                ?? whisperModelManager.whisperPrompt.transcriptionPrompt
-            if let modelName = whisperModelManager.loadedWhisperModel?.name {
-                await WhisperContextManager.shared.updatePrompt(currentPrompt, for: modelName)
-            }
-        }
-    }
 }
 
 enum AudioFileMetadata {

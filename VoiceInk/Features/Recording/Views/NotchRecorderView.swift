@@ -1,8 +1,10 @@
 import SwiftUI
 
 struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var stateProvider: S
-    @ObservedObject var recorder: Recorder
+    /// Not observed here: the meter is the only published state and `RecorderMeterVisualizer` observes it.
+    let recorder: Recorder
     @ObservedObject var assistantSession: AssistantSession
     let onRecordButtonTapped: () -> Void
     let onCloseTapped: () -> Void
@@ -29,7 +31,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
 
         switch stateProvider.recordingState {
         case .recording:
-            let shouldShowLive = showLiveTranscript && !stateProvider.partialTranscript.isEmpty
+            let shouldShowLive = showLiveTranscript && stateProvider.hasPartialTranscript
             return shouldShowLive ? .liveText : .active
         case .transcribing, .enhancing:
             return .active
@@ -119,9 +121,8 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         displayState == .assistant && stateProvider.recordingState == .idle && !assistantSession.isBusy
     }
 
-    private var liveAssistantFollowUpText: String {
-        guard showLiveTranscript, stateProvider.recordingState == .recording else { return "" }
-        return stateProvider.partialTranscript
+    private var showsLiveAssistantFollowUpText: Bool {
+        showLiveTranscript && stateProvider.recordingState == .recording
     }
 
     // MARK: - Animation
@@ -139,7 +140,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         GeometryReader { geo in
             pill.position(x: geo.size.width / 2, y: pillHeight / 2)
         }
-        .animation(pillAnimation, value: displayState)
+        .animation(reduceMotion ? nil : pillAnimation, value: displayState)
         .onReceive(
             LifecycleObserver.shared.publisher(for: .screenConfigurationChanged)
         ) { _ in
@@ -188,7 +189,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .opacity(displayState != .collapsed ? 1 : 0)
             .animation(
-                displayState != .collapsed ? expandAnimation.delay(0.09) : collapseAnimation,
+                reduceMotion ? nil : (displayState != .collapsed ? expandAnimation.delay(0.09) : collapseAnimation),
                 value: displayState
             )
 
@@ -196,7 +197,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
                 Spacer(minLength: 0)
                 RecorderStatusDisplay(
                     currentState: stateProvider.recordingState,
-                    audioMeterProvider: recorder.audioMeterSnapshot,
+                    recorder: recorder,
                     menuBarHeight: notchHeight
                 )
             }
@@ -205,7 +206,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
             .frame(maxWidth: .infinity, alignment: .trailing)
             .opacity(displayState != .collapsed ? 1 : 0)
             .animation(
-                displayState != .collapsed ? expandAnimation.delay(0.09) : collapseAnimation,
+                reduceMotion ? nil : (displayState != .collapsed ? expandAnimation.delay(0.09) : collapseAnimation),
                 value: displayState
             )
         }
@@ -218,7 +219,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         VStack(spacing: 0) {
             if displayState == .liveText {
                 Divider().background(Color.white.opacity(0.15))
-                LiveTranscriptView(text: stateProvider.partialTranscript)
+                LiveTranscriptView(liveTranscript: stateProvider.liveTranscript)
                     .padding(.horizontal, 8)
             }
         }
@@ -232,7 +233,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
                 Divider().background(Color.white.opacity(0.15))
                 AssistantPanelView(
                     session: assistantSession,
-                    liveFollowUpText: liveAssistantFollowUpText,
+                    liveFollowUpText: showsLiveAssistantFollowUpText ? stateProvider.liveTranscript : nil,
                     onSend: onAssistantFollowUp
                 )
             }

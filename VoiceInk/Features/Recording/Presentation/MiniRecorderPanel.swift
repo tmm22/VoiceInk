@@ -6,7 +6,7 @@ class MiniRecorderPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "MiniRecorderPanel")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "MiniRecorderPanel")
 
     init(contentRect: NSRect) {
         super.init(

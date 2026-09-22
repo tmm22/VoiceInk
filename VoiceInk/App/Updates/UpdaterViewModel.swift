@@ -41,7 +41,11 @@ final class UpdaterViewModel: NSObject, ObservableObject, SPUUpdaterDelegate {
         // Keeping Sparkle's scheduler disabled prevents it from showing an update
         // window independently of the Dashboard button.
         updater.automaticallyChecksForUpdates = false
-        updaterController.startUpdater()
+        // The unit-test host must not run Sparkle: starting the updater can resume a staged install,
+        // which asks the host process to quit and would end a test run early.
+        if !AppRuntimeEnvironment.isRunningTests {
+            updaterController.startUpdater()
+        }
 
         canCheckForUpdates = updater.canCheckForUpdates
         updater.publisher(for: \.canCheckForUpdates)

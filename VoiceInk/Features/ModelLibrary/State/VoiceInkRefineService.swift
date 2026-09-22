@@ -71,7 +71,7 @@ final class VoiceInkRefineService: ObservableObject {
     }
 
     private let logger = Logger(
-        subsystem: "com.prakashjoshipax.voiceink",
+        subsystem: AppLogger.subsystem,
         category: "VoiceInkRefineService"
     )
     private let modelRootDirectory: URL

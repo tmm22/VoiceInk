@@ -38,7 +38,7 @@ final class TTSSettingsViewModel: ObservableObject {
             persistStyleValues()
         }
     }
-    @Published var appearancePreference: AppearancePreference = .system {
+    @Published var appearancePreference: AppAppearancePreference = .system {
         didSet {
             guard appearancePreference != oldValue else { return }
             guard !isLoadingSettings else { return }

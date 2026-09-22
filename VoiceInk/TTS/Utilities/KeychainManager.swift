@@ -1,26 +1,30 @@
 import Foundation
 import Security
 
+/// Legacy TTS-workspace Keychain facade.
+///
+/// This is a thin forwarding shim over `KeychainService` using the login-keychain namespace keyed
+/// by the bundle identifier, which is where the TTS providers' API keys have always been stored.
+/// New code should use `KeychainService` directly; this type only exists so existing secrets keep
+/// resolving under their original `kSecAttrService` string.
 class KeychainManager {
     // MARK: - Properties
     static let shared = KeychainManager()
-    private let service: String
-    private let accessGroup: String?
+    private let store: KeychainService
 
     // MARK: - Initialization
     init(service: String = Bundle.main.bundleIdentifier ?? "com.tmm22.VoiceLinkCommunity",
          accessGroup: String? = nil) {
-        self.service = service
-        self.accessGroup = accessGroup
+        store = KeychainService(namespace: .loginKeychain(service: service, accessGroup: accessGroup))
     }
-    
+
     // MARK: - Error Types
     enum KeychainError: LocalizedError {
         case duplicateItem
         case itemNotFound
         case unexpectedData
         case unhandledError(status: OSStatus)
-        
+
         var errorDescription: String? {
             switch self {
             case .duplicateItem:
@@ -34,85 +38,41 @@ class KeychainManager {
             }
         }
     }
-    
+
     // MARK: - Public Methods
-    
+
     /// Save API key to keychain
     func saveAPIKey(_ key: String, for provider: String) throws {
-        do {
-            try updateAPIKey(key, for: provider)
-        } catch KeychainError.itemNotFound {
-            do {
-                try addAPIKey(key, for: provider)
-            } catch KeychainError.duplicateItem {
-                try updateAPIKey(key, for: provider)
-            }
-        } catch {
-            throw error
-        }
+        // Data(key.utf8) never fails for valid Swift strings
+        let status = store.store(data: Data(key.utf8), forKey: provider, accessibility: .whenUnlocked)
+        try Self.check(status)
     }
-    
+
     /// Get API key from keychain
     func getAPIKey(for provider: String) -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: provider,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecReturnData as String: true,
-            kSecReturnAttributes as String: true
-        ]
-        
-        var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
-        
-        guard status == errSecSuccess else {
-            if status != errSecItemNotFound {
-                AppLogger.storage.error("Keychain read error: \(status)")
-            }
-            return nil
-        }
-        
-        guard let existingItem = item as? [String: Any],
-              let data = existingItem[kSecValueData as String] as? Data,
-              let key = String(data: data, encoding: .utf8) else {
-            return nil
-        }
-        
-        return key
+        store.getString(forKey: provider)
     }
-    
+
     /// Delete API key from keychain
     func deleteAPIKey(for provider: String) throws {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: provider
-        ]
-        
-        let status = SecItemDelete(query as CFDictionary)
-        
+        let status = store.remove(forKey: provider)
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw KeychainError.unhandledError(status: status)
         }
     }
-    
+
     /// Delete all API keys
     func deleteAllAPIKeys() throws {
-        let providers = getAllProviders()
-        if !providers.isEmpty {
-            for provider in providers {
-                do {
-                    try deleteAPIKey(for: provider)
-                } catch KeychainError.itemNotFound {
-                    continue
-                }
-            }
+        for provider in getAllProviders() {
+            try deleteAPIKey(for: provider)
         }
-        
-        try deleteAllForService()
+
+        let status = store.removeAll()
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw KeychainError.unhandledError(status: status)
+        }
     }
-    
+
     /// Check if API key exists
     func hasAPIKey(for provider: String) -> Bool {
         guard let key = getAPIKey(for: provider), !key.isEmpty else {
@@ -123,115 +83,25 @@ class KeychainManager {
 
     /// Check if a Keychain item exists without reading the secret value.
     func containsAPIKeyItem(for provider: String) -> Bool {
-        var query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: provider,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecReturnData as String: kCFBooleanFalse as Any
-        ]
-
-        if let accessGroup = accessGroup {
-            query[kSecAttrAccessGroup as String] = accessGroup
-        }
-
-        let status = SecItemCopyMatching(query as CFDictionary, nil)
-        if status != errSecSuccess && status != errSecItemNotFound {
-            AppLogger.storage.error("Keychain existence check error: \(status)")
-        }
-        return status == errSecSuccess
+        store.exists(forKey: provider)
     }
-    
+
     /// Get all stored providers
     func getAllProviders() -> [String] {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecMatchLimit as String: kSecMatchLimitAll,
-            kSecReturnAttributes as String: true
-        ]
-        
-        var items: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &items)
-        
-        guard status == errSecSuccess,
-              let existingItems = items as? [[String: Any]] else {
-            return []
-        }
-        
-        return existingItems.compactMap { item in
-            item[kSecAttrAccount as String] as? String
-        }
-    }
-    
-    // MARK: - Private Methods
-    
-    private func addAPIKey(_ key: String, for provider: String) throws {
-        // Use Data(key.utf8) which never fails for valid Swift strings
-        let data = Data(key.utf8)
-        
-        var query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: provider,
-            kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked
-        ]
-        
-        // Add access group if specified
-        if let accessGroup = accessGroup {
-            query[kSecAttrAccessGroup as String] = accessGroup
-        }
-        
-        // Add item
-        let status = SecItemAdd(query as CFDictionary, nil)
-        
-        guard status == errSecSuccess else {
-            if status == errSecDuplicateItem {
-                throw KeychainError.duplicateItem
-            }
-            throw KeychainError.unhandledError(status: status)
-        }
-    }
-    
-    private func updateAPIKey(_ key: String, for provider: String) throws {
-        // Use Data(key.utf8) which never fails for valid Swift strings
-        let data = Data(key.utf8)
-        
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: provider
-        ]
-        
-        let attributes: [String: Any] = [
-            kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked
-        ]
-        
-        let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
-        
-        guard status == errSecSuccess else {
-            if status == errSecItemNotFound {
-                throw KeychainError.itemNotFound
-            }
-            throw KeychainError.unhandledError(status: status)
-        }
+        store.allKeys()
     }
 
-    private func deleteAllForService() throws {
-        var query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service
-        ]
-        
-        if let accessGroup = accessGroup {
-            query[kSecAttrAccessGroup as String] = accessGroup
-        }
-        
-        let status = SecItemDelete(query as CFDictionary)
-        
-        guard status == errSecSuccess || status == errSecItemNotFound else {
+    // MARK: - Private Methods
+
+    private static func check(_ status: OSStatus) throws {
+        switch status {
+        case errSecSuccess:
+            return
+        case errSecDuplicateItem:
+            throw KeychainError.duplicateItem
+        case errSecItemNotFound:
+            throw KeychainError.itemNotFound
+        default:
             throw KeychainError.unhandledError(status: status)
         }
     }
@@ -242,7 +112,7 @@ extension KeychainManager {
     /// Migrate API keys from UserDefaults (for upgrades from older versions)
     func migrateFromUserDefaults() {
         let providers = ["ElevenLabs", "OpenAI", "Google", "AssemblyAI"]
-        
+
         for provider in providers {
             let key = "apiKey_\(provider)"
             if let apiKey = AppSettings.string(forKey: key) {
@@ -256,13 +126,13 @@ extension KeychainManager {
             }
         }
     }
-    
+
     /// Validate API key format with provider-specific patterns
     static func isValidAPIKey(_ key: String, for provider: String? = nil) -> Bool {
         guard !key.isEmpty && key.count >= 20 && key.count <= 200 else {
             return false
         }
-        
+
         // Provider-specific validation if specified
         if let provider = provider {
             switch provider {
@@ -279,11 +149,11 @@ extension KeychainManager {
                 break
             }
         }
-        
+
         // Generic validation for unknown providers
         return true
     }
-    
+
     /// Get formatted provider name for display
     static func formattedProviderName(_ provider: String) -> String {
         switch provider {
@@ -306,16 +176,16 @@ extension String {
         guard count > 8 else {
             return String(repeating: "•", count: count)
         }
-        
+
         let prefixCount = 4
         let suffixCount = 4
         let prefix = self.prefix(prefixCount)
         let suffix = self.suffix(suffixCount)
         let maskedMiddle = String(repeating: "•", count: count - prefixCount - suffixCount)
-        
+
         return "\(prefix)\(maskedMiddle)\(suffix)"
     }
-    
+
     /// Check if string looks like an API key
     var looksLikeAPIKey: Bool {
         // Check for common API key patterns
@@ -324,13 +194,13 @@ extension String {
             "^[a-zA-Z0-9]{32,}$",     // Generic alphanumeric
             "^[a-zA-Z0-9-_]{20,}$"    // With dashes and underscores
         ]
-        
+
         for pattern in patterns {
             if self.range(of: pattern, options: .regularExpression) != nil {
                 return true
             }
         }
-        
+
         return false
     }
 }

@@ -1,8 +1,10 @@
 import SwiftUI
 
 struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var stateProvider: S
-    @ObservedObject var recorder: Recorder
+    /// Not observed here: the meter is the only published state and `RecorderMeterVisualizer` observes it.
+    let recorder: Recorder
     @ObservedObject var assistantSession: AssistantSession
     let onRecordButtonTapped: () -> Void
     let onCloseTapped: () -> Void
@@ -22,7 +24,7 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     private var hasLiveTranscript: Bool {
         showLiveTranscript
             && stateProvider.recordingState == .recording
-            && !stateProvider.partialTranscript.isEmpty
+            && stateProvider.hasPartialTranscript
     }
 
     private var hasAssistantResponse: Bool {
@@ -33,9 +35,8 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         hasAssistantResponse && stateProvider.recordingState == .idle && !assistantSession.isBusy
     }
 
-    private var liveAssistantFollowUpText: String {
-        guard showLiveTranscript, stateProvider.recordingState == .recording else { return "" }
-        return stateProvider.partialTranscript
+    private var showsLiveAssistantFollowUpText: Bool {
+        showLiveTranscript && stateProvider.recordingState == .recording
     }
 
     private var controlBar: some View {
@@ -56,7 +57,7 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
 
             RecorderStatusDisplay(
                 currentState: stateProvider.recordingState,
-                audioMeterProvider: recorder.audioMeterSnapshot
+                recorder: recorder
             )
 
             Spacer(minLength: 0)
@@ -73,7 +74,7 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     private var transcriptSection: some View {
         VStack(spacing: 0) {
             if hasLiveTranscript {
-                LiveTranscriptView(text: stateProvider.partialTranscript)
+                LiveTranscriptView(liveTranscript: stateProvider.liveTranscript)
                 Divider().background(Color.white.opacity(0.15))
             }
         }
@@ -84,7 +85,7 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
             if hasAssistantResponse {
                 AssistantPanelView(
                     session: assistantSession,
-                    liveFollowUpText: liveAssistantFollowUpText,
+                    liveFollowUpText: showsLiveAssistantFollowUpText ? stateProvider.liveTranscript : nil,
                     onSend: onAssistantFollowUp
                 )
                 Divider().background(Color.white.opacity(0.15))
@@ -100,8 +101,8 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
                 cornerRadius: hasLiveTranscript || hasAssistantResponse ? expandedCornerRadius : compactCornerRadius,
                 style: .continuous)
         )
-        .animation(.easeInOut(duration: 0.3), value: hasLiveTranscript)
-        .animation(.easeInOut(duration: 0.3), value: hasAssistantResponse)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: hasLiveTranscript)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: hasAssistantResponse)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
     }
 }

@@ -47,7 +47,7 @@ extension TTSSettingsViewModel {
         }
 
         if let appearanceRaw = AppSettings.TTS.appearancePreferenceRawValue,
-           let storedPreference = AppearancePreference(rawValue: appearanceRaw) {
+           let storedPreference = AppAppearancePreference(rawValue: appearanceRaw) {
             appearancePreference = storedPreference
         }
 

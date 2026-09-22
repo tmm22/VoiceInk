@@ -11,7 +11,7 @@ class TranscriptionModelManager: ObservableObject {
     private weak var fluidAudioModelManager: FluidAudioModelManager?
     private let transcribeCppModelManager = TranscribeCppModelManager.shared
 
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "TranscriptionModelManager")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "TranscriptionModelManager")
 
     init(whisperModelManager: WhisperModelManager, fluidAudioModelManager: FluidAudioModelManager) {
         self.whisperModelManager = whisperModelManager

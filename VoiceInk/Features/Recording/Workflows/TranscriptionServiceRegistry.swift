@@ -8,7 +8,7 @@ class TranscriptionServiceRegistry {
     private weak var modelProvider: (any WhisperModelProvider)?
     private let modelsDirectory: URL
     private let modelContext: ModelContext
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "TranscriptionServiceRegistry")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "TranscriptionServiceRegistry")
 
     private(set) lazy var localTranscriptionService = WhisperTranscriptionService(
         modelsDirectory: modelsDirectory,
@@ -67,6 +67,20 @@ class TranscriptionServiceRegistry {
             "Transcribing with \(model.displayName, privacy: .public) using \(String(describing: type(of: service)), privacy: .public)"
         )
         return try await service.transcribe(audioURL: audioURL, model: model, context: context.scoped(to: model))
+    }
+
+    /// Loads the runtime for `model` without transcribing anything, so the first real request
+    /// skips model load. Providers whose services load lazily per request (cloud, Apple, ONNX,
+    /// TranscribeCpp) are intentionally left alone.
+    func prewarm(model: any TranscriptionModel) async throws {
+        switch model.provider {
+        case .whisper:
+            try await localTranscriptionService.prepareModel(model)
+        case .fluidAudio:
+            try await fluidAudioTranscriptionService.prepareModels(for: model)
+        default:
+            logger.debug("No prewarm path for provider \(model.provider.rawValue, privacy: .public)")
+        }
     }
 
     /// Creates a streaming or file-based session for the resolved transcription configuration.

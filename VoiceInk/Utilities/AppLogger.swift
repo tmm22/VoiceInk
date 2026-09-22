@@ -16,7 +16,8 @@ struct AppLogger {
     
     // MARK: - Subsystem
     
-    private static let subsystem = Bundle.main.bundleIdentifier ?? "com.tmm22.voicelinkcommunity"
+    /// Unified OSLog subsystem for every logger in the app target. Also used by `LogExporter` to filter OSLogStore.
+    static let subsystem = Bundle.main.bundleIdentifier ?? "com.tmm22.voicelinkcommunity"
     
     // MARK: - Category Loggers
     

@@ -11,7 +11,7 @@ class NotchRecorderPanel: KeyablePanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "NotchRecorderPanel")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "NotchRecorderPanel")
 
     init(contentRect: NSRect) {
         // Previously this initializer ignored `contentRect` and recomputed the metrics itself.

@@ -6,7 +6,7 @@ import SwiftData
 final class SessionMetricMigrationService {
     static let shared = SessionMetricMigrationService()
 
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "SessionMetricMigrationService")
+    private let logger = Logger(subsystem: AppLogger.subsystem, category: "SessionMetricMigrationService")
     private let completionKey = "HasCompletedStatsMigration"
     private let tokenBackfillCompletionKey = "HasCompletedStatsTokenBackfillV3"
     private(set) var isStatsMigrationRunning = false

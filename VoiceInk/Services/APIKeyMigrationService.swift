@@ -3,7 +3,7 @@ import os
 
 /// Service to migrate API keys from UserDefaults to Keychain
 class APIKeyMigrationService {
-    private static let logger = Logger(subsystem: "com.tmm22.voicelinkcommunity", category: "APIKeyMigration")
+    private static let logger = Logger(subsystem: AppLogger.subsystem, category: "APIKeyMigration")
 
     /// Run migration on app launch (idempotent, retries until all keys migrated).
     /// Intentionally uses no "migration completed" flag: a key that fails to save

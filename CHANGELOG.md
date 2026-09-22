@@ -2,6 +2,86 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-09-23
+
+### Transcription
+- Local transcription now reads WAV audio from the file's `data` chunk. Core Audio and AVAudioFile place the audio after a 4 KB padding chunk, so the previous fixed 44-byte offset fed about 2,000 samples of header and padding (roughly 125 ms of near-silence plus header bytes) to Whisper, SenseVoice and FastConformer at the start of every recording. Non-16-bit WAV files are now rejected instead of being decoded as noise.
+- When a streaming provider without an explicit finalization message misses its 10-second final-commit deadline, the complete recording is transcribed in batch instead of returning only the segments committed so far. This covers AssemblyAI, ElevenLabs, Mistral, Soniox, Speechmatics and xAI, and local FluidAudio realtime models. If the batch request also fails, the committed streaming text is still returned, as before. A slow finalization can therefore take up to the cloud request timeout (30 s by default) longer before text appears. Cartesia has no batch endpoint and keeps the previous behaviour.
+- Cancelling while a streaming session is finalizing no longer starts a fallback transcription or upload, including when the cancel makes the provider's final commit fail. A transcription cancelled by the user is recorded as cancelled rather than failed.
+- Custom vocabulary for streaming and batch cloud transcription is read from the dictionary on the main actor, the context that owns it, instead of from a background executor. Providers that never send vocabulary (Cartesia, Mistral, xAI) no longer fetch it.
+- Launch and wake prewarm now load the same model runtime that transcription uses, and do not start while a recording is in progress. Previously FluidAudio prewarm loaded a second copy of its models that was never used and stayed in memory. Concurrent FluidAudio preparations for the same model share one load. Switching models waits for running transcriptions before releasing their models, a transcription only runs once the models it asked for are loaded, and cleanup waits for an in-flight load. A recording that starts while prewarm is loading a different model waits for that load.
+- Switching to a Whisper model that prewarm has already loaded reuses that context instead of unloading and rebuilding it.
+
+### Paste
+- If the clipboard changes while it is being saved for later restoration, VoiceInk retries the snapshot once before skipping the paste.
+- The clipboard is rechecked immediately before the transcript is written. A copy made after the snapshot is kept instead of being overwritten and later replaced by the older snapshot.
+
+### Web
+- Updated Next.js to 16.3.6, Wrangler to 4.136.3 and related Cloudflare tooling, and pinned a patched `image-size`, clearing the high and critical npm advisories that failed the web regression check (#56). Production picks this up on the next web and ASR Worker deploy.
+
+### Reliability and diagnostics
+- The update checker no longer starts inside the unit-test host.
+- Audio buffers rejected by the sample-rate converter are logged separately from buffers dropped for capacity.
+- The idle recorder placeholder bars are hidden from assistive technologies.
+
+### Tests
+- TTS view-model tests snapshot and restore every persisted TTS preference, and start from default settings. Previously a run could turn off the developer's own TTS notifications.
+- Added tests for WAV payload location and malformed headers, the real streaming stop path and session fallback (deadline, acknowledgement and user cancel), dictionary vocabulary, the real Cartesia provider's finalization hooks, clipboard snapshot retry, Whisper context reuse across a model switch and live-transcript observation. Removed an async-expectation test that passed with or without the defect it described.
+
+## 2026-09-19
+
+### Recording Reliability
+- Stopping or switching microphones now waits for every in-flight audio callback before recording buffers are reused or freed, instead of giving up after 200 ms and proceeding while a callback might still be using them.
+- A failure to set up the sample-rate converter now fails the recording start instead of silently producing an empty recording.
+- Microphone-switch setup failures now rebuild the previous device; if recovery also fails, capture stops and the partial recording is saved through the cancellation path instead of leaving the UI recording silence. Failure handling covers both startup and active recording, without cancelling an already-running transcription pipeline.
+- A callback drain lasting over five seconds shows a warning while retaining its resources. A stalled stop restores system audio after five seconds without freeing recording resources, and prolonged drains poll less frequently. Normal stops keep media quiet until capture ends.
+- Concurrent requests for the same local Whisper model share one load; unloading a model while it is in use releases it only after its last transcription finishes.
+
+### Paste
+- Paste no longer posts Cmd+V while a shortcut modifier pressed during the clipboard settling delay is still held, up to the existing 150 ms cap.
+- If a clipboard change is detected before posting, paste proceeds only for a stable single plain-text item matching the transcript with known metadata; rich content, attachments, additional items and unknown representations cause a skip. A notification explains that the transcript remains in History, including History re-pastes. Auto-send never fires after a skipped, failed, or cancelled paste. System clipboard APIs cannot eliminate a write by another process after the final check.
+
+- Clipboard restoration now also requires the original pasteboard revision, preserving newer clipboard-manager rewrites even when they retain the transcript and session marker.
+- Clipboard snapshot data is read off the main actor, and paste is skipped if the clipboard changes while that snapshot is being captured.
+
+### Accessibility
+- The recorder waveform pauses during silence and, with Reduce Motion enabled, stays static; processing spinners and progress dots also honour Reduce Motion.
+- Recorder button/status transitions, mini/notch expansion, and assistant scrolling now also honour Reduce Motion.
+- The recorder close and mode controls and the level meter now have accessibility labels, and decorative indicators are hidden from assistive navigation.
+
+### Privacy
+- Native Whisper realtime and timestamp console output is disabled so dictated text is not written to the console.
+
+### Quality
+- Cartesia's provider no longer synthesizes its empty end-of-stream commit when a session is cancelled. The session already discarded events after cancellation, so this was not visible to users; it removes a latent false finalization. A streaming provider that is deallocated mid-stream now disconnects its client instead of leaving the connection open.
+- Model prewarm tasks are cancelled on sleep and coalesced across repeated wake events.
+- Split the Core Audio recorder and recorder component sources into focused files under 500 lines.
+- Removed redundant cached Whisper prompt updates; prompts remain scoped to each transcription request.
+- Added tests covering audio callback lifetime and stall reporting, the device-switch recovery helper and engine failure handling, converter continuity, Whisper context generations, streaming provider lifecycle, paste wait policy, real paste sessions on named clipboards, auto-send safety, clipboard restoration, and request-scoped prompts. The device-switch tests exercise the transaction helper; the recorder's hardware recovery closure still needs a physical-microphone check.
+- TTS view-model lifecycle tests use injected preview dependencies instead of downloading models or fetching real preview audio; lifecycle cases are split into a focused test file.
+- Removed a test helper that hid a synchronous blocking wait behind an async signature; tests now use XCTest's native async expectation API.
+
+## 2026-09-13 — Performance and architecture overhaul
+
+### Audio
+- Recording audio is resampled with a band-limited converter instead of per-sample linear interpolation, which aliased high frequencies into the speech band. Input metering uses vectorised routines and publishes to the UI at a bounded rate.
+
+### Paste
+- The fixed 100 ms wait before pasting is replaced by a modifier-release poll: 20 ms minimum, 150 ms cap. Two of the three gaps between synthetic key events were removed. Apps that mirror the clipboard asynchronously, such as some remote-desktop clients, may need longer and should be checked.
+
+### Launch and persistence
+- The dictionary duplicate sweep runs on a background model context after launch instead of blocking startup, and App Shortcuts donation is deferred.
+- The SwiftData container is opened through a versioned schema and an empty migration plan.
+
+### Architecture
+- Keychain access for credentials and TTS keys goes through one engine; stored service names, keychain types and accessibility are unchanged.
+- Nine cloud streaming providers share one LLMkit streaming base. Timeouts now map to the timeout error for every provider, and vocabulary fetch failures are logged for all of them.
+- The Refine XPC protocol takes plain string arguments; the app and its XPC service must be updated together.
+- Streaming partial transcripts are published through a dedicated state object, so only the live-transcript views re-render per partial.
+
+### Logging
+- All app loggers use the bundle identifier as their OSLog subsystem instead of `com.prakashjoshipax.voiceink`. Update any `log show --predicate 'subsystem == …'` scripts. Log export now includes the category loggers that the old filter excluded.
+
 ## 2026-09-12
 
 ### Release Preparation
