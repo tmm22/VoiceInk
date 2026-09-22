@@ -26,13 +26,13 @@
   "dependencies": {
     "@clerk/nextjs": "7.7.6",
     "convex": "1.44.0",
-    "next": "16.3.1",
+    "next": "16.3.6",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "1.52.1",
-    "@cloudflare/workers-types": "5.20260815.1",
+    "@cloudflare/vite-plugin": "1.57.3",
+    "@cloudflare/workers-types": "5.20260922.1",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
@@ -40,16 +40,17 @@
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.3.1",
+    "eslint-config-next": "16.3.6",
     "react-server-dom-webpack": "19.2.8",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "vinext": "0.2.1",
     "vite": "8.2.1",
-    "wrangler": "4.123.0"
+    "wrangler": "4.136.3"
   },
   "overrides": {
-    "postcss": "8.5.26"
+    "postcss": "8.5.26",
+    "image-size": "2.0.4"
   },
   "type": "module"
 }
