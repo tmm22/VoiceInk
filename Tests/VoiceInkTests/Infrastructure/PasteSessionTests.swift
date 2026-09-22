@@ -115,6 +115,27 @@ final class PasteSessionTests: XCTestCase {
         XCTAssertEqual(pasteboard.string(forType: .string), "original")
     }
 
+    func testCopyAfterSnapshotIsNeitherOverwrittenNorRestoredOver() async throws {
+        pasteboard.setString("original", forType: .string)
+        var restoreScheduled = false
+        let result = await CursorPaster.performPasteSession(
+            "transcript", on: pasteboard, defaults: defaults,
+            waitForPaste: { XCTFail("Must not wait after refusing to write") },
+            postCommand: { XCTFail("Must not paste"); return .commandPosted },
+            restoreScheduler: { _, _, _, _, _, _ in restoreScheduled = true },
+            captureSnapshot: { board in
+                // The snapshot is taken, then the user copies before the transcript is written.
+                let captured = await CursorPaster.captureStableSnapshot(of: board)
+                board.clearContents()
+                board.setString("newer user copy", forType: .string)
+                return captured
+            }
+        )
+        XCTAssertEqual(result, .skippedClipboardChanged)
+        XCTAssertFalse(restoreScheduled, "No restore may be scheduled over the newer copy")
+        XCTAssertEqual(pasteboard.string(forType: .string), "newer user copy")
+    }
+
     func testAdditionalPlainTextItemSkips() async {
         let result = await CursorPaster.performPasteSession(
             "transcript", on: pasteboard, defaults: defaults,
@@ -168,7 +189,7 @@ final class ClipboardSnapshotCaptureTests: XCTestCase {
         let restored = NSPasteboard.withUniqueName()
         defer { restored.releaseGlobally() }
         XCTAssertTrue(ClipboardManager.setClipboard("transcript", sessionID: "session", on: restored))
-        XCTAssertTrue(try XCTUnwrap(snapshot).restoreIfOwned(
+        XCTAssertTrue(try XCTUnwrap(snapshot).snapshot.restoreIfOwned(
             to: restored, expectedText: "transcript", sessionID: "session",
             expectedChangeCount: restored.changeCount
         ))

@@ -52,7 +52,8 @@ class CursorPaster {
         defaults: UserDefaults = .standard,
         waitForPaste: (@MainActor () async -> Void)? = nil,
         postCommand: (@MainActor () async -> PasteResult)? = nil,
-        restoreScheduler: (@MainActor (ClipboardSnapshot, String, String, Int, TimeInterval, NSPasteboard) -> Void)? = nil
+        restoreScheduler: (@MainActor (ClipboardSnapshot, String, String, Int, TimeInterval, NSPasteboard) -> Void)? = nil,
+        captureSnapshot: (@MainActor (NSPasteboard) async -> (snapshot: ClipboardSnapshot, revision: Int)?)? = nil
     ) async -> PasteResult {
         let shouldRestoreClipboard = defaults.bool(forKey: "restoreClipboardAfterPaste")
         // Read the user's restore delay once, up front, so the restore path does no defaults I/O later.
@@ -61,14 +62,29 @@ class CursorPaster {
             ? max(defaults.double(forKey: "clipboardRestoreDelay"), minimumClipboardRestoreDelay)
             : 0
         var savedContents: ClipboardSnapshot?
+        var snapshotRevision: Int?
         if shouldRestoreClipboard {
-            guard let captured = await captureStableSnapshot(of: pasteboard) else {
+            let captured: (snapshot: ClipboardSnapshot, revision: Int)?
+            if let captureSnapshot {
+                captured = await captureSnapshot(pasteboard)
+            } else {
+                captured = await captureStableSnapshot(of: pasteboard)
+            }
+            guard let captured else {
                 // Cancellation is not a clipboard change; it must not show the skip warning.
                 return Task.isCancelled ? .commandNotPosted : .skippedClipboardChanged
             }
-            savedContents = captured
+            savedContents = captured.snapshot
+            snapshotRevision = captured.revision
         }
         guard !Task.isCancelled else { return .commandNotPosted }
+        // Revalidate immediately before overwriting: a copy made after the snapshot must neither be
+        // replaced by the transcript nor later "restored" over with the older snapshot. No suspension
+        // separates this check from the write below; only another process can still race it.
+        if let snapshotRevision, pasteboard.changeCount != snapshotRevision {
+            logger.notice("Paste skipped because the clipboard changed after its snapshot")
+            return .skippedClipboardChanged
+        }
         let sessionID = UUID().uuidString
 
         guard
@@ -127,12 +143,12 @@ class CursorPaster {
         capture: (NSPasteboard.Name) async -> (snapshot: ClipboardSnapshot, revision: Int)? = {
             await ClipboardSnapshot.capture(name: $0)
         }
-    ) async -> ClipboardSnapshot? {
+    ) async -> (snapshot: ClipboardSnapshot, revision: Int)? {
         for attempt in 1...max(1, attempts) {
             guard !Task.isCancelled else { return nil }
             if let captured = await capture(pasteboard.name),
                pasteboard.changeCount == captured.revision {
-                return captured.snapshot
+                return captured
             }
             logger.notice("Clipboard changed during snapshot capture attempt=\(attempt, privacy: .public)")
         }

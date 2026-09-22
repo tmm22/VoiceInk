@@ -14,6 +14,7 @@ All notable changes to the VoiceLink Community application are documented here.
 
 ### Paste
 - If the clipboard changes while it is being saved for later restoration, VoiceInk retries the snapshot once before skipping the paste.
+- The clipboard is rechecked immediately before the transcript is written. A copy made after the snapshot is kept instead of being overwritten and later replaced by the older snapshot.
 
 ### Reliability and diagnostics
 - The update checker no longer starts inside the unit-test host.
