@@ -73,17 +73,19 @@ These scenarios assume:
 - Convex remains inside its free allowances
 - no custom domain registration, observability vendor, authentication vendor, or audio storage
 
-| Usage scenario | Audio minutes | Approximate total |
+| Usage scenario | English audio minutes (nova-3) | Approximate total |
 | --- | ---: | ---: |
-| Personal testing | 100 | $5.05/month |
-| Small prototype | 1,000 | $5.50/month |
-| Early beta | 10,000 | $10.00/month |
-| Growing product | 100,000 | $55.00/month |
+| Personal testing | 100 | $5.52/month |
+| Small prototype | 1,000 | $10.20/month |
+| Early beta | 10,000 | $57.00/month |
+| Growing product | 100,000 | $525.00/month |
+
+The last row exceeds the default $10.00-per-day spend ceiling (about 3,300 minutes a day costs about $17 in inference), so at that volume requests past the ceiling are denied until `DAILY_SPEND_LIMIT_MICROS` is raised.
 
 The simple planning formula is:
 
 ```text
-monthly cost ≈ $5 + (English audio minutes × $0.0052) + (non-English audio minutes × $0.00571) + Llama token usage + Convex overages + Worker overages
+monthly cost ≈ $5 + (English audio minutes × $0.0052) + (nova-3-detected non-English audio minutes × $0.00571) + (language-hinted audio minutes × $0.00051) + Llama token usage + Convex overages + Worker overages
 ```
 
 ## Costs not currently incurred
@@ -101,7 +103,7 @@ monthly cost ≈ $5 + (English audio minutes × $0.0052) + (non-English audio mi
 
 Anonymous transcription remains available, but the following controls limit cost and storage abuse:
 
-1. A SQLite durable object in the ASR Worker enforces a hard global spend ceiling: every inference call must reserve budget before it runs, priced at the worst-case low bitrate for the declared bytes across both transcription models and settled to the provider-reported duration and the models that actually ran. The default ceiling is $10.00 per UTC day (`DAILY_SPEND_LIMIT_MICROS = 10000000`), which bounds the worst-case Workers AI bill at roughly $310 per month even under sustained attack. The ceiling must stay above the worst-case reservation for one full 24 MB upload (≈ $4.79), or maximum-size uploads would always be denied. If the ledger is unreachable, inference is denied.
+1. A SQLite durable object in the ASR Worker enforces a hard global spend ceiling: every inference call must reserve budget before it runs, priced at the worst-case low bitrate for the declared bytes across both transcription models (whisper alone for a request carrying a non-English language hint, which never runs nova-3) and settled to the provider-reported duration and the models that actually ran. The default ceiling is $10.00 per UTC day (`DAILY_SPEND_LIMIT_MICROS = 10000000`), which bounds the worst-case Workers AI bill at roughly $310 per month even under sustained attack. The ceiling must stay above the worst-case reservation for one full 24 MB upload (≈ $4.79), or maximum-size uploads would always be denied. If the ledger is unreachable, inference is denied.
 2. The same ledger caps each client IP at 2 hours of transcribed audio per UTC day (`DAILY_CLIENT_AUDIO_SECONDS = 7200`, about $0.62 of English transcription). A single request's seconds estimate is clamped to that daily quota at admission — worst-case byte pricing wildly overestimates real recordings, and without the clamp any upload over ~3.4 MB would be denied outright — then settles to the provider-reported duration.
 3. `/api/transcribe` requires a server-verified, single-use Cloudflare Turnstile token whenever `TURNSTILE_SECRET_KEY` is configured, stopping headless-bot volume before any inference spend.
 4. Anonymous visitors are limited to 10 minutes of audio per recording or upload; signed-in users keep 30-minute recordings and 2-hour uploads.
