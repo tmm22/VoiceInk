@@ -1,18 +1,13 @@
-import { ConvexHttpClient } from "convex/browser";
+import type { ConvexHttpClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
-import {
-  enforceRateLimit,
-  jsonNoStore,
-  readBoundedJson,
-  rejectCrossOrigin,
-} from "../../../lib/server/requestSecurity";
+import { jsonNoStore, readBoundedJson } from "../../../lib/server/requestSecurity";
+import { requestFailure, securedClient } from "../../../lib/server/historyClient";
 import {
   anonymousContext,
   decryptHistoryField,
   encryptHistoryField,
   historyTextDigest,
   isEncryptedEnvelope,
-  loadHistoryKey,
 } from "../../../lib/server/historyCrypto";
 import { isTranscriptionModelName, isValidLanguageTag } from "../../../shared/transcriptionContract";
 
@@ -20,18 +15,6 @@ export const runtime = "edge";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const retentionChoices = new Set([0, 7, 30, 90, 365]);
-
-function requestFailure() {
-  const requestId = crypto.randomUUID();
-  return jsonNoStore(
-    { error: "History is temporarily unavailable.", requestId },
-    { status: 503, headers: { "x-request-id": requestId } },
-  );
-}
-
-type SecuredClient =
-  | { error: Response; client?: never; serviceSecret?: never; historyKey?: never; hasToken?: never }
-  | { error?: never; client: ConvexHttpClient; serviceSecret: string; historyKey: CryptoKey; hasToken: boolean };
 
 // The context an envelope is sealed to and opened with. Whenever ANY bearer
 // token accompanies the request it comes from Convex's VERIFIED identity
@@ -75,29 +58,6 @@ function startViewerContext(
   // real error still propagates into the route's fail-closed catch.
   void pending.catch(() => {});
   return pending;
-}
-
-// History is stored encrypted at rest: transcripts and summaries are sealed in
-// this Worker with HISTORY_ENCRYPTION_KEY before they reach Convex and opened
-// only on the way back out. A missing key fails closed, like a missing service
-// secret.
-async function securedClient(request: Request): Promise<SecuredClient> {
-  const originError = rejectCrossOrigin(request);
-  if (originError) return { error: originError };
-  const rateError = await enforceRateLimit(request, "HISTORY_RATE_LIMITER");
-  if (rateError) return { error: rateError };
-
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-  const serviceSecret = process.env.CONVEX_WEB_API_SECRET;
-  const keyPromise = loadHistoryKey(process.env.HISTORY_ENCRYPTION_KEY);
-  if (!convexUrl || !serviceSecret || !keyPromise) {
-    return { error: jsonNoStore({ error: "History is unavailable." }, { status: 503 }) };
-  }
-  const client = new ConvexHttpClient(convexUrl);
-  const authorization = request.headers.get("authorization");
-  const hasToken = authorization?.startsWith("Bearer ") ?? false;
-  if (hasToken) client.setAuth(authorization!.slice(7));
-  return { client, serviceSecret, historyKey: await keyPromise, hasToken };
 }
 
 export async function POST(request: Request) {

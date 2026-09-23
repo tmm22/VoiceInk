@@ -82,7 +82,9 @@ export function whisperResult({ text = "Hola a todos.", duration = 3, language }
 // every ledger operation, so tests can assert routing and settlement exactly.
 // swallowStreamErrors mimics a binding that returns output for the bytes it
 // received even though its input stream errored (observed under wrangler dev).
-export function fakeAsrEnv({ models = {}, admission = { ok: true, id: "reservation-1" }, swallowStreamErrors = false } = {}) {
+// readLimit stops a fake model after that many bytes, like a binding that
+// returns without consuming its whole input.
+export function fakeAsrEnv({ models = {}, admission = { ok: true, id: "reservation-1" }, swallowStreamErrors = false, readLimit = Infinity } = {}) {
   const calls = [];
   const ledger = [];
   const pending = [];
@@ -96,6 +98,7 @@ export function fakeAsrEnv({ models = {}, admission = { ok: true, id: "reservati
           const reader = input.audio.body.getReader();
           try {
             for (;;) {
+              if (call.bytesRead >= readLimit) break;
               const { done, value } = await reader.read();
               if (done) break;
               call.bytesRead += value.byteLength;

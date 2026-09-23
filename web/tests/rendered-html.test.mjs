@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
+import { asrWorkerSource, historyRouteSource, studioSource } from "./support/sources.mjs";
 
 const root = new URL("../", import.meta.url);
 const source = (path) => readFile(new URL(path, root), "utf8");
 
 test("ships the VoiceInk production interface instead of the starter preview", async () => {
   const [page, layout, clerkSubtree] = await Promise.all([
-    source("app/page.tsx"),
+    studioSource(),
     source("app/layout.tsx"),
     source("app/clerk-subtree.tsx"),
   ]);
@@ -111,13 +112,14 @@ test("session-hint warm start preloads clerk-js and avoids a Sign in flash", asy
   // The hint is read through useSyncExternalStore with a false server
   // snapshot so the hydration render still matches the anonymous SSR markup,
   // and a Clerk load failure falls back to the retryable Sign in button.
+  const accountControls = await source("app/account-controls.tsx");
   assert.match(
-    providers,
+    accountControls,
     /useSyncExternalStore\(subscribeToNothing, hasClerkSessionHint, noServerHint\)/,
   );
-  assert.match(providers, /const noServerHint = \(\) => false/);
-  assert.match(providers, /sessionHint && !clerkFailed/);
-  assert.match(providers, /<span>Loading<\/span>/);
+  assert.match(accountControls, /const noServerHint = \(\) => false/);
+  assert.match(accountControls, /sessionHint && !clerkFailed/);
+  assert.match(accountControls, /<span>Loading<\/span>/);
 });
 
 test("immutable cache rule covers the path vinext actually emits assets under", async () => {
@@ -146,11 +148,11 @@ test("keeps costly production routes behind edge controls", async () => {
   const [transcribe, summarize, history, importer, security, config, asr] = await Promise.all([
     source("app/api/transcribe/route.ts"),
     source("app/api/summarize/route.ts"),
-    source("app/api/history/route.ts"),
+    historyRouteSource(),
     source("app/api/import/route.ts"),
     source("lib/server/requestSecurity.ts"),
     source("wrangler.production.jsonc"),
-    source("cloudflare-asr/src/index.ts"),
+    asrWorkerSource(),
   ]);
   for (const route of [transcribe, summarize, history, importer]) assert.match(route, /rejectCrossOrigin/);
   assert.match(transcribe, /TRANSCRIPTION_RATE_LIMITER/);

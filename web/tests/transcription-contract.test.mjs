@@ -21,6 +21,7 @@ import {
   validateDeclaredBodySize,
   validateMultipartContentType,
 } from "../lib/server/requestValidation.ts";
+import { asrWorkerSource } from "./support/sources.mjs";
 
 function request(headers = {}) {
   return new Request("https://v.paul.im/api/transcribe", { method: "POST", headers });
@@ -184,7 +185,7 @@ test("Deepgram responses yield bounded transcript, languages, and duration", () 
 });
 
 test("Workers AI calls omit runtime-broken request tags", async () => {
-  const source = await readFile(new URL("../cloudflare-asr/src/index.ts", import.meta.url), "utf8");
+  const source = await asrWorkerSource();
   assert.doesNotMatch(source, /\btags\s*:/, "Cloudflare currently counts tag-string characters as tags and rejects these calls");
 });
 

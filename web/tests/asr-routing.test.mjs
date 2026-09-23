@@ -228,3 +228,16 @@ test("a missing or failing ledger binding denies inference as unavailable", asyn
     assert.equal(fake.calls.length, 0);
   }
 });
+
+test("a model that stops reading early cannot return a transcript for an unvalidated upload", async () => {
+  for (const [models, name] of [
+    [{ [NOVA]: () => novaResult() }, "nova-3"],
+    [{ [NOVA]: () => { throw new Error("nova down"); }, [WHISPER]: () => whisperResult() }, "whisper"],
+  ]) {
+    const fake = fakeAsrEnv({ readLimit: 16, models });
+    const { response, body } = await transcribe(fake, { declaredBytes: 128 });
+    assert.equal(response.status, 415, name);
+    assert.equal(body.text, undefined);
+    assert.equal(fake.ledger.at(-1).op, "commit", "the model that ran is settled");
+  }
+});

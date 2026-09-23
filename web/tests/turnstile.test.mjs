@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { verifyTurnstileToken } from "../lib/server/turnstile.ts";
+import { studioSource } from "./support/sources.mjs";
 
 const root = new URL("../", import.meta.url);
 
@@ -114,7 +115,7 @@ test("never log or echo the turnstile token or secret", async () => {
 
 test("recording start pre-executes turnstile; stop consumes the held single-use token", async () => {
   const [page, request, client] = await Promise.all([
-    readFile(new URL("app/page.tsx", root), "utf8"),
+    studioSource(),
     readFile(new URL("lib/transcriptionRequest.ts", root), "utf8"),
     readFile(new URL("lib/turnstileClient.ts", root), "utf8"),
   ]);

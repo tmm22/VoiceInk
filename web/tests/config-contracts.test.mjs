@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { asrWorkerSource, historyRouteSource, studioSource } from "./support/sources.mjs";
 
 const root = new URL("../", import.meta.url);
 const repositoryRoot = new URL("../../", import.meta.url);
@@ -27,7 +28,7 @@ test("production configuration preserves required domains and bindings", async (
 test("the ASR worker keeps its spend-ledger durable object and metering headers", async () => {
   const [config, index, transcribe, summarize, enhance] = await Promise.all([
     source("cloudflare-asr/wrangler.jsonc"),
-    source("cloudflare-asr/src/index.ts"),
+    asrWorkerSource(),
     source("app/api/transcribe/route.ts"),
     source("app/api/summarize/route.ts"),
     source("app/api/enhance/route.ts"),
@@ -46,7 +47,7 @@ test("the ASR worker keeps its spend-ledger durable object and metering headers"
 
 test("AI enhancement is routed through the private AI service with product presets", async () => {
   const [page, route, presets] = await Promise.all([
-    source("app/page.tsx"),
+    studioSource(),
     source("app/api/enhance/route.ts"),
     source("cloudflare-asr/src/enhancement.ts"),
   ]);
@@ -62,11 +63,11 @@ test("AI enhancement is routed through the private AI service with product prese
 
 test("the browser, public API, and private worker agree on the ASR model", async () => {
   const files = await Promise.all([
-    source("app/page.tsx"),
+    studioSource(),
     source("app/api/transcribe/route.ts"),
-    source("cloudflare-asr/src/index.ts"),
+    asrWorkerSource(),
     source("shared/transcriptionContract.ts"),
-    source("app/api/history/route.ts"),
+    historyRouteSource(),
   ]);
   assert.match(files[4], /!isTranscriptionModelName\(model\)/, "history accepts every canonical model, not just whisper");
   assert.match(files[4], /detectedLanguage !== undefined && !isValidLanguageTag\(detectedLanguage\)/);
@@ -86,7 +87,7 @@ test("the browser, public API, and private worker agree on the ASR model", async
 test("transcription remains private, streamed, and separately rate limited", async () => {
   const [route, worker, webConfig, asrConfig] = await Promise.all([
     source("app/api/transcribe/route.ts"),
-    source("cloudflare-asr/src/index.ts"),
+    asrWorkerSource(),
     source("wrangler.production.jsonc"),
     source("cloudflare-asr/wrangler.jsonc"),
   ]);
@@ -107,7 +108,7 @@ test("transcription remains private, streamed, and separately rate limited", asy
 });
 
 test("production never reintroduces demo transcripts or fail-open ASR", async () => {
-  const [page, route, worker] = await Promise.all([source("app/page.tsx"), source("app/api/transcribe/route.ts"), source("cloudflare-asr/src/index.ts")]);
+  const [page, route, worker] = await Promise.all([studioSource(), source("app/api/transcribe/route.ts"), asrWorkerSource()]);
   assert.doesNotMatch(`${page}\n${route}`, /demoTranscript|mode:\s*"prototype"/);
   assert.match(worker, /!env\.ASR_API_KEY/);
   assert.match(route, /Transcription is unavailable/);

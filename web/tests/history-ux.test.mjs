@@ -10,6 +10,7 @@ import {
   maximumShapeItems,
   saveHistoryShape,
 } from "../lib/historyMetadataCache.ts";
+import { studioSource } from "./support/sources.mjs";
 
 const root = new URL("../", import.meta.url);
 const source = (path) => readFile(new URL(path, root), "utf8");
@@ -129,7 +130,7 @@ test("boot skips the anonymous history fetch when a Clerk session is hinted", as
   // Once the Clerk bridge publishes any identity, fetching resumes normally.
   assert.match(hook, /account\.isLoaded && \(!awaitingHintedSession\.current \|\| account\.enabled\)/);
   // The page consumes the hook instead of duplicating history state.
-  const page = await source("app/page.tsx");
+  const page = await studioSource();
   assert.match(page, /useTranscriptionHistory\(account, setError\)/);
   assert.doesNotMatch(page, /listTranscriptions/);
 });
@@ -169,7 +170,7 @@ test("retention saves settle immediately, refresh in the background, and roll ba
 
 test("summarizing from history gives immediate pending feedback", async () => {
   const [page, summaryHook, historyView] = await Promise.all([
-    source("app/page.tsx"),
+    studioSource(),
     source("app/use-transcript-summary.ts"),
     source("app/history-view.tsx"),
   ]);
