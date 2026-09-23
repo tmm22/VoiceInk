@@ -18,6 +18,12 @@ All notable changes to the VoiceLink Community application are documented here.
 
 ### Web
 - Updated Next.js to 16.3.6, Wrangler to 4.136.3 and related Cloudflare tooling, and pinned a patched `image-size`, clearing the high and critical npm advisories that failed the web regression check (#56). Production picks this up on the next web and ASR Worker deploy.
+- Transcription starts while the upload is still arriving: the ASR Worker checks the audio signature on the first bytes and streams the rest into the model instead of buffering the whole file. Memory use drops from about two copies of the audio to one, and a 78-second recording over a slow connection finished about 0.5 s sooner. Uploads longer or shorter than declared are still rejected.
+- If none of the browser's preferred languages is English, it sends a language hint and the recording is transcribed once by Whisper. Previously Deepgram Nova-3 ran first and Whisper then re-transcribed the audio. Those requests cost about a tenth as much and return sooner. Browsers that list English anywhere keep the Nova-3-first route.
+- Signed-out history now loads in pages of 25 like account history, instead of a single list of 30.
+- History records decode faster using the runtime's native base64 support.
+- The web Worker's credential for the private ASR Worker is renamed from `PARAKEET_API_KEY` to `ASR_API_KEY`; the old name is still read for one release. Removed the unused Parakeet container, site-template leftovers and an unused image-optimization route.
+- Fixed a timer left pending after every spend-ledger call. Split the Studio page and the ASR Worker into smaller modules and added handler-level tests for language routing, the transcribe route and upload validation.
 
 ### Reliability and diagnostics
 - The update checker no longer starts inside the unit-test host.
