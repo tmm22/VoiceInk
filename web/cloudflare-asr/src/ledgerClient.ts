@@ -17,11 +17,20 @@ export type Admission =
 
 const LEDGER_CALL_TIMEOUT_MS = 3_000;
 
-function withTimeout<T>(operation: Promise<T>): Promise<T> {
-  return Promise.race([
-    operation,
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Ledger timeout")), LEDGER_CALL_TIMEOUT_MS)),
-  ]);
+// The timer is cleared however the race settles, so a fast ledger call does
+// not leave a pending timeout behind for every paid request.
+export async function withTimeout<T>(operation: Promise<T>, timeoutMs = LEDGER_CALL_TIMEOUT_MS): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("Ledger timeout")), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 function ledgerStub(env: LedgerEnv) {
