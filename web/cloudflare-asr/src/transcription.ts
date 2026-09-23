@@ -26,6 +26,14 @@ import { extractDeepgramTranscription } from "./deepgram.ts";
 import { characterBucket, internalBodyLength, json, logInferenceFailure, requestClientKey } from "./http.ts";
 import { commitSpend, releaseSpend } from "./ledgerClient.ts";
 
+// Whisper's supported language codes (the ISO 639-1 subset of its tokenizer).
+const WHISPER_LANGUAGES = new Set(("af am ar as az ba be bg bn bo br bs ca cs cy da de el en es et eu fa fi fo fr gl gu ha haw he hi hr ht hu hy id is it ja jw ka kk km kn ko la lb ln lo lt lv mg mi mk ml mn mr ms mt my ne nl nn no oc pa pl ps pt ro ru sa sd si sk sl sn so sq sr su sv sw ta te tg th tk tl tr tt uk ur uz vi yi yo yue zh").split(" "));
+
+export function whisperLanguageCode(tag: string | undefined) {
+  const primary = tag?.split("-", 1)[0]?.toLowerCase();
+  return primary && WHISPER_LANGUAGES.has(primary) ? primary : undefined;
+}
+
 export async function handleTranscription(request: Request, env: AsrEnv, executionContext: ExecutionContext): Promise<Response> {
   const declaredBytes = internalBodyLength(request);
   if (declaredBytes === null) {
@@ -154,12 +162,20 @@ export async function handleTranscription(request: Request, env: AsrEnv, executi
   }
 
   try {
+    const forcedLanguage = whisperLanguageCode(nonEnglishLanguage);
     const result = await env.AI.run(MULTILINGUAL_TRANSCRIPTION_MODEL_ID, {
       audio: { body: fallbackAudio, contentType: mediaType },
       task: "transcribe",
+      // Only a language nova-3 actually detected is forced; a browser hint can
+      // be wrong (an English speaker on a German browser), and forcing the
+      // wrong language garbles speech that whisper would otherwise auto-detect.
+      ...(forcedLanguage ? { language: forcedLanguage } : {}),
       vad_filter: true,
       beam_size: 5,
-      condition_on_previous_text: true,
+      // Both settings trade a little cross-segment context for fewer
+      // fabricated repeats and fewer phrases invented over long silences.
+      condition_on_previous_text: false,
+      hallucination_silence_threshold: 2,
     }, { signal: deadline });
 
     const text = typeof result.text === "string" ? result.text.trim() : "";

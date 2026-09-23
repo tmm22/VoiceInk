@@ -15,7 +15,30 @@ export const WORST_CASE_TRANSCRIPTION_MICROS_PER_MINUTE =
 // bound on any real file's actual cost.
 export const WORST_CASE_BYTES_PER_SECOND = 500;
 
-export const TEXT_GENERATION_FLAT_MICROS = 2_000; // conservative flat cost per llama call
+// Text generation (@cf/google/gemma-4-26b-a4b-it): $0.10 per M input tokens
+// and $0.30 per M output tokens, i.e. 0.1 and 0.3 micro-dollars per token.
+export const TEXT_INPUT_MICROS_PER_TOKEN = 0.1;
+export const TEXT_OUTPUT_MICROS_PER_TOKEN = 0.3;
+// Headroom for the system prompt and chat template around the user text.
+const TEXT_PROMPT_OVERHEAD_TOKENS = 1_000;
+
+// Worst-case reservation from the UTF-8 byte length of the exact serialized
+// prompt: a BPE token always covers at least one byte, so bytes bound tokens
+// even for dense scripts and JSON-escaped control characters. English runs
+// about four bytes per token, so real usage settles far below this.
+export function estimateTextGenerationMicros(inputBytes: number, maxOutputTokens: number) {
+  const inputTokens = Math.max(0, Math.ceil(inputBytes)) + TEXT_PROMPT_OVERHEAD_TOKENS;
+  return Math.ceil(inputTokens * TEXT_INPUT_MICROS_PER_TOKEN + Math.max(0, maxOutputTokens) * TEXT_OUTPUT_MICROS_PER_TOKEN);
+}
+
+// Settles to the provider-reported usage; without usage the reservation stands.
+export function actualTextGenerationMicros(usage: unknown, reservedMicros: number) {
+  if (!usage || typeof usage !== "object") return reservedMicros;
+  const { prompt_tokens: input, completion_tokens: output } = usage as { prompt_tokens?: unknown; completion_tokens?: unknown };
+  if (typeof input !== "number" || typeof output !== "number" || !Number.isFinite(input) || !Number.isFinite(output)
+    || input < 0 || output < 0) return reservedMicros;
+  return Math.min(reservedMicros, Math.ceil(input * TEXT_INPUT_MICROS_PER_TOKEN + output * TEXT_OUTPUT_MICROS_PER_TOKEN));
+}
 
 export const DEFAULT_DAILY_SPEND_LIMIT_MICROS = 10_000_000; // $10.00 per day
 export const DEFAULT_DAILY_CLIENT_AUDIO_SECONDS = 7_200; // 2 hours of audio per client per day

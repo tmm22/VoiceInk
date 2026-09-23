@@ -3,6 +3,7 @@ import { enforceRateLimit, jsonNoStore, readBoundedJson, rejectCrossOrigin } fro
 import { INTERNAL_CLIENT_KEY_HEADER } from "../../../shared/transcriptionContract";
 import { pseudonymousClientKey } from "../../../lib/server/clientKey";
 import { asrApiKey } from "../../../lib/server/asrCredential";
+import { TEXT_GENERATION_MODEL_NAME } from "../../../shared/textGenerationContract";
 
 export const runtime = "edge";
 
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
   try {
     const result = await response.json() as { enhanced?: unknown; mode?: unknown; model?: unknown };
     if (typeof result.enhanced !== "string" || !result.enhanced.trim() || result.enhanced.length > 30_000
-      || result.mode !== mode || result.model !== "llama-3.2-3b-instruct") throw new Error("invalid response");
+      || result.mode !== mode || result.model !== TEXT_GENERATION_MODEL_NAME) throw new Error("invalid response");
     return jsonNoStore({ enhanced: result.enhanced.trim(), mode, model: result.model });
   } catch {
     return jsonNoStore({ error: "Text enhancement failed" }, { status: 502 });

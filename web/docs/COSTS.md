@@ -43,11 +43,11 @@ Examples (English audio on nova-3):
 
 ### Workers AI summaries and text enhancement
 
-The summary and text-enhancement features use `@cf/meta/llama-3.2-3b-instruct`, currently priced at approximately $0.051 per million input tokens and $0.335 per million output tokens.
+The summary and text-enhancement features use `@cf/google/gemma-4-26b-a4b-it` with reasoning turned off, currently priced at approximately $0.10 per million input tokens and $0.30 per million output tokens. Each call reserves a worst case of one token per byte of the serialized prompt plus its output cap (about $0.006 for a 60,000-character English summary, more for scripts that take several bytes per character) and then settles to the token usage the model reports.
 
 Source: [Cloudflare Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
 
-For example, 10,000 summaries averaging 1,000 input tokens and 200 output tokens would cost approximately $1.18 in model usage. Enhancement uses the same token pricing; actual cost depends on source and response length.
+For example, 10,000 summaries averaging 1,000 input tokens and 200 output tokens would cost approximately $1.60 in model usage. Enhancement uses the same token pricing; actual cost depends on source and response length.
 
 ### Convex
 
@@ -85,7 +85,7 @@ The last row exceeds the default $10.00-per-day spend ceiling (about 3,300 minut
 The simple planning formula is:
 
 ```text
-monthly cost ≈ $5 + (English audio minutes × $0.0052) + (nova-3-detected non-English audio minutes × $0.00571) + (language-hinted audio minutes × $0.00051) + Llama token usage + Convex overages + Worker overages
+monthly cost ≈ $5 + (English audio minutes × $0.0052) + (nova-3-detected non-English audio minutes × $0.00571) + (language-hinted audio minutes × $0.00051) + Gemma token usage + Convex overages + Worker overages
 ```
 
 ## Costs not currently incurred

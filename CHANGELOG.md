@@ -23,6 +23,8 @@ All notable changes to the VoiceLink Community application are documented here.
 - Signed-out history now loads in pages of 25 like account history, instead of a single list of 30.
 - History records decode faster using the runtime's native base64 support.
 - The web Worker's credential for the private ASR Worker is renamed from `PARAKEET_API_KEY` to `ASR_API_KEY`, and the old name is no longer read. Removed the unused Parakeet container, site-template leftovers and an unused image-optimization route.
+- Summaries and AI enhancement now use Google Gemma 4 26B A4B instead of Llama 3.2 3B: a much stronger model on independent benchmarks at a similar price (a typical summary costs about $0.0006). Reasoning is turned off so output length and cost stay bounded, and each call is billed from the model's reported token usage. Prompts now tell the model to keep dates and numbers exactly as spoken rather than filling in a missing month or year.
+- Non-English transcription with Whisper is tuned to invent less text: it no longer carries earlier text into each new segment, it skips long silences, and it uses the language Nova-3 detected when there is one.
 - Fixed a timer left pending after every spend-ledger call. Split the Studio page and the ASR Worker into smaller modules and added handler-level tests for language routing, the transcribe route and upload validation.
 
 ### Reliability and diagnostics
