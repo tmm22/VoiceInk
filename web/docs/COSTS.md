@@ -97,8 +97,6 @@ monthly cost ≈ $5 + (English audio minutes × $0.0052) + (non-English audio mi
 - Authentication cost depends on the active Clerk production plan and monthly active users
 - The canonical custom domain is `v.paul.im`
 
-The unused `parakeet-service/` reference would create a materially different cost profile if deployed. Production currently uses managed Workers AI instead.
-
 ## Active cost and abuse controls
 
 Anonymous transcription remains available, but the following controls limit cost and storage abuse:

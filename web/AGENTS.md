@@ -24,8 +24,6 @@ Current production models:
 
 Transcription buffers the bounded audio once and may run it through both models; spend-ledger admission must always reserve the combined worst case for both.
 
-`parakeet-service/` is an experimental self-hosted reference and is not the production transcription path. The `PARAKEET_*` Worker variable names remain only for compatibility with the original adapter.
-
 ## Core product invariants
 
 - Recording Stop automatically uploads the in-memory audio, transcribes it, and saves the completed result to history.
@@ -65,7 +63,7 @@ Every public API route must:
 - Return bounded, non-sensitive error details
 - Fail closed when an internal credential or required service is unavailable
 
-Keep separate rate limits for transcription, summarization, enhancement, content imports, and history writes. The private ASR Worker must require `ASR_API_KEY` for inference. The web Worker sends the matching value through its server-only compatibility secret; rotate both sides together.
+Keep separate rate limits for transcription, summarization, enhancement, content imports, and history writes. The private ASR Worker must require `ASR_API_KEY` for inference. The web Worker sends the matching value from its own server-only `ASR_API_KEY`; rotate both sides together.
 
 Every Workers AI call in the ASR Worker must be admitted by the `SPEND_LEDGER` durable object before inference runs (reserve worst-case, settle to actual, release on failure). A failed or unreachable ledger call is a denial, never an allow. Do not remove or bypass the daily spend ceiling or the per-client daily audio quota; changing the defaults is a deliberate `wrangler.jsonc` edit that must update docs and tests together.
 
@@ -90,8 +88,7 @@ Secret values belong in the relevant managed environment:
 - `CONVEX_WEB_API_SECRET`: web Worker and Convex production environment
 - `HISTORY_ENCRYPTION_KEY`: web Worker only — Convex must never hold it; losing it makes stored history unreadable
 - `CLERK_WEBHOOK_SECRET`: Convex environment; verifies Clerk `user.deleted` purge webhooks
-- `ASR_API_KEY`: private ASR Worker
-- `PARAKEET_API_KEY`: web Worker compatibility credential matching `ASR_API_KEY`
+- `ASR_API_KEY`: private ASR Worker, and the same value on the web Worker, which sends it to the ASR Worker (read through `lib/server/asrCredential.ts`; the pre-rename `PARAKEET_API_KEY` is still read as a one-release fallback)
 - `CLERK_JWT_ISSUER_DOMAIN`: Convex environment; not secret
 - Public client URLs and the Clerk publishable key: explicit production build environment
 

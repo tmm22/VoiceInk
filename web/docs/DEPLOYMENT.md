@@ -154,7 +154,7 @@ For local development use the official test pair — sitekey `1x0000000000000000
 
 ## 4. Create the shared internal secret
 
-The ASR Worker checks `ASR_API_KEY`. The web Worker sends the same value from its legacy `PARAKEET_API_KEY` secret.
+The ASR Worker checks `ASR_API_KEY`. The web Worker sends the same value from its own `ASR_API_KEY` secret.
 
 Generate and install both values in one shell session so the secret is never committed:
 
@@ -165,7 +165,7 @@ printf '%s\n' "$ASR_KEY" | \
   (cd cloudflare-asr && npx wrangler secret put ASR_API_KEY)
 
 printf '%s\n' "$ASR_KEY" | \
-  npx wrangler secret put PARAKEET_API_KEY \
+  npx wrangler secret put ASR_API_KEY \
     --config wrangler.production.jsonc \
     --name voiceink-web
 
@@ -315,8 +315,7 @@ curl --fail \
 | `CONVEX_WEB_API_SECRET` | Web Worker and Convex | Yes | Authorizes brokered anonymous history creation |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Build and web Worker | No | Enables Clerk sign-in in the browser |
 | `CLERK_JWT_ISSUER_DOMAIN` | Convex environment | No | Validates Clerk-issued Convex JWTs |
-| `PARAKEET_API_KEY` | Web Worker | Yes | Credential sent to ASR Worker |
-| `ASR_API_KEY` | ASR Worker | Yes | Credential checked by ASR Worker |
+| `ASR_API_KEY` | Web Worker and ASR Worker | Yes | Shared credential: sent by the web Worker, checked by the ASR Worker |
 | `TURNSTILE_SECRET_KEY` | Web Worker | Yes | Server-side Turnstile verification for `/api/transcribe` |
 | `HISTORY_ENCRYPTION_KEY` | Web Worker | Yes | AES-256-GCM encryption at rest for transcripts and summaries in Convex |
 | `CLERK_WEBHOOK_SECRET` | Convex environment | Yes | Verifies Clerk `user.deleted` webhooks that purge account history |
@@ -328,7 +327,9 @@ curl --fail \
 | `ASR` | Web Worker binding | Binding | Private Worker-to-Worker transport |
 | `SPEND_LEDGER` | ASR Worker binding | Binding | Durable object enforcing the daily spend ceiling |
 
-The `PARAKEET_API_KEY` name remains for compatibility with the prototype’s first inference adapter. There is no external URL fallback: production fails closed unless the private `ASR` binding and matching secret are both present.
+There is no external URL fallback: production fails closed unless the private `ASR` binding and matching secret are both present.
+
+The web Worker's copy was called `PARAKEET_API_KEY` before 2026-09. For one release the web Worker still reads that name when `ASR_API_KEY` is absent. Secret values cannot be read back, so the rename is a rotation. Generate one new value and install it on the ASR Worker as `ASR_API_KEY`, then immediately on the web Worker under **both** `ASR_API_KEY` and `PARAKEET_API_KEY` (transcription returns 502 for the few seconds between the ASR and web updates). Keeping the legacy name populated with the new value means a rollback of the web Worker to the previous release, which reads only `PARAKEET_API_KEY`, still authenticates. Delete `PARAKEET_API_KEY` (`npx wrangler secret delete PARAKEET_API_KEY --config wrangler.production.jsonc --name voiceink-web`) only in the release that removes the fallback read, once the pre-rename release is outside the rollback window.
 
 ## Logs and diagnostics
 

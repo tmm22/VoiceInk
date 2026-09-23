@@ -21,7 +21,8 @@ function installBindings({ asr, rateLimited = false } = {}) {
       return asr ? asr(request) : Response.json({ text: "Hello.", model: "nova-3" });
     },
   };
-  process.env.PARAKEET_API_KEY = "web-to-asr-key";
+  Object.assign(process.env, { ASR_API_KEY: "web-to-asr-key" });
+  delete process.env.PARAKEET_API_KEY;
   process.env.HISTORY_ENCRYPTION_KEY = "pseudonym-secret";
   delete process.env.TURNSTILE_SECRET_KEY;
   return forwarded;
@@ -76,8 +77,21 @@ test("the route fails closed when the ASR binding or its credential is missing",
   installBindings({ asr: null });
   assert.equal((await POST(upload())).status, 503);
   installBindings();
-  delete process.env.PARAKEET_API_KEY;
+  delete process.env.ASR_API_KEY;
   assert.equal((await POST(upload())).status, 503);
+});
+
+test("ASR_API_KEY wins, and the pre-rename PARAKEET_API_KEY is still read for one release", async () => {
+  let forwarded = installBindings();
+  delete process.env.ASR_API_KEY;
+  process.env.PARAKEET_API_KEY = "legacy-key";
+  assert.equal((await POST(upload())).status, 200);
+  assert.equal(forwarded[0].request.headers.get("authorization"), "Bearer legacy-key");
+
+  forwarded = installBindings();
+  process.env.PARAKEET_API_KEY = "legacy-key";
+  assert.equal((await POST(upload())).status, 200);
+  assert.equal(forwarded[0].request.headers.get("authorization"), "Bearer web-to-asr-key");
 });
 
 test("ASR failures map to bounded errors and never leak the upstream body", async () => {
