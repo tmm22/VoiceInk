@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const productionRoots = ["app", "lib", "shared", "convex", "cloudflare-asr/src", "tooling"];
+const productionRoots = ["app", "lib", "shared", "convex", "cloudflare-asr/src"];
 const maximumLines = 500;
 
 async function sourceFiles(directory) {

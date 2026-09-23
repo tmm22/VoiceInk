@@ -66,7 +66,6 @@ Transcript content is JSON-encoded as untrusted data and the model is instructed
 - `scripts/` — repository checks: clean build, secret scan, doc-contract drift, file-size cap, duplicate-artifact scan, and dependency-audit gate
 - `public/_headers` — immutable caching for content-hashed assets, short-lived caching for named public files
 - `wrangler.production.jsonc` — production web Worker and service binding
-- `parakeet-service/` — experimental self-hosted Parakeet reference; not used in production
 
 ## Local development
 
@@ -122,6 +121,6 @@ GitHub Actions runs the complete local regression suite for every web-related pu
 - System/device voices only for the initial TTS integration; cloud TTS adapters are not yet connected
 - Audio uploads are limited to 24 MB at the browser, public Worker, and private ASR Worker boundaries
 - AI enhancement input is limited to 12,000 characters and is processed only after an explicit request
-- `PARAKEET_API_KEY` is a compatibility secret name; production inference uses Whisper Large V3 Turbo through the private `ASR` binding
+- The web Worker authenticates to the private `ASR` binding with `ASR_API_KEY`, the same value the ASR Worker checks
 
 Operational deployments should additionally configure billing/usage alerts, a tested inference kill switch, and WAF or Turnstile controls for sustained anonymous abuse; Cloudflare's binding-level counters are an edge pressure control rather than durable billing accounting.

@@ -16,6 +16,7 @@ import {
 } from "../../../shared/transcriptionContract";
 import { verifyTurnstileToken } from "../../../lib/server/turnstile";
 import { pseudonymousClientKey } from "../../../lib/server/clientKey";
+import { asrApiKey } from "../../../lib/server/asrCredential";
 
 export const runtime = "edge";
 
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const apiKey = process.env.PARAKEET_API_KEY;
+  const apiKey = asrApiKey();
   const pseudonymSecret = process.env.HISTORY_ENCRYPTION_KEY;
   const bindings = env as unknown as { ASR?: Fetcher };
   if (!bindings.ASR || !apiKey || !pseudonymSecret || !request.body) {

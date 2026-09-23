@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { enforceRateLimit, jsonNoStore, readBoundedJson, rejectCrossOrigin } from "../../../lib/server/requestSecurity";
 import { INTERNAL_CLIENT_KEY_HEADER } from "../../../shared/transcriptionContract";
 import { pseudonymousClientKey } from "../../../lib/server/clientKey";
+import { asrApiKey } from "../../../lib/server/asrCredential";
 
 export const runtime = "edge";
 
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
   const text = typeof parsed.value.text === "string" ? parsed.value.text.trim() : "";
   if (!text) return jsonNoStore({ error: "Transcript text is required" }, { status: 400 });
   if (text.length > 60_000) return jsonNoStore({ error: "Transcript is too long to summarize" }, { status: 413 });
-  const apiKey = process.env.PARAKEET_API_KEY;
+  const apiKey = asrApiKey();
   const pseudonymSecret = process.env.HISTORY_ENCRYPTION_KEY;
   const bindings = env as unknown as { ASR?: Fetcher };
   if (!bindings.ASR || !apiKey || !pseudonymSecret) return jsonNoStore({ error: "Summarization is unavailable" }, { status: 503 });

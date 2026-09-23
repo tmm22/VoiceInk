@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { enforceRateLimit, jsonNoStore, readBoundedJson, rejectCrossOrigin } from "../../../lib/server/requestSecurity";
 import { INTERNAL_CLIENT_KEY_HEADER } from "../../../shared/transcriptionContract";
 import { pseudonymousClientKey } from "../../../lib/server/clientKey";
+import { asrApiKey } from "../../../lib/server/asrCredential";
 
 export const runtime = "edge";
 
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
   if (text.length > 12_000) return jsonNoStore({ error: "Text is too long to enhance" }, { status: 413 });
   if (!allowedModes.has(mode)) return jsonNoStore({ error: "Choose a supported enhancement style" }, { status: 400 });
 
-  const apiKey = process.env.PARAKEET_API_KEY;
+  const apiKey = asrApiKey();
   const pseudonymSecret = process.env.HISTORY_ENCRYPTION_KEY;
   const bindings = env as unknown as { ASR?: Fetcher };
   if (!bindings.ASR || !apiKey || !pseudonymSecret) return jsonNoStore({ error: "Text enhancement is unavailable" }, { status: 503 });
