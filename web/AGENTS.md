@@ -22,7 +22,7 @@ Current production models:
 - Transcription (non-English fallback): `@cf/openai/whisper-large-v3-turbo`, used when nova-3 detects a non-English language or nova-3 fails
 - Summarization: `@cf/meta/llama-3.2-3b-instruct`
 
-Transcription buffers the bounded audio once and may run it through both models; spend-ledger admission must always reserve the combined worst case for both.
+Transcription streams the upload into nova-3 as it arrives (`cloudflare-asr/src/audioUpload.ts` checks the signature on the first bytes and errors the stream past the declared length) and holds one `tee()` copy only for the whisper fallback, so a request may still run both models; spend-ledger admission must always reserve the combined worst case for both.
 
 ## Core product invariants
 

@@ -99,14 +99,13 @@ test("both models failing releases the reservation and never fabricates text", a
   assert.deepEqual(fake.ledger.map((entry) => entry.op), ["reserve", "release"]);
 });
 
-test("unauthorized, oversized, under-declared, and mislabelled uploads never reach a model", async () => {
+test("unauthorized and mislabelled uploads never reach a model", async () => {
   const cases = [
     { options: { authorization: "Bearer wrong" }, status: 401 },
-    { options: { declaredBytes: 32 }, status: 415 },
-    { options: { declaredBytes: 128 }, status: 415 },
     { options: { bytes: new Uint8Array(64) }, status: 415 },
     { options: { contentType: "text/plain" }, status: 415 },
     { options: { declaredBytes: 0 }, status: 400 },
+    { options: { bytes: wavBytes(12), declaredBytes: 64 }, status: 415 },
   ];
   for (const { options, status } of cases) {
     const fake = fakeAsrEnv({ models: { [NOVA]: () => novaResult() } });
@@ -118,6 +117,65 @@ test("unauthorized, oversized, under-declared, and mislabelled uploads never rea
       assert.ok(fake.ledger.some((entry) => entry.op === "release"), "an admitted but invalid upload is released");
     }
   }
+});
+
+test("an upload longer or shorter than declared fails mid-stream without a transcript or settled spend", async () => {
+  for (const declaredBytes of [32, 128]) {
+    const fake = fakeAsrEnv({
+      models: { [NOVA]: () => novaResult(), [WHISPER]: () => whisperResult() },
+    });
+    const { response, body } = await transcribe(fake, { declaredBytes });
+    assert.equal(response.status, 415, `declared ${declaredBytes}`);
+    assert.equal(body.text, undefined);
+    assert.deepEqual(fake.calls.map((call) => call.model), [NOVA], "the fallback never runs on a rejected upload");
+    assert.ok(fake.calls[0].bytesRead <= declaredBytes, "no more than the priced byte count is delivered");
+    assert.deepEqual(fake.ledger.map((entry) => entry.op), ["reserve", "release"]);
+  }
+});
+
+test("a model that ignores its stream error still cannot return a transcript for a mis-sized upload", async () => {
+  for (const declaredBytes of [32, 128]) {
+    const fake = fakeAsrEnv({ swallowStreamErrors: true, models: { [NOVA]: () => novaResult() } });
+    const { response, body } = await transcribe(fake, { declaredBytes });
+    assert.equal(response.status, 415, `declared ${declaredBytes}`);
+    assert.equal(body.text, undefined);
+    assert.deepEqual(fake.ledger.map((entry) => entry.op), ["reserve", "commit"], "the model that ran is still settled");
+  }
+});
+
+test("inference starts while the upload is still arriving", async () => {
+  let releaseRest;
+  const rest = new Promise((resolve) => { releaseRest = resolve; });
+  const bytes = wavBytes(64);
+  let sent = 0;
+  const body = new ReadableStream({
+    async pull(controller) {
+      if (sent === 16) await rest;
+      if (sent >= bytes.byteLength) return controller.close();
+      controller.enqueue(bytes.slice(sent, sent + 16));
+      sent += 16;
+    },
+  });
+  const fake = fakeAsrEnv({ models: { [NOVA]: () => novaResult() } });
+  const originalRun = fake.env.AI.run;
+  fake.env.AI.run = (...args) => {
+    assert.equal(sent, 16, "the model is called before the rest of the upload arrives");
+    releaseRest();
+    return originalRun(...args);
+  };
+  const request = new Request("https://asr.internal/v1/transcriptions", {
+    method: "POST",
+    headers: {
+      authorization: "Bearer test-asr-key",
+      "content-type": "audio/wav",
+      "x-voiceink-body-length": "64",
+    },
+    body,
+    duplex: "half",
+  });
+  const response = await worker.fetch(request, fake.env, fake.executionContext);
+  assert.equal(response.status, 200);
+  assert.equal(fake.calls[0].bytesRead, 64);
 });
 
 test("a ledger denial blocks inference", async () => {

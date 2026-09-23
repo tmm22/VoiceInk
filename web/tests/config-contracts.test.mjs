@@ -94,8 +94,10 @@ test("transcription remains private, streamed, and separately rate limited", asy
   assert.match(route, /body: request\.body/);
   assert.match(route, /signal: request\.signal/);
   assert.doesNotMatch(route, /FormData|formData\(\)|PARAKEET_API_URL|fetch\(target/);
-  assert.match(worker, /audio: \{ body: audioStream\(audioBytes\), contentType: mediaType \}/);
-  assert.match(worker, /received > declaredBytes \|\| received > MAXIMUM_AUDIO_BYTES/, "buffered audio stays bounded while it is read");
+  assert.match(worker, /audio: \{ body: englishAudio, contentType: mediaType \}/);
+  assert.match(worker, /audio: \{ body: fallbackAudio, contentType: mediaType \}/);
+  assert.match(worker, /openAudioUpload\(request\.body, mediaType, declaredBytes, deadline\)/, "the upload is streamed and length-bounded, not buffered");
+  assert.doesNotMatch(worker, /new Uint8Array\(received\)/);
   assert.doesNotMatch(worker, /formData\(\)|function toBase64|\bbtoa\(/);
   for (const config of [webConfig, asrConfig]) {
     assert.match(config, /"enable_request_signal"/);
