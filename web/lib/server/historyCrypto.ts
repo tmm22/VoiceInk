@@ -26,7 +26,10 @@ export type HistoryField = "text" | "summary";
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-function toBase64(bytes: Uint8Array): string {
+// Portable codecs, exported only so tests can compare them with the native
+// ones. Envelopes reach ~267 KB of base64, so production prefers the runtime's
+// native Uint8Array base64 methods (workerd) over per-character loops.
+export function portableToBase64(bytes: Uint8Array): string {
   let binary = "";
   for (let index = 0; index < bytes.length; index += 0x8000) {
     binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
@@ -34,11 +37,27 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-function fromBase64(value: string): Uint8Array<ArrayBuffer> {
+export function portableFromBase64(value: string): Uint8Array<ArrayBuffer> {
   const binary = atob(value);
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
   return bytes;
+}
+
+type NativeBase64 = {
+  fromBase64?: (value: string) => Uint8Array<ArrayBuffer>;
+  prototype: { toBase64?: (this: Uint8Array) => string };
+};
+const nativeBase64 = Uint8Array as unknown as NativeBase64;
+const nativeFromBase64 = nativeBase64.fromBase64?.bind(Uint8Array);
+const nativeToBase64 = nativeBase64.prototype.toBase64;
+
+export function toBase64(bytes: Uint8Array): string {
+  return nativeToBase64 ? nativeToBase64.call(bytes) : portableToBase64(bytes);
+}
+
+export function fromBase64(value: string): Uint8Array<ArrayBuffer> {
+  return nativeFromBase64 ? nativeFromBase64(value) : portableFromBase64(value);
 }
 
 // A value is only treated as an encrypted envelope when the body is well-formed
