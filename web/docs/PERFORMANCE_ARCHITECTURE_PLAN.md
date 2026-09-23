@@ -1,6 +1,10 @@
 # Web Performance and Architecture Plan
 
-Status: proposal, not yet implemented. Written 2026-09-23 from an architecture survey of the
+Status: implemented 2026-09-23 as a stack of PRs, one per workstream, except W6 (see the
+status table below). The owner's answers to the open questions are recorded under "Open
+questions for the owner".
+
+Original status: proposal. Written 2026-09-23 from an architecture survey of the
 web companion (`web/`, `web/cloudflare-asr/`, `web/convex/`), re-verified against trunk
 commit `39b43faa`. Each workstream is meant to become one PR. File and line references are
 to that commit; re-check them before starting a workstream.
@@ -216,6 +220,21 @@ refactors have a safety net.
 
 ---
 
+## Implementation status (2026-09-23)
+
+| Workstream | Outcome |
+|---|---|
+| W10 tests | Done. Handler tests with fake bindings for every routing branch, the transcribe route, and upload validation. |
+| W4 dead code | Done. `ASR_API_KEY` with a one-release `PARAKEET_API_KEY` fallback; dev and prod already shared `worker/index.ts`, so the unused image route was removed instead of adding bindings. |
+| W1 streaming | Done. Measured with real Workers AI on a 78 s WAV at 512 KB/s: 5.64-5.75 s streamed vs 6.11-6.29 s buffered. Peak memory about one copy of the audio instead of two. |
+| W2 routing | Done with option B (client hint). A hinted Spanish request runs one Whisper call (1.95 s vs 2.23 s via Nova-3 then Whisper). |
+| W3 single parse | Partial. The edge route no longer parses; the ASR Worker validates model output. The browser still runs `parseTranscriptionResponse` on what it displays (a few milliseconds even at the 200k-character cap), kept deliberately as the display boundary, so there are two validations per transcription rather than one. |
+| W6 bundle | Not done. Clerk was already lazy. Signed-out first load is 444 KB raw / 137 KB gzip, of which 369 KB is fixed framework runtime (react-dom 190 KB, vinext/RSC 179 KB). The page chunk is 38 KB and TTS is on the default tab, so lazy tabs would save about 5 KB. The 250 KB budget needs a framework change. |
+| W5 history | Partly stale: the GET was already one Convex round trip with parallel decrypts. Done: native base64 and paged anonymous history. Not done: list-only decryption, because the list renders, searches and exports full text. |
+| W9 ledger | Timer fixed. No sharding: reserves take a few milliseconds at current traffic. |
+| W8 Convex constants | Done without generation: Convex imports `shared/transcriptionContract.ts` directly (verified with `convex deploy --dry-run`). |
+| W7 splits | Done. No file in `app/` or `cloudflare-asr/src/` exceeds 250 lines. |
+
 ## Suggested order
 
 | Order | Workstream | Why here |
@@ -232,6 +251,10 @@ refactors have a safety net.
 | 10 | W7 splits | Maintainability, no behaviour change |
 
 ## Open questions for the owner
+
+Answered 2026-09-23: keep the anonymous path; keep Nova-3 first for English with a browser
+language hint that routes confidently non-English requests straight to Whisper; delete
+`parakeet-service/` outright; no budget was set, and 250 KB proved unreachable (see W6).
 
 1. Is the anonymous path meant to stay? W3, W5 and W6 have simpler shapes if it is removed.
 2. Is Deepgram nova-3 first still the intended default for English, or should whisper be
