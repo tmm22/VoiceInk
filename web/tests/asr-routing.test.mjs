@@ -241,3 +241,30 @@ test("a model that stops reading early cannot return a transcript for an unvalid
     assert.equal(fake.ledger.at(-1).op, "commit", "the model that ran is settled");
   }
 });
+
+test("whisper forces only a nova-3-detected language and runs with hallucination guards", async () => {
+  const detected = fakeAsrEnv({
+    models: { [NOVA]: () => novaResult({ transcript: "ola", languages: ["es-419"] }), [WHISPER]: () => whisperResult() },
+  });
+  await transcribe(detected);
+  const detectedInput = detected.calls[1].input;
+  assert.equal(detectedInput.language, "es", "the primary subtag of nova-3's detection is forced");
+  assert.equal(detectedInput.condition_on_previous_text, false);
+  assert.equal(detectedInput.hallucination_silence_threshold, 2);
+
+  const hinted = fakeAsrEnv({ models: { [WHISPER]: () => whisperResult() } });
+  await transcribe(hinted, { headers: { "x-voiceink-language-hint": "de-DE" } });
+  assert.equal(hinted.calls[0].input.language, undefined, "a browser hint is never forced: it may be wrong");
+
+  const failed = fakeAsrEnv({
+    models: { [NOVA]: () => { throw new Error("nova down"); }, [WHISPER]: () => whisperResult() },
+  });
+  await transcribe(failed);
+  assert.equal(failed.calls[1].input.language, undefined, "no detection means whisper auto-detects");
+
+  const unsupported = fakeAsrEnv({
+    models: { [NOVA]: () => novaResult({ transcript: "x", languages: ["xx"] }), [WHISPER]: () => whisperResult() },
+  });
+  await transcribe(unsupported);
+  assert.equal(unsupported.calls[1].input.language, undefined, "a code whisper does not know is not forced");
+});

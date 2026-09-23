@@ -11,7 +11,8 @@ import {
   MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE,
   parsePositiveIntegerSetting,
   RESERVATION_EXPIRY_MS,
-  TEXT_GENERATION_FLAT_MICROS,
+  actualTextGenerationMicros,
+  estimateTextGenerationMicros,
   utcDay,
   WORST_CASE_BYTES_PER_SECOND,
   WORST_CASE_TRANSCRIPTION_MICROS_PER_MINUTE,
@@ -82,7 +83,14 @@ test("environment settings fall back to safe defaults instead of unlimited", () 
   assert.equal(parsePositiveIntegerSetting("2000000", 5), 2_000_000);
   assert.ok(DEFAULT_DAILY_SPEND_LIMIT_MICROS > 0);
   assert.ok(DEFAULT_DAILY_CLIENT_AUDIO_SECONDS > 0);
-  assert.ok(TEXT_GENERATION_FLAT_MICROS > 0);
+  // Text generation reserves a per-input worst case and settles to usage.
+  assert.equal(estimateTextGenerationMicros(0, 0), 100);
+  assert.equal(estimateTextGenerationMicros(60_000, 500), 6_250, "a 60 KB ASCII summary prompt reserves about $0.006");
+  assert.equal(actualTextGenerationMicros({ prompt_tokens: 110, completion_tokens: 42 }, 1_000), 24);
+  assert.equal(actualTextGenerationMicros({ prompt_tokens: 1e9, completion_tokens: 1e9 }, 1_000), 1_000, "settlement never exceeds the reservation");
+  for (const usage of [undefined, null, {}, { prompt_tokens: -1, completion_tokens: 1 }, { prompt_tokens: "1", completion_tokens: 1 }]) {
+    assert.equal(actualTextGenerationMicros(usage, 777), 777, "missing or malformed usage keeps the reservation");
+  }
 });
 
 test("ledger days key by UTC date", () => {
@@ -94,11 +102,12 @@ test("the ASR worker admits inference only through the spend ledger", async () =
   const source = await asrWorkerSource();
   const reservations = source.match(/\breserveSpendLogged\(env, request, \{/g) ?? [];
   const inferenceCalls = source.match(/env\.AI\.run\(/g) ?? [];
-  // Enhancement, summary, and transcription each reserve once; the transcription
+  // Enhancement and summary share one admitted text-generation helper
+  // (runTextModel), and transcription reserves once; the transcription
   // reservation prices BOTH models (nova-3 + whisper fallback) up front, so the
   // two transcription AI.run calls share one admission.
-  assert.equal(reservations.length, 3, "enhancement, summary, and transcription each reserve spend");
-  assert.equal(inferenceCalls.length, 4, "one text-enhancement, one summary, and two transcription models");
+  assert.equal(reservations.length, 2, "the text-generation helper and transcription each reserve spend");
+  assert.equal(inferenceCalls.length, 3, "one text-generation call and two transcription models");
   // Every reservation still goes through the fail-closed ledger client: the
   // logging wrapper is the only direct reserveSpend caller.
   assert.equal((source.match(/\breserveSpend\(/g) ?? []).length, 1, "only the logging wrapper calls reserveSpend directly");
@@ -107,7 +116,7 @@ test("the ASR worker admits inference only through the spend ledger", async () =
   // (whisper only) prices whisper alone — see tests/asr-routing.test.mjs.
   assert.match(source, /: estimateTranscriptionMicros\(declaredBytes\),/, "transcription admission must price the combined worst case");
   assert.match(source, /\? estimateTranscriptionMicros\(declaredBytes, MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE\)/);
-  assert.match(source, /if \(!admission\.ok\) return admissionDenial\(admission\)/);
+  assert.match(source, /if \(!admission\.ok\) return \{ ok: false, response: admissionDenial\(admission\) \};/, "text generation is denied before inference");
   assert.match(source, /releaseSpend\(env, admission\.id\)/);
   assert.match(source, /commitSpend\(env, admission\.id/);
   assert.match(source, /INTERNAL_CLIENT_KEY_HEADER/);

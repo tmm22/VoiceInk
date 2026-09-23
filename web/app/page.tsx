@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import type { TranscriptionHistoryItem } from "../lib/convex";
 import { downloadTranscript } from "../lib/transcriptExport";
+import { TEXT_GENERATION_MODEL_LABEL } from "../shared/textGenerationContract";
 import type { TranscriptionSegment } from "../shared/transcriptionContract";
 import { AIEnhancementPanel } from "./ai-enhancement";
 import { AccountControls } from "./account-controls";
@@ -164,7 +165,7 @@ export default function Home() {
 
       {transcript && <AIEnhancementPanel text={transcript} onApply={(value) => { setTranscript(value); setTranscriptSegments([]); setSummary(""); setSummaryError(""); setSummaryNotice(""); }} onNarrate={setSpeechText} />}
 
-      {(summary || summaryLoading || summaryError) && <section className="summary-card"><div className="summary-head"><div><small>SUMMARY</small><span>Llama 3.2</span></div>{summary && <div><button onClick={() => void copySummary()}>{summaryCopied ? "Copied" : "Copy"}</button><button onClick={() => setSpeechText(summary)}>Narrate summary</button></div>}</div>{summaryLoading ? <div className="result-placeholder" role="status" aria-label="Summarizing"><span /><span /><span /></div> : summary ? <textarea aria-label="AI-generated transcript summary" value={summary} onChange={(event) => setSummary(event.target.value)} /> : <p className="error" role="alert">{summaryError}</p>}{summaryNotice && <p className="summary-notice" role="status">{summaryNotice}</p>}<p className="ai-note">AI-generated summaries can make mistakes. Check important details against the transcript.</p></section>}
+      {(summary || summaryLoading || summaryError) && <section className="summary-card"><div className="summary-head"><div><small>SUMMARY</small><span>{TEXT_GENERATION_MODEL_LABEL}</span></div>{summary && <div><button onClick={() => void copySummary()}>{summaryCopied ? "Copied" : "Copy"}</button><button onClick={() => setSpeechText(summary)}>Narrate summary</button></div>}</div>{summaryLoading ? <div className="result-placeholder" role="status" aria-label="Summarizing"><span /><span /><span /></div> : summary ? <textarea aria-label="AI-generated transcript summary" value={summary} onChange={(event) => setSummary(event.target.value)} /> : <p className="error" role="alert">{summaryError}</p>}{summaryNotice && <p className="summary-notice" role="status">{summaryNotice}</p>}<p className="ai-note">AI-generated summaries can make mistakes. Check important details against the transcript.</p></section>}
 
       <TTSWorkspace transcript={transcript} text={speechText} onTextChange={setSpeechText} />
 

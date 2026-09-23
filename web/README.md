@@ -36,7 +36,7 @@ voiceink-asr Cloudflare Worker
        │ Workers AI binding
        ▼
 Deepgram Nova-3 (English) / Whisper Large V3 Turbo (non-English)
-Llama 3.2 3B Instruct (summaries and enhancement)
+Gemma 4 26B A4B (summaries and enhancement)
 ```
 
 Audio is streamed through both Workers without multipart materialization and is not stored by this application: the ASR Worker checks the file signature on the first bytes, then streams the rest into the model while the upload is still arriving, and errors the stream if the body runs past or short of its declared length. The returned transcript and provider segment timings are saved to Convex after a successful transcription. Transcripts and summaries are encrypted at rest before they reach Convex: the web Worker seals both fields with AES-256-GCM under per-record HKDF-SHA-256 subkeys of a Worker-held `HISTORY_ENCRYPTION_KEY`, so the storage layer only ever holds ciphertext and never the key. Anonymous history expires after one hour and a scheduled Convex cleanup removes it. Signed-in history is owned by the authenticated Clerk identity and persists across browsers and devices. Account holders can choose automatic deletion after 7, 30, 90, or 365 days, or keep history until they delete it; the default is 90 days.
@@ -47,7 +47,7 @@ Existing audio can also be uploaded into the same transcription pipeline. Comple
 
 Transcript saves are idempotent: every transcription carries a client-generated operation ID, and Convex deduplicates retries through dedicated indexes so a retried save can never create a duplicate record. Retention-policy changes run as versioned migrations across the complete account history, and the scheduled cleanup holds off on records mid-migration so the two processes cannot race. All `/api/*` responses are served with `no-store`, while content-hashed static assets are cached immutably.
 
-Completed transcripts can be summarized or enhanced on demand with Cloudflare Workers AI using `@cf/meta/llama-3.2-3b-instruct`. Summaries are editable, copyable, and can be sent to the narration workspace. Generated summaries are stored on their matching Convex transcription record and follow that record's retention policy. Enhancement results remain in the current browser session unless the user explicitly replaces the transcript and saves it through the existing history workflow.
+Completed transcripts can be summarized or enhanced on demand with Cloudflare Workers AI using `@cf/google/gemma-4-26b-a4b-it`. Summaries are editable, copyable, and can be sent to the narration workspace. Generated summaries are stored on their matching Convex transcription record and follow that record's retention policy. Enhancement results remain in the current browser session unless the user explicitly replaces the transcript and saves it through the existing history workflow.
 
 Production API routes enforce same-origin browser requests, declared and actual byte limits, strict content types, and independent Cloudflare rate limits for transcription, summarization, enhancement, content imports, and history. Transcription additionally requires a server-verified Cloudflare Turnstile token when configured, and every Workers AI call is admitted through a durable spend ledger that enforces a global daily cost ceiling and per-client daily audio quota before inference runs. Anonymous history creation is brokered by the web Worker with a server-only secret; clients cannot write anonymous records directly to Convex. The private ASR Worker also fails closed when its shared secret is absent.
 

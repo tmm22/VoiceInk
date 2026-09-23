@@ -3,6 +3,7 @@ import { enforceRateLimit, jsonNoStore, readBoundedJson, rejectCrossOrigin } fro
 import { INTERNAL_CLIENT_KEY_HEADER } from "../../../shared/transcriptionContract";
 import { pseudonymousClientKey } from "../../../lib/server/clientKey";
 import { asrApiKey } from "../../../lib/server/asrCredential";
+import { TEXT_GENERATION_MODEL_NAME } from "../../../shared/textGenerationContract";
 
 export const runtime = "edge";
 
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
   try {
     const result = await response.json() as { summary?: unknown; model?: unknown };
     if (typeof result.summary !== "string" || !result.summary.trim() || result.summary.length > 20_000
-      || result.model !== "llama-3.2-3b-instruct") throw new Error("invalid response");
+      || result.model !== TEXT_GENERATION_MODEL_NAME) throw new Error("invalid response");
     return jsonNoStore({ summary: result.summary.trim(), model: result.model });
   } catch {
     return jsonNoStore({ error: "Summary generation failed" }, { status: 502 });
