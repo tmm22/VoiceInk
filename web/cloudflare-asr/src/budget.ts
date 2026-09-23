@@ -31,8 +31,13 @@ export function worstCaseAudioSeconds(declaredBytes: number) {
   return Math.ceil(declaredBytes / WORST_CASE_BYTES_PER_SECOND);
 }
 
-export function estimateTranscriptionMicros(declaredBytes: number) {
-  return Math.ceil((worstCaseAudioSeconds(declaredBytes) / 60) * WORST_CASE_TRANSCRIPTION_MICROS_PER_MINUTE);
+// Defaults to the combined nova-3 + whisper worst case; a request routed
+// straight to whisper by a confident language hint can only run whisper.
+export function estimateTranscriptionMicros(
+  declaredBytes: number,
+  microsPerMinute: number = WORST_CASE_TRANSCRIPTION_MICROS_PER_MINUTE,
+) {
+  return Math.ceil((worstCaseAudioSeconds(declaredBytes) / 60) * microsPerMinute);
 }
 
 export function actualTranscriptionMicros(durationSeconds: number, microsPerMinute: number) {

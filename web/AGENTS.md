@@ -19,7 +19,7 @@ The canonical and only production origin is `https://v.paul.im`. The `workers.de
 Current production models:
 
 - Transcription (English, default): `@cf/deepgram/nova-3`, invoked with language detection and smart formatting
-- Transcription (non-English fallback): `@cf/openai/whisper-large-v3-turbo`, used when nova-3 detects a non-English language or nova-3 fails
+- Transcription (non-English fallback): `@cf/openai/whisper-large-v3-turbo`, used when nova-3 detects a non-English language or nova-3 fails, and used alone (nova-3 skipped, whisper-only admission price) when the browser sends a confident non-English `x-voiceink-language-hint` because none of its preferred languages is English
 - Summarization: `@cf/meta/llama-3.2-3b-instruct`
 
 Transcription streams the upload into nova-3 as it arrives (`cloudflare-asr/src/audioUpload.ts` checks the signature on the first bytes and errors the stream past the declared length) and holds one `tee()` copy only for the whisper fallback, so a request may still run both models; spend-ledger admission must always reserve the combined worst case for both.

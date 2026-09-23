@@ -30,7 +30,7 @@ Non-English audio is detected by nova-3 and re-transcribed by `@cf/openai/whispe
 $0.00051 per audio minute
 ```
 
-A non-English request therefore pays for both models (≈ $0.00571 per audio minute). Source: [Cloudflare Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
+A non-English request detected by nova-3 therefore pays for both models (≈ $0.00571 per audio minute). When the browser's preferred languages include no English, it sends a language hint and the request runs whisper alone ($0.00051 per audio minute), so most non-English users pay the whisper price only. Source: [Cloudflare Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
 
 Examples (English audio on nova-3):
 

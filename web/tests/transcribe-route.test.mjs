@@ -94,6 +94,15 @@ test("ASR_API_KEY wins, and the pre-rename PARAKEET_API_KEY is still read for on
   assert.equal(forwarded[0].request.headers.get("authorization"), "Bearer web-to-asr-key");
 });
 
+test("only a valid non-English language hint is forwarded to the ASR Worker", async () => {
+  for (const [hint, expected] of [["es-MX", "es-mx"], ["en-US", null], ["<script>", null], [null, null]]) {
+    const forwarded = installBindings();
+    const response = await POST(upload({ headers: hint ? { "x-voiceink-language-hint": hint } : {} }));
+    assert.equal(response.status, 200);
+    assert.equal(forwarded[0].request.headers.get("x-voiceink-language-hint"), expected, String(hint));
+  }
+});
+
 test("ASR failures map to bounded errors and never leak the upstream body", async () => {
   const cases = [
     { asr: () => Response.json({ error: "secret detail" }, { status: 500 }), status: 502 },

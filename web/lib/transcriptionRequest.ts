@@ -1,4 +1,6 @@
 import {
+  confidentNonEnglishLanguageHint,
+  LANGUAGE_HINT_HEADER,
   parseTranscriptionResponse,
   TURNSTILE_TOKEN_HEADER,
   type TranscriptionResponse,
@@ -18,11 +20,15 @@ export async function requestTranscription(
   const turnstileToken = takeHeldTranscriptionToken() ?? await acquireTranscriptionToken();
   signal.throwIfAborted();
   onStage?.("transcribing");
+  const languageHint = confidentNonEnglishLanguageHint(
+    typeof navigator === "undefined" ? [] : navigator.languages ?? [navigator.language],
+  );
   const response = await fetch("/api/transcribe", {
     method: "POST",
     headers: {
       "content-type": recording.type,
       ...(turnstileToken ? { [TURNSTILE_TOKEN_HEADER]: turnstileToken } : {}),
+      ...(languageHint ? { [LANGUAGE_HINT_HEADER]: languageHint } : {}),
     },
     body: recording,
     cache: "no-store",

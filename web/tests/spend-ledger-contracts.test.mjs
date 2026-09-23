@@ -102,7 +102,10 @@ test("the ASR worker admits inference only through the spend ledger", async () =
   // logging wrapper is the only direct reserveSpend caller.
   assert.equal((source.match(/\breserveSpend\(/g) ?? []).length, 1, "only the logging wrapper calls reserveSpend directly");
   assert.match(source, /const admission = await reserveSpend\(env, spend\);/);
-  assert.match(source, /estimateMicros: estimateTranscriptionMicros\(declaredBytes\)/, "transcription admission must price the combined worst case");
+  // Unhinted requests price the combined worst case; a confident language hint
+  // (whisper only) prices whisper alone — see tests/asr-routing.test.mjs.
+  assert.match(source, /: estimateTranscriptionMicros\(declaredBytes\),/, "transcription admission must price the combined worst case");
+  assert.match(source, /\? estimateTranscriptionMicros\(declaredBytes, MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE\)/);
   assert.match(source, /if \(!admission\.ok\) return admissionDenial\(admission\)/);
   assert.match(source, /releaseSpend\(env, admission\.id\)/);
   assert.match(source, /commitSpend\(env, admission\.id/);
