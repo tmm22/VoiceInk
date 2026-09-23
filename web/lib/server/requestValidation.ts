@@ -4,6 +4,43 @@ const noStoreHeaders = {
   "x-content-type-options": "nosniff",
 };
 
+// Relays an already-serialized JSON body with the same no-store headers.
+export function rawJsonNoStore(body: Uint8Array<ArrayBuffer>, init: ResponseInit = {}) {
+  const headers = new Headers(init.headers);
+  for (const [name, value] of Object.entries(noStoreHeaders)) headers.set(name, value);
+  headers.set("content-type", "application/json");
+  return new Response(body, { ...init, headers });
+}
+
+// Reads a response body up to maximumBytes; null when it is larger or fails.
+export async function readBoundedBytes(response: Response, maximumBytes: number): Promise<Uint8Array<ArrayBuffer> | null> {
+  const reader = response.body?.getReader();
+  if (!reader) return null;
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      if (received > maximumBytes) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return null;
+  }
+  const bytes = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+}
+
 export function jsonNoStore(body: unknown, init: ResponseInit = {}) {
   const headers = new Headers(init.headers);
   for (const [name, value] of Object.entries(noStoreHeaders)) headers.set(name, value);
