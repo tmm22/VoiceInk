@@ -22,7 +22,7 @@ All notable changes to the VoiceLink Community application are documented here.
 - If none of the browser's preferred languages is English, it sends a language hint and the recording is transcribed once by Whisper. Previously Deepgram Nova-3 ran first and Whisper then re-transcribed the audio. Those requests cost about a tenth as much and return sooner. Browsers that list English anywhere keep the Nova-3-first route.
 - Signed-out history now loads in pages of 25 like account history, instead of a single list of 30.
 - History records decode faster using the runtime's native base64 support.
-- The web Worker's credential for the private ASR Worker is renamed from `PARAKEET_API_KEY` to `ASR_API_KEY`; the old name is still read for one release. Removed the unused Parakeet container, site-template leftovers and an unused image-optimization route.
+- The web Worker's credential for the private ASR Worker is renamed from `PARAKEET_API_KEY` to `ASR_API_KEY`, and the old name is no longer read. Removed the unused Parakeet container, site-template leftovers and an unused image-optimization route.
 - Fixed a timer left pending after every spend-ledger call. Split the Studio page and the ASR Worker into smaller modules and added handler-level tests for language routing, the transcribe route and upload validation.
 
 ### Reliability and diagnostics

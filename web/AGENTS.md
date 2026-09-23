@@ -88,7 +88,7 @@ Secret values belong in the relevant managed environment:
 - `CONVEX_WEB_API_SECRET`: web Worker and Convex production environment
 - `HISTORY_ENCRYPTION_KEY`: web Worker only — Convex must never hold it; losing it makes stored history unreadable
 - `CLERK_WEBHOOK_SECRET`: Convex environment; verifies Clerk `user.deleted` purge webhooks
-- `ASR_API_KEY`: private ASR Worker, and the same value on the web Worker, which sends it to the ASR Worker (read through `lib/server/asrCredential.ts`; the pre-rename `PARAKEET_API_KEY` is still read as a one-release fallback)
+- `ASR_API_KEY`: private ASR Worker, and the same value on the web Worker, which sends it to the ASR Worker (read through `lib/server/asrCredential.ts`)
 - `CLERK_JWT_ISSUER_DOMAIN`: Convex environment; not secret
 - Public client URLs and the Clerk publishable key: explicit production build environment
 

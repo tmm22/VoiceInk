@@ -91,17 +91,12 @@ test("the route fails closed when the ASR binding or its credential is missing",
   assert.equal((await POST(upload())).status, 503);
 });
 
-test("ASR_API_KEY wins, and the pre-rename PARAKEET_API_KEY is still read for one release", async () => {
-  let forwarded = installBindings();
+test("the retired PARAKEET_API_KEY name is no longer read", async () => {
+  installBindings();
   delete process.env.ASR_API_KEY;
   process.env.PARAKEET_API_KEY = "legacy-key";
-  assert.equal((await POST(upload())).status, 200);
-  assert.equal(forwarded[0].request.headers.get("authorization"), "Bearer legacy-key");
-
-  forwarded = installBindings();
-  process.env.PARAKEET_API_KEY = "legacy-key";
-  assert.equal((await POST(upload())).status, 200);
-  assert.equal(forwarded[0].request.headers.get("authorization"), "Bearer web-to-asr-key");
+  assert.equal((await POST(upload())).status, 503);
+  delete process.env.PARAKEET_API_KEY;
 });
 
 test("only a valid non-English language hint is forwarded to the ASR Worker", async () => {
