@@ -178,6 +178,36 @@ test("inference starts while the upload is still arriving", async () => {
   assert.equal(fake.calls[0].bytesRead, 64);
 });
 
+test("a confident non-English hint transcribes once with whisper at whisper's price", async () => {
+  const fake = fakeAsrEnv({
+    models: {
+      [NOVA]: () => { throw new Error("nova must not run for a hinted request"); },
+      [WHISPER]: () => whisperResult({ language: "de" }),
+    },
+  });
+  const { response, body } = await transcribe(fake, { headers: { "x-voiceink-language-hint": "de-DE" } });
+  assert.equal(response.status, 200);
+  assert.equal(body.model, "whisper-large-v3-turbo");
+  assert.equal(body.detectedLanguage, "de");
+  assert.deepEqual(fake.calls.map((call) => call.model), [WHISPER]);
+  assert.equal(fake.calls[0].bytesRead, 64);
+  const reserve = fake.ledger.find((entry) => entry.op === "reserve");
+  const unhinted = fakeAsrEnv({ models: { [NOVA]: () => novaResult() } });
+  await transcribe(unhinted);
+  assert.ok(reserve.request.estimateMicros < unhinted.ledger[0].request.estimateMicros, "only whisper is priced");
+  const commit = fake.ledger.find((entry) => entry.op === "commit");
+  assert.equal(commit.micros, Math.ceil((3 / 60) * 510));
+});
+
+test("English or malformed hints keep the nova-3-first route", async () => {
+  for (const hint of ["en-GB", "EN", "not a tag", "x"]) {
+    const fake = fakeAsrEnv({ models: { [NOVA]: () => novaResult() } });
+    const { body } = await transcribe(fake, { headers: { "x-voiceink-language-hint": hint } });
+    assert.equal(body.model, "nova-3", hint);
+    assert.deepEqual(fake.calls.map((call) => call.model), [NOVA]);
+  }
+});
+
 test("a ledger denial blocks inference", async () => {
   for (const [reason, status] of [["budget", 429], ["client", 429], ["unavailable", 503]]) {
     const fake = fakeAsrEnv({ admission: { ok: false, reason }, models: { [NOVA]: () => novaResult() } });

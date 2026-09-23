@@ -6,10 +6,13 @@ import {
   INTERNAL_CLIENT_KEY_HEADER,
   isEnglishLanguageTag,
   isSupportedAudioMediaType,
+  isValidLanguageTag,
+  LANGUAGE_HINT_HEADER,
   MAXIMUM_AUDIO_BYTES,
   MULTILINGUAL_TRANSCRIPTION_MODEL_ID,
   MULTILINGUAL_TRANSCRIPTION_MODEL_NAME,
   normalizeAudioMediaType,
+  parseLanguageHint,
   parseTranscriptionResponse,
 } from "../../shared/transcriptionContract.ts";
 import {
@@ -271,11 +274,18 @@ export default {
     // only after admission.ok and streams the rest of the upload as it arrives;
     // an admitted reservation whose upload then fails validation is released
     // (or settled, if a model had already run).
+    //
+    // A confident non-English language hint (see
+    // confidentNonEnglishLanguageHint) skips nova-3 entirely: the upload
+    // streams once into whisper and admission prices whisper alone.
+    const languageHint = parseLanguageHint(request.headers.get(LANGUAGE_HINT_HEADER));
     const estimatedSeconds = worstCaseAudioSeconds(declaredBytes);
     const [upload, admission] = await Promise.all([
       openAudioUpload(request.body, mediaType, declaredBytes, deadline),
       reserveSpendLogged(env, request, {
-        estimateMicros: estimateTranscriptionMicros(declaredBytes),
+        estimateMicros: languageHint
+          ? estimateTranscriptionMicros(declaredBytes, MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE)
+          : estimateTranscriptionMicros(declaredBytes),
         secondsEstimate: estimatedSeconds,
         clientKey: requestClientKey(request),
       }),
@@ -291,7 +301,8 @@ export default {
     // One branch feeds nova-3 as the upload streams in; the other holds the
     // same chunks (one copy, never re-concatenated) only in case the request
     // falls back to whisper, and is cancelled as soon as nova-3 settles it.
-    const [englishAudio, fallbackAudio] = upload.stream.tee();
+    // A hinted request has no nova-3 branch, so nothing is held.
+    const [englishAudio, fallbackAudio] = languageHint ? [null, upload.stream] : upload.stream.tee();
 
     // A body that ran past or short of its declared length is rejected even if
     // a model already returned output for the bytes it did receive (bindings
@@ -311,7 +322,7 @@ export default {
     // already priced both models, so the fallback never exceeds admission.
     let english: ReturnType<typeof extractDeepgramTranscription> = null;
     let englishBilled = false;
-    try {
+    if (englishAudio) try {
       const raw = await env.AI.run(ENGLISH_TRANSCRIPTION_MODEL_ID, {
         audio: { body: englishAudio, contentType: mediaType },
         detect_language: true,
@@ -373,6 +384,10 @@ export default {
 
       const text = typeof result.text === "string" ? result.text.trim() : "";
       const duration = boundedDurationSeconds(result.transcription_info?.duration);
+      const whisperLanguage = isValidLanguageTag(result.transcription_info?.language)
+        ? result.transcription_info.language.toLowerCase()
+        : undefined;
+      const detectedLanguage = nonEnglishLanguage ?? whisperLanguage;
       const settledSeconds = duration ?? estimatedSeconds;
       // nova-3 inference that completed is still billed even when its output
       // was routed away from, so the ledger reflects true provider spend.
@@ -384,7 +399,7 @@ export default {
         text,
         model: MULTILINGUAL_TRANSCRIPTION_MODEL_NAME,
         ...(duration !== undefined ? { durationSeconds: duration } : {}),
-        ...(nonEnglishLanguage ? { detectedLanguage: nonEnglishLanguage } : {}),
+        ...(detectedLanguage ? { detectedLanguage } : {}),
         ...(Array.isArray(result.segments) ? { segments: result.segments } : {}),
       });
       if (!response) {
@@ -399,8 +414,9 @@ export default {
       }
       console.log("voiceink_transcription_route", {
         model: response.model,
-        detectedLanguage: nonEnglishLanguage ?? null,
+        detectedLanguage: detectedLanguage ?? null,
         englishModelRan: englishBilled,
+        languageHinted: languageHint !== null,
       });
       return json(response);
     } catch (error) {

@@ -13,7 +13,7 @@ Users can switch between the original editorial theme and a native macOS-inspire
 ## Production
 
 - Web app: the `voiceink-web` Worker in the target Cloudflare account
-- Transcription: Cloudflare Workers AI using `@cf/deepgram/nova-3` for English (with language detection and smart formatting) and `@cf/openai/whisper-large-v3-turbo` for detected non-English audio
+- Transcription: Cloudflare Workers AI using `@cf/deepgram/nova-3` for English (with language detection and smart formatting) and `@cf/openai/whisper-large-v3-turbo` for detected non-English audio, or directly when the browser's preferred languages include no English
 - Database: the Convex deployment supplied through the build environment
 - Region: Convex US East (N. Virginia)
 

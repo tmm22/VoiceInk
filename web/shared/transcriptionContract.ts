@@ -19,6 +19,7 @@ export const MAXIMUM_LANGUAGE_TAG_LENGTH = 35;
 export const INTERNAL_BODY_LENGTH_HEADER = "x-voiceink-body-length";
 export const INTERNAL_CLIENT_KEY_HEADER = "x-voiceink-client-key";
 export const TURNSTILE_TOKEN_HEADER = "x-voiceink-turnstile";
+export const LANGUAGE_HINT_HEADER = "x-voiceink-language-hint";
 
 const supportedAudioTypes = new Set([
   "audio/aac",
@@ -57,6 +58,21 @@ export function isValidLanguageTag(value: unknown): value is string {
 
 export function isEnglishLanguageTag(value: string) {
   return /^en(-|$)/i.test(value);
+}
+
+// The browser's preferred languages only count as a confident hint when none
+// of them is English: anyone with English anywhere in navigator.languages may
+// be dictating English and keeps the nova-3-first route. A confident hint lets
+// the ASR Worker skip nova-3 and transcribe once with the multilingual model.
+export function confidentNonEnglishLanguageHint(languages: readonly unknown[]): string | null {
+  const tags = languages.filter(isValidLanguageTag);
+  if (!tags.length || tags.some(isEnglishLanguageTag)) return null;
+  return tags[0].toLowerCase();
+}
+
+// Server-side check of a forwarded hint header; anything else is ignored.
+export function parseLanguageHint(value: string | null): string | null {
+  return value !== null && isValidLanguageTag(value) && !isEnglishLanguageTag(value) ? value.toLowerCase() : null;
 }
 
 // Providers occasionally report absurd or non-finite durations; dropping the

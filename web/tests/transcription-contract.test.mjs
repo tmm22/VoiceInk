@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   boundedDurationSeconds,
+  confidentNonEnglishLanguageHint,
   ENGLISH_TRANSCRIPTION_MODEL_NAME,
   hasMatchingAudioSignature,
   isEnglishLanguageTag,
@@ -10,6 +11,7 @@ import {
   isValidLanguageTag,
   MAXIMUM_TRANSCRIPT_CHARACTERS,
   MULTILINGUAL_TRANSCRIPTION_MODEL_NAME,
+  parseLanguageHint,
   parseTranscriptionResponse,
 } from "../shared/transcriptionContract.ts";
 import { extractDeepgramTranscription } from "../cloudflare-asr/src/deepgram.ts";
@@ -184,4 +186,19 @@ test("Deepgram responses yield bounded transcript, languages, and duration", () 
 test("Workers AI calls omit runtime-broken request tags", async () => {
   const source = await readFile(new URL("../cloudflare-asr/src/index.ts", import.meta.url), "utf8");
   assert.doesNotMatch(source, /\btags\s*:/, "Cloudflare currently counts tag-string characters as tags and rejects these calls");
+});
+
+test("a language hint is confident only when no preferred language is English", () => {
+  assert.equal(confidentNonEnglishLanguageHint(["de-DE", "fr"]), "de-de");
+  assert.equal(confidentNonEnglishLanguageHint(["es-419"]), "es-419");
+  assert.equal(confidentNonEnglishLanguageHint(["de-DE", "en-US"]), null, "English anywhere keeps nova-3 first");
+  assert.equal(confidentNonEnglishLanguageHint(["en"]), null);
+  const many = Array.from({ length: 20 }, (_, index) => (index === 19 ? "en-GB" : "de"));
+  assert.equal(confidentNonEnglishLanguageHint(many), null, "English late in a long list still counts");
+  assert.equal(confidentNonEnglishLanguageHint([]), null);
+  assert.equal(confidentNonEnglishLanguageHint(["", 42, "not a tag"]), null);
+  assert.equal(parseLanguageHint("ja"), "ja");
+  assert.equal(parseLanguageHint("en-AU"), null);
+  assert.equal(parseLanguageHint("ja; drop table"), null);
+  assert.equal(parseLanguageHint(null), null);
 });

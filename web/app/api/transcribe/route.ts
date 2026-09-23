@@ -9,8 +9,10 @@ import {
   INTERNAL_BODY_LENGTH_HEADER,
   INTERNAL_CLIENT_KEY_HEADER,
   isSupportedAudioMediaType,
+  LANGUAGE_HINT_HEADER,
   MAXIMUM_AUDIO_BYTES,
   normalizeAudioMediaType,
+  parseLanguageHint,
   parseTranscriptionResponse,
   TURNSTILE_TOKEN_HEADER,
 } from "../../../shared/transcriptionContract";
@@ -55,6 +57,7 @@ export async function POST(request: Request) {
     return jsonNoStore({ error: "Transcription is unavailable." }, { status: 503 });
   }
 
+  const languageHint = parseLanguageHint(request.headers.get(LANGUAGE_HINT_HEADER));
   let response: Response;
   try {
     response = await bindings.ASR.fetch(new Request("https://asr.internal/v1/transcriptions", {
@@ -64,6 +67,7 @@ export async function POST(request: Request) {
         "content-type": mediaType,
         [INTERNAL_BODY_LENGTH_HEADER]: String(size.bytes),
         [INTERNAL_CLIENT_KEY_HEADER]: await pseudonymousClientKey(pseudonymSecret, request.headers.get("cf-connecting-ip"), Date.now()),
+        ...(languageHint ? { [LANGUAGE_HINT_HEADER]: languageHint } : {}),
       },
       body: request.body,
       signal: request.signal,
