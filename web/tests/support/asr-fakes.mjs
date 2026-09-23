@@ -80,7 +80,9 @@ export function whisperResult({ text = "Hola a todos.", duration = 3, language }
 
 // Records every model call (including how many audio bytes each one read) and
 // every ledger operation, so tests can assert routing and settlement exactly.
-export function fakeAsrEnv({ models = {}, admission = { ok: true, id: "reservation-1" } } = {}) {
+// swallowStreamErrors mimics a binding that returns output for the bytes it
+// received even though its input stream errored (observed under wrangler dev).
+export function fakeAsrEnv({ models = {}, admission = { ok: true, id: "reservation-1" }, swallowStreamErrors = false } = {}) {
   const calls = [];
   const ledger = [];
   const pending = [];
@@ -92,10 +94,14 @@ export function fakeAsrEnv({ models = {}, admission = { ok: true, id: "reservati
         calls.push(call);
         if (input?.audio?.body) {
           const reader = input.audio.body.getReader();
-          for (;;) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            call.bytesRead += value.byteLength;
+          try {
+            for (;;) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              call.bytesRead += value.byteLength;
+            }
+          } catch (error) {
+            if (!swallowStreamErrors) throw error;
           }
         }
         const handler = models[model];

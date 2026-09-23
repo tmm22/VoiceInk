@@ -2,7 +2,6 @@ import {
   boundedDurationSeconds,
   ENGLISH_TRANSCRIPTION_MODEL_ID,
   ENGLISH_TRANSCRIPTION_MODEL_NAME,
-  hasMatchingAudioSignature,
   INTERNAL_BODY_LENGTH_HEADER,
   INTERNAL_CLIENT_KEY_HEADER,
   isEnglishLanguageTag,
@@ -22,6 +21,7 @@ import {
   TEXT_GENERATION_FLAT_MICROS,
   worstCaseAudioSeconds,
 } from "./budget.ts";
+import { openAudioUpload } from "./audioUpload.ts";
 import { extractDeepgramTranscription } from "./deepgram.ts";
 import { enhancementInstructions, isEnhancementMode } from "./enhancement.ts";
 import { commitSpend, releaseSpend, reserveSpend, type Admission, type LedgerEnv } from "./ledgerClient.ts";
@@ -114,51 +114,6 @@ async function hasValidAuthorization(request: Request, secret: string) {
   } catch {
     return false;
   }
-}
-
-// The audio is buffered in full (bounded at MAXIMUM_AUDIO_BYTES) because one
-// request may feed two models: nova-3 detects the language, and non-English
-// audio is re-transcribed by whisper from the same bytes. The signal bounds a
-// stalled or trickled upload, and a mid-transfer disconnect resolves to null
-// rather than escaping as an unhandled exception.
-async function bufferAudio(request: Request, mediaType: string, declaredBytes: number, signal: AbortSignal) {
-  if (!request.body || signal.aborted) return null;
-  const reader = request.body.getReader();
-  const cancelOnAbort = () => void reader.cancel().catch(() => {});
-  signal.addEventListener("abort", cancelOnAbort, { once: true });
-  try {
-    const chunks: Uint8Array[] = [];
-    let received = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      received += value.byteLength;
-      if (received > declaredBytes || received > MAXIMUM_AUDIO_BYTES) {
-        await reader.cancel();
-        return null;
-      }
-      chunks.push(value);
-    }
-    if (signal.aborted || received !== declaredBytes) return null;
-    const audio = new Uint8Array(received);
-    let offset = 0;
-    for (const chunk of chunks) {
-      audio.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-    if (!hasMatchingAudioSignature(mediaType, audio.subarray(0, 16))) return null;
-    return audio;
-  } catch {
-    return null;
-  } finally {
-    signal.removeEventListener("abort", cancelOnAbort);
-  }
-}
-
-function audioStream(audio: Uint8Array): ReadableStream {
-  const body = new Response(audio).body;
-  if (!body) throw new Error("Audio body is unavailable");
-  return body;
 }
 
 function logInferenceFailure(event: string, error: unknown) {
@@ -303,33 +258,52 @@ export default {
     if (!isSupportedAudioMediaType(mediaType)) {
       return json({ error: "Only supported audio uploads are accepted" }, { status: 415 });
     }
-    // The deadline bounds the whole paid pipeline — buffering and inference —
+    // The deadline bounds the whole paid pipeline — upload and inference —
     // below the reservation-expiry window, so a live request always settles
     // before its reservation can be swept, and a stalled or trickled upload is
     // aborted here rather than pinning the worker for minutes.
     const deadline = AbortSignal.any([request.signal, AbortSignal.timeout(INFERENCE_TIMEOUT_MS)]);
 
-    // Admission prices the declared bytes at the worst-case (lowest) bitrate;
-    // the buffering stream enforces that actual bytes never exceed what was
-    // priced. Both inputs to the reservation — declared byte count and client
-    // key — are known before the body arrives, so buffering and the ledger
-    // round trip run concurrently. Inference still starts only after
-    // admission.ok, and an admitted reservation whose upload then fails
-    // validation is released immediately.
+    // Admission prices the declared bytes at the worst-case (lowest) bitrate,
+    // and the upload stream errors before it can deliver more than that. Both
+    // inputs to the reservation are known before the body arrives, so the
+    // ledger round trip overlaps reading the signature prefix. Inference starts
+    // only after admission.ok and streams the rest of the upload as it arrives;
+    // an admitted reservation whose upload then fails validation is released
+    // (or settled, if a model had already run).
     const estimatedSeconds = worstCaseAudioSeconds(declaredBytes);
-    const [audioBytes, admission] = await Promise.all([
-      bufferAudio(request, mediaType, declaredBytes, deadline),
+    const [upload, admission] = await Promise.all([
+      openAudioUpload(request.body, mediaType, declaredBytes, deadline),
       reserveSpendLogged(env, request, {
         estimateMicros: estimateTranscriptionMicros(declaredBytes),
         secondsEstimate: estimatedSeconds,
         clientKey: requestClientKey(request),
       }),
     ]);
-    if (!audioBytes) {
+    if (!upload) {
       if (admission.ok) executionContext.waitUntil(releaseSpend(env, admission.id));
       return json({ error: "The uploaded audio format is invalid" }, { status: 415 });
     }
-    if (!admission.ok) return admissionDenial(admission);
+    if (!admission.ok) {
+      void upload.stream.cancel().catch(() => {});
+      return admissionDenial(admission);
+    }
+    // One branch feeds nova-3 as the upload streams in; the other holds the
+    // same chunks (one copy, never re-concatenated) only in case the request
+    // falls back to whisper, and is cancelled as soon as nova-3 settles it.
+    const [englishAudio, fallbackAudio] = upload.stream.tee();
+
+    // A body that ran past or short of its declared length is rejected even if
+    // a model already returned output for the bytes it did receive (bindings
+    // are not guaranteed to fail when their input stream errors). Spend for a
+    // model that did run is still settled, never released.
+    const invalidUpload = (billedMicros: number, billedSeconds: number) => {
+      void fallbackAudio.cancel().catch(() => {});
+      executionContext.waitUntil(billedMicros > 0
+        ? commitSpend(env, admission.id, billedMicros, Math.round(billedSeconds))
+        : releaseSpend(env, admission.id));
+      return json({ error: "The uploaded audio format is invalid" }, { status: 415 });
+    };
 
     // English-first routing: nova-3 transcribes with language detection and
     // smart formatting. Non-English audio (and any nova-3 failure) falls back
@@ -339,7 +313,7 @@ export default {
     let englishBilled = false;
     try {
       const raw = await env.AI.run(ENGLISH_TRANSCRIPTION_MODEL_ID, {
-        audio: { body: audioStream(audioBytes), contentType: mediaType },
+        audio: { body: englishAudio, contentType: mediaType },
         detect_language: true,
         smart_format: true,
         punctuate: true,
@@ -349,25 +323,25 @@ export default {
       english = extractDeepgramTranscription(raw);
     } catch (error) {
       if (request.signal.aborted || deadline.aborted) {
+        void fallbackAudio.cancel().catch(() => {});
         executionContext.waitUntil(releaseSpend(env, admission.id));
         return json({ error: "Transcription generation failed" }, { status: 502 });
       }
       logInferenceFailure("voiceink_english_inference_failed", error);
     }
 
+    const englishSeconds = english?.durationSeconds ?? estimatedSeconds;
+    const englishMicros = englishBilled ? actualTranscriptionMicros(englishSeconds, ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE) : 0;
+    if (upload.rejected()) return invalidUpload(englishMicros, englishBilled ? englishSeconds : 0);
+
     // Nova-3 reports every spoken language; any non-English tag routes the
     // request to whisper. Missing detection deliberately counts as English.
     const detectedLanguages = english?.detectedLanguages ?? [];
     const nonEnglishLanguage = detectedLanguages.find((tag) => !isEnglishLanguageTag(tag));
     if (english && nonEnglishLanguage === undefined) {
+      void fallbackAudio.cancel().catch(() => {});
       const detectedLanguage = detectedLanguages[0];
-      const settledSeconds = english.durationSeconds ?? estimatedSeconds;
-      executionContext.waitUntil(commitSpend(
-        env,
-        admission.id,
-        actualTranscriptionMicros(settledSeconds, ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE),
-        Math.round(settledSeconds),
-      ));
+      executionContext.waitUntil(commitSpend(env, admission.id, englishMicros, Math.round(englishSeconds)));
       const response = parseTranscriptionResponse({
         text: english.text,
         model: ENGLISH_TRANSCRIPTION_MODEL_NAME,
@@ -390,7 +364,7 @@ export default {
 
     try {
       const result = await env.AI.run(MULTILINGUAL_TRANSCRIPTION_MODEL_ID, {
-        audio: { body: audioStream(audioBytes), contentType: mediaType },
+        audio: { body: fallbackAudio, contentType: mediaType },
         task: "transcribe",
         vad_filter: true,
         beam_size: 5,
@@ -404,6 +378,7 @@ export default {
       // was routed away from, so the ledger reflects true provider spend.
       const settledMicros = actualTranscriptionMicros(settledSeconds, MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE)
         + (englishBilled ? actualTranscriptionMicros(settledSeconds, ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE) : 0);
+      if (upload.rejected()) return invalidUpload(settledMicros, settledSeconds);
       executionContext.waitUntil(commitSpend(env, admission.id, settledMicros, Math.round(settledSeconds)));
       const response = parseTranscriptionResponse({
         text,
@@ -429,16 +404,11 @@ export default {
       });
       return json(response);
     } catch (error) {
+      if (upload.rejected()) return invalidUpload(englishMicros, englishSeconds);
       // A completed nova-3 run is still real provider spend even when the
       // whisper fallback fails, so settle it rather than releasing everything.
       if (englishBilled) {
-        const billedSeconds = english?.durationSeconds ?? estimatedSeconds;
-        executionContext.waitUntil(commitSpend(
-          env,
-          admission.id,
-          actualTranscriptionMicros(billedSeconds, ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE),
-          Math.round(billedSeconds),
-        ));
+        executionContext.waitUntil(commitSpend(env, admission.id, englishMicros, Math.round(englishSeconds)));
       } else {
         executionContext.waitUntil(releaseSpend(env, admission.id));
       }

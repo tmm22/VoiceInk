@@ -109,46 +109,9 @@ test("the ASR worker admits inference only through the spend ledger", async () =
   assert.match(source, /INTERNAL_CLIENT_KEY_HEADER/);
 });
 
-test("routing and fallback billing settle every model that actually ran", async () => {
-  const index = await readFile(new URL("cloudflare-asr/src/index.ts", root), "utf8");
-  // The routing decision itself: nova-3's result is used only when no
-  // non-English language was detected; missing detection counts as English.
-  assert.match(index, /const nonEnglishLanguage = detectedLanguages\.find\(\(tag\) => !isEnglishLanguageTag\(tag\)\)/);
-  assert.match(index, /if \(english && nonEnglishLanguage === undefined\)/);
-  // A completed nova-3 run is billed even when its output is routed away from...
-  assert.match(index, /\+ \(englishBilled \? actualTranscriptionMicros\(settledSeconds, ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE\) : 0\)/);
-  // ...and settled rather than released when the whisper fallback then fails.
-  assert.match(index, /if \(englishBilled\) \{\n\s*const billedSeconds = english\?\.durationSeconds \?\? estimatedSeconds;/);
-  // Whisper's reported duration is bounded before it can null the response.
-  assert.match(index, /boundedDurationSeconds\(result\.transcription_info\?\.duration\)/);
-  // Buffering runs under the same deadline as inference, so a trickled upload
-  // cannot pin the worker, and a mid-transfer disconnect resolves to null.
-  assert.match(index, /bufferAudio\(request, mediaType, declaredBytes, deadline\)/);
-});
-
-test("buffering and admission run concurrently and a failed buffer releases the reservation", async () => {
-  const index = await readFile(new URL("cloudflare-asr/src/index.ts", root), "utf8");
-  // The reservation needs only declared bytes and the client key, both known
-  // up front, so it does not wait for the body — and vice versa.
-  assert.match(
-    index,
-    /const \[audioBytes, admission\] = await Promise\.all\(\[\s*bufferAudio\(request, mediaType, declaredBytes, deadline\),\s*reserveSpendLogged\(env, request, \{\s*estimateMicros: estimateTranscriptionMicros\(declaredBytes\),/,
-    "bufferAudio and reserveSpend must run under one Promise.all",
-  );
-  // An admitted reservation whose upload then fails validation (415) must be
-  // released in the background instead of squatting on daily headroom.
-  assert.match(
-    index,
-    /if \(!audioBytes\) \{\s*if \(admission\.ok\) executionContext\.waitUntil\(releaseSpend\(env, admission\.id\)\);\s*return json\(\{ error: "The uploaded audio format is invalid" \}, \{ status: 415 \}\);/,
-    "buffer failure with a successful admission must release the reservation via waitUntil",
-  );
-  // Paid inference still runs only behind an admitted reservation: the
-  // admission gate sits before any transcription AI.run call.
-  const admissionGate = index.indexOf("if (!admission.ok) return admissionDenial(admission);", index.indexOf("Promise.all"));
-  const firstTranscriptionRun = index.indexOf("env.AI.run(ENGLISH_TRANSCRIPTION_MODEL_ID");
-  assert.ok(admissionGate !== -1 && firstTranscriptionRun !== -1 && admissionGate < firstTranscriptionRun,
-    "inference must remain gated on admission.ok");
-});
+// Routing, per-model settlement, release of an admitted-but-invalid upload,
+// and the admission gate before inference are exercised against the real
+// handler in tests/asr-routing.test.mjs rather than asserted on source text.
 
 test("admission clamps a single request's seconds to the daily client quota", async () => {
   // Worst-case byte pricing makes a 24 MB upload look like far more audio than
