@@ -17,3 +17,13 @@ test("enhancement presets preserve meaning and avoid unsupported invention", () 
   assert.match(combined, /invent/i);
   assert.match(enhancementInstructions.notes, /action item/i);
 });
+
+test("the rewrite result and the footer name the text model that produced it", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const panel = await readFile(new URL("../app/ai-enhancement.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  // The label comes from the model the server reported for this result.
+  assert.match(panel, /setResultModel\(result\.model === TEXT_GENERATION_MODEL_NAME \? TEXT_GENERATION_MODEL_LABEL : result\.model \?\? ""\)/);
+  assert.match(panel, /Rewritten transcript\{enhancedText && resultModel \?/);
+  assert.match(page, /Whisper large-v3 turbo · \{TEXT_GENERATION_MODEL_LABEL\}/);
+});

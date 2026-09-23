@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { TEXT_GENERATION_MODEL_LABEL, TEXT_GENERATION_MODEL_NAME } from "../shared/textGenerationContract";
 
 type EnhancementMode = "clean" | "concise" | "professional" | "notes";
 
@@ -21,6 +22,8 @@ export function AIEnhancementPanel({ text, onApply, onNarrate }: Props) {
   const [mode, setMode] = useState<EnhancementMode>("clean");
   const [enhancedText, setEnhancedText] = useState("");
   const [sourceText, setSourceText] = useState("");
+  // The model the server reports for the shown result, not an assumption.
+  const [resultModel, setResultModel] = useState("");
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
@@ -30,6 +33,7 @@ export function AIEnhancementPanel({ text, onApply, onNarrate }: Props) {
     setIsEnhancing(true);
     setError("");
     setEnhancedText("");
+    setResultModel("");
     try {
       const response = await fetch("/api/enhance", {
         method: "POST",
@@ -37,9 +41,10 @@ export function AIEnhancementPanel({ text, onApply, onNarrate }: Props) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ text, mode }),
       });
-      const result = await response.json() as { enhanced?: string; error?: string };
+      const result = await response.json() as { enhanced?: string; model?: string; error?: string };
       if (!response.ok || !result.enhanced) throw new Error(result.error ?? "Enhancement failed");
       setEnhancedText(result.enhanced);
+      setResultModel(result.model === TEXT_GENERATION_MODEL_NAME ? TEXT_GENERATION_MODEL_LABEL : result.model ?? "");
       setSourceText(text);
     } catch {
       setError("The rewrite failed. Your original transcript is unchanged.");
@@ -85,7 +90,7 @@ export function AIEnhancementPanel({ text, onApply, onNarrate }: Props) {
       {(enhancedText || isEnhancing) && (
         <div className="enhancement-result">
           <div className="enhancement-result-head">
-            <span>Rewritten transcript</span>
+            <span>Rewritten transcript{enhancedText && resultModel ? <small className="result-model"> · {resultModel}</small> : null}</span>
             {enhancedText && <div>
               <button type="button" onClick={() => void copyEnhancedText()}>{copied ? "Copied" : "Copy"}</button>
               <button type="button" onClick={() => onNarrate(enhancedText)}>Narrate</button>
