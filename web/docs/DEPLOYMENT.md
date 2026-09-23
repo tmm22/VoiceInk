@@ -121,7 +121,7 @@ npx wrangler deploy
 cd ..
 ```
 
-The web Worker streams a validated raw audio body to the private Worker, which verifies the media type and container signature on the first bytes, then streams the rest of the upload (bounded at 24 MB and at its declared length) into `@cf/deepgram/nova-3` through its `AI` binding with language detection and smart formatting enabled. When nova-3 detects a non-English language (or nova-3 fails), the same audio, held once in a `tee()` branch, is re-transcribed by `@cf/openai/whisper-large-v3-turbo`, which covers the long tail of languages. When the browser's preferred languages include no English at all, it sends that language in `x-voiceink-language-hint` and the Worker skips nova-3, transcribing once with whisper. The Worker is private-only and the production application reaches it through the `ASR` service binding.
+The web Worker streams a validated raw audio body to the private Worker, which verifies the media type and container signature on the first bytes, then streams the rest of the upload (bounded at 24 MB and at its declared length; a body that runs past or short of that length is rejected with 415 and never returns a transcript) into `@cf/deepgram/nova-3` through its `AI` binding with language detection and smart formatting enabled. When nova-3 detects a non-English language (or nova-3 fails), the same audio, held once in a `tee()` branch, is re-transcribed by `@cf/openai/whisper-large-v3-turbo`, which covers the long tail of languages. When the browser's preferred languages include no English at all, it sends that language in `x-voiceink-language-hint`; the web Worker forwards only a valid non-English tag, and the ASR Worker then skips nova-3, transcribing once with whisper and reserving spend at the whisper price only. The Worker is private-only and the production application reaches it through the `ASR` service binding.
 
 The same private Worker handles `/v1/summaries` and `/v1/enhancements` with Llama 3.2 3B. The public web Worker exposes `/api/summarize` and `/api/enhance`, then forwards text through the private service binding. After a successful summary response, the browser stores the summary on the matching transcription through an ownership-checked Convex mutation, so both share the same retention window. Enhancement results remain browser-local unless the user explicitly replaces the transcript.
 
@@ -237,7 +237,8 @@ npx wrangler deploy \
 - `dist/server/index.js` as the Worker
 - `dist/client` as static assets
 - the `ASR` binding to `voiceink-asr`
-- public runtime configuration values
+- the five rate-limit bindings
+- the `v.paul.im` custom-domain route, with `workers_dev` and preview URLs disabled
 
 `--keep-vars` preserves dashboard-managed values and the existing secret during ordinary redeployments.
 
@@ -262,7 +263,7 @@ curl --fail \
   "https://v.paul.im/api/transcribe"
 ```
 
-The route accepts raw audio bodies only; multipart uploads are rejected. English audio returns `"model": "nova-3"` with a `detectedLanguage` BCP-47 tag; non-English audio returns `"model": "whisper-large-v3-turbo"`. `durationSeconds`, `detectedLanguage`, and `segments` are included when the provider returns them:
+The route accepts raw audio bodies only; multipart uploads are rejected. English audio returns `"model": "nova-3"` with a `detectedLanguage` BCP-47 tag; non-English audio (and any request that fell back from nova-3 or carried a non-English language hint) returns `"model": "whisper-large-v3-turbo"`. `durationSeconds`, `detectedLanguage`, and `segments` are included when the provider returns them:
 
 ```json
 {
@@ -316,6 +317,7 @@ curl --fail \
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Build and web Worker | No | Enables Clerk sign-in in the browser |
 | `CLERK_JWT_ISSUER_DOMAIN` | Convex environment | No | Validates Clerk-issued Convex JWTs |
 | `ASR_API_KEY` | Web Worker and ASR Worker | Yes | Shared credential: sent by the web Worker, checked by the ASR Worker |
+| `PARAKEET_API_KEY` | Web Worker | Yes | Pre-rename name of the web Worker's `ASR_API_KEY`, read only as a one-release fallback (see below) |
 | `TURNSTILE_SECRET_KEY` | Web Worker | Yes | Server-side Turnstile verification for `/api/transcribe` |
 | `HISTORY_ENCRYPTION_KEY` | Web Worker | Yes | AES-256-GCM encryption at rest for transcripts and summaries in Convex |
 | `CLERK_WEBHOOK_SECRET` | Convex environment | Yes | Verifies Clerk `user.deleted` webhooks that purge account history |

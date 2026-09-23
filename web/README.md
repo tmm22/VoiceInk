@@ -35,7 +35,8 @@ voiceink-web Cloudflare Worker
 voiceink-asr Cloudflare Worker
        │ Workers AI binding
        ▼
-Whisper Large V3 Turbo
+Deepgram Nova-3 (English) / Whisper Large V3 Turbo (non-English)
+Llama 3.2 3B Instruct (summaries and enhancement)
 ```
 
 Audio is streamed through both Workers without multipart materialization and is not stored by this application: the ASR Worker checks the file signature on the first bytes, then streams the rest into the model while the upload is still arriving, and errors the stream if the body runs past or short of its declared length. The returned transcript and provider segment timings are saved to Convex after a successful transcription. Transcripts and summaries are encrypted at rest before they reach Convex: the web Worker seals both fields with AES-256-GCM under per-record HKDF-SHA-256 subkeys of a Worker-held `HISTORY_ENCRYPTION_KEY`, so the storage layer only ever holds ciphertext and never the key. Anonymous history expires after one hour and a scheduled Convex cleanup removes it. Signed-in history is owned by the authenticated Clerk identity and persists across browsers and devices. Account holders can choose automatic deletion after 7, 30, 90, or 365 days, or keep history until they delete it; the default is 90 days.
@@ -61,8 +62,10 @@ Transcript content is JSON-encoded as untrusted data and the model is instructed
 - `lib/transcriptExport.ts` — TXT, SRT, and WebVTT transcript downloads adapted from the source project
 - `lib/browserSpeech.ts` — reused system-voice discovery and playback controller
 - `shared/transcriptionContract.ts` — single source of truth for model IDs, audio byte limits, and media-type validation shared by the browser, web Worker, and ASR Worker
-- `cloudflare-asr/` — secured Workers AI transcription Worker
+- `cloudflare-asr/` — secured Workers AI Worker for transcription, summaries, and enhancement, with the `SpendLedger` durable object; `src/index.ts` is a small router over `transcription.ts`, `textGeneration.ts`, `admission.ts`, and `http.ts`, and `src/audioUpload.ts` streams and length-checks uploads
+- `lib/server/` — server-only request security and validation, Turnstile verification, client-key pseudonyms, history encryption (`historyCrypto.ts`) and the shared history route setup (`historyClient.ts`), and the ASR credential (`asrCredential.ts`)
 - `convex/` — schema, queries, mutations, and generated bindings
+- `tests/` — Node regression and contract tests; `tests/support/` holds the `cloudflare:workers` loader stub, fake ASR bindings, and source-reading helpers
 - `scripts/` — repository checks: clean build, secret scan, doc-contract drift, file-size cap, duplicate-artifact scan, and dependency-audit gate
 - `public/_headers` — immutable caching for content-hashed assets, short-lived caching for named public files
 - `wrangler.production.jsonc` — production web Worker and service binding
@@ -79,7 +82,7 @@ npm run dev
 
 Clerk is optional during local development. Without `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, the app runs anonymously and applies the one-hour retention policy. Production uses Clerk's production environment and publishable key on the `v.paul.im` domain; the key is supplied only while building and is not committed.
 
-The web interface returns a service error when inference is unavailable and never substitutes demonstration text for a real transcript. Production ASR is available only through the web Worker's private service binding; local development should use Wrangler bindings rather than a public ASR URL.
+The web interface returns a service error when inference is unavailable and never substitutes demonstration text for a real transcript. Production ASR is available only through the web Worker's private service binding; `npm run dev` wires no `ASR` binding (see `vite.config.ts`), so transcription, summaries, and enhancement answer 503 locally. Exercise the ASR Worker on its own with `wrangler dev` in `cloudflare-asr/` (local ledger, remote Workers AI), never through a public ASR URL.
 
 ## Validation
 
@@ -108,9 +111,9 @@ The production smoke suite is non-mutating and does not invoke paid AI. A real a
 
 ## Regression checks
 
-Run `npm run check` before deploying. It performs TypeScript validation, linting, a clean production build, artifact and documentation drift checks, unit and contract tests, both Worker dependency audits, and a tracked-secret scan. Run `npm run test:production` for safe live checks of the custom domain, cache policy, security headers, cross-origin rejection, immutable assets, and anonymous history; it deliberately avoids paid inference.
+Run `npm run check` before deploying. It performs TypeScript validation, linting, a clean production build, artifact, documentation, and file-size drift checks, unit and contract tests, the ASR Worker typecheck, both Worker dependency audits, and a tracked-secret scan. Run `npm run test:production` for safe live checks of the custom domain, cache policy, security headers, cross-origin rejection, immutable assets, and anonymous history; it deliberately avoids paid inference.
 
-GitHub Actions runs the complete local regression suite for every web-related push and pull request, including installing and typechecking the ASR Worker. A scheduled and manually dispatchable job runs the safe production smoke checks, and the upstream-sync workflow validates the merged tree with `npm run check` before pushing. Tests cover subtitle exports, readable article extraction, model/configuration consistency, removal of demo fallbacks, request-boundary behavior, recording behavior, Convex brokerage and quotas, retention race protection, cache and artifact contracts, documentation contracts, CSP/security headers, and deployment bindings.
+GitHub Actions runs the complete local regression suite for every web-related push and pull request, including installing and typechecking the ASR Worker. A scheduled and manually dispatchable job runs the safe production smoke checks, and the upstream-sync workflow validates the merged tree with `npm run check` before pushing. Tests cover subtitle exports, readable article extraction, model/configuration consistency, removal of demo fallbacks, request-boundary behavior, ASR language routing and streamed-upload validation against fake Workers AI and ledger bindings, the `/api/transcribe` relay, spend-ledger admission and timeouts, Turnstile verification, history encryption, recording behavior, Convex brokerage and quotas, retention race protection, cache and artifact contracts, documentation contracts, CSP/security headers, and deployment bindings.
 
 ## Current limitations
 
@@ -121,6 +124,6 @@ GitHub Actions runs the complete local regression suite for every web-related pu
 - System/device voices only for the initial TTS integration; cloud TTS adapters are not yet connected
 - Audio uploads are limited to 24 MB at the browser, public Worker, and private ASR Worker boundaries
 - AI enhancement input is limited to 12,000 characters and is processed only after an explicit request
-- The web Worker authenticates to the private `ASR` binding with `ASR_API_KEY`, the same value the ASR Worker checks
+- The web Worker authenticates to the private `ASR` binding with `ASR_API_KEY`, the same value the ASR Worker checks (for one release it falls back to the pre-rename `PARAKEET_API_KEY` when `ASR_API_KEY` is absent)
 
 Operational deployments should additionally configure billing/usage alerts, a tested inference kill switch, and WAF or Turnstile controls for sustained anonymous abuse; Cloudflare's binding-level counters are an edge pressure control rather than durable billing accounting.

@@ -9,7 +9,7 @@ VoiceInk Web is the browser version of VoiceInk. Its production stack is:
 - Next.js/React built for Cloudflare Workers with Vinext
 - Cloudflare Worker `voiceink-web` for the UI and public API
 - Private Cloudflare service binding `ASR` to Worker `voiceink-asr`
-- Cloudflare Workers AI for transcription and summarization
+- Cloudflare Workers AI for transcription, summarization, and text enhancement
 - Convex for transcription, summary, retention, and account history
 - Clerk production authentication for cross-device account ownership
 - Browser `speechSynthesis` for device-local text-to-speech
@@ -20,9 +20,9 @@ Current production models:
 
 - Transcription (English, default): `@cf/deepgram/nova-3`, invoked with language detection and smart formatting
 - Transcription (non-English fallback): `@cf/openai/whisper-large-v3-turbo`, used when nova-3 detects a non-English language or nova-3 fails, and used alone (nova-3 skipped, whisper-only admission price) when the browser sends a confident non-English `x-voiceink-language-hint` because none of its preferred languages is English
-- Summarization: `@cf/meta/llama-3.2-3b-instruct`
+- Summarization and text enhancement: `@cf/meta/llama-3.2-3b-instruct`
 
-Transcription streams the upload into nova-3 as it arrives (`cloudflare-asr/src/audioUpload.ts` checks the signature on the first bytes and errors the stream past the declared length) and holds one `tee()` copy only for the whisper fallback, so a request may still run both models; spend-ledger admission must always reserve the combined worst case for both.
+Transcription streams the upload into the first model as it arrives (`cloudflare-asr/src/audioUpload.ts` checks the signature on the first 16 bytes and errors the stream if the body runs past or short of its declared length; `cloudflare-asr/src/transcription.ts` checks `rejected()`/`completed()` after each model run so a mis-sized upload never returns a transcript). On the nova-3-first route it holds one `tee()` copy only for the whisper fallback, so a request may still run both models, and spend-ledger admission must reserve the combined worst case for both. Only a request carrying a valid non-English language hint, which never runs nova-3, may be reserved at the whisper price alone.
 
 ## Core product invariants
 
@@ -127,7 +127,7 @@ Before committing a normal code change:
 npm run check
 ```
 
-This includes type checking, linting, a production build, Node regression tests, secret scanning, and the production dependency audit. Do not weaken a check merely to make a change pass; fix the behavior or document and narrowly isolate a genuine toolchain exception.
+This includes type checking, linting, documentation-contract and file-size checks, a production build, Node regression tests, the ASR Worker typecheck, secret scanning, and dependency audits for both Workers. Do not weaken a check merely to make a change pass; fix the behavior or document and narrowly isolate a genuine toolchain exception.
 
 After a production deployment:
 

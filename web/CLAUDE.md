@@ -9,8 +9,9 @@ quick reference so nothing drifts between the two.
 ## Quick reference for Claude Code
 
 - Run all commands from `web/`, not the repository root.
-- Before committing: `npm run check` (types, lint, production build, Node tests,
-  secret scan, dependency audit). Never weaken a check to make a change pass.
+- Before committing: `npm run check` (types, lint, doc contracts, file sizes,
+  production build, Node tests, ASR typecheck, secret scan, dependency audits).
+  Never weaken a check to make a change pass.
 - After deploying: `npm run test:production -- --base-url https://v.paul.im`.
 - Production deploy: `npx wrangler deploy --config wrangler.production.jsonc --keep-vars`
   (`--keep-vars` is mandatory — dashboard-managed vars must survive).
