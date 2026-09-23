@@ -4,6 +4,11 @@ import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import { adjustOwnerStats, ensureOwnerStats, historyItemChars, ownerItemLimit, ownerStoredCharsLimit } from "./ownerStats";
 import { requireServiceSecret } from "./serviceAuth";
+import {
+  isTranscriptionModelName,
+  isValidLanguageTag,
+  MAXIMUM_TRANSCRIPTION_DURATION_SECONDS,
+} from "../shared/transcriptionContract";
 
 const dayMs = 24 * 60 * 60 * 1000;
 const defaultRetentionDays = 90;
@@ -138,14 +143,13 @@ export const save = mutation({
     if (!operationIdPattern.test(args.operationId)) throw new Error("Invalid operation identifier.");
     if (!text || text.length > maximumStoredTextLength) throw new Error("Transcript length is invalid.");
     if (args.textHash !== undefined && !textHashPattern.test(args.textHash)) throw new Error("Invalid transcript digest.");
-    if (args.model !== "nova-3" && args.model !== "whisper-large-v3-turbo") throw new Error("Unsupported transcription model.");
-    if (args.detectedLanguage !== undefined && (
-      args.detectedLanguage.length > 35 || !/^[a-z]{2,3}(-[a-z0-9]{2,8})*$/i.test(args.detectedLanguage)
-    )) throw new Error("Invalid detected language.");
-    if (!Number.isFinite(args.durationSeconds) || args.durationSeconds < 0 || args.durationSeconds > 21_600) throw new Error("Invalid recording duration.");
+    if (!isTranscriptionModelName(args.model)) throw new Error("Unsupported transcription model.");
+    if (args.detectedLanguage !== undefined && !isValidLanguageTag(args.detectedLanguage)) throw new Error("Invalid detected language.");
+    if (!Number.isFinite(args.durationSeconds) || args.durationSeconds < 0
+      || args.durationSeconds > MAXIMUM_TRANSCRIPTION_DURATION_SECONDS) throw new Error("Invalid recording duration.");
     if (args.segments && (args.segments.length > 5_000 || args.segments.some((segment, index) =>
       !segment.text.trim() || segment.text.length > 2_000 || !Number.isFinite(segment.start) || !Number.isFinite(segment.end)
-      || segment.start < 0 || segment.end <= segment.start || segment.end > 21_600
+      || segment.start < 0 || segment.end <= segment.start || segment.end > MAXIMUM_TRANSCRIPTION_DURATION_SECONDS
       || (index > 0 && segment.start < args.segments![index - 1].start)))) throw new Error("Invalid transcription timing.");
     const createdAt = Date.now();
     const { clientId } = args;

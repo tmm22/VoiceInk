@@ -220,8 +220,10 @@ test("brokers Convex access and enforces quotas and race-safe retention", async 
   assert.match(transcriptions, /requireServiceSecret\(args\.serviceSecret\)/);
   // English-path saves use model "nova-3"; regressing to a whisper-only check
   // would silently break every English history save with the suite green.
-  assert.match(transcriptions, /args\.model !== "nova-3" && args\.model !== "whisper-large-v3-turbo"/);
-  assert.match(transcriptions, /args\.detectedLanguage\.length > 35 \|\| !\/\^\[a-z\]\{2,3\}\(-\[a-z0-9\]\{2,8\}\)\*\$\/i\.test\(args\.detectedLanguage\)/);
+  assert.match(transcriptions, /if \(!isTranscriptionModelName\(args\.model\)\) throw new Error\("Unsupported transcription model\."\);/);
+  // The allowlist itself (which includes nova-3) and the tag pattern come
+  // from shared/transcriptionContract.ts; see transcription-contract.test.mjs.
+  assert.match(transcriptions, /!isValidLanguageTag\(args\.detectedLanguage\)/);
   assert.match(transcriptions, /detectedLanguage: args\.detectedLanguage\.toLowerCase\(\)/);
   assert.match(transcriptions, /item\.detectedLanguage \? \{ detectedLanguage: item\.detectedLanguage \}/);
   // Quotas now read the per-owner aggregate but keep the same limits and

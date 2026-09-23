@@ -202,3 +202,13 @@ test("a language hint is confident only when no preferred language is English", 
   assert.equal(parseLanguageHint("ja; drop table"), null);
   assert.equal(parseLanguageHint(null), null);
 });
+
+test("Convex validates history rows with the shared contract, not an inlined copy", async () => {
+  const transcriptions = await readFile(new URL("../convex/transcriptions.ts", import.meta.url), "utf8");
+  assert.match(transcriptions, /from "\.\.\/shared\/transcriptionContract"/);
+  assert.match(transcriptions, /isTranscriptionModelName\(args\.model\)/);
+  assert.match(transcriptions, /isValidLanguageTag\(args\.detectedLanguage\)/);
+  assert.match(transcriptions, /args\.durationSeconds > MAXIMUM_TRANSCRIPTION_DURATION_SECONDS/);
+  assert.match(transcriptions, /segment\.end > MAXIMUM_TRANSCRIPTION_DURATION_SECONDS/);
+  assert.doesNotMatch(transcriptions, /"nova-3"|"whisper-large-v3-turbo"|21_600|\[a-z\]\{2,3\}/, "no drifting copies of contract constants");
+});
