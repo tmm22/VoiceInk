@@ -58,6 +58,16 @@ test("the route pipes the raw audio to the private ASR binding with internal hea
   assert.deepEqual(bytes, wavBytes());
 });
 
+test("the ASR JSON is relayed byte-for-byte with no-store headers", async () => {
+  const payload = JSON.stringify({ text: "Grüße — 你好", model: "whisper-large-v3-turbo", segments: [{ start: 0, end: 1, text: "Grüße — 你好" }] });
+  installBindings({ asr: () => new Response(payload, { headers: { "content-type": "application/json; charset=utf-8" } }) });
+  const response = await POST(upload());
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), payload);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(response.headers.get("content-type"), "application/json");
+});
+
 test("the route rejects cross-origin, unsupported, oversized, and rate-limited uploads before the ASR hop", async () => {
   const cases = [
     { request: () => upload({ headers: { origin: "https://evil.example" } }), status: 403 },
@@ -109,7 +119,8 @@ test("ASR failures map to bounded errors and never leak the upstream body", asyn
     { asr: () => Response.json({ error: "busy" }, { status: 429 }), status: 429 },
     { asr: () => Response.json({ error: "bad" }, { status: 415 }), status: 415 },
     { asr: () => new Response("<html>", { headers: { "content-type": "text/html" } }), status: 502 },
-    { asr: () => Response.json({ text: "", model: "nova-3" }), status: 502 },
+    { asr: () => new Response(new Uint8Array(4 * 1024 * 1024 + 1), { headers: { "content-type": "application/json" } }), status: 502 },
+    { asr: () => new Response(null, { headers: { "content-type": "application/json" } }), status: 502 },
     { asr: () => { throw new Error("binding down"); }, status: 502 },
   ];
   for (const { asr, status } of cases) {

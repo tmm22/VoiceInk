@@ -2,6 +2,8 @@ import { env } from "cloudflare:workers";
 import { jsonNoStore } from "./requestValidation";
 export {
   jsonNoStore,
+  rawJsonNoStore,
+  readBoundedBytes,
   readBoundedJson,
   readBoundedText,
   rejectCrossOrigin,

@@ -2,6 +2,8 @@ import { env } from "cloudflare:workers";
 import {
   enforceRateLimit,
   jsonNoStore,
+  rawJsonNoStore,
+  readBoundedBytes,
   rejectCrossOrigin,
   validateDeclaredBodySize,
 } from "../../../lib/server/requestSecurity";
@@ -13,7 +15,6 @@ import {
   MAXIMUM_AUDIO_BYTES,
   normalizeAudioMediaType,
   parseLanguageHint,
-  parseTranscriptionResponse,
   TURNSTILE_TOKEN_HEADER,
 } from "../../../shared/transcriptionContract";
 import { verifyTurnstileToken } from "../../../lib/server/turnstile";
@@ -21,6 +22,10 @@ import { pseudonymousClientKey } from "../../../lib/server/clientKey";
 import { asrApiKey } from "../../../lib/server/asrCredential";
 
 export const runtime = "edge";
+
+// Headroom over the ASR Worker's own bounds: 200,000 transcript characters
+// (up to 4 UTF-8 bytes each, plus JSON escaping) and up to 5,000 segments.
+const MAXIMUM_TRANSCRIPTION_RESPONSE_BYTES = 4 * 1024 * 1024;
 
 export async function POST(request: Request) {
   const originError = rejectCrossOrigin(request);
@@ -87,11 +92,10 @@ export async function POST(request: Request) {
     return jsonNoStore({ error: "Transcription inference failed." }, { status: 502 });
   }
 
-  try {
-    const result = parseTranscriptionResponse(await response.json());
-    if (!result) return jsonNoStore({ error: "Transcription inference failed." }, { status: 502 });
-    return jsonNoStore(result);
-  } catch {
-    return jsonNoStore({ error: "Transcription inference failed." }, { status: 502 });
-  }
+  // The private ASR Worker is the validation boundary: it runs every model
+  // result through parseTranscriptionResponse before answering, so this hop
+  // relays the bounded bytes instead of parsing and re-serializing them.
+  const body = await readBoundedBytes(response, MAXIMUM_TRANSCRIPTION_RESPONSE_BYTES);
+  if (!body?.byteLength) return jsonNoStore({ error: "Transcription inference failed." }, { status: 502 });
+  return rawJsonNoStore(body);
 }
