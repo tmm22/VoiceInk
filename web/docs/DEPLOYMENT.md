@@ -317,7 +317,6 @@ curl --fail \
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Build and web Worker | No | Enables Clerk sign-in in the browser |
 | `CLERK_JWT_ISSUER_DOMAIN` | Convex environment | No | Validates Clerk-issued Convex JWTs |
 | `ASR_API_KEY` | Web Worker and ASR Worker | Yes | Shared credential: sent by the web Worker, checked by the ASR Worker |
-| `PARAKEET_API_KEY` | Web Worker | Yes | Pre-rename name of the web Worker's `ASR_API_KEY`, read only as a one-release fallback (see below) |
 | `TURNSTILE_SECRET_KEY` | Web Worker | Yes | Server-side Turnstile verification for `/api/transcribe` |
 | `HISTORY_ENCRYPTION_KEY` | Web Worker | Yes | AES-256-GCM encryption at rest for transcripts and summaries in Convex |
 | `CLERK_WEBHOOK_SECRET` | Convex environment | Yes | Verifies Clerk `user.deleted` webhooks that purge account history |
@@ -331,7 +330,7 @@ curl --fail \
 
 There is no external URL fallback: production fails closed unless the private `ASR` binding and matching secret are both present.
 
-The web Worker's copy was called `PARAKEET_API_KEY` before 2026-09. For one release the web Worker still reads that name when `ASR_API_KEY` is absent. Secret values cannot be read back, so the rename is a rotation. Generate one new value and install it on the ASR Worker as `ASR_API_KEY`, then immediately on the web Worker under **both** `ASR_API_KEY` and `PARAKEET_API_KEY` (transcription returns 502 for the few seconds between the ASR and web updates). Keeping the legacy name populated with the new value means a rollback of the web Worker to the previous release, which reads only `PARAKEET_API_KEY`, still authenticates. Delete `PARAKEET_API_KEY` (`npx wrangler secret delete PARAKEET_API_KEY --config wrangler.production.jsonc --name voiceink-web`) only in the release that removes the fallback read, once the pre-rename release is outside the rollback window.
+The web Worker's copy was called `PARAKEET_API_KEY` before 2026-09. It was rotated into `ASR_API_KEY` and the old name is no longer read or configured; web Worker versions from before the rename cannot authenticate to the ASR Worker, so do not roll back past the rename.
 
 ## Logs and diagnostics
 
