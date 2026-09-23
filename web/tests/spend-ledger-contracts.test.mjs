@@ -18,6 +18,7 @@ import {
   worstCaseAudioSeconds,
 } from "../cloudflare-asr/src/budget.ts";
 import { MAXIMUM_AUDIO_BYTES } from "../shared/transcriptionContract.ts";
+import { asrWorkerSource } from "./support/sources.mjs";
 
 const root = new URL("../", import.meta.url);
 
@@ -41,7 +42,7 @@ test("committed spend is clamped to the reserved amount so the ceiling is a true
   const ledger = await readFile(new URL("cloudflare-asr/src/spendLedger.ts", root), "utf8");
   assert.match(ledger, /Math\.min\(reservation\.amount_micros, Math\.max\(0, Math\.round\(actualMicros\)\)\)/);
   assert.match(ledger, /Math\.min\(reservation\.seconds_estimate, Math\.max\(0, Math\.round\(actualSeconds\)\)\)/);
-  const index = await readFile(new URL("cloudflare-asr/src/index.ts", root), "utf8");
+  const index = await asrWorkerSource();
   assert.match(index, /AbortSignal\.any\(\[request\.signal, AbortSignal\.timeout\(INFERENCE_TIMEOUT_MS\)\]\)/);
 });
 
@@ -90,7 +91,7 @@ test("ledger days key by UTC date", () => {
 });
 
 test("the ASR worker admits inference only through the spend ledger", async () => {
-  const source = await readFile(new URL("cloudflare-asr/src/index.ts", root), "utf8");
+  const source = await asrWorkerSource();
   const reservations = source.match(/\breserveSpendLogged\(env, request, \{/g) ?? [];
   const inferenceCalls = source.match(/env\.AI\.run\(/g) ?? [];
   // Enhancement, summary, and transcription each reserve once; the transcription

@@ -12,6 +12,7 @@ import {
   ownerContext,
 } from "../lib/server/historyCrypto.ts";
 import { pseudonymousClientKey } from "../lib/server/clientKey.ts";
+import { historyRouteSource } from "./support/sources.mjs";
 
 const root = new URL("../", import.meta.url);
 const source = (path) => readFile(new URL(path, root), "utf8");
@@ -100,7 +101,7 @@ test("spend-ledger client keys are pseudonymous and rotate daily", async () => {
 
 test("routes seal with ownership context, key the pseudonym off the web-only key, and isolate per-row decryption", async () => {
   const [route, transcribe, convex, schema] = await Promise.all([
-    source("app/api/history/route.ts"),
+    historyRouteSource(),
     source("app/api/transcribe/route.ts"),
     source("convex/transcriptions.ts"),
     source("convex/schema.ts"),
@@ -140,7 +141,7 @@ test("routes seal with ownership context, key the pseudonym off the web-only key
 });
 
 test("history writes start the verified-context round trip before parsing the body", async () => {
-  const route = await source("app/api/history/route.ts");
+  const route = await historyRouteSource();
   // POST and PATCH overlap the Convex viewerContext round trip with body
   // parse/validation: the query starts as soon as securedClient returns and is
   // awaited only at encryption time.
@@ -173,7 +174,7 @@ test("history writes start the verified-context round trip before parsing the bo
 
 test("history GET is one combined Convex query whose ownerContext comes from the same verified identity as the page", async () => {
   const [route, convex, retention] = await Promise.all([
-    source("app/api/history/route.ts"),
+    historyRouteSource(),
     source("convex/transcriptions.ts"),
     source("convex/retention.ts"),
   ]);
@@ -283,4 +284,18 @@ test("anonymous history pages with the same 25-row cursor contract as account hi
   assert.doesNotMatch(historyPage, /\.take\(/, "no unpaginated anonymous read");
   assert.equal((historyPage.match(/\.paginate\(\{ \.\.\.paginationOpts, numItems: Math\.min\(paginationOpts\.numItems, 25\) \}\)/g) ?? []).length, 2);
   assert.match(historyPage, /isDone: result\.isDone \|\| live\.length < result\.page\.length,\n\s*continueCursor: result\.continueCursor,\n\s*retentionDays: null,/, "an expired row ends anonymous pagination");
+});
+
+test("every history handler goes through the shared secured client", async () => {
+  const route = await readFile(new URL("app/api/history/route.ts", root), "utf8");
+  for (const method of ["POST", "GET", "PATCH", "DELETE"]) {
+    const start = route.indexOf(`export async function ${method}`);
+    const next = route.indexOf("export async function", start + 1);
+    const block = route.slice(start, next === -1 ? route.length : next);
+    assert.match(block, /const secured = await securedClient\(request\);\n\s*if \(secured\.error\) return secured\.error;/, method);
+    assert.match(block, /return requestFailure\(\);/, method);
+  }
+  const client = await readFile(new URL("lib/server/historyClient.ts", root), "utf8");
+  assert.match(client, /rejectCrossOrigin\(request\)/);
+  assert.match(client, /enforceRateLimit\(request, "HISTORY_RATE_LIMITER"\)/);
 });

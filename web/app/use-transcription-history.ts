@@ -126,7 +126,10 @@ export function useTranscriptionHistory(account: AccountAuth, onError: (message:
     try {
       const token = await account.getConvexToken();
       const result = await listTranscriptions(token, historyCursor);
-      setHistory((items) => [...items, ...result.items.filter((item) => !items.some((existing) => existing._id === item._id))]);
+      setHistory((items) => {
+        const loadedIds = new Set(items.map((item) => item._id));
+        return [...items, ...result.items.filter((item) => !loadedIds.has(item._id))];
+      });
       setHistoryCursor(result.nextCursor);
     } catch {
       onError("More history could not be loaded. Please try again.");

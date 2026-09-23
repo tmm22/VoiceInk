@@ -1,70 +1,33 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import {
-  saveTranscription,
-  type TranscriptionHistoryItem,
-} from "../lib/convex";
+import { useRef, useState } from "react";
+import type { TranscriptionHistoryItem } from "../lib/convex";
 import { downloadTranscript } from "../lib/transcriptExport";
-import {
-  elapsedRecordingSeconds,
-  readAudioDuration,
-  recordingLimitSeconds,
-  selectRecorderMimeType,
-  uploadDurationError,
-  uploadSizeError,
-} from "../lib/recording";
-import { requestTranscription, transcriptionFailureMessage } from "../lib/transcriptionRequest";
-import { beginTranscriptionTokenHold, releaseTranscriptionTokenHold } from "../lib/turnstileClient";
+import type { TranscriptionSegment } from "../shared/transcriptionContract";
 import { AIEnhancementPanel } from "./ai-enhancement";
-import { AccountControls, useAccountAuth } from "./providers";
+import { AccountControls } from "./account-controls";
+import { useAccountAuth } from "./providers";
 import { HistoryView } from "./history-view";
+import { recordingStage } from "./recording-stage";
 import { TTSWorkspace } from "./tts-workspace";
+import { useTheme } from "./use-theme";
 import { useTranscriptionHistory } from "./use-transcription-history";
+import { useTranscriptionSession } from "./use-transcription-session";
 import { useTranscriptSummary } from "./use-transcript-summary";
-import {
-  MAXIMUM_AUDIO_BYTES,
-  type TranscriptionSegment,
-} from "../shared/transcriptionContract";
 
-type Status = "idle" | "starting" | "recording" | "validating" | "stopping" | "verifying" | "transcribing" | "saving" | "done" | "error";
-type Theme = "editorial" | "mac";
 type WorkspaceTab = "studio" | "history";
-const transcriptionTimeoutMs = 5 * 60 * 1_000;
 
 export default function Home() {
   const account = useAccountAuth();
-  const isSignedInRef = useRef(account.isSignedIn);
-  isSignedInRef.current = account.isSignedIn;
-  const recorder = useRef<MediaRecorder | null>(null);
-  const chunks = useRef<Blob[]>([]);
-  const ticker = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioFileInput = useRef<HTMLInputElement | null>(null);
-  const elapsedRef = useRef(0);
-  const recordingStartedAt = useRef(0);
-  const recordedBytes = useRef(0);
-  const recordingTooLarge = useRef(false);
-  const recordingFailed = useRef(false);
-  const audioOperationId = useRef<string | null>(null);
-  const activeTranscription = useRef<{ id: string; controller: AbortController } | null>(null);
-  const operationGeneration = useRef(0);
-  const recordingStartPending = useRef(false);
-  const transcribeTicker = useRef<ReturnType<typeof setInterval> | null>(null);
-  // The in-flight history save for the current transcript, so a summary
-  // generated during that window serializes its PATCH after the save settles.
-  const pendingSave = useRef<Promise<string | null> | null>(null);
-  const [status, setStatus] = useState<Status>("idle");
-  const [elapsed, setElapsed] = useState(0);
-  const [transcribeElapsed, setTranscribeElapsed] = useState(0);
-  const [audio, setAudio] = useState<Blob | null>(null);
   const [transcript, setTranscript] = useState("");
   const [transcriptSegments, setTranscriptSegments] = useState<TranscriptionSegment[]>([]);
   const [activeTranscriptionId, setActiveTranscriptionId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [speechText, setSpeechText] = useState("");
-  const [theme, setTheme] = useState<Theme>("editorial");
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("studio");
+  const { theme, selectTheme } = useTheme();
   const {
     history,
     setHistory,
@@ -93,290 +56,28 @@ export default function Home() {
     summarizeText,
     copySummary,
   } = useTranscriptSummary(account, setHistory);
-
-  useEffect(() => {
-    let themeUpdate: number | undefined;
-    const savedTheme = window.localStorage.getItem("voiceink-theme");
-    if (savedTheme === "mac" || savedTheme === "editorial") {
-      themeUpdate = window.setTimeout(() => setTheme(savedTheme), 0);
-      document.documentElement.dataset.theme = savedTheme;
-    }
-    return () => {
-      if (themeUpdate !== undefined) window.clearTimeout(themeUpdate);
-      if (ticker.current) clearInterval(ticker.current);
-      if (transcribeTicker.current) clearInterval(transcribeTicker.current);
-      releaseTranscriptionTokenHold();
-      const pendingTranscription = activeTranscription.current;
-      activeTranscription.current = null;
-      pendingTranscription?.controller.abort();
-      operationGeneration.current += 1;
-      const activeRecorder = recorder.current;
-      recorder.current = null;
-      if (activeRecorder) {
-        activeRecorder.ondataavailable = null;
-        activeRecorder.onerror = null;
-        activeRecorder.onstop = null;
-        if (activeRecorder.state === "recording") activeRecorder.stop();
-        activeRecorder.stream.getTracks().forEach((track) => track.stop());
-      }
-      chunks.current = [];
-    };
-  }, []);
-
-  function selectTheme(nextTheme: Theme) {
-    setTheme(nextTheme);
-    document.documentElement.dataset.theme = nextTheme;
-    window.localStorage.setItem("voiceink-theme", nextTheme);
-  }
-
-  // Elapsed-seconds ticker for the transcribing stage (same pattern as the
-  // recording ticker). No fake progress — only real elapsed time.
-  function startTranscribeTicker() {
-    stopTranscribeTicker();
-    const startedAt = performance.now();
-    transcribeTicker.current = setInterval(() => setTranscribeElapsed(elapsedRecordingSeconds(startedAt, performance.now())), 1000);
-  }
-  function stopTranscribeTicker() {
-    if (transcribeTicker.current) clearInterval(transcribeTicker.current);
-    transcribeTicker.current = null;
-    setTranscribeElapsed(0);
-  }
-
-  async function startRecording() {
-    if (recordingStartPending.current || recorder.current) return;
-    recordingStartPending.current = true;
-    // Pre-execute the Turnstile challenge and hold the single-use token for
-    // the stop click; the widget re-executes on expiry during long recordings.
-    beginTranscriptionTokenHold();
-    const generation = ++operationGeneration.current;
-    let stream: MediaStream | undefined;
-    try {
-      const previousTranscription = activeTranscription.current;
-      activeTranscription.current = null;
-      previousTranscription?.controller.abort();
-      pendingSave.current = null;
-      setError("");
-      setTranscript("");
-      setTranscriptSegments([]);
-      setActiveTranscriptionId(null);
-      setSummary("");
-      setSummaryNotice("");
-      setAudio(null);
-      setElapsed(0);
-      setStatus("starting");
-      elapsedRef.current = 0;
-      const acquiredStream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
-      stream = acquiredStream;
-      if (generation !== operationGeneration.current) {
-        acquiredStream.getTracks().forEach((track) => track.stop());
-        return;
-      }
-      const mimeType = selectRecorderMimeType((value) => MediaRecorder.isTypeSupported(value));
-      let nextRecorder: MediaRecorder;
-      try {
-        nextRecorder = new MediaRecorder(acquiredStream, { ...(mimeType ? { mimeType } : {}), audioBitsPerSecond: 64_000 });
-      } catch (recorderError) {
-        acquiredStream.getTracks().forEach((track) => track.stop());
-        throw recorderError;
-      }
-      chunks.current = [];
-      recordedBytes.current = 0;
-      recordingTooLarge.current = false;
-      recordingFailed.current = false;
-      recordingStartedAt.current = performance.now();
-      audioOperationId.current = crypto.randomUUID();
-      nextRecorder.ondataavailable = (event) => {
-        if (generation !== operationGeneration.current || !event.data.size) return;
-        recordedBytes.current += event.data.size;
-        if (recordedBytes.current > MAXIMUM_AUDIO_BYTES) {
-          recordingTooLarge.current = true;
-          if (nextRecorder.state === "recording") nextRecorder.stop();
-          return;
-        }
-        chunks.current.push(event.data);
-      };
-      nextRecorder.onstop = () => {
-        if (ticker.current) clearInterval(ticker.current);
-        ticker.current = null;
-        const duration = elapsedRecordingSeconds(recordingStartedAt.current, performance.now());
-        elapsedRef.current = duration;
-        setElapsed(duration);
-        const completedChunks = chunks.current;
-        chunks.current = [];
-        recorder.current = null;
-        acquiredStream.getTracks().forEach((track) => track.stop());
-        if (generation !== operationGeneration.current) return;
-        if (recordingTooLarge.current) {
-          releaseTranscriptionTokenHold();
-          setAudio(null);
-          setError("The recording reached the 24 MB safety limit. Record a shorter clip and try again.");
-          setStatus("error");
-          return;
-        }
-        if (recordingFailed.current) {
-          releaseTranscriptionTokenHold();
-          setAudio(null);
-          setStatus("error");
-          return;
-        }
-        const recording = new Blob(completedChunks, { type: nextRecorder.mimeType });
-        setAudio(recording);
-        void transcribe(recording, duration, audioOperationId.current ?? crypto.randomUUID());
-      };
-      nextRecorder.onerror = () => {
-        if (generation !== operationGeneration.current) return;
-        recordingFailed.current = true;
-        setError("Recording stopped because the browser audio encoder failed.");
-        if (nextRecorder.state === "recording") nextRecorder.stop();
-      };
-      nextRecorder.start(1_000);
-      recorder.current = nextRecorder;
-      setStatus("recording");
-      ticker.current = setInterval(() => {
-        elapsedRef.current = elapsedRecordingSeconds(recordingStartedAt.current, performance.now());
-        setElapsed(elapsedRef.current);
-        if (elapsedRef.current >= recordingLimitSeconds(isSignedInRef.current)) {
-          if (ticker.current) clearInterval(ticker.current);
-          ticker.current = null;
-          if (recorder.current) setStatus("stopping");
-          recorder.current?.stop();
-        }
-      }, 1000);
-    } catch {
-      stream?.getTracks().forEach((track) => track.stop());
-      if (generation === operationGeneration.current) {
-        releaseTranscriptionTokenHold();
-        setError("Microphone access is required to record a transcription.");
-        setStatus("error");
-      }
-    } finally {
-      recordingStartPending.current = false;
-    }
-  }
-
-  function stopRecording() {
-    if (ticker.current) clearInterval(ticker.current);
-    ticker.current = null;
-    if (recorder.current?.state === "recording") {
-      // Synchronous feedback for the stop click; the transcribe pipeline
-      // replaces it with the verifying/transcribing/saving stages.
-      setStatus("stopping");
-      recorder.current.stop();
-    }
-  }
-
-  async function transcribe(recording: Blob, durationSeconds: number, operationId = audioOperationId.current ?? crypto.randomUUID()) {
-    activeTranscription.current?.controller.abort();
-    const controller = new AbortController();
-    const job = { id: crypto.randomUUID(), controller };
-    activeTranscription.current = job;
-    audioOperationId.current = operationId;
-    const timeout = window.setTimeout(() => controller.abort(), transcriptionTimeoutMs);
-    // Warm-up only: start a Convex token fetch now so Clerk's token cache is
-    // primed while upload and inference run. The save path below fetches its
-    // own fresh token — this result is never consumed, and the marker only
-    // prevents an unhandled rejection when transcription fails first.
-    const convexToken = account.getConvexToken();
-    convexToken.catch(() => {});
-    setStatus("verifying");
-    setError("");
-    try {
-      const result = await requestTranscription(recording, controller.signal, (stage) => {
-        if (activeTranscription.current?.id !== job.id) return;
-        setStatus(stage);
-        if (stage === "transcribing") startTranscribeTicker();
-      });
-      const transcribedText = result.text;
-      const effectiveDuration = result.durationSeconds ?? durationSeconds;
-      if (activeTranscription.current?.id !== job.id) return;
-      stopTranscribeTicker();
-      setAudio(null);
-      chunks.current = [];
-      setTranscript(transcribedText);
-      setTranscriptSegments(result.segments ?? []);
-      setStatus("saving");
-      const savePromise = (async () => {
-        // Fetch the token fresh at save time: Clerk session JWTs live about a
-        // minute while upload+inference can run for several, so the warm-up
-        // token above may already be expired server-side — Convex would then
-        // resolve a null identity and silently file the row as anonymous.
-        // Clerk caches tokens, so this call is near-free while still valid.
-        const token = await account.getConvexToken();
-        const savedId = await saveTranscription({
-          text: transcribedText,
-          durationSeconds: effectiveDuration,
-          model: result.model,
-          detectedLanguage: result.detectedLanguage,
-          operationId,
-          segments: result.segments,
-        }, token);
-        return savedId ?? null;
-      })();
-      // A summary requested before the save settles serializes on this.
-      pendingSave.current = savePromise.then((id) => id, () => null);
-      try {
-        const savedId = await savePromise;
-        if (activeTranscription.current?.id !== job.id) return;
-        setActiveTranscriptionId(savedId);
-        // Prepend the saved row locally instead of refetching the whole page.
-        if (savedId) {
-          const savedItem: TranscriptionHistoryItem = { _id: savedId, text: transcribedText, durationSeconds: effectiveDuration, model: result.model, detectedLanguage: result.detectedLanguage, operationId, segments: result.segments, status: "complete", createdAt: Date.now() };
-          setHistory((items) => items.some((item) => item._id === savedId) ? items : [savedItem, ...items]);
-        }
-      } catch {
-        setError("The transcript is ready, but it could not be saved to history. Check your quota or retention settings.");
-      } finally {
-        if (activeTranscription.current?.id === job.id) setStatus("done");
-      }
-    } catch (cause) {
-      if (activeTranscription.current?.id !== job.id) return;
-      if (controller.signal.aborted) {
-        setError("Transcription timed out. Your recording is still available to retry.");
-        setStatus("error");
-        return;
-      }
-      setError(transcriptionFailureMessage(cause));
-      setStatus("error");
-    } finally {
-      window.clearTimeout(timeout);
-      stopTranscribeTicker();
-      if (activeTranscription.current?.id === job.id) activeTranscription.current = null;
-    }
-  }
-
-  async function uploadAudio(file: File) {
-    const sizeError = uploadSizeError(file.size, MAXIMUM_AUDIO_BYTES);
-    if (sizeError) {
-      setError(sizeError);
-      return;
-    }
-    const generation = ++operationGeneration.current;
-    const previousTranscription = activeTranscription.current;
-    activeTranscription.current = null;
-    previousTranscription?.controller.abort();
-    pendingSave.current = null;
-    setError("");
-    setStatus("validating");
-    setTranscript("");
-    setTranscriptSegments([]);
-    setActiveTranscriptionId(null);
-    setSummary("");
-    setSummaryError("");
-    setSummaryNotice("");
-    const duration = await readAudioDuration(file);
-    if (generation !== operationGeneration.current) return;
-    const durationError = uploadDurationError(duration, isSignedInRef.current);
-    if (durationError || duration === null) {
-      setError(durationError ?? "");
-      setStatus("error");
-      return;
-    }
-    setAudio(file);
-    elapsedRef.current = duration;
-    setElapsed(duration);
-    audioOperationId.current = crypto.randomUUID();
-    await transcribe(file, duration, audioOperationId.current);
-  }
+  const session = useTranscriptionSession({
+    account,
+    setHistory,
+    setError,
+    transcript: {
+      clear: ({ summaryError: clearSummaryError }) => {
+        setTranscript("");
+        setTranscriptSegments([]);
+        setActiveTranscriptionId(null);
+        setSummary("");
+        if (clearSummaryError) setSummaryError("");
+        setSummaryNotice("");
+      },
+      show: (text, segments) => {
+        setTranscript(text);
+        setTranscriptSegments(segments);
+      },
+      saved: setActiveTranscriptionId,
+    },
+  });
+  const { status } = session;
+  const stage = recordingStage(status, session.elapsed, session.transcribeElapsed);
 
   async function copyTranscript() {
     await navigator.clipboard.writeText(transcript);
@@ -384,17 +85,6 @@ export default function Home() {
     setTimeout(() => setCopied(false), 1500);
   }
 
-  const time = `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
-  const busyStatus = status === "starting" || status === "validating" || status === "stopping" || status === "verifying" || status === "transcribing" || status === "saving";
-  const stageHeadings: Partial<Record<Status, string>> = { starting: "Requesting microphone…", recording: "Recording", validating: "Checking audio…", stopping: "Processing audio…", verifying: "Verifying…", transcribing: "Transcribing…", saving: "Saving to history…" };
-  const stageDetails: Partial<Record<Status, [string, string]>> = {
-    recording: [time, "Stop to upload and transcribe"],
-    stopping: ["Processing audio…", "Preparing the recording for upload"],
-    verifying: ["Verifying…", "Running the security check before upload"],
-    transcribing: [`Transcribing… ${transcribeElapsed}s`, "The transcript will be saved to history"],
-    saving: ["Saving…", "Adding the transcript to history"],
-  };
-  const [stageStrong, stageSmall] = stageDetails[status] ?? ["Press to record", "Microphone access stays in this tab"];
   function openHistoryItem(item: TranscriptionHistoryItem) {
     setTranscript(item.text);
     setTranscriptSegments(item.segments ?? []);
@@ -432,7 +122,7 @@ export default function Home() {
 
       <section className={`recorder-card ${status === "recording" ? "is-recording" : ""}`}>
         <div className="card-header">
-          <div><h2>{stageHeadings[status] ?? "Ready to record"}</h2></div>
+          <div><h2>{stage.heading}</h2></div>
           <span className="privacy">Audio deleted after transcription</span>
         </div>
 
@@ -442,25 +132,25 @@ export default function Home() {
 
         <div className="record-controls">
           {status !== "recording" ? (
-            <button className="record-button" onClick={startRecording} disabled={busyStatus} aria-label="Start recording"><span /></button>
+            <button className="record-button" onClick={() => void session.startRecording()} disabled={stage.busy} aria-label="Start recording"><span /></button>
           ) : (
-            <button className="record-button stop" onClick={stopRecording} aria-label="Stop recording"><span /></button>
+            <button className="record-button stop" onClick={session.stopRecording} aria-label="Stop recording"><span /></button>
           )}
-          <div><strong>{stageStrong}</strong><small>{stageSmall}</small></div>
+          <div><strong>{stage.strong}</strong><small>{stage.small}</small></div>
         </div>
         <div className="audio-upload">
           <span>or</span>
-          <button type="button" onClick={() => audioFileInput.current?.click()} disabled={busyStatus || status === "recording"}>Upload audio file</button>
+          <button type="button" onClick={() => audioFileInput.current?.click()} disabled={stage.busy || status === "recording"}>Upload audio file</button>
           <small>MP3, WAV, M4A, WebM and other browser-supported audio · 24 MB maximum · {account.isSignedIn ? "up to 2 hours" : "up to 10 minutes for guests"}</small>
           <input ref={audioFileInput} type="file" accept="audio/*" hidden onChange={(event) => {
             const file = event.target.files?.[0];
-            if (file) void uploadAudio(file);
+            if (file) void session.uploadAudio(file);
             event.target.value = "";
           }} />
         </div>
 
-        {audio && status === "error" && (
-          <button className="primary" onClick={() => transcribe(audio, elapsedRef.current, audioOperationId.current ?? crypto.randomUUID())}>
+        {session.audio && status === "error" && (
+          <button className="primary" onClick={session.retryTranscription}>
             Retry transcription
           </button>
         )}
@@ -468,7 +158,7 @@ export default function Home() {
       </section>
 
       <section className="transcript-card">
-        <div className="transcript-head"><div><small>TRANSCRIPT</small><span>{transcript ? `${transcript.split(/\s+/).length} words` : "Waiting for audio"}</span></div>{transcript && <div className="transcript-tools"><button className="summarize" onClick={() => void summarizeText(transcript, activeTranscriptionId, pendingSave.current)} disabled={summaryLoading}>{summaryLoading ? "Summarizing…" : "Summarize"}</button><button onClick={copyTranscript}>{copied ? "Copied" : "Copy"}</button><button onClick={() => downloadTranscript(transcript, "txt")}>TXT</button><button disabled={!transcriptSegments.length} title={transcriptSegments.length ? "Download timed subtitles" : "Timing is unavailable after editing"} onClick={() => downloadTranscript(transcript, "srt", transcriptSegments)}>SRT</button><button disabled={!transcriptSegments.length} title={transcriptSegments.length ? "Download timed subtitles" : "Timing is unavailable after editing"} onClick={() => downloadTranscript(transcript, "vtt", transcriptSegments)}>VTT</button></div>}</div>
+        <div className="transcript-head"><div><small>TRANSCRIPT</small><span>{transcript ? `${transcript.split(/\s+/).length} words` : "Waiting for audio"}</span></div>{transcript && <div className="transcript-tools"><button className="summarize" onClick={() => void summarizeText(transcript, activeTranscriptionId, session.pendingSave.current)} disabled={summaryLoading}>{summaryLoading ? "Summarizing…" : "Summarize"}</button><button onClick={copyTranscript}>{copied ? "Copied" : "Copy"}</button><button onClick={() => downloadTranscript(transcript, "txt")}>TXT</button><button disabled={!transcriptSegments.length} title={transcriptSegments.length ? "Download timed subtitles" : "Timing is unavailable after editing"} onClick={() => downloadTranscript(transcript, "srt", transcriptSegments)}>SRT</button><button disabled={!transcriptSegments.length} title={transcriptSegments.length ? "Download timed subtitles" : "Timing is unavailable after editing"} onClick={() => downloadTranscript(transcript, "vtt", transcriptSegments)}>VTT</button></div>}</div>
         <textarea aria-label="Transcript text" value={transcript} onChange={(event) => { setTranscript(event.target.value); setTranscriptSegments([]); }} placeholder="Your transcription will appear here…" />
       </section>
 

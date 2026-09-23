@@ -1,19 +1,20 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { studioSource } from "./support/sources.mjs";
 
 const root = new URL("../", import.meta.url);
 const source = (path) => readFile(new URL(path, root), "utf8");
 
 test("stop is staged: stopping, verifying, transcribing with elapsed seconds, saving", async () => {
   const [page, request] = await Promise.all([
-    source("app/page.tsx"),
+    studioSource(),
     source("lib/transcriptionRequest.ts"),
   ]);
   // The stop click gets synchronous feedback before any async work runs.
   const stopBody = page.slice(page.indexOf("function stopRecording"), page.indexOf("async function transcribe"));
   const stopStatus = stopBody.indexOf('setStatus("stopping")');
-  const stopCall = stopBody.indexOf("recorder.current.stop()");
+  const stopCall = stopBody.indexOf("recording.stop()");
   assert.ok(stopStatus !== -1 && stopCall !== -1 && stopStatus < stopCall, "'stopping' must be set before the recorder stops");
   // The pipeline reports real stages: token verification, then upload+inference.
   assert.match(request, /onStage\?\.\("verifying"\);/);
@@ -27,7 +28,7 @@ test("stop is staged: stopping, verifying, transcribing with elapsed seconds, sa
 });
 
 test("the Convex token overlaps inference and the saved row is prepended locally", async () => {
-  const page = await source("app/page.tsx");
+  const page = await studioSource();
   const body = page.slice(page.indexOf("async function transcribe"), page.indexOf("async function uploadAudio"));
   const tokenStart = body.indexOf("const convexToken = account.getConvexToken()");
   const transcriptionCall = body.indexOf("await requestTranscription(");
@@ -64,7 +65,7 @@ test("summaries are revealed as soon as generated; persistence is non-blocking",
 
 test("loading placeholders are shimmer-only with reserved height, never readable text", async () => {
   const [page, enhancement, css] = await Promise.all([
-    source("app/page.tsx"),
+    studioSource(),
     source("app/ai-enhancement.tsx"),
     source("app/globals.css"),
   ]);

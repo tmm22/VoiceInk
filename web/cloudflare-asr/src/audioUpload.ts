@@ -13,6 +13,10 @@ export type AudioUpload = {
   // True once the body was rejected for its length (as opposed to aborted),
   // so the caller can answer 415 instead of an inference failure.
   rejected(): boolean;
+  // True once the whole declared body was delivered and the stream closed.
+  // A model that returns without reading to the end has not had the upload's
+  // length validated, so its output must not be accepted.
+  completed(): boolean;
 };
 
 // Streams the request body instead of buffering it, so inference can start
@@ -32,6 +36,7 @@ export async function openAudioUpload(
   let received = 0;
   let sourceDone = false;
   let lengthRejected = false;
+  let lengthVerified = false;
 
   const cancelSource = () => void reader.cancel().catch(() => {});
   // The deadline also bounds the prefix read, so a client that stalls before
@@ -84,6 +89,7 @@ export async function openAudioUpload(
       }
       if (sourceDone) {
         detach();
+        lengthVerified = true;
         controller.close();
         return;
       }
@@ -101,6 +107,7 @@ export async function openAudioUpload(
           lengthRejected = true;
           controller.error(new Error("Upload ended before its declared length"));
         } else {
+          lengthVerified = true;
           controller.close();
         }
         return;
@@ -120,7 +127,7 @@ export async function openAudioUpload(
       cancelSource();
     },
   });
-  return { stream, rejected: () => lengthRejected };
+  return { stream, rejected: () => lengthRejected, completed: () => lengthVerified };
 }
 
 function concatenate(chunks: Uint8Array[], maximumBytes: number) {
