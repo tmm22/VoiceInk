@@ -257,3 +257,30 @@ test("every user history row is reachable by a bulk purge that deletes before it
   assert.match(http, /svix-signature/);
   assert.match(http, /TIMESTAMP_TOLERANCE_SECONDS/);
 });
+
+test("the base64 codecs match Node's reference encoder and each other on random inputs", async () => {
+  const { fromBase64, portableFromBase64, portableToBase64, toBase64 } = await import("../lib/server/historyCrypto.ts");
+  const sizes = [0, 1, 2, 3, 4, 31, 32, 0x7fff, 0x8000, 0x8001, 200_000 + 7];
+  for (const size of sizes) {
+    const bytes = new Uint8Array(size);
+    for (let offset = 0; offset < size; offset += 65_536) {
+      crypto.getRandomValues(bytes.subarray(offset, Math.min(size, offset + 65_536)));
+    }
+    const reference = Buffer.from(bytes).toString("base64");
+    assert.equal(portableToBase64(bytes), reference, `portable encode ${size}`);
+    assert.equal(toBase64(bytes), reference, `encode ${size}`);
+    assert.deepEqual(portableFromBase64(reference), bytes, `portable decode ${size}`);
+    assert.deepEqual(fromBase64(reference), bytes, `decode ${size}`);
+  }
+  // Both decoders reject malformed input; callers treat that as an unreadable envelope.
+  assert.throws(() => portableFromBase64("not*base64"));
+  assert.throws(() => fromBase64("not*base64"));
+});
+
+test("anonymous history pages with the same 25-row cursor contract as account history", async () => {
+  const transcriptions = await source("convex/transcriptions.ts");
+  const historyPage = transcriptions.slice(transcriptions.indexOf("export const historyPage"), transcriptions.indexOf("export const save"));
+  assert.doesNotMatch(historyPage, /\.take\(/, "no unpaginated anonymous read");
+  assert.equal((historyPage.match(/\.paginate\(\{ \.\.\.paginationOpts, numItems: Math\.min\(paginationOpts\.numItems, 25\) \}\)/g) ?? []).length, 2);
+  assert.match(historyPage, /isDone: result\.isDone \|\| live\.length < result\.page\.length,\n\s*continueCursor: result\.continueCursor,\n\s*retentionDays: null,/, "an expired row ends anonymous pagination");
+});

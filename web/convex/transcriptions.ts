@@ -101,16 +101,21 @@ export const historyPage = query({
       };
     }
 
+    // Anonymous history pages like account history (25 rows, cursor
+    // continuation). Rows are newest first and all expire one hour after
+    // creation, so the first expired row means every later page is expired
+    // too: report isDone there instead of offering empty "load more" pages.
     const now = Date.now();
-    const items = await ctx.db
+    const result = await ctx.db
       .query("transcriptions")
       .withIndex("by_client_created", (q) => q.eq("clientId", clientId))
       .order("desc")
-      .take(30);
+      .paginate({ ...paginationOpts, numItems: Math.min(paginationOpts.numItems, 25) });
+    const live = result.page.filter((item) => (item.expiresAt ?? item.createdAt + 60 * 60 * 1000) > now);
     return {
-      page: items.filter((item) => (item.expiresAt ?? item.createdAt + 60 * 60 * 1000) > now).map(publicHistoryItem),
-      isDone: true,
-      continueCursor: "",
+      page: live.map(publicHistoryItem),
+      isDone: result.isDone || live.length < result.page.length,
+      continueCursor: result.continueCursor,
       retentionDays: null,
       ownerContext: null,
     };
