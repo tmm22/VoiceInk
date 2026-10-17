@@ -36,6 +36,8 @@ export type ClerkController = {
   openSignIn(): void;
   // Mounts Clerk's account menu into the element; returns the unmount.
   mountUserButton(element: HTMLDivElement): () => void;
+  // Detaches the identity listener.
+  stop(): void;
 };
 
 const SCRIPT_TIMEOUT_MS = 15_000;
@@ -67,19 +69,31 @@ function loadScript(src: string, publishableKey: string, isReady: () => boolean)
   });
 }
 
+export class AccountChangedError extends Error {
+  constructor() {
+    super("The signed-in account changed before this request finished.");
+    this.name = "AccountChangedError";
+  }
+}
+
 function toAccountAuth(clerk: ClerkInstance): AccountAuth {
-  const session = clerk.session ?? null;
+  const sessionId = clerk.session?.id ?? null;
   return {
     enabled: true,
     isLoaded: true,
-    isSignedIn: Boolean(session),
-    identityKey: session?.id ?? "anonymous",
-    // Read the session at call time so a refreshed or switched session is
-    // always used. A session token customized with aud: "convex" is already a
-    // Convex token; otherwise mint one from the "convex" JWT template.
+    isSignedIn: sessionId !== null,
+    identityKey: sessionId ?? "anonymous",
+    // Bound to the session this identity was published for. Work captured
+    // under one account (a transcription still in flight, say) must never be
+    // saved with another account's token, so a switched or ended session
+    // throws instead; callers then report the save as failed. The token is
+    // read fresh each call, so Clerk's refreshed tokens are always used. A
+    // session token customized with aud: "convex" is already a Convex token;
+    // otherwise mint one from the "convex" JWT template.
     getConvexToken: async () => {
+      if (sessionId === null) return null;
       const current = clerk.session;
-      if (!current) return null;
+      if (!current || current.id !== sessionId) throw new AccountChangedError();
       return current.lastActiveToken?.jwt?.claims?.aud === "convex"
         ? current.getToken()
         : current.getToken({ template: "convex" });
@@ -119,7 +133,7 @@ export async function startClerk({ publishableKey, siteUrl, onAuthChange }: {
     publishedKey = key;
     onAuthChange(auth);
   };
-  clerk.addListener(publish);
+  const removeListener = clerk.addListener(publish);
   publish();
 
   return {
@@ -130,5 +144,6 @@ export async function startClerk({ publishableKey, siteUrl, onAuthChange }: {
       clerk.mountUserButton(element);
       return () => clerk.unmountUserButton(element);
     },
+    stop: removeListener,
   };
 }

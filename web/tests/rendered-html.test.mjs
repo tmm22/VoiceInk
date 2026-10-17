@@ -17,7 +17,8 @@ test("ships the VoiceInk production interface instead of the starter preview", a
   assert.match(page, /History/);
   assert.match(page, /Summarize/);
   assert.match(layout, /VoiceInk Web/);
-  assert.match(providers, /siteUrl, onAuthChange: setAccountAuth/);
+  assert.match(providers, /start\(\{\s*publishableKey,\s*siteUrl,/);
+  assert.match(providers, /onAuthChange: \(auth\) => publishAuth\(generation, auth\)/);
   assert.match(clerkSession, /signInForceRedirectUrl: siteUrl/);
   assert.match(clerkSession, /signUpForceRedirectUrl: siteUrl/);
   assert.doesNotMatch(`${page}\n${layout}`, /codex-preview|SkeletonPreview|Your site is taking shape/);
@@ -61,8 +62,10 @@ test("anonymous visitors never load Clerk and signed-in flows keep the verified 
   // aud === "convex" template selection, read at call time.
   assert.match(clerkSession, /lastActiveToken\?\.jwt\?\.claims\?\.aud === "convex"/);
   assert.match(clerkSession, /getToken\(\{ template: "convex" \}\)/);
-  assert.match(clerkSession, /identityKey: session\?\.id \?\? "anonymous"/);
-  assert.match(clerkSession, /const current = clerk\.session;/);
+  assert.match(clerkSession, /identityKey: sessionId \?\? "anonymous"/);
+  // Tokens are bound to the session the identity was published for
+  // (exercised in tests/clerk-session.test.mjs).
+  assert.match(clerkSession, /if \(!current \|\| current\.id !== sessionId\) throw new AccountChangedError\(\);/);
   // Clerk loads with its UI bundle, and the app tree is never re-parented:
   // {children} sits at one fixed position under both providers.
   assert.match(clerkSession, /ui: \{ ClerkUI: window\.__internal_ClerkUICtor \}/);

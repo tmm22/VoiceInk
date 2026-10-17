@@ -4,6 +4,7 @@ import {
   createContext,
   use,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -61,6 +62,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
   const controllerRef = useRef<ClerkController | null>(null);
   const startingRef = useRef<Promise<void> | null>(null);
   const openSignInWhenReadyRef = useRef(false);
+  // Bumped on unmount, so a startup that finishes afterwards (or one
+  // superseded by a remount) detaches its listener instead of publishing.
+  const generationRef = useRef(0);
 
   const handleClerkFailure = useCallback((error: unknown) => {
     // Blocked or failed Clerk load: log it (never tokens or transcript data)
@@ -73,13 +77,28 @@ export function AppProviders({ children }: { children: ReactNode }) {
     setStatus("failed");
   }, []);
 
+  // Identity updates from a superseded startup are dropped.
+  const publishAuth = useCallback((generation: number, auth: AccountAuth) => {
+    if (generation === generationRef.current) setAccountAuth(auth);
+  }, []);
+
   const startClerk = useCallback(() => {
     const publishableKey = clerkPublishableKey;
     if (startingRef.current || !publishableKey) return;
+    const generation = generationRef.current;
+    const isCurrent = () => generation === generationRef.current;
     setStatus("loading");
     startingRef.current = import("../lib/clerkSession")
-      .then(({ startClerk: start }) => start({ publishableKey, siteUrl, onAuthChange: setAccountAuth }))
+      .then(({ startClerk: start }) => start({
+        publishableKey,
+        siteUrl,
+        onAuthChange: (auth) => publishAuth(generation, auth),
+      }))
       .then((controller) => {
+        if (!isCurrent()) {
+          controller.stop();
+          return;
+        }
         controllerRef.current = controller;
         setStatus("ready");
         if (openSignInWhenReadyRef.current) {
@@ -88,7 +107,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         }
       })
       .catch(handleClerkFailure);
-  }, [handleClerkFailure]);
+  }, [handleClerkFailure, publishAuth]);
 
   // A present session hint means Clerk must load to verify the session. A
   // layout effect flips the header to its Loading placeholder before the
@@ -96,6 +115,15 @@ export function AppProviders({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     if (accountsConfigured && hasClerkSessionHint()) startClerk();
   }, [startClerk]);
+
+  // The root providers normally live for the whole page. If they unmount
+  // anyway, detach from Clerk; a later mount starts a fresh subscription.
+  useEffect(() => () => {
+    generationRef.current += 1;
+    controllerRef.current?.stop();
+    controllerRef.current = null;
+    startingRef.current = null;
+  }, []);
 
   const requestSignIn = useCallback(() => {
     if (controllerRef.current) {
