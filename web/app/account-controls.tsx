@@ -1,10 +1,10 @@
 "use client";
 
-import { useContext, useSyncExternalStore } from "react";
+import { use, useSyncExternalStore } from "react";
 import { accountsConfigured, ClerkGateContext, hasClerkSessionHint } from "./providers";
 
 function SignInRequestButton() {
-  const { requestSignIn } = useContext(ClerkGateContext);
+  const { requestSignIn } = use(ClerkGateContext);
   return (
     <div className="account-controls">
       <button onClick={requestSignIn}>Sign in</button>
@@ -24,7 +24,7 @@ function useClerkSessionHint(): boolean {
 }
 
 export function AccountControls() {
-  const { clerkMounted, clerkFailed, setControlsHost } = useContext(ClerkGateContext);
+  const { clerkMounted, clerkFailed, setControlsHost } = use(ClerkGateContext);
   const sessionHint = useClerkSessionHint();
   if (!accountsConfigured) return null;
   // Before the Clerk subtree mounts, show a plain Sign in button; clicking it

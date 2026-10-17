@@ -24,7 +24,7 @@ test("stop is staged: stopping, verifying, transcribing with elapsed seconds, sa
   // fabricated progress percentage.
   assert.match(page, /startTranscribeTicker/);
   assert.match(page, /Transcribing… \$\{transcribeElapsed\}s/);
-  assert.doesNotMatch(page, /%\`|progressPercent|fakeProgress/);
+  assert.doesNotMatch(page, /%`|progressPercent|fakeProgress/);
 });
 
 test("the Convex token overlaps inference and the saved row is prepended locally", async () => {

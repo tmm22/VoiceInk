@@ -57,10 +57,10 @@ function ClerkAuthBridge({ onAuthChange }: { onAuthChange: (auth: AccountAuth) =
 function OpenSignInOnLoad() {
   const clerk = useClerk();
   const { isLoaded, isSignedIn } = useAuth();
-  const opened = useRef(false);
+  const openedRef = useRef(false);
   useEffect(() => {
-    if (!isLoaded || isSignedIn || opened.current) return;
-    opened.current = true;
+    if (!isLoaded || isSignedIn || openedRef.current) return;
+    openedRef.current = true;
     clerk.openSignIn();
   }, [clerk, isLoaded, isSignedIn]);
   return null;

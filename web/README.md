@@ -115,11 +115,14 @@ The production smoke suite is non-mutating and does not invoke paid AI. A real a
 - Transcription requests require a server-verified Cloudflare Turnstile token whenever the Turnstile secret is configured (production configures it; local development uses Cloudflare's official test keys)
 - Cloudflare applies separate inference, import, and history rate limits; missing production bindings fail closed
 
-## Dependency holdbacks
+## Toolchain
 
-Dependencies were updated to the latest stable releases on October 17, 2026, with three deliberate holdbacks: ESLint stays on 9.x because `eslint-plugin-react` (pulled in by `eslint-config-next`) does not support ESLint 10; the web app stays on TypeScript 6.0 because `typescript-eslint` supports only versions below 6.1 (the ASR Worker, which is not linted, uses TypeScript 7); and `@types/node` tracks 22.x to match the minimum supported runtime. The `fflate` override pins the patched 0.7.5 release inside Satori's 0.7.x range.
+Every dependency is on its latest stable release, with no audit exceptions.
 
-The audit gate temporarily accepts only the exact build/lint dependency chain for [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) (`braces`, which has no patched release), reached through `eslint-config-next` and vinext's build-time CommonJS plugin. These packages only expand repository-controlled globs. The exception expires November 17, 2026 and rejects any new advisory, changed path, or critical severity, and a regression test confirms the affected packages are absent from deployed bundles: it inspects server sourcemaps and scans every client and server chunk for literals unique to each package (the client build emits no sourcemaps).
+- **TypeScript 7** type-checks both Workers (`npm run typecheck` runs TypeScript 7's native `tsc`). TypeScript 7 ships no JavaScript compiler API yet, so the web app follows [Microsoft's side-by-side setup](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/): `typescript` is an npm alias for `@typescript/typescript6`, which serves the 6.0 API to typescript-eslint, and `@typescript/native` is an alias for `typescript@7`, which provides `tsc`. Do not install `typescript@7` under the `typescript` name, or linting breaks. Revisit this once TypeScript 7.1 ships its API and typescript-eslint supports it.
+- **ESLint 10** runs an explicit flat config (`eslint.config.mjs`) instead of `eslint-config-next`, whose bundled React, accessibility, and import plugins do not support ESLint 10. It keeps every rule family that preset enforced, using `@eslint-react`, `eslint-plugin-jsx-a11y-x`, and `eslint-plugin-import-x`, plus the full `@eslint/js` and jsx-a11y recommended sets.
+- **No `braces` in the tree.** [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) will never be patched in `braces`, and `fast-glob` reaches it through `micromatch`. Both `fast-glob` dependents (`@next/eslint-plugin-next` and vinext's `vite-plugin-dynamic-import`) therefore resolve, through `package.json` overrides, to `vendor/fast-glob`: a small shim over `tinyglobby` that implements the API subset they use and throws on anything else. `tests/fast-glob-shim.test.mjs` pins its output to real fast-glob 3.3.3 results and fails if `braces` or `micromatch` return to the lockfile.
+- The `fflate` override pins the patched 0.7.5 release inside Satori's 0.7.x range. `@types/node` tracks 22.x to match the minimum supported runtime.
 
 ## Regression checks
 

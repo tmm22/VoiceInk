@@ -1,0 +1,12 @@
+{
+  "name": "fast-glob",
+  "version": "3.3.3-tinyglobby.1",
+  "private": true,
+  "description": "fast-glob API subset backed by tinyglobby, so the tree carries no braces/micromatch (GHSA-vfj7-8cjw-p6xm).",
+  "license": "MIT",
+  "main": "index.cjs",
+  "types": "index.d.ts",
+  "dependencies": {
+    "tinyglobby": "0.2.17"
+  }
+}
