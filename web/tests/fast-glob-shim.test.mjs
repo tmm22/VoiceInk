@@ -33,6 +33,13 @@ const CASES = [
   [["**/index.*"], { cwd: ROOT, ignore: ["**/lang/**"] }, ["src/index.ts"]],
   [["src/*", "src/**/*.js"], { cwd: ROOT }, ["src/a.ts", "src/b.js", "src/index.ts", "src/lang/de.js", "src/lang/index.js"]],
   [["./src/lang/*.js"], { cwd: ROOT, absolute: true }, [`${ROOT}/src/lang/de.js`, `${ROOT}/src/lang/index.js`]],
+  // "!pattern" entries exclude across every positive pattern in the call.
+  [["src/**/*.ts", "!src/index.ts"], { cwd: ROOT }, ["src/a.ts"]],
+  [["**/*.js", "!src/lang/**"], { cwd: ROOT }, ["src/b.js"]],
+  [["src/*", "src/lang/*", "!**/*.json"], { cwd: ROOT }, ["src/a.ts", "src/b.js", "src/index.ts", "src/lang/de.js", "src/lang/index.js"]],
+  [["!src/**"], { cwd: ROOT }, []],
+  [["**/*.ts", "!**/index.ts"], { cwd: ROOT, ignore: ["dir.ts/**"] }, ["src/a.ts"]],
+  [[`${ROOT}/src/*.ts`, `!${ROOT}/src/a.ts`], {}, [`${ROOT}/src/index.ts`]],
 ];
 
 async function withFixture(run) {

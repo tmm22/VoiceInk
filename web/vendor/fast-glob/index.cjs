@@ -50,7 +50,12 @@ function keepsDotSlashBase(pattern) {
 // relative to the process cwd), and "./dir/" bases are preserved.
 function planCalls(patterns, options) {
   const base = toTinyglobbyOptions(options);
-  return [].concat(patterns).map((pattern) => {
+  // fast-glob treats "!pattern" entries as ignores for every positive pattern
+  // in the call, so fold them into each per-pattern call's ignore list.
+  const all = [].concat(patterns);
+  const negatives = all.filter((pattern) => pattern.startsWith("!")).map((pattern) => pattern.slice(1));
+  if (negatives.length) base.ignore = [...(base.ignore ?? []), ...negatives];
+  return all.filter((pattern) => !pattern.startsWith("!")).map((pattern) => {
     const absolute = base.absolute === true || path.isAbsolute(pattern);
     return {
       pattern,
