@@ -65,6 +65,14 @@ test("a full 24 MB upload reserves a bounded worst-case amount for both models",
   assert.ok(estimate > 200_000, "24 MB at 8 kbps is several hundred audio minutes");
 });
 
+test("ASR settlement charges the published per-minute model prices", () => {
+  // Literal values: a short clip rounds 510 and 513 to the same charge, so
+  // only whole minutes catch a regression to the old rounded-down rate.
+  assert.equal(actualTranscriptionMicros(60, ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE), 5_200);
+  assert.equal(actualTranscriptionMicros(60, MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE), 513);
+  assert.equal(actualTranscriptionMicros(600, MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE), 5_130);
+});
+
 test("actual spend is settled per model from returned duration in integer micro-dollars", () => {
   assert.equal(actualTranscriptionMicros(60, ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE), ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE);
   assert.equal(actualTranscriptionMicros(90, MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE), Math.ceil(1.5 * MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE));

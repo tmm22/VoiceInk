@@ -75,16 +75,45 @@ test("audit exception only accepts the exact build-only braces chain until expir
   assert.deepEqual(evaluateAuditReport(unrelated, policy).blocked, ["other"]);
 });
 
+// Literals each build-only package carries that survive minification. The
+// client build emits no sourcemaps, so these are the only way to inspect it.
+const buildOnlySignatures = {
+  braces: "exceeds max characters",
+  micromatch: "No matches found for",
+  "fast-glob": "Patterns must be a string (non empty) or an array of strings",
+  "vite-plugin-commonjs": "vite-plugin-commonjs",
+  "vite-plugin-dynamic-import": "vite-plugin-dynamic-import",
+};
+
+async function readJavaScript(directory) {
+  const entries = await readdir(directory, { recursive: true });
+  return Promise.all(entries.filter((path) => /\.[cm]?js$/.test(path))
+    .map(async (path) => ({ path, text: await readFile(new URL(path, directory), "utf8") })));
+}
+
 test("the accepted build-only glob dependencies are absent from deployed bundles", async () => {
   const build = new URL("../dist/", import.meta.url);
   const entries = await readdir(build, { recursive: true });
-  const maps = entries.filter((path) => /^(client|server)\//.test(path) && path.endsWith(".js.map"));
-  assert.ok(maps.length > 0, "inspect real build sourcemaps, not an empty artifact directory");
-  for (const path of maps) {
+  const serverMaps = entries.filter((path) => path.startsWith("server/") && path.endsWith(".js.map"));
+  assert.ok(serverMaps.length > 0, "inspect real server sourcemaps, not an empty artifact directory");
+  for (const path of serverMaps) {
     const map = JSON.parse(await readFile(new URL(path, build), "utf8"));
-    for (const source of map.sources ?? []) {
+    assert.ok(Array.isArray(map.sources), `${path} has no sources list to inspect`);
+    for (const source of map.sources) {
       assert.doesNotMatch(source, /node_modules\/(?:braces|micromatch|fast-glob|vite-plugin-commonjs|vite-plugin-dynamic-import)\//,
         `build-only dependency leaked into ${path}`);
     }
+  }
+
+  const deployed = [
+    ...await readJavaScript(new URL("client/", build)),
+    ...await readJavaScript(new URL("server/", build)),
+  ];
+  assert.ok(deployed.some(({ path }) => path.startsWith("_next/static/chunks/")), "inspect real client chunks");
+  for (const [name, signature] of Object.entries(buildOnlySignatures)) {
+    const installed = await readJavaScript(new URL(`../node_modules/${name}/`, import.meta.url));
+    assert.ok(installed.some(({ text }) => text.includes(signature)), `${name} no longer contains its signature; update it`);
+    const leaked = deployed.find(({ text }) => text.includes(signature));
+    assert.equal(leaked, undefined, `${name} leaked into deployed ${leaked?.path}`);
   }
 });
