@@ -1,11 +1,10 @@
-"use client";
-
-import { useEffect, useState } from "react";
+import { useEffect, useState } from "preact/hooks";
 
 export type Theme = "editorial" | "mac";
 
 // The saved appearance is applied to <html data-theme> immediately and to
-// React state on the next tick, so the first render matches the server HTML.
+// component state on the next tick, so the first render matches the
+// prerendered HTML.
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>("editorial");
 

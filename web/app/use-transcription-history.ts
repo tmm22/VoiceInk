@@ -1,10 +1,8 @@
-"use client";
-
 // History state for the Home page: boot fetch scheduling, pagination,
 // optimistic deletes, retention, and the boot skeleton shape cache. Extracted
 // from app/page.tsx so both files stay reviewable and under the size cap.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import {
   clearTranscriptions,
   deleteTranscription,
@@ -82,11 +80,11 @@ export function useTranscriptionHistory(account: AccountAuth, onError: (message:
   }, []);
 
   // Sign-out drops the signed-in identity's cached shape metadata.
-  const previousIdentity = useRef(account.identityKey);
+  const previousIdentityRef = useRef(account.identityKey);
   useEffect(() => {
-    const previous = previousIdentity.current;
+    const previous = previousIdentityRef.current;
     if (previous === account.identityKey) return;
-    previousIdentity.current = account.identityKey;
+    previousIdentityRef.current = account.identityKey;
     if (account.identityKey === "anonymous" && previous !== "anonymous") clearHistoryShape(previous);
   }, [account.identityKey]);
 
@@ -100,22 +98,22 @@ export function useTranscriptionHistory(account: AccountAuth, onError: (message:
   // fallback timer restores the fail-closed anonymous fetch if Clerk never
   // resolves at all. Visitors without the cookie keep today's behavior: one
   // immediate anonymous fetch.
-  const awaitingHintedSession = useRef<boolean | null>(null);
+  const awaitingHintedSessionRef = useRef<boolean | null>(null);
   useEffect(() => {
-    if (awaitingHintedSession.current === null) {
-      awaitingHintedSession.current = accountsConfigured && !accountRef.current.enabled && hasClerkSessionHint();
+    if (awaitingHintedSessionRef.current === null) {
+      awaitingHintedSessionRef.current = accountsConfigured && !accountRef.current.enabled && hasClerkSessionHint();
     }
-    if (account.isLoaded && (!awaitingHintedSession.current || account.enabled)) {
-      awaitingHintedSession.current = false;
+    if (account.isLoaded && (!awaitingHintedSessionRef.current || account.enabled)) {
+      awaitingHintedSessionRef.current = false;
       queueMicrotask(() => {
         void refreshHistory();
       });
       return;
     }
-    if (!awaitingHintedSession.current) return;
+    if (!awaitingHintedSessionRef.current) return;
     const fallback = window.setTimeout(() => {
-      if (!awaitingHintedSession.current) return;
-      awaitingHintedSession.current = false;
+      if (!awaitingHintedSessionRef.current) return;
+      awaitingHintedSessionRef.current = false;
       void refreshHistory();
     }, hintedSessionFallbackMs);
     return () => window.clearTimeout(fallback);

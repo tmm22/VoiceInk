@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const buildDirectories = [
   fileURLToPath(new URL("../dist/", import.meta.url)),
-  fileURLToPath(new URL("../.vinext/", import.meta.url)),
 ];
 
 for (const directory of buildDirectories) {
@@ -14,4 +13,4 @@ for (const directory of buildDirectories) {
   await rm(directory, { recursive: true, force: true });
 }
 
-console.log("Removed web/dist and web/.vinext build outputs.");
+console.log("Removed the web/dist build output.");

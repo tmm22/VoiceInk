@@ -47,7 +47,7 @@ test("the Convex token overlaps inference and the saved row is prepended locally
   assert.match(body, /items\.some\(\(item\) => item\._id === savedId\)/);
   assert.doesNotMatch(body, /await refreshHistory\(\)/);
   // A summary generated while the save is in flight serializes on its promise.
-  assert.match(body, /pendingSave\.current = savePromise/);
+  assert.match(body, /pendingSaveRef\.current = savePromise/);
 });
 
 test("summaries are revealed as soon as generated; persistence is non-blocking", async () => {

@@ -1,6 +1,4 @@
-"use client";
-
-import { useState } from "react";
+import { useState } from "preact/hooks";
 import { TEXT_GENERATION_MODEL_LABEL, TEXT_GENERATION_MODEL_NAME } from "../shared/textGenerationContract";
 
 type EnhancementMode = "clean" | "concise" | "professional" | "notes";
@@ -99,7 +97,7 @@ export function AIEnhancementPanel({ text, onApply, onNarrate }: Props) {
           </div>
           {isEnhancing
             ? <div className="result-placeholder" role="status" aria-label="Rewriting transcript"><span /><span /><span /></div>
-            : <textarea aria-label="Rewritten transcript" value={enhancedText} onChange={(event) => setEnhancedText(event.target.value)} />}
+            : <textarea aria-label="Rewritten transcript" value={enhancedText} onInput={(event) => setEnhancedText(event.currentTarget.value)} />}
           {sourceHasChanged && <p className="enhancement-stale" role="status">The transcript changed after this result was generated. Rewrite it again before replacing the transcript.</p>}
         </div>
       )}

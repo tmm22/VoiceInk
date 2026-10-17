@@ -1,6 +1,5 @@
 import js from "@eslint/js";
 import eslintReact from "@eslint-react/eslint-plugin";
-import nextPlugin from "@next/eslint-plugin-next";
 import { defineConfig, globalIgnores } from "eslint/config";
 import importX from "eslint-plugin-import-x";
 import jsxA11y from "eslint-plugin-jsx-a11y-x";
@@ -8,12 +7,11 @@ import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
-// Explicit flat config instead of eslint-config-next, whose bundled
-// eslint-plugin-react, jsx-a11y and import plugins do not support ESLint 10.
-// It keeps every rule family that preset enabled, using maintained
-// ESLint 10 equivalents for React, accessibility and import rules.
+// Explicit flat config for a Preact app. It keeps the rule families the old
+// eslint-config-next preset enforced (core, TypeScript, hooks, React
+// correctness, accessibility, imports) using maintained ESLint 10 plugins.
 export default defineConfig([
-  globalIgnores([".next/**", "out/**", "build/**", "dist/**", "convex/_generated/**", "next-env.d.ts"]),
+  globalIgnores(["dist/**", "convex/_generated/**"]),
   {
     files: ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
@@ -26,24 +24,22 @@ export default defineConfig([
     ...eslintReact.configs["recommended-typescript"],
   },
   {
-    // eslint-config-next enforced react/display-name; @eslint-react keeps
-    // these equivalents out of its recommended set.
     files: ["**/*.{jsx,tsx}"],
+    settings: { "react-x": { importSource: "preact" } },
     rules: {
+      // eslint-config-next enforced react/display-name; @eslint-react keeps
+      // these equivalents out of its recommended set.
       "@eslint-react/no-missing-component-display-name": "error",
       "@eslint-react/no-missing-context-display-name": "error",
+      // These suggest React 19-only APIs (use(), <Context> as a provider) that
+      // Preact's core does not provide.
+      "@eslint-react/no-use-context": "off",
+      "@eslint-react/no-context-provider": "off",
     },
   },
-  nextPlugin.configs["core-web-vitals"],
   {
     files: ["**/*.{jsx,tsx}"],
     ...jsxA11y.configs.recommended,
-  },
-  {
-    // CommonJS sources (the vendored fast-glob shim) legitimately use require().
-    files: ["**/*.cjs"],
-    languageOptions: { sourceType: "commonjs" },
-    rules: { "@typescript-eslint/no-require-imports": "off" },
   },
   {
     plugins: { "import-x": importX },

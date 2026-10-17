@@ -1,5 +1,3 @@
-"use client";
-
 // Summary generation and persistence state for the Home page. Extracted from
 // app/page.tsx so both files stay reviewable and under the size cap.
 //
@@ -9,11 +7,11 @@
 // requested while the transcript's own history save is still in flight
 // serializes its PATCH on that save's promise so it is never dropped.
 
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useState, type Dispatch, type StateUpdater } from "preact/hooks";
 import { saveTranscriptionSummary, type TranscriptionHistoryItem } from "../lib/convex";
 import type { AccountAuth } from "../lib/accountAuth";
 
-type SetHistory = Dispatch<SetStateAction<TranscriptionHistoryItem[]>>;
+type SetHistory = Dispatch<StateUpdater<TranscriptionHistoryItem[]>>;
 
 export function useTranscriptSummary(account: AccountAuth, setHistory: SetHistory) {
   const [summary, setSummary] = useState("");

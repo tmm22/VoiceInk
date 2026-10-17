@@ -1,6 +1,5 @@
-"use client";
-
-import { useRef, useState } from "react";
+import type { CSSProperties } from "preact";
+import { useRef, useState } from "preact/hooks";
 import type { TranscriptionHistoryItem } from "../lib/convex";
 import { downloadTranscript } from "../lib/transcriptExport";
 import { TEXT_GENERATION_MODEL_LABEL } from "../shared/textGenerationContract";
@@ -128,7 +127,7 @@ export default function Home() {
         </div>
 
         <div className="wave" aria-hidden="true">
-          {Array.from({ length: 42 }, (_, index) => <span key={index} style={{ height: `${12 + ((index * 17) % 54)}px`, "--i": index } as React.CSSProperties} />)}
+          {Array.from({ length: 42 }, (_, index) => <span key={index} style={{ height: `${12 + ((index * 17) % 54)}px`, "--i": index } as CSSProperties} />)}
         </div>
 
         <div className="record-controls">
@@ -144,9 +143,9 @@ export default function Home() {
           <button type="button" onClick={() => audioFileInputRef.current?.click()} disabled={stage.busy || status === "recording"}>Upload audio file</button>
           <small>MP3, WAV, M4A, WebM and other browser-supported audio · 24 MB maximum · {account.isSignedIn ? "up to 2 hours" : "up to 10 minutes for guests"}</small>
           <input ref={audioFileInputRef} type="file" accept="audio/*" hidden onChange={(event) => {
-            const file = event.target.files?.[0];
+            const file = event.currentTarget.files?.[0];
             if (file) void session.uploadAudio(file);
-            event.target.value = "";
+            event.currentTarget.value = "";
           }} />
         </div>
 
@@ -160,12 +159,12 @@ export default function Home() {
 
       <section className="transcript-card">
         <div className="transcript-head"><div><small>TRANSCRIPT</small><span>{transcript ? `${transcript.split(/\s+/).length} words` : "Waiting for audio"}</span></div>{transcript && <div className="transcript-tools"><button className="summarize" onClick={() => void summarizeText(transcript, activeTranscriptionId, session.pendingSave.current)} disabled={summaryLoading}>{summaryLoading ? "Summarizing…" : "Summarize"}</button><button onClick={copyTranscript}>{copied ? "Copied" : "Copy"}</button><button onClick={() => downloadTranscript(transcript, "txt")}>TXT</button><button disabled={!transcriptSegments.length} title={transcriptSegments.length ? "Download timed subtitles" : "Timing is unavailable after editing"} onClick={() => downloadTranscript(transcript, "srt", transcriptSegments)}>SRT</button><button disabled={!transcriptSegments.length} title={transcriptSegments.length ? "Download timed subtitles" : "Timing is unavailable after editing"} onClick={() => downloadTranscript(transcript, "vtt", transcriptSegments)}>VTT</button></div>}</div>
-        <textarea aria-label="Transcript text" value={transcript} onChange={(event) => { setTranscript(event.target.value); setTranscriptSegments([]); }} placeholder="Your transcription will appear here…" />
+        <textarea aria-label="Transcript text" value={transcript} onInput={(event) => { setTranscript(event.currentTarget.value); setTranscriptSegments([]); }} placeholder="Your transcription will appear here…" />
       </section>
 
       {transcript && <AIEnhancementPanel text={transcript} onApply={(value) => { setTranscript(value); setTranscriptSegments([]); setSummary(""); setSummaryError(""); setSummaryNotice(""); }} onNarrate={setSpeechText} />}
 
-      {(summary || summaryLoading || summaryError) && <section className="summary-card"><div className="summary-head"><div><small>SUMMARY</small><span>{TEXT_GENERATION_MODEL_LABEL}</span></div>{summary && <div><button onClick={() => void copySummary()}>{summaryCopied ? "Copied" : "Copy"}</button><button onClick={() => setSpeechText(summary)}>Narrate summary</button></div>}</div>{summaryLoading ? <div className="result-placeholder" role="status" aria-label="Summarizing"><span /><span /><span /></div> : summary ? <textarea aria-label="AI-generated transcript summary" value={summary} onChange={(event) => setSummary(event.target.value)} /> : <p className="error" role="alert">{summaryError}</p>}{summaryNotice && <p className="summary-notice" role="status">{summaryNotice}</p>}<p className="ai-note">AI-generated summaries can make mistakes. Check important details against the transcript.</p></section>}
+      {(summary || summaryLoading || summaryError) && <section className="summary-card"><div className="summary-head"><div><small>SUMMARY</small><span>{TEXT_GENERATION_MODEL_LABEL}</span></div>{summary && <div><button onClick={() => void copySummary()}>{summaryCopied ? "Copied" : "Copy"}</button><button onClick={() => setSpeechText(summary)}>Narrate summary</button></div>}</div>{summaryLoading ? <div className="result-placeholder" role="status" aria-label="Summarizing"><span /><span /><span /></div> : summary ? <textarea aria-label="AI-generated transcript summary" value={summary} onInput={(event) => setSummary(event.currentTarget.value)} /> : <p className="error" role="alert">{summaryError}</p>}{summaryNotice && <p className="summary-notice" role="status">{summaryNotice}</p>}<p className="ai-note">AI-generated summaries can make mistakes. Check important details against the transcript.</p></section>}
 
       <TTSWorkspace transcript={transcript} text={speechText} onTextChange={setSpeechText} />
 

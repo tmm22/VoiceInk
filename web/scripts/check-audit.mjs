@@ -6,9 +6,9 @@ const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const severityRank = { info: 0, low: 1, moderate: 2, high: 3, critical: 4 };
 
 // Any high or critical advisory fails the gate; there are no exceptions. When
-// an advisory has no patched release, remove or replace the dependency (see
-// vendor/fast-glob for how the unpatched braces chain was removed) instead of
-// allowlisting it.
+// an advisory has no patched release, remove or replace the dependency instead
+// of allowlisting it (the unpatched braces chain left the tree when its
+// dependents, vinext and the Next.js lint plugin, were removed).
 export function evaluateAuditReport(report) {
   const blocked = Object.entries(report.vulnerabilities ?? {})
     .filter(([, vulnerability]) => (severityRank[vulnerability.severity] ?? -1) >= severityRank.high)

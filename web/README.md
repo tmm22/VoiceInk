@@ -32,7 +32,7 @@ Browser microphone
        │
        ▼
 voiceink-web Cloudflare Worker
-  ├─ Next.js/Vinext interface and static assets
+  ├─ prerendered Preact interface and static assets
   ├─ POST /api/transcribe
   ├─ POST /api/summarize and /api/enhance
   └─ Convex transcript mutation
@@ -86,6 +86,8 @@ npx convex dev
 npm run dev
 ```
 
+`npm run dev` serves the app at `http://localhost:5173` through the same Worker entry as production, so local pages carry the production CSP and security headers.
+
 Clerk is optional during local development. Without `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, the app runs anonymously and applies the one-hour retention policy. Production uses Clerk's production environment and publishable key on the `v.paul.im` domain; the key is supplied only while building and is not committed.
 
 The web interface returns a service error when inference is unavailable and never substitutes demonstration text for a real transcript. Production ASR is available only through the web Worker's private service binding; `npm run dev` wires no `ASR` binding (see `vite.config.ts`), so transcription, summaries, and enhancement answer 503 locally. Exercise the ASR Worker on its own with `wrangler dev` in `cloudflare-asr/` (local ledger, remote Workers AI), never through a public ASR URL.
@@ -115,14 +117,36 @@ The production smoke suite is non-mutating and does not invoke paid AI. A real a
 - Transcription requests require a server-verified Cloudflare Turnstile token whenever the Turnstile secret is configured (production configures it; local development uses Cloudflare's official test keys)
 - Cloudflare applies separate inference, import, and history rate limits; missing production bindings fail closed
 
+## Payload budget
+
+The app is a Preact single-page app built with Vite, because payload and memory matter more here than framework features. Measured October 17, 2026 for a signed-out first visit (production build):
+
+| | Before (Next.js on vinext, React) | Now (Preact + Vite) |
+| --- | ---: | ---: |
+| JavaScript, uncompressed | 536 KB in 7 files | 57 KB in 1 file |
+| JavaScript, compressed | 170 KB (brotli) | about 20 KB (gzip) |
+| CSS, uncompressed | 30 KB | 27 KB |
+| JS heap after load | 4.5 MB | 2.5 MB |
+| Worker script | 1.4 MB | 75 KB |
+| Signed-in Clerk glue | 184 KB lazy chunk | 1.5 KB lazy chunk |
+
+How it stays small:
+
+- **No framework router or server components.** The one page is prerendered into `index.html` at build time (`prerender()` in `app/main.tsx`) and hydrated in the browser. The Worker serves that shell with a fresh CSP nonce stamped onto its scripts by `HTMLRewriter`; hashed assets bypass the Worker.
+- **Core Preact only.** Components import from `preact` and `preact/hooks`, not `preact/compat`, which would add React's synthetic events and roughly 3 KB. Text inputs and range sliders therefore use `onInput` (Preact's `onChange` is the native, on-blur event).
+- **Clerk loads only when needed.** Anonymous visits load no Clerk code. `lib/clerkSession.ts` drives Clerk's own pinned browser scripts when a session hint or a Sign in click calls for it.
+- **No CSS framework at runtime or build time.** `app/reset.css` is Tailwind's compiled preflight, kept as static CSS; everything else is hand-written in `app/globals.css`.
+
+Before adding a dependency to the browser bundle, check its cost with `npm run build` (Vite prints each asset's raw and gzip size) and prefer lazy `import()` for anything a first visit does not need.
+
 ## Toolchain
 
 Every dependency is on its latest stable release, with no audit exceptions.
 
 - **TypeScript 7** type-checks both Workers (`npm run typecheck` runs TypeScript 7's native `tsc`). TypeScript 7 ships no JavaScript compiler API yet, so the web app follows [Microsoft's side-by-side setup](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/): `typescript` is an npm alias for `@typescript/typescript6`, which serves the 6.0 API to typescript-eslint, and `@typescript/native` is an alias for `typescript@7`, which provides `tsc`. Do not install `typescript@7` under the `typescript` name, or linting breaks. Revisit this once TypeScript 7.1 ships its API and typescript-eslint supports it.
-- **ESLint 10** runs an explicit flat config (`eslint.config.mjs`) instead of `eslint-config-next`, whose bundled React, accessibility, and import plugins do not support ESLint 10. It keeps every rule family that preset enforced, using `@eslint-react`, `eslint-plugin-jsx-a11y-x`, and `eslint-plugin-import-x`, plus the full `@eslint/js` and jsx-a11y recommended sets.
-- **No `braces` in the tree.** [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) will never be patched in `braces`, and `fast-glob` reaches it through `micromatch`. Both `fast-glob` dependents (`@next/eslint-plugin-next` and vinext's `vite-plugin-dynamic-import`) therefore resolve, through `package.json` overrides, to `vendor/fast-glob`: a small shim over `tinyglobby` that implements the API subset they use and throws on anything else. `tests/fast-glob-shim.test.mjs` pins its output to real fast-glob 3.3.3 results and fails if `braces` or `micromatch` return to the lockfile.
-- The `fflate` override pins the patched 0.7.5 release inside Satori's 0.7.x range. `@types/node` tracks 22.x to match the minimum supported runtime.
+- **ESLint 10** runs an explicit flat config (`eslint.config.mjs`): core, TypeScript, hooks, `@eslint-react` (configured for Preact), `eslint-plugin-jsx-a11y-x`, and `eslint-plugin-import-x`. The React Compiler hook rules recognize refs by name when hooks come from `preact/hooks`, so refs end in `Ref`.
+- **Public build configuration** keeps its `NEXT_PUBLIC_*` names so deployment variables did not change. `vite.config.ts` inlines them into the client bundle only; the Worker reads its own runtime variables.
+- [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) (`braces`, never patched) is not in the tree: it arrived only through vinext and the Next.js lint plugin, both removed. `@types/node` tracks 22.x to match the minimum supported runtime.
 
 ## Regression checks
 
