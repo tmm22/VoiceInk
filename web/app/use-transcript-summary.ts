@@ -11,7 +11,7 @@
 
 import { useState, type Dispatch, type SetStateAction } from "react";
 import { saveTranscriptionSummary, type TranscriptionHistoryItem } from "../lib/convex";
-import type { AccountAuth } from "./providers";
+import type { AccountAuth } from "../lib/accountAuth";
 
 type SetHistory = Dispatch<SetStateAction<TranscriptionHistoryItem[]>>;
 

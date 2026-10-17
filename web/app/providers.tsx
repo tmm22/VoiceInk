@@ -1,210 +1,126 @@
 "use client";
 
 import {
-  Component,
   createContext,
-  lazy,
-  startTransition,
-  Suspense,
   use,
   useCallback,
-  useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
+import { anonymousAuth, type AccountAuth } from "../lib/accountAuth";
+import { clerkPublishableKey, hasClerkSessionHint, preloadClerkScripts } from "../lib/clerkScripts";
+import type { ClerkController } from "../lib/clerkSession";
 
-export type AccountAuth = {
-  enabled: boolean;
-  isLoaded: boolean;
-  isSignedIn: boolean;
-  identityKey: string;
-  getConvexToken: () => Promise<string | null>;
+export type { AccountAuth } from "../lib/accountAuth";
+
+const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "/";
+export const accountsConfigured = Boolean(convexUrl && clerkPublishableKey);
+
+// idle: Clerk not requested (anonymous visit, nothing loaded).
+// loading: lib/clerkSession.ts and Clerk's scripts are loading.
+// ready: Clerk loaded; AccountAuthContext carries the verified identity.
+// failed: loading failed; the visitor stays anonymous and may retry.
+export type ClerkStatus = "idle" | "loading" | "ready" | "failed";
+
+type AccountGate = {
+  status: ClerkStatus;
+  requestSignIn: () => void;
+  mountUserButton: (element: HTMLDivElement) => () => void;
 };
 
-const anonymousAuth: AccountAuth = {
-  enabled: false,
-  isLoaded: true,
-  isSignedIn: false,
-  identityKey: "anonymous",
-  getConvexToken: async () => null,
-};
-
-// The default value keeps every consumer on the anonymous identity until the
-// lazily mounted Clerk bridge (app/clerk-subtree.tsx) publishes the verified
-// one into AppProviders state.
+// The default value keeps every consumer on the anonymous identity until
+// lib/clerkSession.ts publishes the verified one into AppProviders state.
 export const AccountAuthContext = createContext<AccountAuth>(anonymousAuth);
 AccountAuthContext.displayName = "AccountAuthContext";
 
-type ClerkGateValue = {
-  clerkMounted: boolean;
-  clerkFailed: boolean;
-  requestSignIn: () => void;
-  setControlsHost: (element: HTMLElement | null) => void;
-};
-export const ClerkGateContext = createContext<ClerkGateValue>({
-  clerkMounted: false,
-  clerkFailed: false,
+export const AccountGateContext = createContext<AccountGate>({
+  status: "idle",
   requestSignIn: () => {},
-  setControlsHost: () => {},
+  mountUserButton: () => () => {},
 });
-ClerkGateContext.displayName = "ClerkGateContext";
-
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-export const accountsConfigured = Boolean(convexUrl && clerkKey);
-
-// The whole Clerk machinery (ClerkProvider + auth bridge + account controls)
-// lives in one lazily loaded chunk so anonymous hydration ships no Clerk SDK
-// bytes.
-const ClerkSubtree = lazy(() => import("./clerk-subtree"));
-
-// Clerk keeps a client-readable session hint in the __client_uat cookie
-// ("updated at"; suffixed with an instance hash when several Clerk apps share
-// a registrable domain). A non-zero value means a session may exist, so the
-// Clerk subtree must mount and verify it; absent or "0" means signed out and
-// clerk-js is never loaded. SSR-safe: without a document it reports false.
-export function hasClerkSessionHint(): boolean {
-  if (typeof document === "undefined") return false;
-  return document.cookie.split(";").some((pair) => {
-    const separator = pair.indexOf("=");
-    if (separator === -1) return false;
-    const name = pair.slice(0, separator).trim();
-    if (name !== "__client_uat" && !name.startsWith("__client_uat_")) return false;
-    const value = pair.slice(separator + 1).trim();
-    return value !== "" && value !== "0";
-  });
-}
-
-// Duplicated from app/clerk-subtree.tsx: importing the constant from there
-// would statically link the whole Clerk chunk into this eagerly hydrated
-// module and defeat the lazy gate. A regression test asserts the two copies
-// stay equal (and the subtree's copy is itself asserted against the installed
-// @clerk packages).
-const CLERK_JS_VERSION = "6.39.0";
-const CLERK_FRONTEND_API = "https://clerk.paul.im";
+AccountGateContext.displayName = "AccountGateContext";
 
 // Module-scope warm start: when the session hint is already present at client
-// module evaluation, the Clerk subtree is certain to mount, so start the
-// chunk download plus the clerk-js network work (preconnect + pinned script
-// preload, matching the crossorigin="anonymous" request loadClerkJsScript
-// makes) immediately instead of waiting for the post-hydration effect. The
-// cookie-effect gate in AppProviders stays the mount trigger; this only
-// overlaps network latency with hydration. Server-side evaluation is skipped
-// by the document guard.
-if (typeof document !== "undefined" && accountsConfigured && hasClerkSessionHint()) {
-  void import("./clerk-subtree");
-  const preconnect = document.createElement("link");
-  preconnect.rel = "preconnect";
-  preconnect.href = CLERK_FRONTEND_API;
-  document.head.appendChild(preconnect);
-  const preload = document.createElement("link");
-  preload.rel = "preload";
-  preload.as = "script";
-  preload.crossOrigin = "anonymous";
-  // as="script" preloads are checked against script-src, and under the
-  // proxy's 'nonce-…' 'strict-dynamic' policy only the per-request nonce
-  // admits them ('strict-dynamic' trust propagates to dynamically created
-  // scripts, not to link preloads, and it disables the host allowlist).
-  // Copy the page nonce from any nonced script element — the nonce IDL
-  // property stays readable to same-origin scripts even though browsers
-  // hide the content attribute.
-  const nonce = document.querySelector<HTMLScriptElement>("script[nonce]")?.nonce;
-  if (nonce) preload.nonce = nonce;
-  preload.href = `${CLERK_FRONTEND_API}/npm/@clerk/clerk-js@${CLERK_JS_VERSION}/dist/clerk.browser.js`;
-  document.head.appendChild(preload);
-}
-
-type ClerkGateState = "anonymous" | "mounted" | "sign-in";
-
-// Catches a failed clerk-subtree chunk load or a crash inside the Clerk
-// machinery. It wraps ONLY the Clerk sibling subtree — never the application —
-// so an app render error still reaches Next.js error handling; a Clerk failure
-// is reported upward, where AppProviders logs it and drops back to the
-// fail-closed anonymous identity.
-class ClerkLoadBoundary extends Component<
-  { onFailure: (error: unknown) => void; children: ReactNode },
-  { failed: boolean }
-> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  componentDidCatch(error: unknown) {
-    this.props.onFailure(error);
-  }
-  render() {
-    return this.state.failed ? null : this.props.children;
-  }
+// module evaluation, Clerk is certain to load, so start the loader chunk and
+// both pinned Clerk scripts downloading during hydration instead of after it.
+// Server-side evaluation is skipped by the document guard.
+if (typeof document !== "undefined" && accountsConfigured && clerkPublishableKey && hasClerkSessionHint()) {
+  void import("../lib/clerkSession");
+  preloadClerkScripts(clerkPublishableKey);
 }
 
 export function AppProviders({ children }: { children: ReactNode }) {
-  // History flows through the Worker's /api/history routes; the browser never
-  // talks to Convex directly, so no Convex client (or its WebSocket) is created.
-  const [gate, setGate] = useState<ClerkGateState>("anonymous");
-  const [clerkFailed, setClerkFailed] = useState(false);
-  // The verified account identity, lifted out of the Clerk sibling subtree by
-  // ClerkAuthBridge. Holding it in state here lets {children} keep one fixed
-  // tree position in every gate state: opening the gate mounts Clerk NEXT TO
-  // the app instead of re-parenting it, so in-memory recording and
-  // transcription state is never lost to a remount.
-  const [accountAuth, setAccountAuth] = useState<AccountAuth>(anonymousAuth);
-  // The header element the Clerk chunk portals its account controls into.
-  const [controlsHost, setControlsHost] = useState<HTMLElement | null>(null);
-
   // The server render and the first client render are always anonymous so
-  // hydration matches; the session-hint cookie check runs afterwards in an
-  // effect. startTransition keeps the anonymous UI interactive while the
-  // Clerk chunk loads.
-  useEffect(() => {
-    if (!accountsConfigured || !hasClerkSessionHint()) return;
-    startTransition(() => setGate((current) => (current === "anonymous" ? "mounted" : current)));
-  }, []);
-
-  const requestSignIn = useCallback(() => {
-    // Clearing the failure flag lets a visitor retry after a chunk-load or
-    // Clerk crash fallback.
-    setClerkFailed(false);
-    startTransition(() => setGate((current) => (current === "sign-in" ? current : "sign-in")));
-  }, []);
+  // hydration matches.
+  const [status, setStatus] = useState<ClerkStatus>("idle");
+  const [accountAuth, setAccountAuth] = useState<AccountAuth>(anonymousAuth);
+  const controllerRef = useRef<ClerkController | null>(null);
+  const startingRef = useRef<Promise<void> | null>(null);
+  const openSignInWhenReadyRef = useRef(false);
 
   const handleClerkFailure = useCallback((error: unknown) => {
-    // Chunk-load or Clerk render failure: log it (never tokens or transcript
-    // data) and stay fail-closed on the anonymous identity. The application
-    // subtree is a sibling, so it keeps running untouched.
-    console.error("Clerk subtree failed to load or crashed; continuing anonymously", error);
+    // Blocked or failed Clerk load: log it (never tokens or transcript data)
+    // and stay fail-closed on the anonymous identity. Clearing the in-flight
+    // marker lets a later Sign in click retry.
+    console.error("Clerk failed to load; continuing anonymously", error);
+    startingRef.current = null;
+    openSignInWhenReadyRef.current = false;
     setAccountAuth(anonymousAuth);
-    setClerkFailed(true);
+    setStatus("failed");
   }, []);
 
-  const clerkMounted = gate !== "anonymous" && !clerkFailed;
-  const gateValue = useMemo<ClerkGateValue>(
-    () => ({ clerkMounted, clerkFailed, requestSignIn, setControlsHost }),
-    [clerkMounted, clerkFailed, requestSignIn],
+  const startClerk = useCallback(() => {
+    const publishableKey = clerkPublishableKey;
+    if (startingRef.current || !publishableKey) return;
+    setStatus("loading");
+    startingRef.current = import("../lib/clerkSession")
+      .then(({ startClerk: start }) => start({ publishableKey, siteUrl, onAuthChange: setAccountAuth }))
+      .then((controller) => {
+        controllerRef.current = controller;
+        setStatus("ready");
+        if (openSignInWhenReadyRef.current) {
+          openSignInWhenReadyRef.current = false;
+          controller.openSignIn();
+        }
+      })
+      .catch(handleClerkFailure);
+  }, [handleClerkFailure]);
+
+  // A present session hint means Clerk must load to verify the session. A
+  // layout effect flips the header to its Loading placeholder before the
+  // first paint, so a likely-signed-in visitor never sees a Sign in flash.
+  useLayoutEffect(() => {
+    if (accountsConfigured && hasClerkSessionHint()) startClerk();
+  }, [startClerk]);
+
+  const requestSignIn = useCallback(() => {
+    if (controllerRef.current) {
+      controllerRef.current.openSignIn();
+      return;
+    }
+    openSignInWhenReadyRef.current = true;
+    startClerk();
+  }, [startClerk]);
+
+  const mountUserButton = useCallback(
+    (element: HTMLDivElement) => controllerRef.current?.mountUserButton(element) ?? (() => {}),
+    [],
+  );
+
+  const gate = useMemo<AccountGate>(
+    () => ({ status, requestSignIn, mountUserButton }),
+    [status, requestSignIn, mountUserButton],
   );
 
   if (!accountsConfigured) return children;
-
-  // {children} renders at the same position in every gate state. The Clerk
-  // machinery mounts as a sibling with no visible output of its own (the
-  // account controls reach their header slot through a portal), and its
-  // Suspense fallback is null, so the anonymous UI simply stays on screen
-  // while the chunk loads — never a spinner, never a remount.
   return (
-    <ClerkGateContext value={gateValue}>
+    <AccountGateContext value={gate}>
       <AccountAuthContext value={accountAuth}>{children}</AccountAuthContext>
-      {clerkMounted && (
-        <ClerkLoadBoundary onFailure={handleClerkFailure}>
-          <Suspense fallback={null}>
-            <ClerkSubtree
-              openSignIn={gate === "sign-in"}
-              onAuthChange={setAccountAuth}
-              controlsHost={controlsHost}
-            />
-          </Suspense>
-        </ClerkLoadBoundary>
-      )}
-    </ClerkGateContext>
+    </AccountGateContext>
   );
 }
 

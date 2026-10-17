@@ -7,119 +7,109 @@ const root = new URL("../", import.meta.url);
 const source = (path) => readFile(new URL(path, root), "utf8");
 
 test("ships the VoiceInk production interface instead of the starter preview", async () => {
-  const [page, layout, clerkSubtree] = await Promise.all([
+  const [page, layout, providers, clerkSession] = await Promise.all([
     studioSource(),
     source("app/layout.tsx"),
-    source("app/clerk-subtree.tsx"),
+    source("app/providers.tsx"),
+    source("lib/clerkSession.ts"),
   ]);
   assert.match(page, /Ready to record/);
   assert.match(page, /History/);
   assert.match(page, /Summarize/);
   assert.match(layout, /VoiceInk Web/);
-  assert.match(clerkSubtree, /signInForceRedirectUrl=\{siteUrl\}/);
-  assert.match(clerkSubtree, /signUpForceRedirectUrl=\{siteUrl\}/);
+  assert.match(providers, /siteUrl, onAuthChange: setAccountAuth/);
+  assert.match(clerkSession, /signInForceRedirectUrl: siteUrl/);
+  assert.match(clerkSession, /signUpForceRedirectUrl: siteUrl/);
   assert.doesNotMatch(`${page}\n${layout}`, /codex-preview|SkeletonPreview|Your site is taking shape/);
   await assert.rejects(access(new URL("app/_sites-preview", root)));
 });
 
-test("anonymous visitors never load the Clerk SDK and signed-in flows keep the verified bridge", async () => {
-  const [providers, clerkSubtree] = await Promise.all([
+test("anonymous visitors never load Clerk and signed-in flows keep the verified bridge", async () => {
+  const [providers, clerkScripts, clerkSession, accountAuth, accountControls, packageJson] = await Promise.all([
     source("app/providers.tsx"),
-    source("app/clerk-subtree.tsx"),
+    source("lib/clerkScripts.ts"),
+    source("lib/clerkSession.ts"),
+    source("lib/accountAuth.ts"),
+    source("app/account-controls.tsx"),
+    source("package.json"),
   ]);
-  // The eagerly hydrated module must not import Clerk statically; the whole
-  // Clerk subtree loads through one lazy chunk behind the session-hint gate.
-  assert.doesNotMatch(providers, /from "@clerk\//);
-  assert.match(providers, /lazy\(/);
-  assert.match(providers, /import\("\.\/clerk-subtree"\)/);
-  // The gate: mount on a non-zero __client_uat session hint, checked in an
-  // effect so SSR and the first client render stay anonymous, or on an
+  // No Clerk framework SDK ships at all: the app drives Clerk's own pinned
+  // browser scripts, and the loader module is only reached through a dynamic
+  // import behind the session-hint gate or an explicit Sign in click.
+  assert.doesNotMatch(packageJson, /"@clerk\//);
+  for (const eager of [providers, clerkScripts, accountAuth, accountControls]) {
+    assert.doesNotMatch(eager, /from "@clerk\//);
+    assert.doesNotMatch(eager, /import \{[^}]*\} from "\.\.\/lib\/clerkSession"/);
+  }
+  assert.match(providers, /import type \{ ClerkController \} from "\.\.\/lib\/clerkSession"/);
+  assert.match(providers, /startingRef\.current = import\("\.\.\/lib\/clerkSession"\)/);
+  // The gate: start on a non-zero __client_uat session hint, checked after
+  // hydration so SSR and the first client render stay anonymous, or on an
   // explicit Sign in click.
-  assert.match(providers, /__client_uat/);
-  assert.match(providers, /value !== "" && value !== "0"/);
-  assert.match(providers, /useEffect/);
+  assert.match(clerkScripts, /__client_uat/);
+  assert.match(clerkScripts, /value !== "" && value !== "0"/);
+  assert.match(providers, /if \(accountsConfigured && hasClerkSessionHint\(\)\) startClerk\(\);/);
   assert.match(providers, /requestSignIn/);
-  // Anonymous consumers keep the fail-closed anonymous identity by default.
-  assert.match(providers, /identityKey: "anonymous"/);
-  assert.match(providers, /getConvexToken: async \(\) => null/);
-  // The moved bridge preserves the verified-identity contract for signed-in
-  // users, including the aud === "convex" template selection.
-  assert.match(clerkSubtree, /sessionClaims\?\.aud === "convex"/);
-  assert.match(clerkSubtree, /getToken\(\{ template: "convex" \}\)/);
-  assert.match(clerkSubtree, /identityKey: sessionId \?\? "anonymous"/);
-  // The Clerk-backed controls (which call useAuth) live only in the lazy
-  // subtree module, never in the always-hydrated providers module.
-  assert.doesNotMatch(providers, /useAuth\(\)/);
-  assert.match(clerkSubtree, /export function ClerkAccountControls/);
-  // Opening the gate must never remount the app: {children} keeps one fixed
-  // tree position while the Clerk machinery mounts as a childless sibling
-  // that lifts the verified identity up via state and portals the account
-  // controls into their header host.
-  assert.match(providers, /<AccountAuthContext value=\{accountAuth\}>\{children\}<\/AccountAuthContext>/);
-  assert.match(providers, /onAuthChange=\{setAccountAuth\}/);
-  assert.doesNotMatch(providers, /<ClerkSubtree[^>]*>\s*\{children\}/);
-  assert.match(clerkSubtree, /createPortal\(<ClerkAccountControls \/>, controlsHost\)/);
-  // The error boundary wraps only the Clerk sibling (an app crash must still
-  // reach Next.js error handling) and the fallback to anonymous auth is
-  // logged, never silent.
-  assert.match(providers, /console\.error\("Clerk subtree failed/);
+  // Consumers keep the fail-closed anonymous identity by default and after a
+  // failed load, and the failure is logged rather than silent.
+  assert.match(accountAuth, /identityKey: "anonymous"/);
+  assert.match(accountAuth, /getConvexToken: async \(\) => null/);
+  assert.match(providers, /createContext<AccountAuth>\(anonymousAuth\)/);
+  assert.match(providers, /console\.error\("Clerk failed to load; continuing anonymously"/);
   assert.match(providers, /setAccountAuth\(anonymousAuth\)/);
+  // The verified-identity contract for signed-in users, including the
+  // aud === "convex" template selection, read at call time.
+  assert.match(clerkSession, /lastActiveToken\?\.jwt\?\.claims\?\.aud === "convex"/);
+  assert.match(clerkSession, /getToken\(\{ template: "convex" \}\)/);
+  assert.match(clerkSession, /identityKey: session\?\.id \?\? "anonymous"/);
+  assert.match(clerkSession, /const current = clerk\.session;/);
+  // Clerk loads with its UI bundle, and the app tree is never re-parented:
+  // {children} sits at one fixed position under both providers.
+  assert.match(clerkSession, /ui: \{ ClerkUI: window\.__internal_ClerkUICtor \}/);
+  assert.match(providers, /<AccountAuthContext value=\{accountAuth\}>\{children\}<\/AccountAuthContext>/);
+  assert.match(accountControls, /mountUserButton/);
 });
 
-test("session-hint warm start preloads clerk-js and avoids a Sign in flash", async () => {
-  const [providers, clerkSubtree] = await Promise.all([
+test("session-hint warm start preloads pinned Clerk scripts and avoids a Sign in flash", async () => {
+  const [providers, clerkScripts, clerkSession, accountControls] = await Promise.all([
     source("app/providers.tsx"),
-    source("app/clerk-subtree.tsx"),
+    source("lib/clerkScripts.ts"),
+    source("lib/clerkSession.ts"),
+    source("app/account-controls.tsx"),
   ]);
-  // Module-scope kickoff: browser-only, only when the __client_uat hint says
-  // a session may exist, and it warms the same lazy chunk the gate mounts.
-  assert.match(providers, /export function hasClerkSessionHint/);
+  // Module-scope kickoff: browser-only, only when the hint says a session may
+  // exist, and it warms the same loader chunk the gate imports.
   assert.match(
     providers,
-    /typeof document !== "undefined" && accountsConfigured && hasClerkSessionHint\(\)/,
+    /typeof document !== "undefined" && accountsConfigured && clerkPublishableKey && hasClerkSessionHint\(\)/,
   );
-  assert.match(providers, /void import\("\.\/clerk-subtree"\)/);
-  // Preconnect plus a pinned clerk-js preload that matches the
-  // crossorigin="anonymous" script request loadClerkJsScript makes — an
-  // attribute mismatch would silently double-fetch the script.
-  assert.match(providers, /rel = "preconnect"/);
-  assert.match(providers, /CLERK_FRONTEND_API = "https:\/\/clerk\.paul\.im"/);
-  assert.match(providers, /rel = "preload"/);
-  assert.match(providers, /as = "script"/);
-  assert.match(providers, /crossOrigin = "anonymous"/);
-  assert.match(providers, /npm\/@clerk\/clerk-js@\$\{CLERK_JS_VERSION\}\/dist\/clerk\.browser\.js/);
-  // The as="script" preload must carry the page CSP nonce: under the proxy's
-  // 'nonce-…' 'strict-dynamic' script-src, an un-nonced link preload is
-  // blocked ('strict-dynamic' trust does not extend to link preloads and the
-  // host allowlist is ignored). The nonce is copied from a nonced script's
-  // readable nonce IDL property.
-  assert.match(providers, /document\.querySelector<HTMLScriptElement>\("script\[nonce\]"\)\?\.nonce/);
-  assert.match(providers, /if \(nonce\) preload\.nonce = nonce;/);
-  // The version pin is deliberately duplicated (importing it from the subtree
-  // would statically link the Clerk chunk into the eager module and defeat
-  // the lazy gate); the two copies must never drift apart. The subtree copy
-  // is separately asserted against the installed @clerk packages.
-  const providersPin = providers.match(/CLERK_JS_VERSION = "([0-9.]+)"/)?.[1];
-  const subtreePin = clerkSubtree.match(/CLERK_JS_VERSION = "([0-9.]+)"/)?.[1];
-  assert.ok(providersPin, "providers.tsx must pin an exact clerk-js version");
-  assert.equal(
-    providersPin,
-    subtreePin,
-    "the providers.tsx clerk-js pin must match app/clerk-subtree.tsx",
-  );
-  // No Sign in flash: with the hint present (and Clerk not failed) the header
-  // renders the same Loading placeholder ClerkAccountControls starts with.
-  // The hint is read through useSyncExternalStore with a false server
-  // snapshot so the hydration render still matches the anonymous SSR markup,
-  // and a Clerk load failure falls back to the retryable Sign in button.
-  const accountControls = await source("app/account-controls.tsx");
-  assert.match(
-    accountControls,
-    /useSyncExternalStore\(subscribeToNothing, hasClerkSessionHint, noServerHint\)/,
-  );
-  assert.match(accountControls, /const noServerHint = \(\) => false/);
-  assert.match(accountControls, /sessionHint && !clerkFailed/);
+  assert.match(providers, /void import\("\.\.\/lib\/clerkSession"\)/);
+  assert.match(providers, /preloadClerkScripts\(clerkPublishableKey\)/);
+  // Both scripts are pinned to exact versions; major-only URLs answer with an
+  // uncacheable 307 on every visit.
+  assert.match(clerkScripts, /CLERK_JS_VERSION = "\d+\.\d+\.\d+"/);
+  assert.match(clerkScripts, /CLERK_UI_VERSION = "\d+\.\d+\.\d+"/);
+  assert.match(clerkScripts, /npm\/@clerk\/clerk-js@\$\{CLERK_JS_VERSION\}\/dist\/clerk\.browser\.js/);
+  assert.match(clerkScripts, /npm\/@clerk\/ui@\$\{CLERK_UI_VERSION\}\/dist\/ui\.browser\.js/);
+  // Preconnect plus preloads that match the loader's crossorigin="anonymous"
+  // script requests (a mismatch would double-fetch), and the loader's own
+  // script tags. Both carry the page CSP nonce: under 'nonce-…'
+  // 'strict-dynamic', an un-nonced as="script" preload is blocked.
+  assert.match(clerkScripts, /rel = "preconnect"/);
+  assert.match(clerkScripts, /rel = "preload"/);
+  assert.match(clerkScripts, /as = "script"/);
+  assert.match(clerkScripts, /preload\.crossOrigin = "anonymous"/);
+  assert.match(clerkScripts, /if \(nonce\) preload\.nonce = nonce;/);
+  assert.match(clerkScripts, /document\.querySelector<HTMLScriptElement>\("script\[nonce\]"\)\?\.nonce/);
+  assert.match(clerkSession, /script\.crossOrigin = "anonymous"/);
+  assert.match(clerkSession, /if \(nonce\) script\.nonce = nonce;/);
+  // No Sign in flash: a layout effect moves the gate to "loading" before the
+  // first paint when the hint is present, and the header shows Loading while
+  // Clerk loads; a failed load falls back to the retryable Sign in button.
+  assert.match(providers, /useLayoutEffect\(\(\) => \{\n\s+if \(accountsConfigured && hasClerkSessionHint\(\)\) startClerk\(\);/);
+  assert.match(accountControls, /status === "loading"/);
   assert.match(accountControls, /<span>Loading<\/span>/);
+  assert.match(accountControls, /<button onClick=\{requestSignIn\}>Sign in<\/button>/);
 });
 
 test("immutable cache rule covers the path vinext actually emits assets under", async () => {
@@ -133,15 +123,10 @@ test("immutable cache rule covers the path vinext actually emits assets under", 
   assert.ok(chunks.some((f) => f.endsWith(".js")), "expected built chunks under dist/client/_next/static/chunks");
 });
 
-test("pins clerk-js to the exact version the installed Clerk SDK resolves", async () => {
-  const clerkSubtree = await source("app/clerk-subtree.tsx");
-  assert.match(clerkSubtree, /__internal_clerkJSVersion: CLERK_JS_VERSION/);
-  assert.match(clerkSubtree, /\{\.\.\.clerkScriptPin\}/);
-  const pin = clerkSubtree.match(/CLERK_JS_VERSION = "([0-9.]+)"/)?.[1];
-  assert.ok(pin, "the clerk-js pin must be an exact x.y.z version");
-  const selector = await source("node_modules/@clerk/shared/dist/versionSelector.mjs");
-  const resolved = selector.match(/packageVersion = "([0-9.]+)"/)?.[1];
-  assert.equal(pin, resolved, "the clerk-js pin must match the version the installed @clerk packages resolve to");
+test("the production smoke suite verifies both pinned Clerk script URLs resolve", async () => {
+  const smoke = await source("tests/production-smoke.mjs");
+  assert.match(smoke, /clerkScriptUrls/);
+  assert.match(smoke, /redirect: "error"/);
 });
 
 test("keeps costly production routes behind edge controls", async () => {

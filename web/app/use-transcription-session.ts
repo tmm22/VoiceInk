@@ -12,7 +12,7 @@ import {
 import { requestTranscription, transcriptionFailureMessage } from "../lib/transcriptionRequest";
 import { beginTranscriptionTokenHold, releaseTranscriptionTokenHold } from "../lib/turnstileClient";
 import { MAXIMUM_AUDIO_BYTES, type TranscriptionSegment } from "../shared/transcriptionContract";
-import type { AccountAuth } from "./providers";
+import type { AccountAuth } from "../lib/accountAuth";
 import { useRecordingSession } from "./use-recording-session";
 
 export type Status = "idle" | "starting" | "recording" | "validating" | "stopping" | "verifying" | "transcribing" | "saving" | "done" | "error";

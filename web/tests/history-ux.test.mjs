@@ -116,7 +116,7 @@ test("clearing removes the namespaced entry and its pointer, and storage failure
 test("boot skips the anonymous history fetch when a Clerk session is hinted", async () => {
   const hook = await source("app/use-transcription-history.ts");
   // The skip decision reads the same cookie hint the Clerk mount gate uses.
-  assert.match(hook, /import \{ hasClerkSessionHint, type AccountAuth \} from "\.\/providers"/);
+  assert.match(hook, /import \{ hasClerkSessionHint \} from "\.\.\/lib\/clerkScripts"/);
   assert.match(hook, /awaitingHintedSession/);
   // Hardened deps: primitives plus the identity-stable refreshHistory only,
   // so a new account object cannot double-fetch on boot.
