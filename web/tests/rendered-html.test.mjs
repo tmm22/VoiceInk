@@ -55,7 +55,7 @@ test("anonymous visitors never load the Clerk SDK and signed-in flows keep the v
   // tree position while the Clerk machinery mounts as a childless sibling
   // that lifts the verified identity up via state and portals the account
   // controls into their header host.
-  assert.match(providers, /AccountAuthContext\.Provider value=\{accountAuth\}>\{children\}<\/AccountAuthContext\.Provider>/);
+  assert.match(providers, /<AccountAuthContext value=\{accountAuth\}>\{children\}<\/AccountAuthContext>/);
   assert.match(providers, /onAuthChange=\{setAccountAuth\}/);
   assert.doesNotMatch(providers, /<ClerkSubtree[^>]*>\s*\{children\}/);
   assert.match(clerkSubtree, /createPortal\(<ClerkAccountControls \/>, controlsHost\)/);

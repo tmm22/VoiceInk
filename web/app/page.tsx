@@ -20,7 +20,7 @@ type WorkspaceTab = "studio" | "history";
 
 export default function Home() {
   const account = useAccountAuth();
-  const audioFileInput = useRef<HTMLInputElement | null>(null);
+  const audioFileInputRef = useRef<HTMLInputElement | null>(null);
   const [transcript, setTranscript] = useState("");
   const [transcriptSegments, setTranscriptSegments] = useState<TranscriptionSegment[]>([]);
   const [activeTranscriptionId, setActiveTranscriptionId] = useState<string | null>(null);
@@ -99,9 +99,9 @@ export default function Home() {
   return (
     <main>
       <header className="topbar">
-        <a className="brand" href="#" aria-label="VoiceInk Web home">
-          <span className="brand-mark">V</span><span>VoiceInk <em>web</em></span>
-        </a>
+        <div className="brand">
+          <span className="brand-mark" aria-hidden="true">V</span><span>VoiceInk <em>web</em></span>
+        </div>
         <div className="header-actions">
           <nav className="workspace-tabs" aria-label="Workspace">
             <button className={activeTab === "studio" ? "active" : ""} onClick={() => setActiveTab("studio")} aria-current={activeTab === "studio" ? "page" : undefined}>Studio</button>
@@ -141,9 +141,9 @@ export default function Home() {
         </div>
         <div className="audio-upload">
           <span>or</span>
-          <button type="button" onClick={() => audioFileInput.current?.click()} disabled={stage.busy || status === "recording"}>Upload audio file</button>
+          <button type="button" onClick={() => audioFileInputRef.current?.click()} disabled={stage.busy || status === "recording"}>Upload audio file</button>
           <small>MP3, WAV, M4A, WebM and other browser-supported audio · 24 MB maximum · {account.isSignedIn ? "up to 2 hours" : "up to 10 minutes for guests"}</small>
-          <input ref={audioFileInput} type="file" accept="audio/*" hidden onChange={(event) => {
+          <input ref={audioFileInputRef} type="file" accept="audio/*" hidden onChange={(event) => {
             const file = event.target.files?.[0];
             if (file) void session.uploadAudio(file);
             event.target.value = "";

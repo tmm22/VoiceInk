@@ -6,8 +6,8 @@ import {
   lazy,
   startTransition,
   Suspense,
+  use,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
@@ -34,6 +34,7 @@ const anonymousAuth: AccountAuth = {
 // lazily mounted Clerk bridge (app/clerk-subtree.tsx) publishes the verified
 // one into AppProviders state.
 export const AccountAuthContext = createContext<AccountAuth>(anonymousAuth);
+AccountAuthContext.displayName = "AccountAuthContext";
 
 type ClerkGateValue = {
   clerkMounted: boolean;
@@ -47,6 +48,7 @@ export const ClerkGateContext = createContext<ClerkGateValue>({
   requestSignIn: () => {},
   setControlsHost: () => {},
 });
+ClerkGateContext.displayName = "ClerkGateContext";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -189,8 +191,8 @@ export function AppProviders({ children }: { children: ReactNode }) {
   // Suspense fallback is null, so the anonymous UI simply stays on screen
   // while the chunk loads — never a spinner, never a remount.
   return (
-    <ClerkGateContext.Provider value={gateValue}>
-      <AccountAuthContext.Provider value={accountAuth}>{children}</AccountAuthContext.Provider>
+    <ClerkGateContext value={gateValue}>
+      <AccountAuthContext value={accountAuth}>{children}</AccountAuthContext>
       {clerkMounted && (
         <ClerkLoadBoundary onFailure={handleClerkFailure}>
           <Suspense fallback={null}>
@@ -202,10 +204,10 @@ export function AppProviders({ children }: { children: ReactNode }) {
           </Suspense>
         </ClerkLoadBoundary>
       )}
-    </ClerkGateContext.Provider>
+    </ClerkGateContext>
   );
 }
 
 export function useAccountAuth() {
-  return useContext(AccountAuthContext);
+  return use(AccountAuthContext);
 }

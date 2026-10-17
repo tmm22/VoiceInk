@@ -129,6 +129,13 @@ npm run check
 
 This includes type checking, linting, documentation-contract and file-size checks, a production build, Node regression tests, the ASR Worker typecheck, secret scanning, and dependency audits for both Workers. Do not weaken a check merely to make a change pass; fix the behavior or document and narrowly isolate a genuine toolchain exception.
 
+Toolchain conventions (see the README's Toolchain section):
+
+- `typescript` must stay an npm alias for `@typescript/typescript6` (the 6.0 API that typescript-eslint needs); TypeScript 7's `tsc` comes from the `@typescript/native` alias. Never install `typescript@7` under the `typescript` name.
+- Lint with the explicit flat config in `eslint.config.mjs`. Do not reintroduce `eslint-config-next`; it pins plugins that do not support ESLint 10.
+- `fast-glob` resolves to the `vendor/fast-glob` tinyglobby shim through `package.json` overrides so `braces` (GHSA-vfj7-8cjw-p6xm, never patched) stays out of the tree. If a new dependent needs more of the fast-glob API, extend the shim and its recorded-output test; do not remove the override.
+- The dependency audit has no exceptions. Resolve a high or critical advisory by upgrading, replacing, or removing the dependency, not by allowlisting it.
+
 After a production deployment:
 
 ```bash
