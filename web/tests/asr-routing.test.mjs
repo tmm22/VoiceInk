@@ -47,7 +47,7 @@ test("non-English detected by nova-3 re-routes to whisper and settles both model
   assert.deepEqual(fake.calls.map((call) => call.model), [NOVA, WHISPER]);
   assert.equal(fake.calls[1].bytesRead, 64, "whisper receives the same complete audio");
   const commit = fake.ledger.find((entry) => entry.op === "commit");
-  assert.equal(commit.micros, Math.ceil((3 / 60) * 510) + Math.ceil((3 / 60) * 5_200));
+  assert.equal(commit.micros, Math.ceil((3 / 60) * 513) + Math.ceil((3 / 60) * 5_200));
 });
 
 test("missing language detection deliberately counts as English", async () => {
@@ -71,7 +71,7 @@ test("a nova-3 failure falls back to whisper and bills only whisper", async () =
   assert.equal(body.model, "whisper-large-v3-turbo");
   assert.deepEqual(fake.calls.map((call) => call.model), [NOVA, WHISPER]);
   const commit = fake.ledger.find((entry) => entry.op === "commit");
-  assert.equal(commit.micros, Math.ceil((3 / 60) * 510));
+  assert.equal(commit.micros, Math.ceil((3 / 60) * 513));
 });
 
 test("a whisper failure after nova-3 ran still settles the nova-3 spend", async () => {
@@ -196,7 +196,7 @@ test("a confident non-English hint transcribes once with whisper at whisper's pr
   await transcribe(unhinted);
   assert.ok(reserve.request.estimateMicros < unhinted.ledger[0].request.estimateMicros, "only whisper is priced");
   const commit = fake.ledger.find((entry) => entry.op === "commit");
-  assert.equal(commit.micros, Math.ceil((3 / 60) * 510));
+  assert.equal(commit.micros, Math.ceil((3 / 60) * 513));
 });
 
 test("English or malformed hints keep the nova-3-first route", async () => {

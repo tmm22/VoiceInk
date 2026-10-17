@@ -19,6 +19,12 @@ Users can switch between the original editorial theme and a native macOS-inspire
 
 The earlier `chatgpt.site` URL is only a private design preview. It is not the production Cloudflare deployment.
 
+## Transcription model review (October 17, 2026)
+
+The live Workers AI catalog (`npx wrangler ai models list`) offers five speech-recognition models: Nova-3, Flux, Whisper Large V3 Turbo, Whisper, and Whisper Tiny (English). Nova-3 for English and Whisper Large V3 Turbo for non-English audio remain the best fit. Flux is a WebSocket-only, raw-PCM streaming model built for voice-agent turn detection, so it cannot take an uploaded recording, and the older Whisper models are less accurate than Large V3 Turbo. Cloudflare's own Clef/Clef-omni accepts audio but answers typed questions with probabilities rather than producing transcripts, and caps clips at 300 seconds.
+
+This is a catalog and capability review, not an accuracy benchmark. Before changing routing, compare candidates on consented, representative audio with reference transcripts and measure word error rate per language.
+
 ## Architecture
 
 ```text
@@ -108,6 +114,12 @@ The production smoke suite is non-mutating and does not invoke paid AI. A real a
 - A durable spend ledger in the ASR Worker caps all Workers AI inference at $10.00 per UTC day globally and 2 hours of transcribed audio per client per day; the per-client key is a day-rotating HMAC pseudonym (raw IP addresses are never stored, and pseudonymous quota rows are purged after two days), and when the ledger cannot be reached, inference is denied
 - Transcription requests require a server-verified Cloudflare Turnstile token whenever the Turnstile secret is configured (production configures it; local development uses Cloudflare's official test keys)
 - Cloudflare applies separate inference, import, and history rate limits; missing production bindings fail closed
+
+## Dependency holdbacks
+
+Dependencies were updated to the latest stable releases on October 17, 2026, with three deliberate holdbacks: ESLint stays on 9.x because `eslint-plugin-react` (pulled in by `eslint-config-next`) does not support ESLint 10; the web app stays on TypeScript 6.0 because `typescript-eslint` supports only versions below 6.1 (the ASR Worker, which is not linted, uses TypeScript 7); and `@types/node` tracks 22.x to match the minimum supported runtime. The `fflate` override pins the patched 0.7.5 release inside Satori's 0.7.x range.
+
+The audit gate temporarily accepts only the exact build/lint dependency chain for [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) (`braces`, which has no patched release), reached through `eslint-config-next` and vinext's build-time CommonJS plugin. These packages only expand repository-controlled globs. The exception expires November 17, 2026 and rejects any new advisory, changed path, or critical severity, and a regression test confirms the affected packages are absent from deployed bundles: it inspects server sourcemaps and scans every client and server chunk for literals unique to each package (the client build emits no sourcemaps).
 
 ## Regression checks
 

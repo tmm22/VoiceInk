@@ -1,7 +1,7 @@
 // Integer micro-dollar accounting for the daily spend ledger. Floats drift on
 // thousands of small commits, so every amount in the ledger is micro-dollars.
 export const ENGLISH_TRANSCRIPTION_MICROS_PER_MINUTE = 5_200; // $0.0052 per audio minute (@cf/deepgram/nova-3)
-export const MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE = 510; // $0.00051 per audio minute (@cf/openai/whisper-large-v3-turbo)
+export const MULTILINGUAL_TRANSCRIPTION_MICROS_PER_MINUTE = 513; // $0.000513 per audio minute (@cf/openai/whisper-large-v3-turbo)
 
 // Non-English audio is detected by nova-3 and then re-transcribed by whisper,
 // so one request can run both models over the same audio. Admission must
