@@ -1,8 +1,8 @@
-@import "tailwindcss";
+@import "./reset.css";
 
 :root { --ink:#15261f; --green:#2e7d5c; --cream:#f5f3eb; --line:#d9ded8; }
 * { box-sizing:border-box; }
-body { margin:0; background:var(--cream); color:var(--ink); font-family:Arial, Helvetica, sans-serif; }
+body { margin:0; background:var(--cream); color:var(--ink); font-family:Arial, Helvetica, sans-serif; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
 main { width:min(1100px, calc(100% - 36px)); margin:auto; position:relative; padding-bottom:30px; }
 .topbar { height:88px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #cbd1ca; }
 .brand { display:flex; gap:11px; align-items:center; color:var(--ink); text-decoration:none; font-weight:800; font-size:18px; letter-spacing:-.4px; }

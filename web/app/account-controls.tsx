@@ -1,6 +1,4 @@
-"use client";
-
-import { use, useEffect, useRef } from "react";
+import { useContext, useEffect, useRef } from "preact/hooks";
 import { AccountAuthContext, AccountGateContext, accountsConfigured } from "./providers";
 
 // Clerk renders its account menu into this element; unmounted on cleanup.
@@ -14,8 +12,8 @@ function UserButtonHost({ mount }: { mount: (element: HTMLDivElement) => () => v
 }
 
 export function AccountControls() {
-  const account = use(AccountAuthContext);
-  const { status, requestSignIn, mountUserButton } = use(AccountGateContext);
+  const account = useContext(AccountAuthContext);
+  const { status, requestSignIn, mountUserButton } = useContext(AccountGateContext);
   if (!accountsConfigured) return null;
   // While Clerk loads (a session hint was present, or the visitor clicked
   // Sign in) show a Loading placeholder instead of flashing Sign in. If Clerk

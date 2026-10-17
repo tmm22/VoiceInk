@@ -117,7 +117,7 @@ test("boot skips the anonymous history fetch when a Clerk session is hinted", as
   const hook = await source("app/use-transcription-history.ts");
   // The skip decision reads the same cookie hint the Clerk mount gate uses.
   assert.match(hook, /import \{ hasClerkSessionHint \} from "\.\.\/lib\/clerkScripts"/);
-  assert.match(hook, /awaitingHintedSession/);
+  assert.match(hook, /awaitingHintedSessionRef/);
   // Hardened deps: primitives plus the identity-stable refreshHistory only,
   // so a new account object cannot double-fetch on boot.
   assert.match(hook, /\}, \[account\.enabled, account\.isLoaded, account\.identityKey, refreshHistory\]\);/);
@@ -125,10 +125,10 @@ test("boot skips the anonymous history fetch when a Clerk session is hinted", as
   // Fail-closed anonymous fallback: if Clerk never resolves the hinted
   // session, a timer restores today's anonymous fetch (and is cleaned up).
   assert.match(hook, /hintedSessionFallbackMs = 8_000/);
-  assert.match(hook, /window\.setTimeout\(\(\) => \{\s*if \(!awaitingHintedSession\.current\) return;/);
+  assert.match(hook, /window\.setTimeout\(\(\) => \{\s*if \(!awaitingHintedSessionRef\.current\) return;/);
   assert.match(hook, /return \(\) => window\.clearTimeout\(fallback\);/);
   // Once the Clerk bridge publishes any identity, fetching resumes normally.
-  assert.match(hook, /account\.isLoaded && \(!awaitingHintedSession\.current \|\| account\.enabled\)/);
+  assert.match(hook, /account\.isLoaded && \(!awaitingHintedSessionRef\.current \|\| account\.enabled\)/);
   // The page consumes the hook instead of duplicating history state.
   const page = await studioSource();
   assert.match(page, /useTranscriptionHistory\(account, setError\)/);

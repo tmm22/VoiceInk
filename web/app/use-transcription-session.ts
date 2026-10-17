@@ -1,6 +1,4 @@
-"use client";
-
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type StateUpdater } from "preact/hooks";
 import { saveTranscription, type TranscriptionHistoryItem } from "../lib/convex";
 import {
   elapsedRecordingSeconds,
@@ -28,35 +26,35 @@ const transcriptionTimeoutMs = 5 * 60 * 1_000;
 
 // One recording-or-upload operation at a time: record/upload → verify →
 // transcribe → save to history. A newer operation supersedes an older one
-// through operationGeneration (recording) and activeTranscription (jobs).
+// through operationGenerationRef (recording) and activeTranscriptionRef (jobs).
 export function useTranscriptionSession({ account, setHistory, setError, transcript }: {
   account: AccountAuth;
-  setHistory: Dispatch<SetStateAction<TranscriptionHistoryItem[]>>;
+  setHistory: Dispatch<StateUpdater<TranscriptionHistoryItem[]>>;
   setError: (message: string) => void;
   transcript: TranscriptSink;
 }) {
   const isSignedInRef = useRef(account.isSignedIn);
   isSignedInRef.current = account.isSignedIn;
   const recording = useRecordingSession(() => recordingLimitSeconds(isSignedInRef.current));
-  const audioOperationId = useRef<string | null>(null);
-  const activeTranscription = useRef<{ id: string; controller: AbortController } | null>(null);
-  const operationGeneration = useRef(0);
-  const recordingStartPending = useRef(false);
-  const transcribeTicker = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioOperationIdRef = useRef<string | null>(null);
+  const activeTranscriptionRef = useRef<{ id: string; controller: AbortController } | null>(null);
+  const operationGenerationRef = useRef(0);
+  const recordingStartPendingRef = useRef(false);
+  const transcribeTickerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // The in-flight history save for the current transcript, so a summary
   // generated during that window serializes its PATCH after the save settles.
-  const pendingSave = useRef<Promise<string | null> | null>(null);
+  const pendingSaveRef = useRef<Promise<string | null> | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [transcribeElapsed, setTranscribeElapsed] = useState(0);
   const [audio, setAudio] = useState<Blob | null>(null);
 
   useEffect(() => () => {
-    if (transcribeTicker.current) clearInterval(transcribeTicker.current);
+    if (transcribeTickerRef.current) clearInterval(transcribeTickerRef.current);
     releaseTranscriptionTokenHold();
-    const pendingTranscription = activeTranscription.current;
-    activeTranscription.current = null;
+    const pendingTranscription = activeTranscriptionRef.current;
+    activeTranscriptionRef.current = null;
     pendingTranscription?.controller.abort();
-    operationGeneration.current += 1;
+    operationGenerationRef.current += 1;
   }, []);
 
   // Elapsed-seconds ticker for the transcribing stage (same pattern as the
@@ -64,29 +62,29 @@ export function useTranscriptionSession({ account, setHistory, setError, transcr
   function startTranscribeTicker() {
     stopTranscribeTicker();
     const startedAt = performance.now();
-    transcribeTicker.current = setInterval(() => setTranscribeElapsed(elapsedRecordingSeconds(startedAt, performance.now())), 1000);
+    transcribeTickerRef.current = setInterval(() => setTranscribeElapsed(elapsedRecordingSeconds(startedAt, performance.now())), 1000);
   }
   function stopTranscribeTicker() {
-    if (transcribeTicker.current) clearInterval(transcribeTicker.current);
-    transcribeTicker.current = null;
+    if (transcribeTickerRef.current) clearInterval(transcribeTickerRef.current);
+    transcribeTickerRef.current = null;
     setTranscribeElapsed(0);
   }
 
   function supersedeActiveTranscription() {
-    const previousTranscription = activeTranscription.current;
-    activeTranscription.current = null;
+    const previousTranscription = activeTranscriptionRef.current;
+    activeTranscriptionRef.current = null;
     previousTranscription?.controller.abort();
-    pendingSave.current = null;
+    pendingSaveRef.current = null;
   }
 
   async function startRecording() {
-    if (recordingStartPending.current || recording.isActive()) return;
-    recordingStartPending.current = true;
+    if (recordingStartPendingRef.current || recording.isActive()) return;
+    recordingStartPendingRef.current = true;
     // Pre-execute the Turnstile challenge and hold the single-use token for
     // the stop click; the widget re-executes on expiry during long recordings.
     beginTranscriptionTokenHold();
-    const generation = ++operationGeneration.current;
-    const isCurrent = () => generation === operationGeneration.current;
+    const generation = ++operationGenerationRef.current;
+    const isCurrent = () => generation === operationGenerationRef.current;
     try {
       supersedeActiveTranscription();
       setError("");
@@ -96,7 +94,7 @@ export function useTranscriptionSession({ account, setHistory, setError, transcr
       await recording.begin({
         isCurrent,
         onRecording: () => {
-          audioOperationId.current = crypto.randomUUID();
+          audioOperationIdRef.current = crypto.randomUUID();
           setStatus("recording");
         },
         onStopping: () => setStatus("stopping"),
@@ -110,7 +108,7 @@ export function useTranscriptionSession({ account, setHistory, setError, transcr
             return;
           }
           setAudio(outcome.recording);
-          void transcribe(outcome.recording, outcome.durationSeconds, audioOperationId.current ?? crypto.randomUUID());
+          void transcribe(outcome.recording, outcome.durationSeconds, audioOperationIdRef.current ?? crypto.randomUUID());
         },
       });
     } catch {
@@ -120,7 +118,7 @@ export function useTranscriptionSession({ account, setHistory, setError, transcr
         setStatus("error");
       }
     } finally {
-      recordingStartPending.current = false;
+      recordingStartPendingRef.current = false;
     }
   }
 
@@ -130,12 +128,12 @@ export function useTranscriptionSession({ account, setHistory, setError, transcr
     recording.stop();
   }
 
-  async function transcribe(recordingBlob: Blob, durationSeconds: number, operationId = audioOperationId.current ?? crypto.randomUUID()) {
-    activeTranscription.current?.controller.abort();
+  async function transcribe(recordingBlob: Blob, durationSeconds: number, operationId = audioOperationIdRef.current ?? crypto.randomUUID()) {
+    activeTranscriptionRef.current?.controller.abort();
     const controller = new AbortController();
     const job = { id: crypto.randomUUID(), controller };
-    activeTranscription.current = job;
-    audioOperationId.current = operationId;
+    activeTranscriptionRef.current = job;
+    audioOperationIdRef.current = operationId;
     const timeout = window.setTimeout(() => controller.abort(), transcriptionTimeoutMs);
     // Warm-up only: start a Convex token fetch now so Clerk's token cache is
     // primed while upload and inference run. The save path below fetches its
@@ -147,13 +145,13 @@ export function useTranscriptionSession({ account, setHistory, setError, transcr
     setError("");
     try {
       const result = await requestTranscription(recordingBlob, controller.signal, (stage) => {
-        if (activeTranscription.current?.id !== job.id) return;
+        if (activeTranscriptionRef.current?.id !== job.id) return;
         setStatus(stage);
         if (stage === "transcribing") startTranscribeTicker();
       });
       const transcribedText = result.text;
       const effectiveDuration = result.durationSeconds ?? durationSeconds;
-      if (activeTranscription.current?.id !== job.id) return;
+      if (activeTranscriptionRef.current?.id !== job.id) return;
       stopTranscribeTicker();
       setAudio(null);
       transcript.show(transcribedText, result.segments ?? []);
@@ -176,10 +174,10 @@ export function useTranscriptionSession({ account, setHistory, setError, transcr
         return savedId ?? null;
       })();
       // A summary requested before the save settles serializes on this.
-      pendingSave.current = savePromise.then((id) => id, () => null);
+      pendingSaveRef.current = savePromise.then((id) => id, () => null);
       try {
         const savedId = await savePromise;
-        if (activeTranscription.current?.id !== job.id) return;
+        if (activeTranscriptionRef.current?.id !== job.id) return;
         transcript.saved(savedId);
         // Prepend the saved row locally instead of refetching the whole page.
         if (savedId) {
@@ -189,10 +187,10 @@ export function useTranscriptionSession({ account, setHistory, setError, transcr
       } catch {
         setError("The transcript is ready, but it could not be saved to history. Check your quota or retention settings.");
       } finally {
-        if (activeTranscription.current?.id === job.id) setStatus("done");
+        if (activeTranscriptionRef.current?.id === job.id) setStatus("done");
       }
     } catch (cause) {
-      if (activeTranscription.current?.id !== job.id) return;
+      if (activeTranscriptionRef.current?.id !== job.id) return;
       if (controller.signal.aborted) {
         setError("Transcription timed out. Your recording is still available to retry.");
         setStatus("error");
@@ -203,7 +201,7 @@ export function useTranscriptionSession({ account, setHistory, setError, transcr
     } finally {
       window.clearTimeout(timeout);
       stopTranscribeTicker();
-      if (activeTranscription.current?.id === job.id) activeTranscription.current = null;
+      if (activeTranscriptionRef.current?.id === job.id) activeTranscriptionRef.current = null;
     }
   }
 
@@ -213,13 +211,13 @@ export function useTranscriptionSession({ account, setHistory, setError, transcr
       setError(sizeError);
       return;
     }
-    const generation = ++operationGeneration.current;
+    const generation = ++operationGenerationRef.current;
     supersedeActiveTranscription();
     setError("");
     setStatus("validating");
     transcript.clear({ summaryError: true });
     const duration = await readAudioDuration(file);
-    if (generation !== operationGeneration.current) return;
+    if (generation !== operationGenerationRef.current) return;
     const durationError = uploadDurationError(duration, isSignedInRef.current);
     if (durationError || duration === null) {
       setError(durationError ?? "");
@@ -228,12 +226,12 @@ export function useTranscriptionSession({ account, setHistory, setError, transcr
     }
     setAudio(file);
     recording.setElapsedSeconds(duration);
-    audioOperationId.current = crypto.randomUUID();
-    await transcribe(file, duration, audioOperationId.current);
+    audioOperationIdRef.current = crypto.randomUUID();
+    await transcribe(file, duration, audioOperationIdRef.current);
   }
 
   function retryTranscription() {
-    if (audio) void transcribe(audio, recording.elapsedRef.current, audioOperationId.current ?? crypto.randomUUID());
+    if (audio) void transcribe(audio, recording.elapsedRef.current, audioOperationIdRef.current ?? crypto.randomUUID());
   }
 
   return {
@@ -241,7 +239,7 @@ export function useTranscriptionSession({ account, setHistory, setError, transcr
     elapsed: recording.elapsed,
     transcribeElapsed,
     audio,
-    pendingSave,
+    pendingSave: pendingSaveRef,
     startRecording,
     stopRecording,
     uploadAudio,

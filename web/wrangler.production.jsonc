@@ -8,7 +8,11 @@
   "preview_urls": false,
   "no_bundle": true,
   "assets": {
-    "directory": "dist/client"
+    "directory": "dist/client",
+    "binding": "ASSETS",
+    // The document needs a per-request CSP nonce, so the Worker serves it;
+    // content-hashed assets and public files bypass the Worker entirely.
+    "run_worker_first": ["/", "/index.html"]
   },
   "rules": [
     { "type": "ESModule", "globs": ["**/*.js", "**/*.mjs"] }

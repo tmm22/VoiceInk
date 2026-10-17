@@ -7,9 +7,9 @@
   },
   "scripts": {
     "clean": "node scripts/clean-build.mjs",
-    "dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext dev",
-    "build": "npm run clean && WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build",
-    "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
+    "dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vite dev",
+    "build": "npm run clean && WRANGLER_LOG_PATH=.wrangler/wrangler.log vite build --app",
+    "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vite preview",
     "test": "npm run build && npm run artifacts:check && node --experimental-strip-types --test tests/*.test.mjs",
     "test:production": "node --experimental-strip-types tests/production-smoke.mjs",
     "typecheck": "tsc --noEmit",
@@ -25,41 +25,29 @@
   },
   "dependencies": {
     "convex": "1.47.0",
-    "next": "16.4.2",
-    "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "preact": "11.0.1"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.64.0",
     "@cloudflare/workers-types": "5.20261016.1",
     "@eslint-react/eslint-plugin": "5.28.0",
     "@eslint/js": "10.0.1",
-    "@next/eslint-plugin-next": "16.4.2",
-    "@tailwindcss/postcss": "4.3.3",
+    "@preact/preset-vite": "2.10.6",
     "@types/node": "22.20.5",
-    "@types/react": "19.3.0",
-    "@types/react-dom": "19.3.0",
     "@typescript/native": "npm:typescript@7.0.2",
-    "@vitejs/plugin-react": "6.1.2",
-    "@vitejs/plugin-rsc": "0.5.38",
     "eslint": "10.13.0",
     "eslint-plugin-import-x": "4.17.1",
     "eslint-plugin-jsx-a11y-x": "0.2.0",
     "eslint-plugin-react-hooks": "7.1.1",
-    "fast-glob": "file:./vendor/fast-glob",
     "globals": "17.13.0",
-    "react-server-dom-webpack": "19.3.1",
-    "tailwindcss": "4.3.3",
+    "preact-render-to-string": "6.8.1",
     "typescript": "npm:@typescript/typescript6@6.0.2",
     "typescript-eslint": "8.71.2",
-    "vinext": "1.2.1",
     "vite": "8.3.4",
     "wrangler": "4.151.1"
   },
   "overrides": {
-    "postcss": "8.5.30",
-    "fflate": "0.7.5",
-    "fast-glob": "$fast-glob"
+    "postcss": "8.5.30"
   },
   "type": "module"
 }

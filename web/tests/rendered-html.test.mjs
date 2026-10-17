@@ -9,7 +9,7 @@ const source = (path) => readFile(new URL(path, root), "utf8");
 test("ships the VoiceInk production interface instead of the starter preview", async () => {
   const [page, layout, providers, clerkSession] = await Promise.all([
     studioSource(),
-    source("app/layout.tsx"),
+    source("index.html"),
     source("app/providers.tsx"),
     source("lib/clerkSession.ts"),
   ]);
@@ -69,7 +69,7 @@ test("anonymous visitors never load Clerk and signed-in flows keep the verified 
   // Clerk loads with its UI bundle, and the app tree is never re-parented:
   // {children} sits at one fixed position under both providers.
   assert.match(clerkSession, /ui: \{ ClerkUI: window\.__internal_ClerkUICtor \}/);
-  assert.match(providers, /<AccountAuthContext value=\{accountAuth\}>\{children\}<\/AccountAuthContext>/);
+  assert.match(providers, /<AccountAuthContext\.Provider value=\{accountAuth\}>\{children\}<\/AccountAuthContext\.Provider>/);
   assert.match(accountControls, /mountUserButton/);
 });
 
@@ -115,15 +115,15 @@ test("session-hint warm start preloads pinned Clerk scripts and avoids a Sign in
   assert.match(accountControls, /<button onClick=\{requestSignIn\}>Sign in<\/button>/);
 });
 
-test("immutable cache rule covers the path vinext actually emits assets under", async () => {
+test("immutable cache rule covers the path Vite actually emits assets under", async () => {
   const headers = await source("public/_headers");
-  // vinext 0.2.x writes hashed chunks/css to dist/client/_next/static/; a rule
-  // scoped to a stale path would silently deploy every chunk uncached.
-  assert.match(headers, /^\/_next\/static\/\*\n\s+Cache-Control: public, max-age=31536000, immutable/m);
+  // Vite writes hashed scripts and stylesheets to dist/client/assets/; a rule
+  // scoped to a stale path would silently deploy every asset uncached.
+  assert.match(headers, /^\/assets\/\*\n\s+Cache-Control: public, max-age=31536000, immutable/m);
   const { readdir } = await import("node:fs/promises");
-  const chunkDir = new URL("dist/client/_next/static/chunks/", root);
-  const chunks = await readdir(chunkDir).catch(() => []);
-  assert.ok(chunks.some((f) => f.endsWith(".js")), "expected built chunks under dist/client/_next/static/chunks");
+  const assets = await readdir(new URL("dist/client/assets/", root)).catch(() => []);
+  assert.ok(assets.some((f) => f.endsWith(".js")), "expected built scripts under dist/client/assets");
+  assert.ok(assets.some((f) => f.endsWith(".css")), "expected built stylesheets under dist/client/assets");
 });
 
 test("the production smoke suite verifies both pinned Clerk script URLs resolve", async () => {
@@ -155,7 +155,7 @@ test("keeps costly production routes behind edge controls", async () => {
 
 test("emits a restrictive browser security policy", async () => {
   const [proxy, config] = await Promise.all([
-    source("proxy.ts"),
+    source("worker/securityHeaders.ts"),
     source("wrangler.production.jsonc"),
   ]);
   for (const header of [
@@ -183,7 +183,10 @@ test("emits a restrictive browser security policy", async () => {
   assert.match(proxy, /<https:\/\/challenges\.cloudflare\.com>; rel=preconnect/);
   assert.doesNotMatch(proxy, /rel=preload/);
   // The Link header is appended only on the non-/api branch.
-  assert.match(proxy, /\} else \{\s*response\.headers\.append\("Link", documentLinkHeader\);\s*\}/);
+  assert.match(proxy, /\} else \{\s*secured\.headers\.append\("Link", documentLinkHeader\);\s*\}/);
+  // The document is routed through the Worker so it can carry a nonce;
+  // hashed assets bypass it.
+  assert.match(config, /"run_worker_first": \["\/", "\/index\.html"\]/);
   assert.match(config, /"workers_dev": false/);
   assert.match(config, /"pattern": "v\.paul\.im"/);
 });

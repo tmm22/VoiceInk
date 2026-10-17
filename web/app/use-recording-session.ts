@@ -1,6 +1,4 @@
-"use client";
-
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { elapsedRecordingSeconds, selectRecorderMimeType } from "../lib/recording";
 import { MAXIMUM_AUDIO_BYTES } from "../shared/transcriptionContract";
 
@@ -23,20 +21,20 @@ export type RecordingHandlers = {
 // recording at a time. Chunks stay in memory and are bounded by
 // MAXIMUM_AUDIO_BYTES; the recorder stops itself at the size or time limit.
 export function useRecordingSession(limitSeconds: () => number) {
-  const recorder = useRef<MediaRecorder | null>(null);
-  const chunks = useRef<Blob[]>([]);
-  const ticker = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const tickerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const elapsedRef = useRef(0);
-  const recordingStartedAt = useRef(0);
-  const recordedBytes = useRef(0);
-  const recordingTooLarge = useRef(false);
-  const recordingFailed = useRef(false);
+  const recordingStartedAtRef = useRef(0);
+  const recordedBytesRef = useRef(0);
+  const recordingTooLargeRef = useRef(false);
+  const recordingFailedRef = useRef(false);
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => () => {
-    if (ticker.current) clearInterval(ticker.current);
-    const activeRecorder = recorder.current;
-    recorder.current = null;
+    if (tickerRef.current) clearInterval(tickerRef.current);
+    const activeRecorder = recorderRef.current;
+    recorderRef.current = null;
     if (activeRecorder) {
       activeRecorder.ondataavailable = null;
       activeRecorder.onerror = null;
@@ -44,12 +42,12 @@ export function useRecordingSession(limitSeconds: () => number) {
       if (activeRecorder.state === "recording") activeRecorder.stop();
       activeRecorder.stream.getTracks().forEach((track) => track.stop());
     }
-    chunks.current = [];
+    chunksRef.current = [];
   }, []);
 
   function clearTicker() {
-    if (ticker.current) clearInterval(ticker.current);
-    ticker.current = null;
+    if (tickerRef.current) clearInterval(tickerRef.current);
+    tickerRef.current = null;
   }
 
   function setElapsedSeconds(seconds: number) {
@@ -70,49 +68,49 @@ export function useRecordingSession(limitSeconds: () => number) {
       }
       const mimeType = selectRecorderMimeType((value) => MediaRecorder.isTypeSupported(value));
       const nextRecorder = new MediaRecorder(acquiredStream, { ...(mimeType ? { mimeType } : {}), audioBitsPerSecond: 64_000 });
-      chunks.current = [];
-      recordedBytes.current = 0;
-      recordingTooLarge.current = false;
-      recordingFailed.current = false;
-      recordingStartedAt.current = performance.now();
+      chunksRef.current = [];
+      recordedBytesRef.current = 0;
+      recordingTooLargeRef.current = false;
+      recordingFailedRef.current = false;
+      recordingStartedAtRef.current = performance.now();
       nextRecorder.ondataavailable = (event) => {
         if (!handlers.isCurrent() || !event.data.size) return;
-        recordedBytes.current += event.data.size;
-        if (recordedBytes.current > MAXIMUM_AUDIO_BYTES) {
-          recordingTooLarge.current = true;
+        recordedBytesRef.current += event.data.size;
+        if (recordedBytesRef.current > MAXIMUM_AUDIO_BYTES) {
+          recordingTooLargeRef.current = true;
           if (nextRecorder.state === "recording") nextRecorder.stop();
           return;
         }
-        chunks.current.push(event.data);
+        chunksRef.current.push(event.data);
       };
       nextRecorder.onstop = () => {
         clearTicker();
-        const duration = elapsedRecordingSeconds(recordingStartedAt.current, performance.now());
+        const duration = elapsedRecordingSeconds(recordingStartedAtRef.current, performance.now());
         setElapsedSeconds(duration);
-        const completedChunks = chunks.current;
-        chunks.current = [];
-        recorder.current = null;
+        const completedChunks = chunksRef.current;
+        chunksRef.current = [];
+        recorderRef.current = null;
         acquiredStream.getTracks().forEach((track) => track.stop());
         if (!handlers.isCurrent()) return;
-        if (recordingTooLarge.current) return handlers.onFinished({ kind: "too-large" });
-        if (recordingFailed.current) return handlers.onFinished({ kind: "failed" });
+        if (recordingTooLargeRef.current) return handlers.onFinished({ kind: "too-large" });
+        if (recordingFailedRef.current) return handlers.onFinished({ kind: "failed" });
         handlers.onFinished({ kind: "recorded", recording: new Blob(completedChunks, { type: nextRecorder.mimeType }), durationSeconds: duration });
       };
       nextRecorder.onerror = () => {
         if (!handlers.isCurrent()) return;
-        recordingFailed.current = true;
+        recordingFailedRef.current = true;
         handlers.onEncoderError();
         if (nextRecorder.state === "recording") nextRecorder.stop();
       };
       nextRecorder.start(1_000);
-      recorder.current = nextRecorder;
+      recorderRef.current = nextRecorder;
       handlers.onRecording();
-      ticker.current = setInterval(() => {
-        setElapsedSeconds(elapsedRecordingSeconds(recordingStartedAt.current, performance.now()));
+      tickerRef.current = setInterval(() => {
+        setElapsedSeconds(elapsedRecordingSeconds(recordingStartedAtRef.current, performance.now()));
         if (elapsedRef.current >= limitSeconds()) {
           clearTicker();
-          if (recorder.current) handlers.onStopping();
-          recorder.current?.stop();
+          if (recorderRef.current) handlers.onStopping();
+          recorderRef.current?.stop();
         }
       }, 1000);
     } catch (cause) {
@@ -123,15 +121,15 @@ export function useRecordingSession(limitSeconds: () => number) {
 
   function stop() {
     clearTicker();
-    if (recorder.current?.state === "recording") recorder.current.stop();
+    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
   }
 
   return {
     elapsed,
     elapsedRef,
     setElapsedSeconds,
-    isActive: () => recorder.current !== null,
-    isRecording: () => recorder.current?.state === "recording",
+    isActive: () => recorderRef.current !== null,
+    isRecording: () => recorderRef.current?.state === "recording",
     begin,
     stop,
   };

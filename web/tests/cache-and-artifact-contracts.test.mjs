@@ -7,20 +7,29 @@ import { evaluateAuditReport } from "../scripts/check-audit.mjs";
 import { findDuplicateArtifacts } from "../scripts/check-duplicates.mjs";
 
 test("API responses are centrally private while HTML retains per-request CSP nonces", async () => {
-  const source = await readFile(new URL("../proxy.ts", import.meta.url), "utf8");
+  const [source, worker] = await Promise.all([
+    readFile(new URL("../worker/securityHeaders.ts", import.meta.url), "utf8"),
+    readFile(new URL("../worker/index.ts", import.meta.url), "utf8"),
+  ]);
   assert.match(source, /"Cache-Control": "private, no-store, max-age=0, must-revalidate"/);
   assert.match(source, /Pragma: "no-cache"/);
   assert.match(source, /Expires: "0"/);
-  assert.match(source, /pathname === "\/api" \|\| request\.nextUrl\.pathname\.startsWith\("\/api\/"\)/);
+  assert.match(source, /pathname === "\/api" \|\| pathname\.startsWith\("\/api\/"\)/);
+  // Every Worker response passes through the security headers, and the
+  // document gets a fresh nonce stamped onto its scripts and module preloads.
+  assert.match(worker, /return applySecurityHeaders\(response, pathname, nonce\);/);
+  assert.match(worker, /\.on\("script", stampNonce\)/);
+  assert.match(worker, /\.on\('link\[rel="modulepreload"\]', stampNonce\)/);
+  assert.match(worker, /"Cache-Control": "no-store, must-revalidate"/);
   assert.match(source, /btoa\(crypto\.randomUUID\(\)\)/);
   assert.doesNotMatch(source, /sensitiveResponseHeaders[^;]+for \(const \[name, value\][^}]+\}\s*return/s);
 });
 
 test("tracked static header policy caches only content-hashed assets immutably", async () => {
   const headers = await readFile(new URL("../public/_headers", import.meta.url), "utf8");
-  // vinext 0.2.x emits hashed assets under /_next/static/ (chunks and css).
-  assert.match(headers, /\/_next\/static\/\*[\s\S]*public, max-age=31536000, immutable/);
-  assert.doesNotMatch(headers, /\/assets\/\*/);
+  // Vite emits content-hashed scripts and stylesheets under /assets/.
+  assert.match(headers, /\/assets\/\*[\s\S]*public, max-age=31536000, immutable/);
+  assert.doesNotMatch(headers, /\/_next\//);
   assert.match(headers, /\/og\.png[\s\S]*public, max-age=3600, must-revalidate/);
   assert.doesNotMatch(headers, /\/og\.png[\s\S]*immutable/);
 });

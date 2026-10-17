@@ -1,6 +1,5 @@
-"use client";
-
-import { useEffect, useState, type FormEvent } from "react";
+import type { TargetedSubmitEvent } from "preact";
+import { useEffect, useState } from "preact/hooks";
 import { getBrowserSpeechController, loadBrowserVoices, type BrowserVoice } from "../lib/browserSpeech";
 
 type Props = {
@@ -48,7 +47,7 @@ export function TTSWorkspace({ transcript, text, onTextChange }: Props) {
     setPlayback("idle");
   }
 
-  async function importContent(event: FormEvent<HTMLFormElement>) {
+  async function importContent(event: TargetedSubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!importUrl.trim()) return;
     setIsImporting(true);
@@ -81,15 +80,15 @@ export function TTSWorkspace({ transcript, text, onTextChange }: Props) {
       </div>
       <form className="import-content" onSubmit={importContent}>
         <label htmlFor="import-url">Import content from a webpage</label>
-        <div><input id="import-url" type="url" value={importUrl} onChange={(event) => setImportUrl(event.target.value)} placeholder="https://example.com/article" required /><button type="submit" disabled={isImporting}>{isImporting ? "Importing…" : "Import article"}</button></div>
+        <div><input id="import-url" type="url" value={importUrl} onInput={(event) => setImportUrl(event.currentTarget.value)} placeholder="https://example.com/article" required /><button type="submit" disabled={isImporting}>{isImporting ? "Importing…" : "Import article"}</button></div>
         {importStatus && <p role="status">{importStatus}</p>}
       </form>
-      <textarea className="tts-text-editor" aria-label="Text to read aloud" value={text} onChange={(event) => onTextChange(event.target.value)} placeholder="Paste or type text here. This editor is separate from your transcription…" />
+      <textarea className="tts-text-editor" aria-label="Text to read aloud" value={text} onInput={(event) => onTextChange(event.currentTarget.value)} placeholder="Paste or type text here. This editor is separate from your transcription…" />
       <div className="tts-grid">
-        <label className="voice-field"><span>Voice</span><select value={voiceId} onChange={(event) => setVoiceId(event.target.value)} disabled={!voices.length}>{!voices.length && <option>Loading system voices…</option>}{voices.map((voice) => <option key={voice.id} value={voice.id}>{voice.name} · {voice.language}{voice.isLocal ? " · local" : ""}</option>)}</select></label>
-        <label><span>Speed <b>{speechRate.toFixed(1)}×</b></span><input type="range" min="0.5" max="2" step="0.1" value={speechRate} onChange={(event) => setSpeechRate(Number(event.target.value))} /></label>
-        <label><span>Pitch <b>{speechPitch.toFixed(1)}</b></span><input type="range" min="0.5" max="2" step="0.1" value={speechPitch} onChange={(event) => setSpeechPitch(Number(event.target.value))} /></label>
-        <label><span>Volume <b>{Math.round(speechVolume * 100)}%</b></span><input type="range" min="0" max="1" step="0.05" value={speechVolume} onChange={(event) => setSpeechVolume(Number(event.target.value))} /></label>
+        <label className="voice-field"><span>Voice</span><select value={voiceId} onChange={(event) => setVoiceId(event.currentTarget.value)} disabled={!voices.length}>{!voices.length && <option>Loading system voices…</option>}{voices.map((voice) => <option key={voice.id} value={voice.id}>{voice.name} · {voice.language}{voice.isLocal ? " · local" : ""}</option>)}</select></label>
+        <label><span>Speed <b>{speechRate.toFixed(1)}×</b></span><input type="range" min="0.5" max="2" step="0.1" value={speechRate} onInput={(event) => setSpeechRate(Number(event.currentTarget.value))} /></label>
+        <label><span>Pitch <b>{speechPitch.toFixed(1)}</b></span><input type="range" min="0.5" max="2" step="0.1" value={speechPitch} onInput={(event) => setSpeechPitch(Number(event.currentTarget.value))} /></label>
+        <label><span>Volume <b>{Math.round(speechVolume * 100)}%</b></span><input type="range" min="0" max="1" step="0.05" value={speechVolume} onInput={(event) => setSpeechVolume(Number(event.currentTarget.value))} /></label>
       </div>
       <div className="playback-buttons">
         {playback === "idle" && <button className="play" onClick={() => void play()} disabled={!text.trim() || !voices.length}>Play</button>}

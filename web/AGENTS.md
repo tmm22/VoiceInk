@@ -6,7 +6,7 @@ These instructions apply to everything under `web/`. They supplement the reposit
 
 VoiceInk Web is the browser version of VoiceInk. Its production stack is:
 
-- Next.js/React built for Cloudflare Workers with Vinext
+- A Preact single-page app built with Vite: the page is prerendered into `index.html` at build time and hydrated in the browser (see the README's Payload budget section; keep first-load payload and memory minimal)
 - Cloudflare Worker `voiceink-web` for the UI and public API
 - Private Cloudflare service binding `ASR` to Worker `voiceink-asr`
 - Cloudflare Workers AI for transcription, summarization, and text enhancement
@@ -71,7 +71,7 @@ Every Workers AI call in the ASR Worker must be admitted by the `SPEND_LEDGER` d
 
 Keep webpage import protections intact: reject private, loopback, link-local, and metadata-service destinations; revalidate redirects; apply request timeouts; cap response size; and only accept supported content types.
 
-Production security headers live in `proxy.ts`. When Clerk domains or other browser dependencies change, update the CSP narrowly and add a regression assertion. Preserve HSTS, clickjacking protection, MIME-sniffing protection, restrictive permissions, referrer policy, `object-src 'none'`, and `frame-ancestors 'none'`.
+Production security headers live in `worker/securityHeaders.ts`, applied by the Worker entry `worker/index.ts`, which also stamps the per-request CSP nonce onto the prerendered document. When Clerk domains or other browser dependencies change, update the CSP narrowly and add a regression assertion. Preserve HSTS, clickjacking protection, MIME-sniffing protection, restrictive permissions, referrer policy, `object-src 'none'`, and `frame-ancestors 'none'`.
 
 Do not log or return transcript text, summary text, authentication tokens, secrets, full imported content, or raw provider response bodies. Metadata such as status, byte count, model name, and a non-sensitive request identifier is sufficient. Numeric size telemetry about transcript content must stay coarse (bucketed), never exact.
 
@@ -133,7 +133,8 @@ Toolchain conventions (see the README's Toolchain section):
 
 - `typescript` must stay an npm alias for `@typescript/typescript6` (the 6.0 API that typescript-eslint needs); TypeScript 7's `tsc` comes from the `@typescript/native` alias. Never install `typescript@7` under the `typescript` name.
 - Lint with the explicit flat config in `eslint.config.mjs`. Do not reintroduce `eslint-config-next`; it pins plugins that do not support ESLint 10.
-- `fast-glob` resolves to the `vendor/fast-glob` tinyglobby shim through `package.json` overrides so `braces` (GHSA-vfj7-8cjw-p6xm, never patched) stays out of the tree. If a new dependent needs more of the fast-glob API, extend the shim and its recorded-output test; do not remove the override.
+- Import from `preact` and `preact/hooks`, not `preact/compat`, unless a dependency genuinely needs React compatibility. Use `onInput` (not `onChange`) for text inputs, textareas and range sliders, read `event.currentTarget`, and name refs with a `Ref` suffix so the hook lint rules recognize them.
+- Do not add a framework router, server rendering at request time, or a CSS framework. New routes go in `worker/index.ts`; anything a first visit does not need loads through dynamic `import()`. Check `npm run build`'s size report when adding a browser dependency.
 - The dependency audit has no exceptions. Resolve a high or critical advisory by upgrading, replacing, or removing the dependency, not by allowlisting it.
 
 After a production deployment:

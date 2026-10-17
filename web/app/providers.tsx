@@ -1,16 +1,5 @@
-"use client";
-
-import {
-  createContext,
-  use,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, type ComponentChildren } from "preact";
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { anonymousAuth, type AccountAuth } from "../lib/accountAuth";
 import { clerkPublishableKey, hasClerkSessionHint, preloadClerkScripts } from "../lib/clerkScripts";
 import type { ClerkController } from "../lib/clerkSession";
@@ -54,7 +43,7 @@ if (typeof document !== "undefined" && accountsConfigured && clerkPublishableKey
   preloadClerkScripts(clerkPublishableKey);
 }
 
-export function AppProviders({ children }: { children: ReactNode }) {
+export function AppProviders({ children }: { children: ComponentChildren }) {
   // The server render and the first client render are always anonymous so
   // hydration matches.
   const [status, setStatus] = useState<ClerkStatus>("idle");
@@ -144,14 +133,14 @@ export function AppProviders({ children }: { children: ReactNode }) {
     [status, requestSignIn, mountUserButton],
   );
 
-  if (!accountsConfigured) return children;
+  if (!accountsConfigured) return <>{children}</>;
   return (
-    <AccountGateContext value={gate}>
-      <AccountAuthContext value={accountAuth}>{children}</AccountAuthContext>
-    </AccountGateContext>
+    <AccountGateContext.Provider value={gate}>
+      <AccountAuthContext.Provider value={accountAuth}>{children}</AccountAuthContext.Provider>
+    </AccountGateContext.Provider>
   );
 }
 
 export function useAccountAuth() {
-  return use(AccountAuthContext);
+  return useContext(AccountAuthContext);
 }
