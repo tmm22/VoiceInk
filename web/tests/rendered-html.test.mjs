@@ -25,6 +25,20 @@ test("ships the VoiceInk production interface instead of the starter preview", a
   await assert.rejects(access(new URL("app/_sites-preview", root)));
 });
 
+test("the build prerenders the interface into index.html with its assets", async () => {
+  // npm test builds first, so this reads the real artifact. An empty #app
+  // would leave visitors staring at a blank page until JavaScript runs.
+  const html = await source("dist/client/index.html");
+  const app = html.match(/<div id="app">([\s\S]*)<\/div>\s*<\/body>/)?.[1] ?? "";
+  assert.match(app, /^<main>/);
+  assert.match(app, /Ready to record/);
+  assert.match(app, /<header class="topbar">/);
+  assert.match(html, /<script type="module" crossorigin src="\/assets\/main-[\w-]+\.js"><\/script>/);
+  assert.match(html, /<link rel="stylesheet" crossorigin href="\/assets\/main-[\w-]+\.css">/);
+  assert.match(html, /<meta property="og:image" content="https?:\/\/[^"]+\/og\.png"/);
+  assert.doesNotMatch(html, /%SITE_URL%/);
+});
+
 test("anonymous visitors never load Clerk and signed-in flows keep the verified bridge", async () => {
   const [providers, clerkScripts, clerkSession, accountAuth, accountControls, packageJson] = await Promise.all([
     source("app/providers.tsx"),
