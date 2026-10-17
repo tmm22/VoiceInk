@@ -27,10 +27,10 @@ $0.0052 per audio minute
 Non-English audio is detected by nova-3 and re-transcribed by `@cf/openai/whisper-large-v3-turbo`, which costs approximately:
 
 ```text
-$0.00051 per audio minute
+$0.000513 per audio minute
 ```
 
-A non-English request detected by nova-3 therefore pays for both models (≈ $0.00571 per audio minute). When the browser's preferred languages include no English, it sends a language hint and the request runs whisper alone ($0.00051 per audio minute), so most non-English users pay the whisper price only. Source: [Cloudflare Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
+A non-English request detected by nova-3 therefore pays for both models (≈ $0.005713 per audio minute). When the browser's preferred languages include no English, it sends a language hint and the request runs whisper alone ($0.000513 per audio minute), so most non-English users pay the whisper price only. Sources: [Nova-3](https://developers.cloudflare.com/workers-ai/models/nova-3/) and [Whisper Large V3 Turbo](https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/) model pages, rechecked October 17, 2026 against `wrangler ai models list`.
 
 Examples (English audio on nova-3):
 
@@ -45,7 +45,7 @@ Examples (English audio on nova-3):
 
 The summary and text-enhancement features use `@cf/google/gemma-4-26b-a4b-it` with reasoning turned off, currently priced at approximately $0.10 per million input tokens and $0.30 per million output tokens. Each call reserves a worst case of one token per byte of the serialized prompt plus its output cap (about $0.006 for a 60,000-character English summary, more for scripts that take several bytes per character) and then settles to the token usage the model reports.
 
-Source: [Cloudflare Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
+Source: [Gemma 4 26B A4B model page](https://developers.cloudflare.com/workers-ai/models/gemma-4-26b-a4b-it/), rechecked October 17, 2026 against `wrangler ai models list`.
 
 For example, 10,000 summaries averaging 1,000 input tokens and 200 output tokens would cost approximately $1.60 in model usage. Enhancement uses the same token pricing; actual cost depends on source and response length.
 
@@ -85,7 +85,7 @@ The last row exceeds the default $10.00-per-day spend ceiling (about 3,300 minut
 The simple planning formula is:
 
 ```text
-monthly cost ≈ $5 + (English audio minutes × $0.0052) + (nova-3-detected non-English audio minutes × $0.00571) + (language-hinted audio minutes × $0.00051) + Gemma token usage + Convex overages + Worker overages
+monthly cost ≈ $5 + (English audio minutes × $0.0052) + (nova-3-detected non-English audio minutes × $0.005713) + (language-hinted audio minutes × $0.000513) + Gemma token usage + Convex overages + Worker overages
 ```
 
 ## Costs not currently incurred

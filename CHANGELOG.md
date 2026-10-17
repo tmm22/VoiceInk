@@ -2,6 +2,13 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-10-17
+
+### Web
+- Updated web dependencies to their latest stable releases: Next.js 16.4.2, React 19.3.1, Clerk 7.9.17 (clerk-js pinned to 6.39.0), Convex 1.47.0, vinext 1.2.1, Vite 8.3.4, Tailwind CSS 4.3.3 and Wrangler 4.151.1. The ASR Worker moves to TypeScript 7.0.2. ESLint stays on 9.x and the web app on TypeScript 6.0 until the Next.js lint plugins support newer versions. vinext 1.x no longer uses `image-size`, so that override and its audit exception are gone; a patched `fflate` is pinned instead. The audit gate now accepts only the build/lint `braces` advisory chain (no patched release exists), until 2026-11-17. Production picks this up on the next web and ASR Worker deploy.
+- Reviewed the Workers AI speech-recognition catalog. Deepgram Nova-3 for English and Whisper Large V3 Turbo for other languages remain the most suitable models; the only newer speech model, Deepgram Flux, is a streaming model for voice agents and cannot transcribe uploaded recordings.
+- The spend ledger now charges Whisper at Cloudflare's listed $0.000513 per audio minute instead of a rounded-down $0.00051.
+
 ## 2026-09-23
 
 ### Transcription

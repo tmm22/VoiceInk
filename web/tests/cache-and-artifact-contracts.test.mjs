@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -42,31 +42,49 @@ test("duplicate artifact scanner catches Finder copies and accepts clean output"
   }
 });
 
-test("audit exception is exact, transitive, and expires", () => {
-  const exactReport = {
-    vulnerabilities: {
-      "image-size": {
-        severity: "high",
-        isDirect: false,
-        via: [
-          { url: "https://github.com/advisories/GHSA-w3rx-r6r6-pgpr" },
-          { url: "https://github.com/advisories/GHSA-5p2g-fcmc-qvqq" },
-        ],
-        effects: ["vinext"],
-      },
-      vinext: { severity: "high", isDirect: true, via: ["image-size"], effects: [] },
-    },
-  };
-  assert.deepEqual(evaluateAuditReport(exactReport, { allowImageSize: true, today: "2026-08-15" }), {
-    allowed: ["image-size", "vinext"],
-    blocked: [],
-  });
-  assert.deepEqual(evaluateAuditReport(exactReport, { allowImageSize: true, today: "2026-09-16" }).blocked, ["image-size", "vinext"]);
+test("audit exception only accepts the exact build-only braces chain until expiry", () => {
+  const propagated = (via, effects, isDirect = false) => ({ severity: "high", isDirect, via, effects });
+  const report = { vulnerabilities: {
+    braces: propagated([{ name: "braces", url: "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm" }], ["micromatch"]),
+    micromatch: propagated(["braces"], ["fast-glob"]),
+    "fast-glob": propagated(["micromatch"], ["@next/eslint-plugin-next", "vite-plugin-dynamic-import"]),
+    "@next/eslint-plugin-next": propagated(["fast-glob"], ["eslint-config-next"]),
+    "eslint-config-next": propagated(["@next/eslint-plugin-next"], [], true),
+    "vite-plugin-dynamic-import": propagated(["fast-glob"], ["vite-plugin-commonjs"]),
+    "vite-plugin-commonjs": propagated(["vite-plugin-dynamic-import"], ["vinext"]),
+    vinext: propagated(["vite-plugin-commonjs"], [], true),
+  } };
+  const names = Object.keys(report.vulnerabilities).sort();
+  const policy = { allowBuildBraces: true, today: "2026-10-17" };
+  assert.deepEqual(evaluateAuditReport(report, policy), { allowed: names, blocked: [] });
+  assert.deepEqual(evaluateAuditReport(report).blocked, names);
+  assert.deepEqual(evaluateAuditReport(report, { ...policy, today: "2026-11-18" }).blocked, names);
+  for (const mutate of [
+    (v) => { v.braces.isDirect = true; },
+    (v) => { v.braces.via.push({ name: "braces", url: "https://example.com/new-advisory" }); },
+    (v) => { v.braces.effects.push("runtime-library"); },
+    (v) => { v.vinext.via.push("another-package"); },
+    (v) => { v.braces.severity = "critical"; },
+  ]) {
+    const changed = structuredClone(report);
+    mutate(changed.vulnerabilities);
+    assert.deepEqual(evaluateAuditReport(changed, policy).blocked, names);
+  }
+  const unrelated = structuredClone(report);
+  unrelated.vulnerabilities.other = propagated([], []);
+  assert.deepEqual(evaluateAuditReport(unrelated, policy).blocked, ["other"]);
+});
 
-  const unrelated = structuredClone(exactReport);
-  unrelated.vulnerabilities.other = { severity: "critical", via: [], effects: [] };
-  assert.deepEqual(evaluateAuditReport(unrelated, { allowImageSize: true, today: "2026-08-15" }).blocked, ["other"]);
-  const directImageSize = structuredClone(exactReport);
-  directImageSize.vulnerabilities["image-size"].isDirect = true;
-  assert.deepEqual(evaluateAuditReport(directImageSize, { allowImageSize: true, today: "2026-08-15" }).blocked, ["image-size"]);
+test("the accepted build-only glob dependencies are absent from deployed bundles", async () => {
+  const build = new URL("../dist/", import.meta.url);
+  const entries = await readdir(build, { recursive: true });
+  const maps = entries.filter((path) => /^(client|server)\//.test(path) && path.endsWith(".js.map"));
+  assert.ok(maps.length > 0, "inspect real build sourcemaps, not an empty artifact directory");
+  for (const path of maps) {
+    const map = JSON.parse(await readFile(new URL(path, build), "utf8"));
+    for (const source of map.sources ?? []) {
+      assert.doesNotMatch(source, /node_modules\/(?:braces|micromatch|fast-glob|vite-plugin-commonjs|vite-plugin-dynamic-import)\//,
+        `build-only dependency leaked into ${path}`);
+    }
+  }
 });

@@ -19,7 +19,7 @@ import type { AccountAuth } from "./providers";
 // the fully pinned URL is served directly and caches. A regression test
 // compares this constant against node_modules so an SDK upgrade cannot leave
 // the pin stale.
-const CLERK_JS_VERSION = "6.29.1";
+const CLERK_JS_VERSION = "6.39.0";
 // @clerk/nextjs 7 dropped the public clerkJSVersion prop from its types, but
 // mergeNextClerkPropsWithEnv still honors the __internal_clerkJSVersion prop
 // (its env fallback is NEXT_PUBLIC_CLERK_JS_VERSION), and loadClerkJsScript

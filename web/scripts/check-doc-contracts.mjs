@@ -57,7 +57,7 @@ export async function checkDocumentationContracts() {
   assert.match(contract, /MAXIMUM_AUDIO_BYTES = 24 \* 1024 \* 1024/);
   assert.match(docs, /24 MB/);
   assert.match(costs, /\$0\.0052 per audio minute/, "nova-3 pricing is undocumented in costs");
-  assert.match(costs, /\$0\.00051 per audio minute/, "whisper pricing is undocumented in costs");
+  assert.match(costs, /\$0\.000513 per audio minute/, "whisper pricing is undocumented in costs");
   assert.match(docs, /no-store|not enable response caching/i);
 }
 

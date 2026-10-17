@@ -79,7 +79,7 @@ export function hasClerkSessionHint(): boolean {
 // module and defeat the lazy gate. A regression test asserts the two copies
 // stay equal (and the subtree's copy is itself asserted against the installed
 // @clerk packages).
-const CLERK_JS_VERSION = "6.29.1";
+const CLERK_JS_VERSION = "6.39.0";
 const CLERK_FRONTEND_API = "https://clerk.paul.im";
 
 // Module-scope warm start: when the session hint is already present at client

@@ -42,7 +42,7 @@ Forbidden user-content caching includes the Cache API, AI Gateway response cachi
 - The public web Worker may use the private `ASR` service binding; an external ASR URL fallback fails the configuration contract.
 - `voiceink-asr` must keep `workers_dev: false` and `preview_urls: false`.
 - A model, size, rate-limit, origin, privacy, or topology change must update `README.md`, `docs/DEPLOYMENT.md`, `docs/COSTS.md`, `AGENTS.md`, tests, and deployment config together.
-- Dependency audits fail on any new high/critical advisory. The only temporary exception is exact, transitive `vinext`/`image-size` exposure recorded in `scripts/check-audit.mjs`, with an expiry date.
+- Dependency audits fail on any new high/critical advisory. The only temporary exception is the exact build/lint `braces` advisory chain (via `eslint-config-next` and `vinext`) recorded in `scripts/check-audit.mjs`, with an expiry date.
 
 ## Operations outside source control
 
