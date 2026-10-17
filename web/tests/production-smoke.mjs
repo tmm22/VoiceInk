@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { clerkScriptUrlsFor } from "../lib/clerkScripts.ts";
 
 const argumentIndex = process.argv.indexOf("--base-url");
 const configuredBase = argumentIndex >= 0 ? process.argv[argumentIndex + 1] : undefined;
@@ -21,6 +22,19 @@ const asset = await fetch(`${base}${assetPath}`, { redirect: "error" });
 assert.equal(asset.status, 200);
 assert.match(asset.headers.get("cache-control") ?? "", /max-age=31536000/i);
 assert.match(asset.headers.get("cache-control") ?? "", /immutable/i);
+// Both pinned Clerk scripts must resolve directly: a redirect would mean the
+// pin no longer exists on Clerk's CDN (or was replaced by a moving tag), and
+// signed-in visits would fail or lose caching. The Clerk origin comes from the
+// document's preconnect Link header, so no publishable key is needed here.
+const clerkOrigin = home.headers.get("link")?.match(/<(https:\/\/clerk\.[^>]+)>/)?.[1];
+assert.ok(clerkOrigin, "The document must preconnect to the Clerk frontend API");
+const clerkScripts = clerkScriptUrlsFor(clerkOrigin);
+for (const scriptUrl of [clerkScripts.js, clerkScripts.ui]) {
+  const script = await fetch(scriptUrl, { redirect: "error" });
+  assert.equal(script.status, 200, `${scriptUrl} must resolve without a redirect`);
+  assert.match(script.headers.get("content-type") ?? "", /javascript/);
+  await script.body?.cancel();
+}
 const publicMedia = await fetch(`${base}/og.png`, { redirect: "error" });
 assert.equal(publicMedia.status, 200);
 assert.match(publicMedia.headers.get("cache-control") ?? "", /max-age=3600/i);

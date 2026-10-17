@@ -20,7 +20,8 @@ import {
   saveHistoryShape,
   type HistoryShapeItem,
 } from "../lib/historyMetadataCache";
-import { hasClerkSessionHint, type AccountAuth } from "./providers";
+import type { AccountAuth } from "../lib/accountAuth";
+import { hasClerkSessionHint } from "../lib/clerkScripts";
 
 const accountsConfigured = Boolean(
   process.env.NEXT_PUBLIC_CONVEX_URL && process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
