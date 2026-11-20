@@ -61,15 +61,15 @@ enum AIProvider: String, CaseIterable {
     var defaultModel: String {
         switch self {
         case .cerebras:
-            return "gpt-oss-120b"
+            return "qwen-3.8-27b"
         case .groq:
             return "openai/gpt-oss-120b"
         case .gemini:
             return "gemini-3.8-flash"
         case .anthropic:
-            return "claude-sonnet-5"
+            return "claude-sonnet-5-5"
         case .openAI:
-            return "gpt-5.6-luna"
+            return "gpt-6-luna"
         case .mistral:
             return "mistral-small-latest"
         case .elevenLabs:
@@ -77,7 +77,7 @@ enum AIProvider: String, CaseIterable {
         case .deepgram:
             return "whisper-1"
         case .soniox:
-            return "stt-async-v5"
+            return "stt-async-v6"
         case .speechmatics:
             return "speechmatics-enhanced"
         case .assemblyAI:
@@ -122,11 +122,13 @@ enum AIProvider: String, CaseIterable {
             ]
         case .anthropic:
             return [
-                "claude-sonnet-5",
-                "claude-haiku-4-5",
+                "claude-sonnet-5-5",
+                "claude-haiku-5-5",
             ]
         case .openAI:
             return [
+                "gpt-6-luna",
+                "gpt-6-sol",
                 "gpt-5.6-luna",
                 "gpt-5.6-terra",
                 "gpt-5.6-sol",
@@ -143,17 +145,18 @@ enum AIProvider: String, CaseIterable {
                 "mistral-small-latest",
                 "mistral-medium-latest",
                 "mistral-large-latest",
+                "mistral-large-4",
             ]
         case .elevenLabs:
-            return ["scribe_v2"]
+            return ["scribe_v3", "scribe_v2", "scribe_v2_medical"]
         case .deepgram:
             return ["whisper-1"]
         case .soniox:
-            return ["stt-async-v5"]
+            return ["stt-async-v6"]
         case .speechmatics:
             return ["speechmatics-enhanced"]
         case .assemblyAI:
-            return ["universal-3-5-pro"]
+            return ["universal-3-6-pro", "universal-3-5-pro"]
         case .voiceInkRefine:
             return [VoiceInkRefineService.modelName]
         case .ollama:
@@ -182,6 +185,15 @@ enum AIProvider: String, CaseIterable {
             return false
         default:
             return true
+        }
+    }
+
+    var supportsCustomModelID: Bool {
+        switch self {
+        case .cerebras, .groq, .gemini, .anthropic, .openAI, .mistral:
+            return true
+        default:
+            return false
         }
     }
 }
@@ -276,7 +288,8 @@ class AIService: ObservableObject {
 
         if let selectedModel = selectedModels[selectedProvider],
             !selectedModel.isEmpty,
-            (selectedProvider == .ollama && !selectedModel.isEmpty) || availableModels.contains(selectedModel)
+            (selectedProvider.supportsCustomModelID || selectedProvider == .ollama
+                || availableModels.contains(selectedModel))
         {
             return selectedModel
         }
@@ -292,6 +305,16 @@ class AIService: ObservableObject {
             return selectedModel
         }
         return provider.defaultModel
+    }
+
+    func customModelID(for provider: AIProvider) -> String {
+        guard provider.supportsCustomModelID else { return "" }
+        let key = "\(provider.rawValue)CustomModelID"
+        if let savedModel = userDefaults.string(forKey: key), !savedModel.isEmpty {
+            return savedModel
+        }
+        let selectedModel = selectedModel(for: provider)
+        return provider.availableModels.contains(selectedModel) ? "" : selectedModel
     }
 
     var availableModels: [String] {
@@ -434,24 +457,43 @@ class AIService: ObservableObject {
     }
 
     private func loadSavedOpenRouterModels() {
-        if let savedCatalog = userDefaults.data(forKey: "openRouterModelCatalog"),
-            let decodedCatalog = try? JSONDecoder().decode([OpenRouterModel].self, from: savedCatalog)
-        {
-            openRouterModelCatalog = decodedCatalog
-            openRouterModels = decodedCatalog.map(\.id)
+        if let catalog = OpenRouterCatalogStore.shared.models(for: .enhancement) {
+            openRouterModelCatalog = catalog
+            openRouterModels = catalog.filter(isOpenRouterEnhancementModel).map(\.id)
+            reconcileOpenRouterSelection(selectInitialIfNeeded: true)
             return
         }
 
-        if let savedModels = userDefaults.array(forKey: "openRouterModels") as? [String] {
-            openRouterModels = savedModels
-        }
+        openRouterModels = OpenRouterCatalogStore.shared.legacyEnhancementModelIDs
     }
 
     private func saveOpenRouterModels() {
-        userDefaults.set(openRouterModels, forKey: "openRouterModels")
-        if let encodedCatalog = try? JSONEncoder().encode(openRouterModelCatalog) {
-            userDefaults.set(encodedCatalog, forKey: "openRouterModelCatalog")
+        OpenRouterCatalogStore.shared.saveLegacyEnhancementModelIDs(openRouterModels)
+        try? OpenRouterCatalogStore.shared.save(openRouterModelCatalog, for: .enhancement)
+    }
+
+    private func isOpenRouterEnhancementModel(_ model: OpenRouterModel) -> Bool {
+        guard let architecture = model.architecture else { return true }
+        return architecture.inputModalities.contains("text")
+            && architecture.outputModalities.contains("text")
+    }
+
+    @discardableResult
+    private func reconcileOpenRouterSelection(selectInitialIfNeeded: Bool = false) -> Bool {
+        let selected = selectedModels[.openRouter]
+        if let selected, openRouterModels.contains(selected) { return false }
+        guard selected != nil || (selectInitialIfNeeded && selectedProvider == .openRouter) else { return false }
+
+        if let replacement = openRouterModels.first(where: { $0 == AIProvider.openRouter.defaultModel })
+            ?? openRouterModels.first
+        {
+            selectedModels[.openRouter] = replacement
+            userDefaults.set(replacement, forKey: "OpenRouterSelectedModel")
+        } else {
+            selectedModels.removeValue(forKey: .openRouter)
+            userDefaults.removeObject(forKey: "OpenRouterSelectedModel")
         }
+        return selected != selectedModels[.openRouter]
     }
 
     func selectModel(_ model: String) {
@@ -459,19 +501,23 @@ class AIService: ObservableObject {
     }
 
     func selectModel(_ model: String, for provider: AIProvider) {
-        guard !model.isEmpty else { return }
+        let resolvedInput = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !resolvedInput.isEmpty else { return }
 
         if provider == .custom {
-            guard CustomAIProviderManager.shared.applyConfiguration(forModel: model) else { return }
+            guard CustomAIProviderManager.shared.applyConfiguration(forModel: resolvedInput) else { return }
         }
 
-        let resolvedModel = provider == .voiceInkRefine ? provider.defaultModel : model
+        let resolvedModel = provider == .voiceInkRefine ? provider.defaultModel : resolvedInput
         selectedModels[provider] = resolvedModel
         let key = "\(provider.rawValue)SelectedModel"
         userDefaults.set(resolvedModel, forKey: key)
+        if provider.supportsCustomModelID, !provider.availableModels.contains(resolvedModel) {
+            userDefaults.set(resolvedModel, forKey: "\(provider.rawValue)CustomModelID")
+        }
 
         if provider == .ollama {
-            updateSelectedOllamaModel(model)
+            updateSelectedOllamaModel(resolvedModel)
         } else if provider == .custom {
             reloadSelectedProviderConfiguration()
         }
@@ -667,10 +713,20 @@ class AIService: ObservableObject {
         }
     }
 
-    func enhanceWithOllama(text: String, systemPrompt: String, model: String? = nil, timeout: TimeInterval = 30)
-        async throws -> String
-    {
-        try await ollamaService.enhance(text, withSystemPrompt: systemPrompt, model: model, timeout: timeout)
+    func enhanceWithOllama(
+        text: String,
+        systemPrompt: String,
+        model: String? = nil,
+        timeout: TimeInterval = 30,
+        retryOnTimeout: Bool = false
+    ) async throws -> String {
+        try await ollamaService.enhance(
+            text,
+            withSystemPrompt: systemPrompt,
+            model: model,
+            timeout: timeout,
+            retryOnTimeout: retryOnTimeout
+        )
     }
 
     func enhanceWithVoiceInkRefine(transcript: String) async throws -> String {
@@ -738,24 +794,10 @@ class AIService: ObservableObject {
         do {
             let catalog = try await OpenRouterClient.fetchModelCatalog()
             openRouterModelCatalog = catalog
-            openRouterModels = catalog.map(\.id)
+            openRouterModels = catalog.filter(isOpenRouterEnhancementModel).map(\.id)
             saveOpenRouterModels()
-            if !openRouterModels.isEmpty,
-                let savedModel = selectedModels[.openRouter],
-                !openRouterModels.contains(savedModel)
-            {
-                let replacement = openRouterModels.contains(AIProvider.openRouter.defaultModel)
-                    ? AIProvider.openRouter.defaultModel
-                    : openRouterModels[0]
-                selectModel(replacement, for: .openRouter)
-            } else if selectedProvider == .openRouter,
-                selectedModels[.openRouter] == nil,
-                !openRouterModels.isEmpty
-            {
-                let initialModel = openRouterModels.contains(AIProvider.openRouter.defaultModel)
-                    ? AIProvider.openRouter.defaultModel
-                    : openRouterModels[0]
-                selectModel(initialModel)
+            if reconcileOpenRouterSelection(selectInitialIfNeeded: true) {
+                NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
             }
             objectWillChange.send()
         } catch {

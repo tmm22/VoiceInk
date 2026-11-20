@@ -7,7 +7,9 @@ final class AIServiceTests: XCTestCase {
     func testOpenAIModelCatalogIncludesLatestVariants() {
         let models = AIProvider.openAI.availableModels
 
-        XCTAssertEqual(AIProvider.openAI.defaultModel, "gpt-5.6-luna")
+        XCTAssertEqual(AIProvider.openAI.defaultModel, "gpt-6-luna")
+        XCTAssertTrue(models.contains("gpt-6-sol"))
+        XCTAssertEqual(models.first, AIProvider.openAI.defaultModel)
         XCTAssertTrue(models.contains("gpt-5.6-luna"))
         XCTAssertTrue(models.contains("gpt-5.6-terra"))
         XCTAssertTrue(models.contains("gpt-5.6-sol"))

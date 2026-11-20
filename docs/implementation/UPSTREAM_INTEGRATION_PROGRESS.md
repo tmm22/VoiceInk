@@ -1,8 +1,38 @@
 # Upstream Integration Progress
 
 **Date Started:** December 8, 2025
-**Date Updated:** September 12, 2026
+**Date Updated:** November 20, 2026
 **Objective:** Incorporate upstream fixes from `Beingpax/VoiceInk` into VoiceLink Community fork
+
+---
+
+## November 20, 2026
+
+Reviewed Beingpax/VoiceInk through release 2.27 (`b5d1be9a`). The desktop sources build on the published community fork (`ee7b0127`), which already incorporated upstream 2.13 (`10e70d59`). The tested app still targets macOS 14.4.
+
+### Changes ported
+
+- Microphone channel selection, format revalidation and recovery after very short captures, stable microphone notifications, session-aware media restoration, and prevention of display sleep during dictation.
+- Recorder placement on the cursor’s display, dashboard activity and visibility updates, locked-session shortcut handling, double-tap shortcuts, mode duplication, and host-aware website triggers.
+- Direct and remote desktop typing, optional context-aware punctuation, and punctuation repair after filler removal. Paste failures and partial typing suppress automatic submission.
+- OpenRouter speech-to-text, expanded AssemblyAI, ElevenLabs, Mistral, Soniox and xAI support, and migrations for saved provider models. Deepgram batch and streaming clients request the provider’s training opt-out.
+- Custom enhancement model IDs, provider-managed retries, prompt metadata in history, French and Japanese localizations, and bounded Core ML archive extraction.
+- Parakeet Ultra supports local batch and realtime dictation with the multilingual V3 decoder. The existing VAD setting now applies Silero speech filtering to local FluidAudio batch transcription and Parakeet agreement streaming. Batch filtering processes a disk-backed recording incrementally. Live word timestamps keep their position in the original recording.
+- FluidAudio downloads can be cancelled and retried after interruption. Existing ASR models remain selectable when the shared speech detector is missing. The model menu can download it separately.
+
+### Compatibility decisions
+
+- Kept the community bundle identity, licensing behavior, local model options and TTS workspace. The upstream release feed, signing changes for distributed builds, and macOS 15 deployment target were excluded.
+- Retained the fork’s full history window, shared dictionary and backup behavior, device-local Keychain migration, clipboard revision checks, bounded recording buffers and single-owner inference services.
+- The upstream Quick History replacement, automatic dictionary learning and review, selected-text implementation, and shortcut monitor rewrite overlap those implementations. Their complete workflows were left out of this integration.
+- Shared package revisions match upstream 2.27, including FluidAudio (`ee78635d`), MLX Swift 0.33.0, MLX Swift LM, Swift Transformers 1.4.0, Swift Hugging Face 1.0.0, MediaRemoteAdapter and Sparkle 2.10.1. FluidAudio enables its TTS and NeMo text processing traits for the fork’s Pocket TTS voices.
+- The fork includes Microsoft’s MIT-licensed Objective-C inference bindings at the original ONNX Runtime 1.24.2 revision. SwiftPM downloads the original binary archive and verifies Microsoft’s SHA-256. This removes the dependency on the unavailable Swift wrapper repository.
+
+### Verification
+
+The arm64 Debug build and unit suite passed on macOS 26.5.2 with Xcode 26.6. Xcode reported 294 passes, two microphone-device skips and zero failures. The changed project files matched the isolated build checkout.
+
+Three additional runtime checks passed using temporary model files. Parakeet Ultra transcribed a 21-second recorded speech sample after Silero filtering and the filter rejected a silent recording. Pocket TTS synthesized a WAV with the Alba voice, and ONNX Runtime opened Microsoft’s sample model. The project still targets macOS 14.4. This run did not exercise a macOS 14 device.
 
 ---
 

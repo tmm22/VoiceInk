@@ -9,6 +9,8 @@ class CursorPaster {
     enum PasteResult: Equatable {
         case commandPosted
         case commandNotPosted
+        case typingFailed
+        case typingIncomplete
         /// The pasteboard changed between the transcript write and the paste; nothing was posted.
         case skippedClipboardChanged
 
@@ -35,9 +37,9 @@ class CursorPaster {
 
     @MainActor
     @discardableResult
-    static func startPasteAtCursor(_ text: String) -> Task<PasteResult, Never> {
+    static func startPasteAtCursor(_ text: String, sendKey: AutoSendKey = .none) -> Task<PasteResult, Never> {
         Task { @MainActor in
-            await performPasteSession(text)
+            await performPasteSession(text, sendKey: sendKey)
         }
     }
 
@@ -49,12 +51,32 @@ class CursorPaster {
     @MainActor
     static func performPasteSession(
         _ text: String, on pasteboard: NSPasteboard = .general,
-        defaults: UserDefaults = .standard,
+        defaults: UserDefaults = .standard, sendKey: AutoSendKey = .none,
         waitForPaste: (@MainActor () async -> Void)? = nil,
         postCommand: (@MainActor () async -> PasteResult)? = nil,
         restoreScheduler: (@MainActor (ClipboardSnapshot, String, String, Int, TimeInterval, NSPasteboard) -> Void)? = nil,
         captureSnapshot: (@MainActor (NSPasteboard) async -> (snapshot: ClipboardSnapshot, revision: Int)?)? = nil
     ) async -> PasteResult {
+        let method = PasteMethod.current(in: defaults)
+        let originalText = method.usesClipboard ? text : DirectTextTyper.normalizedText(text)
+        let text = await adjustedText(originalText, defaults: defaults)
+        if !method.usesClipboard {
+            await waitUntilReadyToPaste(since: .now)
+            guard !Task.isCancelled else { return .commandNotPosted }
+            if method == .directTyping {
+                switch await DirectTextTyper.type(text) {
+                case .posted: return .commandPosted
+                case .notPosted: return .typingFailed
+                case .partiallyPosted: return .typingIncomplete
+                }
+            }
+            switch await RemoteTextTyper.type(text, sendKey: sendKey) {
+            case .posted: return .commandPosted
+            case .notPosted, .unsupportedCharacters: return .typingFailed
+            case .partiallyPosted: return .typingIncomplete
+            }
+        }
+
         let shouldRestoreClipboard = defaults.bool(forKey: "restoreClipboardAfterPaste")
         // Read the user's restore delay once, up front, so the restore path does no defaults I/O later.
         let clipboardRestoreDelay =
@@ -131,7 +153,7 @@ class CursorPaster {
             return .skippedClipboardChanged
         }
         if let postCommand { return await postCommand() }
-        return await postPasteCommand()
+        return await postPasteCommand(method)
     }
 
     /// Captures the user's clipboard for later restoration. A copy or clipboard-manager rewrite that
@@ -185,6 +207,18 @@ class CursorPaster {
         }
     }
 
+    @MainActor
+    private static func adjustedText(_ text: String, defaults: UserDefaults) async -> String {
+        guard defaults.bool(forKey: SmartPunctuation.settingsKey),
+              let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return text }
+        let reader = PasteTextContextReader()
+        guard let snapshot = await reader.read(processID: pid) else { return text }
+        let adjusted = SmartPunctuation.adjusted(text, context: snapshot.context)
+        guard adjusted != text, PasteTextContextReader.matches(snapshot, await reader.read(processID: pid)),
+              NSWorkspace.shared.frontmostApplication?.processIdentifier == pid else { return text }
+        return adjusted
+    }
+
     private static func anyModifierHeld() -> Bool {
         !CGEventSource.flagsState(.combinedSessionState).intersection(watchedModifierFlags).isEmpty
     }
@@ -196,8 +230,8 @@ class CursorPaster {
     }
 
     @MainActor
-    private static func postPasteCommand() async -> PasteResult {
-        if PasteMethod.current() == .appleScript {
+    private static func postPasteCommand(_ method: PasteMethod) async -> PasteResult {
+        if method == .appleScript {
             return pasteUsingAppleScript() ? .commandPosted : .commandNotPosted
         } else {
             return await pasteFromClipboard()

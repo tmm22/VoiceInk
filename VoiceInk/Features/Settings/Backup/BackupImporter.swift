@@ -197,6 +197,12 @@ enum BackupImporter {
         if let textFormattingEnabled = general.isTextFormattingEnabled {
             UserDefaults.standard.set(textFormattingEnabled, forKey: keyIsTextFormattingEnabled)
         }
+        if let enabled = general.smartPunctuationEnabled {
+            UserDefaults.standard.set(enabled, forKey: SmartPunctuation.settingsKey)
+        }
+        if let method = general.pasteMethod.flatMap(PasteMethod.init(rawValue:)) {
+            PasteMethod.setCurrent(method)
+        }
         if let restoreClipboard = general.restoreClipboardAfterPaste {
             UserDefaults.standard.set(restoreClipboard, forKey: "restoreClipboardAfterPaste")
         }

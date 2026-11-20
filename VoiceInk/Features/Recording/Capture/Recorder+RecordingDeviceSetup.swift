@@ -20,10 +20,13 @@ extension Recorder {
         to url: URL,
         deviceID: AudioDeviceID
     ) async throws {
+        let selectedChannels = deviceManager.selectedInputChannels(for: deviceID)
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             audioSetupQueue.async {
                 do {
-                    try recorder.startRecording(toOutputFile: url, deviceID: deviceID)
+                    try recorder.startRecording(
+                        toOutputFile: url, deviceID: deviceID, selectedInputChannels: selectedChannels
+                    )
                     continuation.resume()
                 } catch {
                     continuation.resume(throwing: error)
@@ -34,26 +37,33 @@ extension Recorder {
 
     func showRecordingDeviceNotification(
         for deviceID: AudioDeviceID,
-        resolution: RecordingDeviceResolution
+        isDeviceSwitch: Bool = false
     ) {
-        guard let deviceName = deviceManager.availableDevices.first(where: { $0.id == deviceID })?.name else {
+        guard let device = deviceManager.availableDevices.first(where: { $0.id == deviceID }) else {
             return
         }
 
-        if resolution.fellBackFromClosedInternalMicrophone {
+        // Core Audio object IDs can change on reconnect, or be reused for another input.
+        // Compare the stable UID for every route, including closed-lid fallbacks.
+        let lastDeviceUID = UserDefaults.standard.string(forKey: "lastUsedMicrophoneDeviceUID")
+        guard device.uid != lastDeviceUID else { return }
+
+        recordingDeviceNotificationTask?.cancel()
+        // Let the caller finish recording startup before constructing the notification window.
+        recordingDeviceNotificationTask = Task { @MainActor [weak self] in
+            guard let self, !Task.isCancelled,
+                self.deviceManager.isRecordingActive,
+                self.deviceManager.activeRecordingDeviceID == deviceID
+            else { return }
+
+            let title = isDeviceSwitch ? String(localized: "Switched to: %@") : String(localized: "Using: %@")
             NotificationManager.shared.showNotification(
-                title: String(format: String(localized: "Using: %@"), deviceName),
+                title: String(format: title, device.name),
                 type: .info
             )
-            return
+            UserDefaults.standard.set(device.uid, forKey: "lastUsedMicrophoneDeviceUID")
+            self.recordingDeviceNotificationTask = nil
         }
-
-        let lastDeviceID = UserDefaults.standard.string(forKey: "lastUsedMicrophoneDeviceID")
-        guard String(deviceID) != lastDeviceID else { return }
-        NotificationManager.shared.showNotification(
-            title: String(format: String(localized: "Using: %@"), deviceName),
-            type: .info
-        )
     }
 
     private func handleRecordingDeviceChange(_ notification: Notification) async {
@@ -67,12 +77,13 @@ extension Recorder {
             deviceManager.recordingDeviceChangeFinished()
             return
         }
+        let selectedChannels = deviceManager.selectedInputChannels(for: fallbackDeviceID)
 
         do {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 audioSetupQueue.async {
                     do {
-                        try recorder.switchDevice(to: fallbackDeviceID)
+                        try recorder.switchDevice(to: fallbackDeviceID, selectedInputChannels: selectedChannels)
                         continuation.resume()
                     } catch {
                         continuation.resume(throwing: error)
@@ -81,16 +92,7 @@ extension Recorder {
             }
 
             deviceManager.recordingDeviceChangeFinished(activeDeviceID: fallbackDeviceID)
-            UserDefaults.standard.set(
-                String(fallbackDeviceID),
-                forKey: "lastUsedMicrophoneDeviceID"
-            )
-            if let deviceName = deviceManager.availableDevices.first(where: { $0.id == fallbackDeviceID })?.name {
-                NotificationManager.shared.showNotification(
-                    title: String(format: String(localized: "Switched to: %@"), deviceName),
-                    type: .info
-                )
-            }
+            showRecordingDeviceNotification(for: fallbackDeviceID, isDeviceSwitch: true)
         } catch {
             deviceManager.recordingDeviceChangeFinished()
             if let failure = error as? RecordingDeviceSwitch.Failure, failure.recordingStopped {

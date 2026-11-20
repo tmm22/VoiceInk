@@ -100,7 +100,6 @@ struct FluidAudioModelCardView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, 8)
-                .animation(.smooth, value: status.fractionCompleted)
             }
         }
     }
@@ -111,26 +110,34 @@ struct FluidAudioModelCardView: View {
                 modelStatusPill("Downloaded", systemImage: "checkmark.circle")
             } else {
                 Button(action: {
-                    Task {
-                        await fluidAudioModelManager.downloadFluidAudioModel(model)
+                    if isDownloading {
+                        fluidAudioModelManager.cancelDownload(model)
+                    } else {
+                        fluidAudioModelManager.startDownload(model)
                     }
                 }) {
                     HStack(spacing: 4) {
-                        Text(LocalizedStringKey(isDownloading ? "Downloading..." : "Download"))
-                        Image(systemName: "arrow.down.circle")
+                        Text(LocalizedStringKey(isDownloading ? "Cancel" : "Download"))
+                        Image(systemName: isDownloading ? "xmark.circle" : "arrow.down.circle")
                     }
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Capsule().fill(AppTheme.Accent.primary))
+                    .background(
+                        Capsule().fill(isDownloading ? Color.red : AppTheme.Accent.primary)
+                    )
                 }
                 .buttonStyle(.plain)
-                .disabled(isDownloading)
             }
 
             if isDownloaded && !isDownloading {
                 Menu {
+                    if !FluidAudioModelManager.vadModelFilesExist() {
+                        Button(String(localized: "Download speech detector")) {
+                            fluidAudioModelManager.startDownload(model)
+                        }
+                    }
                     Button(action: {
                         fluidAudioModelManager.deleteFluidAudioModel(model)
                     }) {

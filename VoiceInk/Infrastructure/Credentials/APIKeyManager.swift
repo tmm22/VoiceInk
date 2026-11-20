@@ -26,6 +26,14 @@ final class APIKeyManager {
         "openrouter": "openRouterAPIKey",
     ]
 
+    private struct Presence {
+        let isPresent: Bool
+        let expires: ContinuousClock.Instant
+    }
+
+    private let presenceLock = NSLock()
+    private var providerPresence: [String: Presence] = [:]
+
     private init() {}
 
     // MARK: - Secret Storage Policy
@@ -68,8 +76,12 @@ final class APIKeyManager {
         return localDeleted && syncedDeleted
     }
 
-    private func secretExists(forKey identifier: String) -> Bool {
-        keychain.exists(forKey: identifier, syncable: false) || keychain.exists(forKey: identifier, syncable: true)
+    private func secretExists(forKey identifier: String) -> Bool? {
+        let local = keychain.presence(forKey: identifier, syncable: false)
+        if local == true { return true }
+        let synced = keychain.presence(forKey: identifier, syncable: true)
+        if synced == true { return true }
+        return local == false && synced == false ? false : nil
     }
 
     // MARK: - Standard Provider API Keys
@@ -79,6 +91,7 @@ final class APIKeyManager {
     func saveAPIKey(_ key: String, forProvider provider: String) -> Bool {
         let keyIdentifier = keychainIdentifier(forProvider: provider)
         let success = saveSecret(key, forKey: keyIdentifier)
+        presenceLock.withLock { _ = providerPresence.removeValue(forKey: keyIdentifier) }
         if success {
             logger.info(
                 "Saved API key for provider: \(provider, privacy: .public) with key: \(keyIdentifier, privacy: .public)"
@@ -98,6 +111,7 @@ final class APIKeyManager {
     func deleteAPIKey(forProvider provider: String) -> Bool {
         let keyIdentifier = keychainIdentifier(forProvider: provider)
         let success = deleteSecret(forKey: keyIdentifier)
+        presenceLock.withLock { _ = providerPresence.removeValue(forKey: keyIdentifier) }
         if success {
             logger.info("Deleted API key for provider: \(provider, privacy: .public)")
         }
@@ -107,7 +121,16 @@ final class APIKeyManager {
     /// Checks if an API key exists for a provider.
     func hasAPIKey(forProvider provider: String) -> Bool {
         let keyIdentifier = keychainIdentifier(forProvider: provider)
-        return secretExists(forKey: keyIdentifier)
+        guard Self.providerToKeychainKey[provider.lowercased()] != nil else {
+            return secretExists(forKey: keyIdentifier) ?? false
+        }
+        return presenceLock.withLock {
+            if let cached = providerPresence[keyIdentifier], cached.expires > .now { return cached.isPresent }
+            guard let present = secretExists(forKey: keyIdentifier) else { return false }
+            // External Keychain edits and iCloud migrations also become visible on refresh.
+            providerPresence[keyIdentifier] = Presence(isPresent: present, expires: .now.advanced(by: .seconds(5)))
+            return present
+        }
     }
 
     // MARK: - Custom Model API Keys

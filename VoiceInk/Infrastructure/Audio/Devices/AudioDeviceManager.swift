@@ -24,9 +24,14 @@ class AudioDeviceManager: ObservableObject {
     @Published var selectedDeviceID: AudioDeviceID?
     @Published var inputMode: AudioInputMode = .custom
     @Published var prioritizedDevices: [PrioritizedDevice] = []
+    @Published private(set) var inputChannelsByDevice: [AudioDeviceID: [AudioInputChannel]] = [:]
+    @Published private(set) var inputChannelsByDeviceUID: [String: [UInt32]] = UserDefaults.standard.audioInputChannelsByDeviceUID
 
-    var recordingDeviceSession = RecordingDeviceSession()
+    @Published var recordingDeviceSession = RecordingDeviceSession()
     var clamshellStateMonitor: ClamshellStateMonitor?
+    private var defaultInputDeviceListener: AudioObjectPropertyListenerBlock?
+    private let channelDiscoveryQueue = DispatchQueue(
+        label: "com.prakashjoshipax.voiceink.audioChannelDiscovery", qos: .userInitiated)
 
     var isRecordingActive: Bool { recordingDeviceSession.isActive }
     var activeRecordingDeviceID: AudioDeviceID? { recordingDeviceSession.activeDeviceID }
@@ -54,6 +59,7 @@ class AudioDeviceManager: ObservableObject {
         }
 
         setupDeviceChangeNotifications()
+        setupDefaultInputDeviceNotifications()
     }
 
     func getSystemDefaultDevice() -> AudioDeviceID? {
@@ -179,20 +185,26 @@ class AudioDeviceManager: ObservableObject {
             }
             return (id: deviceID, uid: uid, name: name)
         }
+        channelDiscoveryQueue.async { [weak self] in
+            let inputChannels = Dictionary(uniqueKeysWithValues: devices.map {
+                ($0.id, AudioDeviceConfiguration.inputChannels(deviceID: $0.id))
+            })
 
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.availableDevices = devices.map { ($0.id, $0.uid, $0.name) }
-            if let currentID = self.selectedDeviceID, !devices.contains(where: { $0.id == currentID }) {
-                if !self.isRecordingActive {
-                    if self.inputMode == .prioritized {
-                        self.selectHighestPriorityAvailableDevice()
-                    } else {
-                        self.fallbackToDefaultDevice()
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.availableDevices = devices.map { ($0.id, $0.uid, $0.name) }
+                self.inputChannelsByDevice = inputChannels
+                if let currentID = self.selectedDeviceID, !devices.contains(where: { $0.id == currentID }) {
+                    if !self.isRecordingActive {
+                        if self.inputMode == .prioritized {
+                            self.selectHighestPriorityAvailableDevice()
+                        } else {
+                            self.fallbackToDefaultDevice()
+                        }
                     }
                 }
+                completion?()
             }
-            completion?()
         }
     }
 
@@ -201,6 +213,29 @@ class AudioDeviceManager: ObservableObject {
             deviceID: deviceID,
             selector: kAudioDevicePropertyDeviceNameCFString)
         return name as String?
+    }
+
+    func selectedInputChannels(for deviceID: AudioDeviceID) -> [UInt32]? {
+        guard !isInternalMicrophone(deviceID),
+              let uid = availableDevices.first(where: { $0.id == deviceID })?.uid else { return nil }
+        return inputChannelsByDeviceUID[uid]
+    }
+
+    func setInputChannels(_ channels: [UInt32]?, for deviceID: AudioDeviceID) {
+        // A capture already in progress must keep its format and channel map until it stops.
+        guard !isRecordingActive,
+              let uid = availableDevices.first(where: { $0.id == deviceID })?.uid else { return }
+        if let channels {
+            let channelCount = UInt32(inputChannelsByDevice[deviceID]?.count ?? 0)
+            guard let valid = AudioInputChannelSelection.validatedChannels(channels, deviceChannelCount: channelCount) else {
+                return
+            }
+            inputChannelsByDeviceUID[uid] = valid
+        } else {
+            inputChannelsByDeviceUID.removeValue(forKey: uid)
+        }
+        UserDefaults.standard.audioInputChannelsByDeviceUID = inputChannelsByDeviceUID
+        notifyDeviceChange()
     }
 
     func isValidInputDevice(deviceID: AudioDeviceID) -> Bool {
@@ -432,6 +467,29 @@ class AudioDeviceManager: ObservableObject {
         }
     }
 
+    private func setupDefaultInputDeviceNotifications() {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        let listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+            guard let self, self.inputMode == .systemDefault else { return }
+            self.loadAvailableDevices { [weak self] in
+                guard let self, self.inputMode == .systemDefault else { return }
+                self.notifyDeviceChange()
+            }
+        }
+        let status = AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject), &address, .main, listener
+        )
+        if status == noErr {
+            defaultInputDeviceListener = listener
+        } else {
+            logger.error("Failed to observe default input changes: \(status, privacy: .public)")
+        }
+    }
+
     private func getDeviceUID(deviceID: AudioDeviceID) -> String? {
         let uid = getCFStringDeviceProperty(
             deviceID: deviceID,
@@ -494,6 +552,16 @@ class AudioDeviceManager: ObservableObject {
     }
 
     deinit {
+        if let defaultInputDeviceListener {
+            var defaultAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioHardwarePropertyDefaultInputDevice,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            AudioObjectRemovePropertyListenerBlock(
+                AudioObjectID(kAudioObjectSystemObject), &defaultAddress, .main, defaultInputDeviceListener
+            )
+        }
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDevices,
             mScope: kAudioObjectPropertyScopeGlobal,

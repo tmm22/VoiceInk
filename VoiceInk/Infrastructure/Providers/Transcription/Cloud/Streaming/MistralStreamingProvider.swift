@@ -1,15 +1,9 @@
 import Foundation
 import LLMkit
+import SwiftData
 
-/// Mistral streaming provider wrapping `LLMkit.MistralStreamingClient`.
 final class MistralStreamingProvider: LLMKitStreamingProvider<LLMkit.MistralStreamingClient> {
-    init() {
-        super.init(client: LLMkit.MistralStreamingClient(), apiKeyProviderName: "Mistral", modelContext: nil)
-    }
-
-    override var sendsCustomVocabulary: Bool { false }
-
-    override func connectionParameters(model: any TranscriptionModel, language: String?) -> LLMKitStreamingConnection {
-        LLMKitStreamingConnection(model: "voxtral-mini-transcribe-realtime-2602", language: language, customVocabulary: [])
+    init(modelContext: ModelContext) {
+        super.init(client: LLMkit.MistralStreamingClient(), apiKeyProviderName: "Mistral", modelContext: modelContext)
     }
 }

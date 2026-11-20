@@ -51,6 +51,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
             guard oldValue != isRecorderPanelVisible else { return }
 
             if isRecorderPanelVisible {
+                recorderScreenSelection.reset()
                 showRecorderPanel()
             } else {
                 hideRecorderPanel()
@@ -63,6 +64,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     private var panelInvalidationTask: Task<Void, Never>?
     private var didSetupNotifications = false
     private var lifecycleCancellable: AnyCancellable?
+    private var recorderScreenSelection = RecorderScreenSelection()
 
     private weak var engine: VoiceInkEngine?
     private var recorder: Recorder?
@@ -86,6 +88,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
 
     private func showRecorderPanel() {
         guard let engine = engine, let recorder = recorder else { return }
+        let screen = recorderScreenSelection.resolve()
 
         let shown: Bool
 
@@ -113,7 +116,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
                     }
                 )
             }
-            shown = notchWindowManager?.show() ?? false
+            shown = notchWindowManager?.show(on: screen) ?? false
         case .mini:
             if miniWindowManager == nil {
                 miniWindowManager = MiniWindowManager(
@@ -137,7 +140,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
                     }
                 )
             }
-            shown = miniWindowManager?.show() ?? false
+            shown = miniWindowManager?.show(on: screen) ?? false
         }
 
         if shown {
@@ -151,6 +154,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     }
 
     private func hideRecorderPanel() {
+        recorderScreenSelection.reset()
         // `dismissRecorderPanel()` calls this directly and then clears the flag, which calls it
         // again, so this deliberately stays at debug level.
         logger.debug("Hiding recorder panel style=\(self.recorderPanelStyle.rawValue, privacy: .public)")
@@ -166,11 +170,8 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
 
     /// Recorder panels must not outlive a sleep/wake cycle or a display reconfiguration.
     ///
-    /// `NotchWindowManager.show()` already rebuilds a panel that is not on screen, so the work
-    /// here is only about the panel that is currently *hidden but retained*: dropping it frees
-    /// the window early and keeps `destroyWindow()` on a path that actually runs. When a
-    /// dictation is in progress the panel stays put and is only repositioned, so an active
-    /// session never loses its UI.
+    /// Drop any hidden panels after a display change. During an active session, refresh
+    /// geometry on the retained display, choosing another only if that display disappears.
     ///
     /// `didChangeScreenParameters` fires several times per reconfiguration and displays need a
     /// moment to settle afterwards, so the work is debounced and re-armed on every event

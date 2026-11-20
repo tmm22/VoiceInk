@@ -1,6 +1,6 @@
 import Foundation
-import LLMkit
 import SwiftData
+import LLMkit
 
 struct SonioxProvider: CloudProvider {
     let modelProvider: ModelProvider = .soniox
@@ -18,9 +18,9 @@ struct SonioxProvider: CloudProvider {
     var models: [CloudModel] {
         [
             CloudModel(
-                name: "stt-async-v5",
-                displayName: "Soniox V5",
-                description: "Soniox transcription model v5 with improved accuracy and structured data formatting",
+                name: "stt-async-v6",
+                displayName: "Soniox V6",
+                description: "Soniox transcription model v6 with improved dictation accuracy, multilingual recognition, and context handling",
                 provider: .soniox,
                 isMultilingual: true,
                 supportsStreaming: true,

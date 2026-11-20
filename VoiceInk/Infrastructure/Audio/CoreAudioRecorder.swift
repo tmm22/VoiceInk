@@ -6,34 +6,6 @@ import CoreAudio
 import Foundation
 import os
 
-struct AudioInputChannelSelection: Equatable {
-    let deviceChannelIndices: [Int32]
-
-    static func resolve(
-        deviceChannelCount: UInt32,
-        preferredStereoChannels: [UInt32]?
-    ) -> AudioInputChannelSelection {
-        guard deviceChannelCount > 0 else {
-            return AudioInputChannelSelection(deviceChannelIndices: [])
-        }
-
-        let fallback = (0..<min(deviceChannelCount, 2)).map(Int32.init)
-        guard let preferredStereoChannels,
-              !preferredStereoChannels.isEmpty,
-              preferredStereoChannels.allSatisfy({ (1...deviceChannelCount).contains($0) }) else {
-            return AudioInputChannelSelection(deviceChannelIndices: fallback)
-        }
-
-        var seen = Set<UInt32>()
-        let preferred = preferredStereoChannels.compactMap { channel -> Int32? in
-            guard seen.insert(channel).inserted else { return nil }
-            return Int32(channel - 1)
-        }
-
-        return AudioInputChannelSelection(deviceChannelIndices: preferred)
-    }
-}
-
 // MARK: - Core Audio Recorder (AUHAL-based, does not change system default device)
 final class CoreAudioRecorder: @unchecked Sendable {
     final class InputBufferSlot: @unchecked Sendable {
@@ -68,6 +40,7 @@ final class CoreAudioRecorder: @unchecked Sendable {
     // Device format (what the hardware provides)
     var deviceFormat = AudioStreamBasicDescription()
     var captureChannelCount: UInt32 = 1
+    var captureChannelSelection = AudioInputChannelSelection(deviceChannelIndices: [])
     // Output format (16kHz mono PCM Int16 for transcription)
     var outputFormat = AudioStreamBasicDescription()
 
@@ -139,14 +112,14 @@ final class CoreAudioRecorder: @unchecked Sendable {
     // MARK: - Public Interface
 
     /// Prepares AUHAL for the selected device without starting capture.
-    func prepare(deviceID: AudioDeviceID) throws {
+    func prepare(deviceID: AudioDeviceID, selectedInputChannels: [UInt32]? = nil) throws {
         if isRecording {
             return
         }
 
         try validateDevice(deviceID)
 
-        if isPrepared(for: deviceID) {
+        if isPrepared(for: deviceID, selectedInputChannels: selectedInputChannels) {
             return
         }
 
@@ -160,7 +133,7 @@ final class CoreAudioRecorder: @unchecked Sendable {
 
             try setInputDevice(deviceID)
 
-            try configureFormats()
+            try configureFormats(selectedInputChannels: selectedInputChannels)
 
             try setupInputCallback()
 
@@ -182,11 +155,11 @@ final class CoreAudioRecorder: @unchecked Sendable {
     }
 
     /// Starts recording from the specified device to the given URL (WAV format)
-    func startRecording(toOutputFile url: URL, deviceID: AudioDeviceID) throws {
+    func startRecording(toOutputFile url: URL, deviceID: AudioDeviceID, selectedInputChannels: [UInt32]? = nil) throws {
         // Stop any existing recording
         stopRecording()
 
-        try prepare(deviceID: deviceID)
+        try prepare(deviceID: deviceID, selectedInputChannels: selectedInputChannels)
 
         do {
             recordingURL = url
@@ -235,10 +208,26 @@ final class CoreAudioRecorder: @unchecked Sendable {
         flushFormatConverterToFile()
         logDroppedInputBufferCounters(context: "stop")
 
+        let shouldRebuild = capturedTooLittleAudio()
         closeOutputFile()
         recordingURL = nil
+        if shouldRebuild { invalidatePreparation() }
 
         resetMeters()
+    }
+
+    /// Check after writes finish, before closing the file.
+    private func capturedTooLittleAudio() -> Bool {
+        guard let audioFile, outputFormat.mSampleRate > 0 else { return false }
+
+        var frameCount: Int64 = 0
+        var size = UInt32(MemoryLayout<Int64>.size)
+        guard ExtAudioFileGetProperty(
+            audioFile, kExtAudioFileProperty_FileLengthFrames, &size, &frameCount
+        ) == noErr, frameCount >= 0 else { return false }
+
+        // Use audio duration, not file size.
+        return Double(frameCount) / outputFormat.mSampleRate < 0.15
     }
 
     /// Releases the prepared AUHAL and buffers. Use for app shutdown or hard recovery.
@@ -255,7 +244,7 @@ final class CoreAudioRecorder: @unchecked Sendable {
     var currentDevice: AudioDeviceID { currentDeviceID }
 
     /// Switches to a new input device mid-recording without stopping the file write
-    func switchDevice(to newDeviceID: AudioDeviceID) throws {
+    func switchDevice(to newDeviceID: AudioDeviceID, selectedInputChannels: [UInt32]? = nil) throws {
         guard isRecording, let unit = audioUnit else {
             throw CoreAudioRecorderError.audioUnitNotInitialized
         }
@@ -264,21 +253,22 @@ final class CoreAudioRecorder: @unchecked Sendable {
         guard newDeviceID != currentDeviceID else { return }
 
         let oldDeviceID = currentDeviceID
+        let previousChannels = captureChannelSelection.deviceChannelIndices.map { UInt32($0) + 1 }
         try RecordingDeviceSwitch.perform(
-            change: { try reconfigureRecordingDevice(to: newDeviceID, unit: unit) },
+            change: { try reconfigureRecordingDevice(to: newDeviceID, unit: unit, selectedInputChannels: selectedInputChannels) },
             recover: {
                 // Rebuild even after a partial format/buffer/initialization change. Merely
                 // restoring the device property can leave buffers configured for the new device.
                 isRecording = false
                 teardownPreparedAudioUnit()
-                try prepare(deviceID: oldDeviceID)
+                try prepare(deviceID: oldDeviceID, selectedInputChannels: previousChannels)
                 try startAudioUnit()
             },
             stop: { stopRecording() }
         )
     }
 
-    private func reconfigureRecordingDevice(to newDeviceID: AudioDeviceID, unit: AudioUnit) throws {
+    private func reconfigureRecordingDevice(to newDeviceID: AudioDeviceID, unit: AudioUnit, selectedInputChannels: [UInt32]?) throws {
         logger.notice(
             "🎙️ Switching recording device to \(newDeviceID, privacy: .public)")
 
@@ -337,7 +327,8 @@ final class CoreAudioRecorder: @unchecked Sendable {
         // Step 5: Configure callback format and map only the device's preferred input channels.
         let newCaptureChannelCount = try configureCaptureFormat(
             deviceID: newDeviceID,
-            deviceFormat: newDeviceFormat
+            deviceFormat: newDeviceFormat,
+            selectedInputChannels: selectedInputChannels
         )
 
         // Step 6: Reallocate buffers if needed

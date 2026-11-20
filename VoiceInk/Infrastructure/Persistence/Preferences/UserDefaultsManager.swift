@@ -6,6 +6,7 @@ extension UserDefaults {
         static let selectedAudioDeviceUID = "selectedAudioDeviceUID"
         static let selectedAudioDeviceModelUID = "selectedAudioDeviceModelUID"
         static let prioritizedDevices = "prioritizedDevices"
+        static let audioInputChannelsByDeviceUID = "audioInputChannelsByDeviceUID"
         static let affiliatePromotionDismissed = "VoiceInkAffiliatePromotionDismissed"
     }
 
@@ -27,6 +28,22 @@ extension UserDefaults {
     var prioritizedDevicesData: Data? {
         get { data(forKey: Keys.prioritizedDevices) }
         set { setValue(newValue, forKey: Keys.prioritizedDevices) }
+    }
+
+    /// Exact device UIDs keep channel choices separate, even for identical interface models.
+    var audioInputChannelsByDeviceUID: [String: [UInt32]] {
+        get {
+            guard let data = data(forKey: Keys.audioInputChannelsByDeviceUID),
+                  let selections = try? JSONDecoder().decode([String: [UInt32]].self, from: data) else {
+                return [:]
+            }
+            // Older multiple-input overrides return to Automatic instead of choosing an arbitrary input.
+            return selections.filter { $0.value.count == 1 }
+        }
+        set {
+            guard let data = try? JSONEncoder().encode(newValue) else { return }
+            set(data, forKey: Keys.audioInputChannelsByDeviceUID)
+        }
     }
 
     var affiliatePromotionDismissed: Bool {

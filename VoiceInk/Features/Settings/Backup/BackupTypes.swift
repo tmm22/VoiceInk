@@ -95,6 +95,8 @@ struct GeneralBackup: Codable {
     let isTextFormattingEnabled: Bool?
     let isExperimentalFeaturesEnabled: Bool?
     let restoreClipboardAfterPaste: Bool?
+    let smartPunctuationEnabled: Bool?
+    let pasteMethod: String?
     let clipboardRestoreDelay: Double?
 }
 

@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftData
 import SwiftUI
@@ -38,6 +39,7 @@ struct DashboardContent: View {
     @AppStorage("dashboardDisplayName") private var dashboardDisplayName: String = ""
     @FocusState private var isNameFieldFocused: Bool
     @Query(Self.recentTranscriptionsDescriptor()) private var recentTranscriptionCandidates: [Transcription]
+    @State private var isWindowVisible = false
 
     private static func recentTranscriptionsDescriptor() -> FetchDescriptor<Transcription> {
         var descriptor = FetchDescriptor<Transcription>(
@@ -90,6 +92,7 @@ struct DashboardContent: View {
             refreshAccessibilityStatus()
             updaterViewModel.checkForUpdatesIfDue()
         }
+        .background(DashboardWindowVisibilityReader(isVisible: $isWindowVisible))
         .onReceive(LifecycleObserver.shared.publisher(for: .applicationDidBecomeActive)) { _ in
             refreshAccessibilityStatus()
         }
@@ -162,7 +165,11 @@ struct DashboardContent: View {
     }
 
     private var recentDashboardTranscriptions: [Transcription] {
-        Array(
+        // In menu bar mode the main window stays alive while hidden, and this query re-runs after
+        // every save. Without a timestamp index each run reads every transcription row, so only
+        // read it while some part of the window is actually visible.
+        guard isWindowVisible else { return [] }
+        return Array(
             recentTranscriptionCandidates
                 .filter { transcription in
                     isRecentDashboardTranscription(transcription)
@@ -188,6 +195,10 @@ struct DashboardContent: View {
 
     private var selectedProductivityPoints: [DashboardProductivityPoint] {
         statsSummary.productivity(for: selectedInsightPeriod)
+    }
+
+    private var selectedDailyActivityPoints: [DashboardProductivityPoint] {
+        statsSummary.dailyActivity(for: selectedInsightPeriod)
     }
 
     private var selectedModelPerformance: [ModelPerformanceSummary] {
@@ -487,6 +498,7 @@ struct DashboardContent: View {
         DashboardInsightsView(
             selectedPeriod: $selectedInsightPeriod,
             productivityPoints: selectedProductivityPoints,
+            dailyActivityPoints: selectedDailyActivityPoints,
             peakHoursSummary: selectedPeakHours,
             isPeakHoursLocked: shouldLockPeakHours,
             timeSavedSummary: selectedTimeSavedSummary,

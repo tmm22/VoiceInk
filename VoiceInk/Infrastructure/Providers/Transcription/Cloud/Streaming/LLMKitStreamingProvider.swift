@@ -57,7 +57,7 @@ class LLMKitStreamingProvider<Client: LLMkit.StreamingTranscriptionProvider>: St
 
     /// Translates the selected model and language into the client's connect parameters.
     /// The default passes the model name and language through and attaches the custom vocabulary.
-    func connectionParameters(model: any TranscriptionModel, language: String?) -> LLMKitStreamingConnection {
+    func connectionParameters(model: any TranscriptionModel, language: String?) throws -> LLMKitStreamingConnection {
         LLMKitStreamingConnection(model: model.name, language: language, customVocabulary: customVocabularyTerms())
     }
 
@@ -99,7 +99,7 @@ class LLMKitStreamingProvider<Client: LLMkit.StreamingTranscriptionProvider>: St
             sendsCustomVocabulary
             ? await DictionaryVocabulary.terms(from: modelContext, limit: vocabularyLimit, logger: logger)
             : []
-        let parameters = connectionParameters(model: model, language: language)
+        let parameters = try connectionParameters(model: model, language: language)
 
         // Cancel any existing forwarding task before starting a new one.
         forwardingTask?.cancel()
@@ -136,7 +136,7 @@ class LLMKitStreamingProvider<Client: LLMkit.StreamingTranscriptionProvider>: St
         }
     }
 
-    final func commit() async throws {
+    func commit() async throws {
         willCommit()
         do {
             try await client.commit()

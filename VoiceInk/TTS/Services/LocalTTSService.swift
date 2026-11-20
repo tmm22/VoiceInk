@@ -7,7 +7,9 @@ final class LocalTTSService: NSObject, TTSProvider {
     // MARK: - Properties
     private let voices: [Voice]
     private let systemVoices: [Voice]
-    private let pocketVoiceEngine = PocketTtsManager()
+    // Keep the same language pack and cached voices across the FluidAudio upgrade.
+    private static let pocketLanguage = PocketTtsLanguage.english2026Apr
+    private let pocketVoiceEngine = PocketTtsManager(language: LocalTTSService.pocketLanguage)
 
     override init() {
         let loadedSystemVoices = LocalTTSService.loadSystemVoices()
@@ -47,18 +49,15 @@ final class LocalTTSService: NSObject, TTSProvider {
     }
 
     static func removeCachedPocketVoiceEmbedding(for id: String) throws {
-        guard let pocketVoiceID = pocketVoiceIdentifier(from: id) else { return }
-
-        var voiceIDsToRemove = Set([pocketVoiceID])
-        if let engineVoiceID = pocketVoiceEngineIdentifier(from: id) {
-            voiceIDsToRemove.insert(engineVoiceID)
-        }
-
-        for voiceID in voiceIDsToRemove {
-            let cacheURL = cachedPocketVoiceEmbeddingURL(for: voiceID)
-            if FileManager.default.fileExists(atPath: cacheURL.path) {
-                try FileManager.default.removeItem(at: cacheURL)
-            }
+        guard let voiceID = pocketVoiceIdentifier(from: id) else { return }
+        let cacheURL = try TtsCacheDirectory.ensure()
+            .appendingPathComponent(PocketTtsConstants.defaultModelsSubdirectory)
+            .appendingPathComponent(Repo.pocketTts.folderName)
+            .appendingPathComponent(pocketLanguage.repoSubdirectory)
+            .appendingPathComponent(ModelNames.PocketTTS.constantsBinDir)
+            .appendingPathComponent(voiceID + ".safetensors")
+        if FileManager.default.fileExists(atPath: cacheURL.path) {
+            try FileManager.default.removeItem(at: cacheURL)
         }
     }
 
@@ -69,7 +68,7 @@ final class LocalTTSService: NSObject, TTSProvider {
             throw TTSError.unsupportedFormat
         }
 
-        if let pocketVoiceID = LocalTTSService.pocketVoiceEngineIdentifier(from: voice.id) {
+        if let pocketVoiceID = LocalTTSService.pocketVoiceIdentifier(from: voice.id) {
             return try await synthesizePocketSpeech(
                 text: text,
                 pocketVoiceID: pocketVoiceID,
@@ -178,11 +177,11 @@ private extension LocalTTSService {
 // MARK: - Voice Helpers
 private extension LocalTTSService {
     static let pocketVoicePrefix = "pocket-tts:"
-    static let legacyPocketToKokoroVoiceMap: [String: String] = [
-        "alba": "af_heart",
-        "azelma": "af_bella",
-        "cosette": "af_nova",
-        "javert": "am_michael"
+    static let legacyVoiceAliases: [String: String] = [
+        "af_heart": "alba",
+        "af_bella": "azelma",
+        "af_nova": "cosette",
+        "am_michael": "javert"
     ]
 
     static let pocketVoices: [Voice] = [
@@ -223,22 +222,9 @@ private extension LocalTTSService {
     static func pocketVoiceIdentifier(from id: String) -> String? {
         guard id.hasPrefix(pocketVoicePrefix) else { return nil }
         let value = String(id.dropFirst(pocketVoicePrefix.count))
-        return value.isEmpty ? nil : value
-    }
-
-    static func pocketVoiceEngineIdentifier(from id: String) -> String? {
-        guard let voiceID = pocketVoiceIdentifier(from: id) else { return nil }
-        return legacyPocketToKokoroVoiceMap[voiceID] ?? voiceID
-    }
-
-    static func cachedPocketVoiceEmbeddingURL(for voiceID: String) -> URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".cache")
-            .appendingPathComponent("fluidaudio")
-            .appendingPathComponent("Models")
-            .appendingPathComponent("kokoro")
-            .appendingPathComponent("voices")
-            .appendingPathComponent("\(voiceID).json")
+        let name = legacyVoiceAliases[value] ?? value
+        guard pocketVoices.contains(where: { $0.id == pocketVoicePrefix + name }) else { return nil }
+        return name
     }
 
     @MainActor

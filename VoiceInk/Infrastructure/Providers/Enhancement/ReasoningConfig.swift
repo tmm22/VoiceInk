@@ -29,8 +29,11 @@ struct ReasoningConfig {
         return nil
     }
 
-    // OpenAI GPT-5 models support explicit "none"; GPT-4.1 models need no param.
+    // These OpenAI models support explicit "none" for low-latency enhancement.
+    // GPT-4.1 models need no parameter.
     static let openAINoneReasoningModels: Set<String> = [
+        "gpt-6-luna",
+        "gpt-6-sol",
         "gpt-5.6-luna",
         "gpt-5.6-terra",
         "gpt-5.6-sol",

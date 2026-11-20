@@ -6,6 +6,7 @@ class ModeShortcutManager {
     private let modeProvider: @MainActor () -> RecordingShortcutManager.Mode
     private let shortcutModeHandler: RecordingShortcutModeHandler
     private var shortcutChangeObserver: NSObjectProtocol?
+    private var monitoredActions = Set<ShortcutAction>()
 
     init(
         modeProvider: @escaping @MainActor () -> RecordingShortcutManager.Mode,
@@ -57,7 +58,12 @@ class ModeShortcutManager {
         }
     }
 
+    func recordingModeDidChange() {
+        shortcutMonitor.updateStandaloneModifierActions(standaloneModifierActions)
+    }
+
     private func refreshModeShortcuts() {
+        shortcutModeHandler.clearPendingModeDoubleTaps()
         let shortcuts = ModeManager.shared.enabledConfigurations.reduce(into: [ShortcutAction: Shortcut]()) {
             result, config in
             let action = ShortcutAction.mode(config.id)
@@ -65,10 +71,12 @@ class ModeShortcutManager {
                 result[action] = shortcut
             }
         }
+        monitoredActions = Set(shortcuts.keys)
 
         shortcutMonitor.start(
             shortcuts: shortcuts,
             interruptibleActions: Set(shortcuts.keys),
+            standaloneModifierActions: standaloneModifierActions,
             onShortcutDown: { [weak self] action, eventTime in
                 Task { @MainActor in
                     guard let self,
@@ -106,8 +114,17 @@ class ModeShortcutManager {
                     guard let self, case .mode = action else { return }
                     await self.shortcutModeHandler.handleInterruption(action: action)
                 }
+            },
+            onStandaloneModifierChord: { [weak self] action in
+                MainActor.assumeIsolated {
+                    self?.shortcutModeHandler.clearPendingDoubleTap(for: action)
+                }
             }
         )
+    }
+
+    private var standaloneModifierActions: Set<ShortcutAction> {
+        modeProvider() == .toggle || modeProvider() == .doubleTap ? monitoredActions : []
     }
 
     private func modeId(for action: ShortcutAction) -> UUID? {

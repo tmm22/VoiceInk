@@ -5,8 +5,13 @@ extension CursorPaster {
     /// persisted before any paste starts, so History is always a valid fallback.
     @MainActor
     static func notifyIfSkipped(_ result: PasteResult, showWarning: ((String) -> Void)? = nil) {
-        guard result == .skippedClipboardChanged else { return }
-        let title = String(localized: "Paste skipped because the clipboard changed. The transcript is saved in History.")
+        let title: String
+        switch result {
+        case .commandPosted, .commandNotPosted: return
+        case .typingFailed: title = String(localized: "Typing could not start. The transcript is saved in History.")
+        case .typingIncomplete: title = String(localized: "Typing stopped early. The full transcript is saved in History.")
+        case .skippedClipboardChanged: title = String(localized: "Paste skipped because the clipboard changed. The transcript is saved in History.")
+        }
         if let showWarning {
             showWarning(title)
             return

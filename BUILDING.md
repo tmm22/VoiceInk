@@ -3,13 +3,13 @@
 ## Requirements
 
 - macOS 14.4 or later
-- Xcode with Command Line Tools
+- Xcode with a Swift 6.3 or later toolchain and the Metal Toolchain component
 - Git
 
 ## Local Build
 
 ```bash
-git clone https://github.com/Beingpax/VoiceInk.git
+git clone --branch custom-main-v2 https://github.com/tmm22/VoiceInk.git
 cd VoiceInk
 make local
 open ~/Downloads/VoiceInk.app

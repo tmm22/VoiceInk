@@ -80,14 +80,6 @@ thin_arm64_unsigned_app() {
     mv "$temp_output" "$path"
   done < <(find "$app_bundle/Contents" -type f -perm -111 -print0)
 
-  echo "Removing inherited code signatures from embedded code"
-  while IFS= read -r -d '' path; do
-    codesign --remove-signature "$path" 2>/dev/null || true
-  done < <(find "$app_bundle/Contents" \
-    \( -name '*.app' -o -name '*.xpc' -o -name '*.framework' -o -name '*.dylib' \) \
-    -depth -print0)
-  codesign --remove-signature "$app_bundle" 2>/dev/null || true
-
   echo "Re-signing thinned app bundle"
   while IFS= read -r -d '' path; do
     codesign --force --sign - \
@@ -170,6 +162,8 @@ echo "Building VoiceInk $version ($build_number) [$build_configuration]"
         -derivedDataPath "$derived_data_dir" \
         -xcconfig LocalBuild.xcconfig \
         "${strip_build_args[@]}" \
+        ARCHS=arm64 \
+        -onlyUsePackageVersionsFromResolvedFile \
         CODE_SIGN_IDENTITY="-" \
         CODE_SIGNING_REQUIRED=NO \
         CODE_SIGNING_ALLOWED=YES \
@@ -210,6 +204,8 @@ ln -s /Applications "$dmg_staging_dir/Applications"
 if [[ "$signing_mode" == "unsigned" ]]; then
   prune_espeak_to_english_only "$dmg_staging_dir/VoiceInk.app"
   thin_arm64_unsigned_app "$dmg_staging_dir/VoiceInk.app"
+  [[ "$(lipo -archs "$dmg_staging_dir/VoiceInk.app/Contents/MacOS/VoiceInk")" == arm64 ]]
+  codesign --verify --deep --strict "$dmg_staging_dir/VoiceInk.app"
 fi
 
 rm -f "$artifact_path" "$checksum_path"
@@ -222,7 +218,8 @@ hdiutil create \
   "$artifact_path" \
   >/dev/null
 
-shasum -a 256 "$artifact_path" > "$checksum_path"
+hdiutil verify "$artifact_path" >/dev/null
+(cd "$output_root" && shasum -a 256 "$artifact_name") > "$checksum_path"
 
 echo "Built:"
 echo "  App: $app_path"

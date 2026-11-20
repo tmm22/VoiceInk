@@ -1,4 +1,5 @@
 import Foundation
+import LLMkit
 import os
 
 /// Encapsulates a single recording-to-transcription lifecycle (streaming or file-based).
@@ -60,6 +61,7 @@ final class StreamingTranscriptionSession: TranscriptionSession {
     private var model: (any TranscriptionModel)?
     private var context: TranscriptionRequestContext = .currentDefaults
     private var streamingFailed = false
+    private var startupError: Error?
     /// Set by `cancel()`; a cancelled session never starts a batch upload.
     private var wasCancelled = false
     private var startupTask: Task<Void, Never>?
@@ -78,6 +80,8 @@ final class StreamingTranscriptionSession: TranscriptionSession {
         self.model = model
         self.context = context
         wasCancelled = false
+        streamingFailed = false
+        startupError = nil
         logger.notice("Streaming session prepare model=\(model.displayName, privacy: .public)")
 
         // Return callback immediately; WebSocket connects in background
@@ -113,7 +117,8 @@ final class StreamingTranscriptionSession: TranscriptionSession {
                 self.streamingService.cancel()
             } catch {
                 guard !Task.isCancelled else { return }
-                let desc = error.localizedDescription
+                self.startupError = error
+                let desc = AppLogger.errorMetadata(error)
                 self.logger.error("❌ Failed to start streaming, will fall back to batch: \(desc, privacy: .public)")
                 self.streamingFailed = true
             }
@@ -127,11 +132,21 @@ final class StreamingTranscriptionSession: TranscriptionSession {
             throw VoiceInkEngineError.transcriptionFailed
         }
 
+        if model.provider == .elevenLabs || !Self.supportsBatchFallback(model) {
+            await startupTask?.value
+        }
+        guard !wasCancelled, !Task.isCancelled else { throw CancellationError() }
+        if let error = startupError as? ElevenLabsStreamingError, !error.allowsBatchFallback {
+            streamingService.cancel()
+            throw error
+        }
+
         if !streamingFailed {
             do {
                 let start = Date()
                 logger.notice("Streaming stop/transcribe started model=\(model.displayName, privacy: .public)")
                 let result = try await streamingService.stopAndFinalize()
+                guard !wasCancelled, !Task.isCancelled else { throw CancellationError() }
                 switch result {
                 case .finalized(let text):
                     logger.notice(
@@ -158,6 +173,10 @@ final class StreamingTranscriptionSession: TranscriptionSession {
                 streamingService.cancel()
                 throw CancellationError()
             } catch {
+                if let failure = error as? ElevenLabsStreamingError, !failure.allowsBatchFallback {
+                    streamingService.cancel()
+                    throw failure
+                }
                 logger.error("❌ Streaming failed, falling back to batch: \(AppLogger.errorMetadata(error), privacy: .public)")
                 startupTask?.cancel()
                 startupTask = nil

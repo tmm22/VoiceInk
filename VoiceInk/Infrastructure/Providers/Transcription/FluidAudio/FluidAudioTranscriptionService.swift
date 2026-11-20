@@ -24,6 +24,7 @@ actor FluidAudioTranscriptionService: TranscriptionService {
     /// preparation for another model (or `cleanup()`) tear the manager down mid-inference.
     private var activeInferenceCount = 0
     private var inferenceIdleWaiters: [CheckedContinuation<Void, Never>] = []
+    private var vadLoad: Task<VadManager, Error>?
     private let audioConverter = AudioConverter()
     private let logger = Logger(subsystem: AppLogger.subsystem, category: "FluidAudioTranscriptionService")
 
@@ -44,6 +45,8 @@ actor FluidAudioTranscriptionService: TranscriptionService {
         }
         // Detach synchronously, before any suspension, so no transcription can pick up a manager
         // that is being released. Release the detached managers afterwards.
+        vadLoad?.cancel()
+        vadLoad = nil
         let released = (unifiedAsrManager, nemotronAsrManager, asrManager)
         unifiedAsrManager = nil
         nemotronAsrManager = nil
@@ -124,21 +127,12 @@ actor FluidAudioTranscriptionService: TranscriptionService {
         }
         loadingTask = (version, task)
 
-        do {
-            let models = try await task.value
-            self.cachedModels = models
-            // Only clear if we're still the current loading task
-            if loadingTask?.version == version {
-                self.loadingTask = nil
-            }
-            return models
-        } catch {
-            // Only clear if we're still the current loading task
-            if loadingTask?.version == version {
-                self.loadingTask = nil
-            }
-            throw error
+        defer {
+            if loadingTask?.task == task { loadingTask = nil }
         }
+        let models = try await task.value
+        if loadingTask?.task == task { cachedModels = models }
+        return models
     }
 
     func loadModel(for model: FluidAudioModel) async throws {
@@ -221,7 +215,28 @@ actor FluidAudioTranscriptionService: TranscriptionService {
         // No suspension between the check and claiming the managers.
         activeInferenceCount += 1
         defer { finishInference() }
-        return try await runInference(audioURL: audioURL, model: model, context: context)
+        try Task.checkCancellation()
+        guard let vad = try await speechDetector() else {
+            return try await runInference(audioURL: audioURL, model: model, context: context)
+        }
+        let filteredURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("caf")
+        defer {
+            // Best effort: the filter may have failed before creating its output.
+            try? FileManager.default.removeItem(at: filteredURL)
+        }
+        let hasSpeech: Bool
+        do {
+            hasSpeech = try await FluidAudioSpeechFilter.writeSpeech(from: audioURL, to: filteredURL, using: vad)
+        } catch {
+            try Task.checkCancellation()
+            if error is CancellationError { throw error }
+            logger.notice("Speech filtering failed. Using original recording: \(AppLogger.errorMetadata(error), privacy: .public)")
+            return try await runInference(audioURL: audioURL, model: model, context: context)
+        }
+        try Task.checkCancellation()
+        guard hasSpeech else { return "" }
+        return try await runInference(audioURL: filteredURL, model: model, context: context)
     }
 
     private func finishInference() {
@@ -290,6 +305,50 @@ actor FluidAudioTranscriptionService: TranscriptionService {
 
     private func loadAudioSamples(from audioURL: URL) throws -> [Float] {
         try audioConverter.resampleAudioFile(audioURL)
+    }
+
+    private func speechDetector() async throws -> VadManager? {
+        try Task.checkCancellation()
+        guard UserDefaults.standard.bool(forKey: "IsVADEnabled") else { return nil }
+        if vadLoad == nil {
+            guard FluidAudioModelManager.vadModelFilesExist() else { return nil }
+            vadLoad = Task { try await FluidAudioSpeechFilter.loadLocalModel() }
+        }
+        guard let loading = vadLoad else { return nil }
+        do {
+            let manager = try await loading.value
+            try Task.checkCancellation()
+            return manager
+        } catch {
+            if vadLoad == loading && !Task.isCancelled { vadLoad = nil }
+            try Task.checkCancellation()
+            if error is CancellationError { throw error }
+            logger.notice("Speech detector unavailable: \(AppLogger.errorMetadata(error), privacy: .public)")
+            return nil
+        }
+    }
+
+    func detectedSpeechSegments(in samples: [Float]) async throws -> [VadSegment]? {
+        guard let manager = try await speechDetector() else { return nil }
+        do {
+            let segments = try await manager.segmentSpeech(samples)
+            try Task.checkCancellation()
+            return segments
+        } catch {
+            try Task.checkCancellation()
+            if error is CancellationError { throw error }
+            logger.notice("Speech segmentation failed: \(AppLogger.errorMetadata(error), privacy: .public)")
+            return nil
+        }
+    }
+
+    func preparedSpeechAudio(in samples: [Float]) async throws -> [Float] {
+        guard let segments = try await detectedSpeechSegments(in: samples) else { return samples }
+        return segments.flatMap { segment -> ArraySlice<Float> in
+            let start = min(max(0, segment.startSample(sampleRate: VadManager.sampleRate)), samples.count)
+            let end = min(max(start, segment.endSample(sampleRate: VadManager.sampleRate)), samples.count)
+            return samples[start..<end]
+        }
     }
 
     // Releases ASR resources but preserves cached models for reuse. Waits for an in-flight load so

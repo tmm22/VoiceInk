@@ -2,8 +2,42 @@ import Foundation
 
 // Safe to delete once all users have updated past this version.
 enum StreamingKeysMigration {
+    // Run before services load model selections or decode saved modes.
+    static func migrateProviderModelNames(defaults: UserDefaults = .standard) {
+        // The catalog has one entry for both async and realtime; the realtime toggle
+        // selects stt-rt-v6 when recording starts.
+        let replacements = ["stt-async-v5": "stt-async-v6", "stt-rt-v5": "stt-async-v6",
+                            "grok-stt": "grok-voice-transcribe-2.0"]
+        if let selected = defaults.string(forKey: "CurrentTranscriptionModel"),
+            let replacement = replacements[selected]
+        {
+            defaults.set(replacement, forKey: "CurrentTranscriptionModel")
+        }
+
+        for key in ["modeConfigurationsV2", "powerModeConfigurationsV2"] {
+            guard let data = defaults.data(forKey: key),
+                var configs = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]]
+            else { continue }
+            var changed = false
+            for index in configs.indices {
+                for field in ["selectedTranscriptionModelName", "selectedWhisperModel"] {
+                    guard let selected = configs[index][field] as? String,
+                        let replacement = replacements[selected]
+                    else { continue }
+                    configs[index][field] = replacement
+                    changed = true
+                }
+            }
+            if changed, let updated = try? JSONSerialization.data(withJSONObject: configs) {
+                defaults.set(updated, forKey: key)
+            }
+        }
+    }
+
     static func run() {
         let defaults = UserDefaults.standard
+        // Run after the older migration, including for users who already ran it.
+        defer { migrateVoxtral3(defaults: defaults) }
         guard !defaults.bool(forKey: "streaming-keys-migrated") else { return }
 
         let legacyStreamingMappings: [(old: String, new: [String])] = [
@@ -60,5 +94,41 @@ enum StreamingKeysMigration {
         }
 
         defaults.set(true, forKey: "streaming-keys-migrated")
+    }
+
+    private static func migrateVoxtral3(defaults: UserDefaults) {
+        guard !defaults.bool(forKey: "voxtral-3-models-migrated") else { return }
+        let legacyModels: Set<String> = [
+            "voxtral-mini-latest", "voxtral-mini-2507", "voxtral-mini-2602",
+            "voxtral-mini-transcribe-realtime-2602",
+        ]
+
+        let globalSelection = defaults.string(forKey: "CurrentTranscriptionModel")
+        // The old combined entry used realtime by default. Preserve that behavior.
+        if let selected = globalSelection, legacyModels.contains(selected) {
+            defaults.set("voxtral-mini-transcribe-realtime-3-0", forKey: "CurrentTranscriptionModel")
+        }
+
+        for key in ["modeConfigurationsV2", "powerModeConfigurationsV2"] {
+            guard let data = defaults.data(forKey: key),
+                  var configs = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else { continue }
+            var changed = false
+            for index in configs.indices {
+                // Preserve each mode's setting when it inherits the legacy global model.
+                let selected = configs[index]["selectedTranscriptionModelName"] as? String
+                    ?? configs[index]["selectedWhisperModel"] as? String
+                    ?? globalSelection
+                guard let selected,
+                      legacyModels.contains(selected) else { continue }
+                let realtime = configs[index]["isRealtimeTranscriptionEnabled"] as? Bool ?? true
+                configs[index]["selectedTranscriptionModelName"] = realtime
+                    ? "voxtral-mini-transcribe-realtime-3-0" : "voxtral-mini-transcribe-3-0"
+                changed = true
+            }
+            if changed, let updated = try? JSONSerialization.data(withJSONObject: configs) {
+                defaults.set(updated, forKey: key)
+            }
+        }
+        defaults.set(true, forKey: "voxtral-3-models-migrated")
     }
 }

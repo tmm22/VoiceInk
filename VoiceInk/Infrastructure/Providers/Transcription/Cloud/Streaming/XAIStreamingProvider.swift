@@ -1,15 +1,9 @@
 import Foundation
 import LLMkit
+import SwiftData
 
-/// xAI streaming provider wrapping `LLMkit.XAIStreamingClient`.
 final class XAIStreamingProvider: LLMKitStreamingProvider<LLMkit.XAIStreamingClient> {
-    init() {
-        super.init(client: LLMkit.XAIStreamingClient(), apiKeyProviderName: "xAI", modelContext: nil)
-    }
-
-    override var sendsCustomVocabulary: Bool { false }
-
-    override func connectionParameters(model: any TranscriptionModel, language: String?) -> LLMKitStreamingConnection {
-        LLMKitStreamingConnection(model: model.name, language: language, customVocabulary: [])
+    init(modelContext: ModelContext) {
+        super.init(client: LLMkit.XAIStreamingClient(), apiKeyProviderName: "xAI", modelContext: modelContext)
     }
 }

@@ -113,7 +113,7 @@ struct ModeConfigDraft {
         let availableModels = snapshot.availableModels(for: provider)
         if let selectedAIModel,
             !selectedAIModel.isEmpty,
-            (availableModels.isEmpty || availableModels.contains(selectedAIModel))
+            (provider.supportsCustomModelID || availableModels.isEmpty || availableModels.contains(selectedAIModel))
         {
             return
         }
@@ -128,7 +128,7 @@ struct ModeConfigDraft {
             return
         }
 
-        selectedTranscriptionModelName = snapshot.usableTranscriptionModels.first?.name
+        selectedTranscriptionModelName = snapshot.usableTranscriptionModels.first?.selectionKey
     }
 
     mutating func ensurePromptSelection(firstPromptId: UUID?) {

@@ -261,13 +261,18 @@ final class KeychainService {
 
     /// Checks if a key exists in Keychain without reading the secret value.
     func exists(forKey key: String, syncable: Bool = true) -> Bool {
+        presence(forKey: key, syncable: syncable) ?? false
+    }
+
+    func presence(forKey key: String, syncable: Bool) -> Bool? {
         var query = baseQuery(forKey: key, syncable: syncable)
         query[kSecReturnData as String] = kCFBooleanFalse
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
         let status = SecItemCopyMatching(query as CFDictionary, nil)
         if status != errSecSuccess && status != errSecItemNotFound {
-            logger.error("Keychain existence check error for key: \(key, privacy: .public), status: \(status, privacy: .public)")
+            logger.error("Keychain presence check failed, status: \(status, privacy: .public)")
+            return nil
         }
         return status == errSecSuccess
     }

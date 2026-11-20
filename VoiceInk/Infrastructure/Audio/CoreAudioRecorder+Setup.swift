@@ -83,7 +83,7 @@ extension CoreAudioRecorder {
         }
     }
 
-    func configureFormats() throws {
+    func configureFormats(selectedInputChannels: [UInt32]?) throws {
         guard let audioUnit = audioUnit else {
             throw CoreAudioRecorderError.audioUnitNotInitialized
         }
@@ -119,7 +119,8 @@ extension CoreAudioRecorder {
 
         captureChannelCount = try configureCaptureFormat(
             deviceID: currentDeviceID,
-            deviceFormat: deviceFormat
+            deviceFormat: deviceFormat,
+            selectedInputChannels: selectedInputChannels
         )
 
         // Log format details
@@ -152,7 +153,8 @@ extension CoreAudioRecorder {
 
     func configureCaptureFormat(
         deviceID: AudioDeviceID,
-        deviceFormat: AudioStreamBasicDescription
+        deviceFormat: AudioStreamBasicDescription,
+        selectedInputChannels: [UInt32]?
     ) throws -> UInt32 {
         guard let audioUnit else {
             throw CoreAudioRecorderError.audioUnitNotInitialized
@@ -160,7 +162,8 @@ extension CoreAudioRecorder {
 
         let selection = AudioInputChannelSelection.resolve(
             deviceChannelCount: deviceFormat.mChannelsPerFrame,
-            preferredStereoChannels: getPreferredInputChannels(deviceID: deviceID)
+            preferredStereoChannels: getPreferredInputChannels(deviceID: deviceID),
+            selectedChannels: selectedInputChannels
         )
         let channelCount = UInt32(selection.deviceChannelIndices.count)
         guard channelCount > 0 else {
@@ -208,6 +211,7 @@ extension CoreAudioRecorder {
             throw CoreAudioRecorderError.failedToSetFormat(status: status)
         }
 
+        captureChannelSelection = selection
         let mappedChannels = selection.deviceChannelIndices.map { $0 + 1 }
         logger.notice("🎙️ Capturing device input channels: \(mappedChannels, privacy: .public)")
         return channelCount
@@ -356,8 +360,38 @@ extension CoreAudioRecorder {
         }
     }
 
-    func isPrepared(for deviceID: AudioDeviceID) -> Bool {
-        audioUnit != nil && isAudioUnitInitialized && currentDeviceID == deviceID && isDeviceAvailable(deviceID)
+    func isPrepared(for deviceID: AudioDeviceID, selectedInputChannels: [UInt32]?) -> Bool {
+        guard let audioUnit, isAudioUnitInitialized,
+              currentDeviceID == deviceID, isDeviceAvailable(deviceID) else { return false }
+
+        // A DAW or a Bluetooth route change can reconfigure an existing device
+        // without changing its ID. The cached AUHAL client format then becomes
+        // stale: starting still succeeds, but rendering can produce no audio.
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyNominalSampleRate,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var sampleRate: Double = 0
+        var size = UInt32(MemoryLayout<Double>.size)
+        guard AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &sampleRate) == noErr,
+              sampleRate == deviceFormat.mSampleRate else { return false }
+
+        var currentFormat = AudioStreamBasicDescription()
+        size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+        guard AudioUnitGetProperty(
+            audioUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 1,
+            &currentFormat, &size
+        ) == noErr else { return false }
+
+        return currentFormat.mSampleRate == deviceFormat.mSampleRate
+            && currentFormat.mChannelsPerFrame == deviceFormat.mChannelsPerFrame
+            && renderFrameCapacity(for: deviceID) <= renderBufferSize / captureChannelCount
+            && captureChannelSelection == AudioInputChannelSelection.resolve(
+                deviceChannelCount: currentFormat.mChannelsPerFrame,
+                preferredStereoChannels: getPreferredInputChannels(deviceID: deviceID),
+                selectedChannels: selectedInputChannels
+            )
     }
 
     func validateDevice(_ deviceID: AudioDeviceID) throws {

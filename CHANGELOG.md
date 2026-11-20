@@ -2,6 +2,21 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-11-20
+
+### Community 2.27
+
+- Dictate locally with Parakeet Ultra in batch or live mode. Voice activity detection filters silence, and interrupted model downloads can be resumed.
+- Choose a microphone channel, start dictation with a double-tap shortcut, and open the recorder on the display under the pointer.
+- Type directly into remote desktops, enable context-aware punctuation, and duplicate modes with more precise website triggers.
+- Use OpenRouter for speech-to-text and access additional models from AssemblyAI, ElevenLabs, Mistral, Soniox and xAI.
+- View dictation activity in the dashboard and use the app in French or Japanese.
+
+### Compatibility and verification
+
+- The desktop app targets macOS 14.4 or later. Its 22 shared Swift packages match upstream VoiceInk 2.27. The community edition includes Pocket TTS, FastConformer, the full history window and the existing dictionary.
+- On Apple Silicon running macOS 26.5.2, 294 unit tests passed and two tests skipped because no microphone input was available. Additional checks exercised Parakeet Ultra, silence filtering, Pocket TTS synthesis and ONNX model loading.
+
 ## 2026-10-17
 
 ### Web

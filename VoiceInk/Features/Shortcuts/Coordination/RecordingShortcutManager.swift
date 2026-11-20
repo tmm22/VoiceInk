@@ -22,11 +22,16 @@ class RecordingShortcutManager: ObservableObject {
         didSet {
             UserDefaults.standard.set(primaryRecordingShortcutMode.rawValue, forKey: "primaryRecordingShortcutMode")
             primaryRecordingShortcutModeSource.primaryMode = primaryRecordingShortcutMode
+            shortcutModeHandler.resetShortcutState(for: .primaryRecording)
+            modeShortcutManager.recordingModeDidChange()
+            updateStandaloneModifierActions()
         }
     }
     @Published var secondaryRecordingShortcutMode: Mode {
         didSet {
             UserDefaults.standard.set(secondaryRecordingShortcutMode.rawValue, forKey: "secondaryRecordingShortcutMode")
+            shortcutModeHandler.resetShortcutState(for: .secondaryRecording)
+            updateStandaloneModifierActions()
         }
     }
     private var engine: VoiceInkEngine
@@ -42,12 +47,14 @@ class RecordingShortcutManager: ObservableObject {
         case toggle = "toggle"
         case pushToTalk = "pushToTalk"
         case hybrid = "hybrid"
+        case doubleTap = "doubleTap"
 
         var displayName: String {
             switch self {
             case .toggle: return String(localized: "Toggle")
             case .pushToTalk: return String(localized: "Push to Talk")
             case .hybrid: return String(localized: "Hybrid")
+            case .doubleTap: return String(localized: "Double Tap")
             }
         }
     }
@@ -164,6 +171,7 @@ class RecordingShortcutManager: ObservableObject {
         shortcutMonitor.start(
             shortcuts: shortcuts,
             interruptibleActions: interruptibleRecordingActions,
+            standaloneModifierActions: standaloneModifierActions,
             onShortcutDown: { [weak self] action, eventTime in
                 Task { @MainActor in
                     guard let self else { return }
@@ -194,8 +202,28 @@ class RecordingShortcutManager: ObservableObject {
                     guard let self, self.recordingMode(for: action) != nil else { return }
                     await self.shortcutModeHandler.handleInterruption(action: action)
                 }
+            },
+            onStandaloneModifierChord: { [weak self] action in
+                MainActor.assumeIsolated {
+                    self?.shortcutModeHandler.clearPendingDoubleTap(for: action)
+                }
             }
         )
+    }
+
+    private var standaloneModifierActions: Set<ShortcutAction> {
+        var actions = Set<ShortcutAction>()
+        if primaryRecordingShortcutMode == .toggle || primaryRecordingShortcutMode == .doubleTap {
+            actions.insert(.primaryRecording)
+        }
+        if secondaryRecordingShortcutMode == .toggle || secondaryRecordingShortcutMode == .doubleTap {
+            actions.insert(.secondaryRecording)
+        }
+        return actions
+    }
+
+    private func updateStandaloneModifierActions() {
+        shortcutMonitor.updateStandaloneModifierActions(standaloneModifierActions)
     }
 
     private func recordingMode(for action: ShortcutAction) -> Mode? {
@@ -287,10 +315,13 @@ final class RecordingShortcutModeHandler {
     private var activeRecordingShortcutAction: ShortcutAction?
     private var interruptedRecordingActions = Set<ShortcutAction>()
     private var activeShortcutCanCancelAccidentalStart = false
+    private var activeShortcutIsDoubleTap = false
     private var lastShortcutPressTime: Date?
+    private var pendingDoubleTapReleaseTimes: [ShortcutAction: TimeInterval] = [:]
 
     private let shortcutPressCooldown: TimeInterval = 0.5
     private let hybridPressThreshold: TimeInterval = 0.5
+    private let doubleTapThreshold: TimeInterval = 0.7
 
     init(
         canHandleShortcutAction: @escaping @MainActor () -> Bool,
@@ -313,6 +344,33 @@ final class RecordingShortcutModeHandler {
         activeRecordingShortcutAction = nil
         interruptedRecordingActions.removeAll()
         activeShortcutCanCancelAccidentalStart = false
+        activeShortcutIsDoubleTap = false
+        clearPendingDoubleTaps()
+    }
+
+    func clearPendingDoubleTaps() {
+        pendingDoubleTapReleaseTimes.removeAll()
+    }
+
+    func clearPendingDoubleTap(for action: ShortcutAction) {
+        pendingDoubleTapReleaseTimes.removeValue(forKey: action)
+    }
+
+    func clearPendingModeDoubleTaps() {
+        pendingDoubleTapReleaseTimes = pendingDoubleTapReleaseTimes.filter { action, _ in
+            if case .mode = action { return false }
+            return true
+        }
+    }
+
+    func resetShortcutState(for action: ShortcutAction) {
+        pendingDoubleTapReleaseTimes.removeValue(forKey: action)
+        guard activeRecordingShortcutAction == action else { return }
+        isShortcutPressed = false
+        shortcutPressStartTime = nil
+        activeRecordingShortcutAction = nil
+        activeShortcutCanCancelAccidentalStart = false
+        activeShortcutIsDoubleTap = false
     }
 
     func handleShortcutDown(
@@ -325,7 +383,12 @@ final class RecordingShortcutModeHandler {
             return
         }
 
-        if let lastTrigger = lastShortcutPressTime,
+        if mode == .doubleTap && (!canHandleShortcutAction() || recordingState() == .starting) {
+            clearPendingDoubleTap(for: action)
+            return
+        }
+
+        if mode != .doubleTap, let lastTrigger = lastShortcutPressTime,
             Date().timeIntervalSince(lastTrigger) < shortcutPressCooldown
         {
             return
@@ -336,8 +399,11 @@ final class RecordingShortcutModeHandler {
         }
         isShortcutPressed = true
         activeRecordingShortcutAction = action
-        activeShortcutCanCancelAccidentalStart = canCurrentShortcutPressCancelAccidentalStart
-        lastShortcutPressTime = Date()
+        activeShortcutIsDoubleTap = mode == .doubleTap
+        activeShortcutCanCancelAccidentalStart = mode != .doubleTap && canCurrentShortcutPressCancelAccidentalStart
+        if mode != .doubleTap {
+            lastShortcutPressTime = Date()
+        }
         shortcutPressStartTime = eventTime
 
         switch mode {
@@ -359,6 +425,9 @@ final class RecordingShortcutModeHandler {
                 guard canHandleShortcutAction() else { return }
                 await toggleRecorderPanel(modeId)
             }
+
+        case .doubleTap:
+            break
         }
     }
 
@@ -372,6 +441,7 @@ final class RecordingShortcutModeHandler {
         isShortcutPressed = false
         activeRecordingShortcutAction = nil
         activeShortcutCanCancelAccidentalStart = false
+        activeShortcutIsDoubleTap = false
 
         switch mode {
         case .toggle:
@@ -391,6 +461,24 @@ final class RecordingShortcutModeHandler {
             } else {
                 isHandsFreeRecording = true
             }
+
+        case .doubleTap:
+            guard canHandleShortcutAction(), recordingState() != .starting else {
+                clearPendingDoubleTap(for: action)
+                break
+            }
+            let pressDuration = shortcutPressStartTime.map { eventTime - $0 } ?? 0
+            if pressDuration < 0 || pressDuration > doubleTapThreshold {
+                pendingDoubleTapReleaseTimes.removeValue(forKey: action)
+            } else if let firstRelease = pendingDoubleTapReleaseTimes.removeValue(forKey: action),
+                eventTime - firstRelease >= 0,
+                eventTime - firstRelease <= doubleTapThreshold
+            {
+                await toggleRecorderPanel(modeId)
+                isHandsFreeRecording = isRecorderVisible()
+            } else {
+                pendingDoubleTapReleaseTimes[action] = eventTime
+            }
         }
 
         shortcutPressStartTime = nil
@@ -401,6 +489,16 @@ final class RecordingShortcutModeHandler {
             if canCurrentShortcutPressCancelAccidentalStart {
                 interruptedRecordingActions.insert(action)
             }
+            return
+        }
+
+        if activeShortcutIsDoubleTap {
+            isShortcutPressed = false
+            shortcutPressStartTime = nil
+            activeRecordingShortcutAction = nil
+            activeShortcutCanCancelAccidentalStart = false
+            activeShortcutIsDoubleTap = false
+            pendingDoubleTapReleaseTimes.removeValue(forKey: action)
             return
         }
 
