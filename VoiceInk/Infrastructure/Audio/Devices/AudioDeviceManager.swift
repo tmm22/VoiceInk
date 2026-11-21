@@ -216,9 +216,11 @@ class AudioDeviceManager: ObservableObject {
     }
 
     func selectedInputChannels(for deviceID: AudioDeviceID) -> [UInt32]? {
-        guard !isInternalMicrophone(deviceID),
-              let uid = availableDevices.first(where: { $0.id == deviceID })?.uid else { return nil }
-        return inputChannelsByDeviceUID[uid]
+        // Saved selection first: classifying the device costs Core Audio reads and most devices have none.
+        guard let uid = availableDevices.first(where: { $0.id == deviceID })?.uid,
+              let channels = inputChannelsByDeviceUID[uid],
+              !isInternalMicrophone(deviceID) else { return nil }
+        return channels
     }
 
     func setInputChannels(_ channels: [UInt32]?, for deviceID: AudioDeviceID) {
@@ -618,7 +620,8 @@ class AudioDeviceManager: ObservableObject {
             return nil
         }
 
-        return property?.takeUnretainedValue()
+        // Core Audio hands CFString property values to the caller at +1, so consume the reference.
+        return property?.takeRetainedValue()
     }
 
     func getUInt32DeviceProperty(

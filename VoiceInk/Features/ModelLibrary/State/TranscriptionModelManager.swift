@@ -44,27 +44,36 @@ class TranscriptionModelManager: ObservableObject {
     // MARK: - Computed: usable models
 
     var usableModels: [any TranscriptionModel] {
-        allAvailableModels.filter { model in
-            switch model.provider {
-            case .whisper:
-                return whisperModelManager?.availableModels.contains { $0.name == model.name } ?? false
-            case .fluidAudio:
-                return fluidAudioModelManager?.isFluidAudioModelDownloaded(named: model.name) ?? false
-            case .transcribeCpp:
-                return transcribeCppModelManager.isModelDownloaded(named: model.name)
-            case .fastConformer, .senseVoice:
-                return ONNXLocalModelManager.shared.isModelDownloaded(model)
-            case .nativeApple:
-                if #available(macOS 26, *) { return true } else { return false }
-            case .custom:
-                return true
-            default:
-                if let cloudProvider = CloudProviderRegistry.provider(for: model.provider) {
-                    return APIKeyManager.shared.hasAPIKey(forProvider: cloudProvider.providerKey)
-                }
-                return false
+        allAvailableModels.filter { isUsable($0) }
+    }
+
+    /// The per-model predicate behind `usableModels`: reads this one model's disk or Keychain state.
+    func isUsable(_ model: any TranscriptionModel) -> Bool {
+        switch model.provider {
+        case .whisper:
+            return whisperModelManager?.availableModels.contains { $0.name == model.name } ?? false
+        case .fluidAudio:
+            return fluidAudioModelManager?.isFluidAudioModelDownloaded(named: model.name) ?? false
+        case .transcribeCpp:
+            return transcribeCppModelManager.isModelDownloaded(named: model.name)
+        case .fastConformer, .senseVoice:
+            return ONNXLocalModelManager.shared.isModelDownloaded(model)
+        case .nativeApple:
+            if #available(macOS 26, *) { return true } else { return false }
+        case .custom:
+            return true
+        default:
+            if let cloudProvider = CloudProviderRegistry.provider(for: model.provider) {
+                return APIKeyManager.shared.hasAPIKey(forProvider: cloudProvider.providerKey)
             }
+            return false
         }
+    }
+
+    /// Same answer as `usableModels.contains { $0.selectionKey == selectionKey }`, but only the
+    /// catalogue entries carrying that key are probed instead of every model.
+    func hasUsableModel(selectionKey: String) -> Bool {
+        allAvailableModels.contains { $0.selectionKey == selectionKey && isUsable($0) }
     }
 
     func isAvailableOnCurrentOS(_ model: any TranscriptionModel) -> Bool {

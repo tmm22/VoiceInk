@@ -16,14 +16,44 @@ class TranscriptionServiceRegistry {
     )
     private(set) lazy var cloudTranscriptionService = CloudTranscriptionService(modelContext: modelContext)
     private(set) lazy var nativeAppleTranscriptionService = NativeAppleTranscriptionService()
-    private(set) lazy var fluidAudioTranscriptionService = FluidAudioTranscriptionService()
-    private(set) lazy var fastConformerTranscriptionService = FastConformerTranscriptionService(
-        modelsDirectory: ONNXLocalModelManager.shared.modelsDirectory(for: .fastConformer)
-    )
-    private(set) lazy var senseVoiceTranscriptionService = SenseVoiceTranscriptionService(
-        modelsDirectory: ONNXLocalModelManager.shared.modelsDirectory(for: .senseVoice)
-    )
+    // Optional backing instead of `lazy var`, so `cleanup()` can skip services that were never used
+    // rather than constructing them just to clear empty caches.
+    // Readable (not writable) outside the type so tests can assert nothing was created.
+    private(set) var cachedFluidAudioTranscriptionService: FluidAudioTranscriptionService?
+    private(set) var cachedFastConformerTranscriptionService: FastConformerTranscriptionService?
+    private(set) var cachedSenseVoiceTranscriptionService: SenseVoiceTranscriptionService?
     private var cachedTranscribeCppTranscriptionService: TranscribeCppTranscriptionService?
+
+    var fluidAudioTranscriptionService: FluidAudioTranscriptionService {
+        if let cachedFluidAudioTranscriptionService {
+            return cachedFluidAudioTranscriptionService
+        }
+        let service = FluidAudioTranscriptionService()
+        cachedFluidAudioTranscriptionService = service
+        return service
+    }
+
+    var fastConformerTranscriptionService: FastConformerTranscriptionService {
+        if let cachedFastConformerTranscriptionService {
+            return cachedFastConformerTranscriptionService
+        }
+        let service = FastConformerTranscriptionService(
+            modelsDirectory: ONNXLocalModelManager.shared.modelsDirectory(for: .fastConformer)
+        )
+        cachedFastConformerTranscriptionService = service
+        return service
+    }
+
+    var senseVoiceTranscriptionService: SenseVoiceTranscriptionService {
+        if let cachedSenseVoiceTranscriptionService {
+            return cachedSenseVoiceTranscriptionService
+        }
+        let service = SenseVoiceTranscriptionService(
+            modelsDirectory: ONNXLocalModelManager.shared.modelsDirectory(for: .senseVoice)
+        )
+        cachedSenseVoiceTranscriptionService = service
+        return service
+    }
 
     var transcribeCppTranscriptionService: TranscribeCppTranscriptionService {
         if let cachedTranscribeCppTranscriptionService {
@@ -70,8 +100,9 @@ class TranscriptionServiceRegistry {
     }
 
     /// Loads the runtime for `model` without transcribing anything, so the first real request
-    /// skips model load. Providers whose services load lazily per request (cloud, Apple, ONNX,
-    /// TranscribeCpp) are intentionally left alone.
+    /// skips model load. Cloud and Apple providers load per request, and the ONNX and TranscribeCpp
+    /// runtimes are built for one recording at record start (see `prepareONNXRuntimeIfNeeded(for:)`)
+    /// and released after it, so all of those are intentionally left alone here.
     func prewarm(model: any TranscriptionModel) async throws {
         switch model.provider {
         case .whisper:
@@ -80,6 +111,30 @@ class TranscriptionServiceRegistry {
             try await fluidAudioTranscriptionService.prepareModels(for: model)
         default:
             logger.debug("No prewarm path for provider \(model.provider.rawValue, privacy: .public)")
+        }
+    }
+
+    /// Builds the ONNX session for FastConformer / SenseVoice models at record start so the
+    /// post-recording transcription does not pay for it. No-op for every other provider.
+    func prepareONNXRuntimeIfNeeded(for model: any TranscriptionModel) async {
+        do {
+            // The epoch is read here, on the main actor that also runs `cleanup()`, before the build
+            // moves off it: a cleanup from this point on cancels the prepare instead of racing it.
+            switch model.provider {
+            case .fastConformer:
+                let service = fastConformerTranscriptionService
+                try await service.prepare(model, requestedAt: service.invalidationEpoch)
+            case .senseVoice:
+                let service = senseVoiceTranscriptionService
+                try await service.prepare(model, requestedAt: service.invalidationEpoch)
+            default:
+                return
+            }
+        } catch {
+            // Harmless: nothing was cached, so transcription builds the session and reports errors itself.
+            logger.notice(
+                "ONNX runtime was not prepared for \(model.name, privacy: .public): \(AppLogger.errorMetadata(error), privacy: .public)"
+            )
         }
     }
 
@@ -107,10 +162,19 @@ class TranscriptionServiceRegistry {
         configuration.isRealtimeEnabled
     }
 
+    /// Releases loaded runtimes. Touches only services that already exist, never creating one.
+    /// Drops ONNX sessions built by `prepareONNXRuntimeIfNeeded(for:)` when the recording they were
+    /// built for ends without transcribing, so nothing stays resident while idle. Never constructs
+    /// a service.
+    func releaseONNXRuntimes() {
+        cachedFastConformerTranscriptionService?.cleanup()
+        cachedSenseVoiceTranscriptionService?.cleanup()
+    }
+
     func cleanup() async {
-        await fluidAudioTranscriptionService.cleanup()
-        fastConformerTranscriptionService.cleanup()
-        senseVoiceTranscriptionService.cleanup()
+        await cachedFluidAudioTranscriptionService?.cleanup()
+        cachedFastConformerTranscriptionService?.cleanup()
+        cachedSenseVoiceTranscriptionService?.cleanup()
         cachedTranscribeCppTranscriptionService?.cleanup()
     }
 }

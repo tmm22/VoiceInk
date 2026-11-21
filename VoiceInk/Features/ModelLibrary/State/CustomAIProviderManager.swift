@@ -61,7 +61,7 @@ final class CustomAIProviderManager: ObservableObject {
         providers.reduce(into: [String]()) { result, provider in
             let modelName = provider.modelName
             guard !modelName.isEmpty,
-                hasAPIKey(for: provider),
+                hasRecentAPIKey(for: provider),
                 !result.contains(modelName)
             else { return }
             result.append(modelName)
@@ -81,7 +81,7 @@ final class CustomAIProviderManager: ObservableObject {
 
     var hasConfiguredModels: Bool {
         providers.contains { provider in
-            !provider.modelName.isEmpty && hasAPIKey(for: provider)
+            !provider.modelName.isEmpty && hasRecentAPIKey(for: provider)
         }
     }
 
@@ -168,6 +168,19 @@ final class CustomAIProviderManager: ObservableObject {
         return (provider.baseURL, apiKey, provider.modelName)
     }
 
+    /// Same answer as `requestConfiguration(forModel:) != nil` for availability checks, using the
+    /// short key-presence memo instead of reading the secret. The request itself still goes through
+    /// `requestConfiguration(forModel:)`.
+    func hasRequestConfiguration(forModel modelName: String) -> Bool {
+        guard let provider = provider(forModel: modelName),
+            SecureEndpointValidator.isAllowed(provider.baseURL)
+        else {
+            return false
+        }
+
+        return hasRecentAPIKey(for: provider)
+    }
+
     func validateProvider(name: String, baseURL: String, model: String, excluding id: UUID? = nil) -> [String] {
         var errors: [String] = []
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -228,6 +241,12 @@ final class CustomAIProviderManager: ObservableObject {
         }
 
         return !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// `hasAPIKey(for:)` for the availability checks that run several times per dictation. Positive
+    /// answers come from `APIKeyManager`'s short memo, which every key save and delete invalidates.
+    private func hasRecentAPIKey(for provider: CustomAIProviderConfig) -> Bool {
+        APIKeyManager.shared.hasCustomAIProviderAPIKey(forProviderId: provider.id)
     }
 
     private func migrateLegacyCustomProviderIfNeeded() {

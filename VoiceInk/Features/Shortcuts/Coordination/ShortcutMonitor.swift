@@ -32,6 +32,7 @@ final class ShortcutMonitor {
     private var onStandaloneModifierChord: ((ShortcutAction) -> Void)?
     private var eventTap: CFMachPort?
     private var eventTapRunLoopSource: CFRunLoopSource?
+    private let sessionGate = ShortcutSessionGate()
     private let logger = Logger(subsystem: AppLogger.subsystem, category: "ShortcutMonitor")
 
     private static let shortcutInterruptionWindow: TimeInterval = 1.0
@@ -144,7 +145,7 @@ final class ShortcutMonitor {
     }
 
     private func handleCGEvent(type: CGEventType, event: CGEvent) -> Bool {
-        guard UserSessionInputPolicy.allowsShortcutHandling else {
+        guard sessionGate.admitsEvent(requiringFreshAnswer: hasActiveShortcutPress) else {
             clearPressedShortcutState()
             return false
         }
@@ -168,6 +169,12 @@ final class ShortcutMonitor {
             modifierFlags: modifierFlags,
             eventTime: ProcessInfo.processInfo.systemUptime
         )
+    }
+
+    /// While this is false an event can only start a press, which `sessionGate` confirms with a
+    /// fresh session read. Every release, interruption and suppression needs it to be true.
+    private var hasActiveShortcutPress: Bool {
+        !suppressedMouseButtons.isEmpty || shortcuts.values.contains { $0.isDown }
     }
 
     private func resetPressedShortcutsAfterTapInterruption() {
@@ -228,14 +235,19 @@ final class ShortcutMonitor {
             }
 
             if state.shortcut.isModifierOnly {
-                handleModifierOnlyShortcut(
-                    action: action,
-                    state: state,
-                    kind: kind,
-                    keyCode: inputCode,
-                    modifierFlags: modifierFlags,
-                    eventTime: eventTime
-                )
+                guard
+                    handleModifierOnlyShortcut(
+                        action: action,
+                        state: state,
+                        kind: kind,
+                        keyCode: inputCode,
+                        modifierFlags: modifierFlags,
+                        eventTime: eventTime
+                    )
+                else {
+                    clearPressedShortcutState()
+                    return false
+                }
                 continue
             }
 
@@ -269,6 +281,10 @@ final class ShortcutMonitor {
                     shouldSuppress = true
                 }
             case .keyDown:
+                guard sessionGate.confirmsShortcutPress() else {
+                    clearPressedShortcutState()
+                    return false
+                }
                 state.isDown = true
                 state.pressedAt = eventTime
                 state.isInterrupted = false
@@ -362,6 +378,7 @@ final class ShortcutMonitor {
         }
     }
 
+    /// Returns false when a press would start but the session no longer allows shortcuts.
     private func handleModifierOnlyShortcut(
         action: ShortcutAction,
         state: ShortcutState,
@@ -369,11 +386,11 @@ final class ShortcutMonitor {
         keyCode: UInt16,
         modifierFlags: NSEvent.ModifierFlags,
         eventTime: TimeInterval
-    ) {
+    ) -> Bool {
         var state = state
 
         guard kind == .flagsChanged else {
-            return
+            return true
         }
 
         if state.isDown {
@@ -396,10 +413,13 @@ final class ShortcutMonitor {
                 }
             }
 
-            return
+            return true
         }
 
         if state.shortcut.matchesModifierEvent(keyCode: keyCode, modifierFlags: modifierFlags) {
+            guard sessionGate.confirmsShortcutPress() else {
+                return false
+            }
             state.isDown = true
             state.pressedAt = eventTime
             state.requiresStandaloneRelease = standaloneModifierActions.contains(action)
@@ -409,6 +429,8 @@ final class ShortcutMonitor {
                 dispatchShortcutDown(for: action, eventTime: eventTime)
             }
         }
+
+        return true
     }
 
     private func updatePressedKeyCodes(kind: EventKind, inputCode: UInt16) {

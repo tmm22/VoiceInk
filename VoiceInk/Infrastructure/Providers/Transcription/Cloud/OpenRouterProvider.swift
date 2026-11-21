@@ -66,6 +66,8 @@ struct OpenRouterProvider: CloudProvider {
     let providerKey = "OpenRouter"
     let languageCodes: [String]? = ["auto"]
     let includesAutoDetect = true
+    /// `transcribe` below sends no vocabulary to OpenRouter.
+    let usesCustomVocabulary = false
 
     var models: [CloudModel] {
         OpenRouterTranscriptionCatalog.models.map { model in

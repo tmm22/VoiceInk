@@ -88,7 +88,7 @@ class AudioProcessor {
 
             if sampleRate == AudioFormat.targetSampleRate && channels == AudioFormat.targetChannels {
                 let chunkSamples = convertToWhisperFormat(inputBuffer)
-                allSamples.append(contentsOf: chunkSamples)
+                Self.append(chunkSamples, to: &allSamples)
             } else {
                 guard let converter = AVAudioConverter(from: format, to: outputFormat) else {
                     throw AudioProcessingError.conversionFailed
@@ -121,7 +121,7 @@ class AudioProcessor {
                 }
 
                 let chunkSamples = convertToWhisperFormat(outputBuffer)
-                allSamples.append(contentsOf: chunkSamples)
+                Self.append(chunkSamples, to: &allSamples)
             }
 
             currentFrame += AVAudioFramePosition(framesToRead)
@@ -201,10 +201,7 @@ class AudioProcessor {
 
         // Keep the fallback output in the same normalized Float range expected
         // by the WAV export path.
-        let maxSample = samples.map(abs).max() ?? 1
-        if maxSample > 0 {
-            samples = samples.map { $0 / maxSample }
-        }
+        Self.normalizeToPeak(&samples)
         return samples
     }
 
@@ -243,11 +240,12 @@ class AudioProcessor {
 
         let channelCount = Int(buffer.format.channelCount)
         let frameLength = Int(buffer.frameLength)
-        var samples = Array(repeating: Float(0), count: frameLength)
+        var samples: [Float]
 
         if channelCount == 1 {
             samples = Array(UnsafeBufferPointer(start: channelData[0], count: frameLength))
         } else {
+            samples = Array(repeating: Float(0), count: frameLength)
             for frame in 0..<frameLength {
                 var sum: Float = 0
                 for channel in 0..<channelCount {
@@ -257,14 +255,60 @@ class AudioProcessor {
             }
         }
 
-        let maxSample = samples.map(abs).max() ?? 1
-        if maxSample > 0 {
-            samples = samples.map { $0 / maxSample }
-        }
+        Self.normalizeToPeak(&samples)
 
         return samples
     }
-    func saveSamplesAsWav(samples: [Float], to url: URL) throws {
+
+    /// Adopts the first chunk's storage instead of copying it; most files decode as one chunk.
+    private static func append(_ chunk: [Float], to samples: inout [Float]) {
+        if samples.isEmpty {
+            samples = chunk
+        } else {
+            samples.append(contentsOf: chunk)
+        }
+    }
+
+    /// Scales `samples` in place so the largest magnitude becomes 1.
+    ///
+    /// Yields exactly the values of the expression it replaces,
+    /// `let peak = samples.map(abs).max() ?? 1; if peak > 0 { samples = samples.map { $0 / peak } }`,
+    /// including its handling of NaN, without building two more full-length arrays.
+    static func normalizeToPeak(_ samples: inout [Float]) {
+        guard !samples.isEmpty else { return }
+
+        samples.withUnsafeMutableBufferPointer { buffer in
+            // Same scan as `Sequence.max()`: start from the first element and replace it only
+            // when the next magnitude is strictly greater.
+            var peak = abs(buffer[0])
+            for index in 1..<buffer.count {
+                let magnitude = abs(buffer[index])
+                if peak < magnitude {
+                    peak = magnitude
+                }
+            }
+
+            guard peak > 0 else { return }
+            for index in buffer.indices {
+                buffer[index] = buffer[index] / peak
+            }
+        }
+    }
+
+    /// Frames converted and written per `AVAudioFile.write` call when exporting a WAV.
+    static let wavExportBlockFrames = 1_048_576
+
+    /// Runs off the caller's actor: a long recording takes a noticeable time to convert and write.
+    func saveSamplesAsWav(samples: [Float], to url: URL) async throws {
+        try Self.writeSamplesAsWav(samples: samples, to: url, framesPerBlock: Self.wavExportBlockFrames)
+    }
+
+    /// Writes `samples` as 16-bit mono PCM, converting one block at a time.
+    ///
+    /// Every sample goes through the same clamp, scale and truncation as before, and sequential
+    /// writes append the same PCM bytes one whole-buffer write would, so the file is unchanged.
+    /// Only the working memory differs: one fixed-size buffer instead of three full-length copies.
+    static func writeSamplesAsWav(samples: [Float], to url: URL, framesPerBlock: Int) throws {
         let outputFormat = AVAudioFormat(
             commonFormat: .pcmFormatInt16,
             sampleRate: AudioFormat.targetSampleRate,
@@ -276,24 +320,13 @@ class AudioProcessor {
             throw AudioProcessingError.unsupportedFormat
         }
 
-        let buffer = AVAudioPCMBuffer(
-            pcmFormat: outputFormat,
-            frameCapacity: AVAudioFrameCount(samples.count)
-        )
-
-        guard let buffer = buffer else {
+        let blockFrames = min(samples.count, max(1, framesPerBlock))
+        guard
+            let buffer = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: AVAudioFrameCount(blockFrames)),
+            let channelData = buffer.int16ChannelData
+        else {
             throw AudioProcessingError.conversionFailed
         }
-
-        // Convert float samples to int16
-        let int16Samples = samples.map { max(-1.0, min(1.0, $0)) * Float(Int16.max) }.map { Int16($0) }
-
-        // Copy samples to buffer
-        int16Samples.withUnsafeBufferPointer { int16Buffer in
-            let int16Pointer = int16Buffer.baseAddress!
-            buffer.int16ChannelData![0].update(from: int16Pointer, count: int16Samples.count)
-        }
-        buffer.frameLength = AVAudioFrameCount(samples.count)
 
         // Create audio file
         let audioFile = try AVAudioFile(
@@ -303,6 +336,23 @@ class AudioProcessor {
             interleaved: true
         )
 
-        try audioFile.write(from: buffer)
+        try samples.withUnsafeBufferPointer { source in
+            var offset = 0
+            // `repeat` keeps the single zero-frame write an empty recording has always produced.
+            repeat {
+                let count = min(blockFrames, source.count - offset)
+                if count > 0 {
+                    // A zero-capacity buffer has no channel storage, so only read it when there are frames.
+                    let block = channelData[0]
+                    // Convert float samples to int16
+                    for index in 0..<count {
+                        block[index] = Int16(max(-1.0, min(1.0, source[offset + index])) * Float(Int16.max))
+                    }
+                }
+                buffer.frameLength = AVAudioFrameCount(count)
+                try audioFile.write(from: buffer)
+                offset += count
+            } while offset < source.count
+        }
     }
 }

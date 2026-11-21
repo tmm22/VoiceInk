@@ -41,8 +41,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
     private var canceledPipelineTranscriptionIDs = Set<UUID>()
     private var activeRecordingUseCase: RecordingUseCase = .newSession
     private var activePipelineUseCase: RecordingUseCase = .newSession
-    private var activeRecordingContextStore: RecordingContextSnapshotStore?
-    private var activeRecordingContextTasks: [Task<Void, Never>] = []
+    private var activeRecordingContextSession: RecordingContextCaptureSession?
     private var voiceInkRefinePreparationTask: Task<Void, Never>?
 
     let recorder = Recorder()
@@ -150,7 +149,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
                     await runPipeline(
                         on: transcription,
                         audioURL: recordedFile,
-                        contextStore: activeRecordingContextStore
+                        contextStore: activeRecordingContextSession?.store
                     )
                 } else {
                     await finishActiveRecorderCancellation()
@@ -160,6 +159,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
                 if !shouldCancelRecording {
                     logger.error("❌ No recorded file found after stopping recording")
                 }
+                clearActiveRecordingContext()
                 recordingState = .idle
                 await cleanupResources()
             }
@@ -330,6 +330,10 @@ class VoiceInkEngine: NSObject, ObservableObject {
                                 } else if let transcribeCppModel = currentModel as? TranscribeCppModel {
                                     try? await self.serviceRegistry.transcribeCppTranscriptionService.loadModel(
                                         for: transcribeCppModel)
+                                } else if let model = currentModel,
+                                    model.provider == .fastConformer || model.provider == .senseVoice
+                                {
+                                    await self.serviceRegistry.prepareONNXRuntimeIfNeeded(for: model)
                                 }
 
                             }
@@ -454,15 +458,21 @@ class VoiceInkEngine: NSObject, ObservableObject {
     private func startRecordingContextCapture() {
         clearActiveRecordingContext()
 
-        let store = RecordingContextSnapshotStore()
-        activeRecordingContextStore = store
-        activeRecordingContextTasks = RecordingContextCaptureService.startCapture(into: store)
+        // Assistant follow-ups are neither enhanced nor pasted, so nothing depends on their capture.
+        let isFollowUp = activeRecordingUseCase.isAssistantFollowUp
+        let session = RecordingContextCaptureSession(
+            canEnhance: enhancementService != nil && !isFollowUp,
+            pastesWithSmartPunctuation: !isFollowUp
+                && UserDefaults.standard.bool(forKey: SmartPunctuation.settingsKey),
+            isRecording: { [weak self] in self?.recordingState == .recording }
+        )
+        activeRecordingContextSession = session
+        session.start()
     }
 
     private func clearActiveRecordingContext() {
-        activeRecordingContextTasks.forEach { $0.cancel() }
-        activeRecordingContextTasks.removeAll()
-        activeRecordingContextStore = nil
+        activeRecordingContextSession?.cancel()
+        activeRecordingContextSession = nil
     }
 
     // MARK: - Pipeline Dispatch
@@ -479,6 +489,9 @@ class VoiceInkEngine: NSObject, ObservableObject {
             transcription.text = String(localized: "Transcription Failed: No model selected")
             transcription.transcriptionStatus = TranscriptionStatus.failed.rawValue
             try? modelContext.save()
+            // Nothing will read this recording's context or use a session prepared at its start.
+            clearActiveRecordingContext()
+            serviceRegistry.releaseONNXRuntimes()
             recordingState = .idle
             activePipelineUseCase = .newSession
             return

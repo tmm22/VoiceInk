@@ -9,6 +9,8 @@ protocol CloudProvider: Sendable {
     var models: [CloudModel] { get }
     /// True when the provider has no batch HTTP endpoint and requires streaming for all transcription.
     var isStreamingOnly: Bool { get }
+    /// False when batch `transcribe` never reads `customVocabulary`, so callers can skip building it.
+    var usesCustomVocabulary: Bool { get }
 
     func transcribe(
         audioData: Data, fileName: String, apiKey: String, model: String, language: String?,
@@ -20,6 +22,7 @@ protocol CloudProvider: Sendable {
 
 extension CloudProvider {
     var isStreamingOnly: Bool { false }
+    var usesCustomVocabulary: Bool { true }
 
     /// Streaming-only providers inherit this and get a clear error if batch is somehow attempted.
     /// Providers that support batch transcription override this with their real implementation.

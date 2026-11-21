@@ -117,10 +117,16 @@ actor BrowserURLService {
         task.standardOutput = pipe
         task.standardError = pipe
 
+        // Process only reports an exit to a handler that was installed before launch.
+        let exitWaiter = BrowserURLScriptWaiter()
+        task.terminationHandler = { _ in
+            exitWaiter.resolve(.exited)
+        }
+
         do {
             logger.debug("▶️ Executing AppleScript for \(browser.displayName, privacy: .public)")
             try task.run()
-            try await waitUntilExit(task, browser: browser)
+            try await waitUntilExit(task, waiter: exitWaiter, browser: browser)
 
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) {
@@ -161,16 +167,43 @@ actor BrowserURLService {
         }
     }
 
-    private func waitUntilExit(_ task: Process, browser: BrowserType) async throws {
-        let timeoutDate = Date().addingTimeInterval(scriptTimeout)
-        while task.isRunning {
-            if Date() >= timeoutDate {
-                task.terminate()
-                logger.error("❌ AppleScript timed out for \(browser.displayName, privacy: .public)")
-                throw BrowserURLError.executionTimedOut
+    /// Returns as soon as the script exits. Throws `executionTimedOut` after terminating a script
+    /// that is still running at the timeout, and `CancellationError` when the lookup is cancelled
+    /// first; the caller terminates the script in that case.
+    private func waitUntilExit(
+        _ task: Process,
+        waiter: BrowserURLScriptWaiter,
+        browser: BrowserType
+    ) async throws {
+        let timeout = scriptTimeout
+        let timeoutTask = Task.detached(priority: Task.currentPriority) {
+            do {
+                try await Task.sleep(for: .seconds(timeout), tolerance: .milliseconds(10), clock: .continuous)
+            } catch {
+                // Cancelled below: the script exited or the lookup was cancelled first.
+                return
             }
+            waiter.resolve(.timedOut)
+        }
+        defer { timeoutTask.cancel() }
 
-            try await Task.sleep(nanoseconds: 50_000_000)
+        let outcome = await withTaskCancellationHandler {
+            await waiter.wait()
+        } onCancel: {
+            waiter.resolve(.cancelled)
+        }
+
+        switch outcome {
+        case .exited:
+            return
+        case .timedOut:
+            // The exit notice can trail the exit itself. A script that finished in time counts.
+            guard task.isRunning else { return }
+            task.terminate()
+            logger.error("❌ AppleScript timed out for \(browser.displayName, privacy: .public)")
+            throw BrowserURLError.executionTimedOut
+        case .cancelled:
+            throw CancellationError()
         }
     }
 
@@ -180,5 +213,52 @@ actor BrowserURLService {
         let isRunning = runningApps.contains { $0.bundleIdentifier == browser.bundleIdentifier }
         logger.debug("\(browser.displayName, privacy: .public) running status: \(isRunning, privacy: .public)")
         return isRunning
+    }
+}
+
+/// Delivers the first of a script's possible endings (exit, timeout or cancellation) to whoever
+/// waits for it. Later endings are ignored, so every party can report without coordinating.
+final class BrowserURLScriptWaiter: Sendable {
+    enum Outcome: Sendable {
+        case exited
+        case timedOut
+        case cancelled
+    }
+
+    private struct State {
+        var outcome: Outcome?
+        var continuations: [CheckedContinuation<Outcome, Never>] = []
+    }
+
+    private let state = OSAllocatedUnfairLock(initialState: State())
+
+    func resolve(_ outcome: Outcome) {
+        let continuations: [CheckedContinuation<Outcome, Never>] = state.withLock { state in
+            guard state.outcome == nil else { return [] }
+            state.outcome = outcome
+            let continuations = state.continuations
+            state.continuations = []
+            return continuations
+        }
+
+        for continuation in continuations {
+            continuation.resume(returning: outcome)
+        }
+    }
+
+    func wait() async -> Outcome {
+        await withCheckedContinuation { continuation in
+            let resolved: Outcome? = state.withLock { state in
+                if let outcome = state.outcome {
+                    return outcome
+                }
+                state.continuations.append(continuation)
+                return nil
+            }
+
+            if let resolved {
+                continuation.resume(returning: resolved)
+            }
+        }
     }
 }
