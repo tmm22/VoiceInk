@@ -2,11 +2,11 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
-## 2026-11-21
+## 2026-11-22
 
-### Performance
+### Community 2.28
 
-Dictation does less work per recording and per keystroke. Nothing you see, hear or get back is meant to change.
+A performance release. Dictation does less work per recording and per keystroke. Nothing you see, hear or get back is meant to change.
 
 - A recording no longer reads the selected text or screenshots and OCRs the front window when no enabled mode can use that context. Both are still captured whenever an enabled AI mode with a provider other than VoiceInk Refine uses them, selected text is also still read whenever Smart Punctuation is on, and the clipboard is captured as before.
 - FastConformer and SenseVoice build their ONNX session while you speak instead of after you stop, so the transcript starts sooner. Concurrent requests share one build, and a cleanup can never leave a stale session cached.
@@ -26,6 +26,11 @@ Dictation does less work per recording and per keystroke. Nothing you see, hear 
 
 - On Apple Silicon running macOS 27.2, 424 unit tests passed in two consecutive runs and the same two tests as before were skipped because no microphone input was available. All 293 tests that passed before the change still pass, and 131 new tests cover the changed logic. The build has no new warnings.
 - New tests no longer write to the installed app's preferences: the hosted test process shares them.
+- The same suite also passed against a Release build compiled with the release script's optimization settings, and the packaged app launched from the DMG and stayed running.
+
+### Build
+
+- The release script now compiles Swift packages in whole-module mode. Its `-Osize` override had been replacing the setting that packages take that mode from, so they compiled file by file, and with Xcode 27.2 the release build failed to link FluidAudio with duplicate symbols.
 
 ## 2026-11-20
 

@@ -140,7 +140,7 @@ That path is the source of truth for GitHub/community DMGs and it:
 - builds with the `VoiceInkRelease` shared scheme on Xcode `Release`
 - stages outside Desktop/iCloud-backed paths
 - disables release coverage mapping so the shipped binary does not carry LLVM coverage payload
-- enables stripping, dead-code stripping, ThinLTO, cross-module optimization, and `-Osize`
+- enables stripping, dead-code stripping, ThinLTO, whole-module compilation, cross-module optimization, and `-Osize`
 - prunes bundled ESpeakNG dictionaries to the shipped English-only Pocket TTS subset
 - strips non-global symbols
 - packages the public artifact as `UDBZ`

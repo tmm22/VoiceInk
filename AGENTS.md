@@ -1474,6 +1474,7 @@ Policy constraints that must remain true:
 - If user explicitly wants GitHub publishing, default to `make publish-release`
 - Public/community GitHub releases are unsigned by project policy and remain Apple Silicon (`arm64`) only
 - Use `VoiceInkRelease` + Xcode `Release` for scripted public/community release builds
+- A command-line `SWIFT_OPTIMIZATION_LEVEL` override replaces the `-Owholemodule` that Swift packages rely on for whole-module mode. Any build that overrides it must also pass `SWIFT_COMPILATION_MODE=wholemodule` (see the Release Build Contract in `docs/development/RELEASING.md`)
 - Keep release notes generated from `CHANGELOG.md` + `.github/RELEASE_TEMPLATE.md`
 
 ### Post-Debug-Build Step
@@ -2080,6 +2081,8 @@ Task { @MainActor [weak self] in
 
 ## Version History
 
+- **v1.17** (2026-11-22) - Release Build Compile Mode
+ - Added rule: builds that override `SWIFT_OPTIMIZATION_LEVEL` must also pass `SWIFT_COMPILATION_MODE=wholemodule`, after the 2.28 release build failed to link FluidAudio under Xcode 27.2
 - **v1.16** (2026-11-21) - Dictation Hot-Path Performance Pass
  - Added runtime invariants for the ONNX runtime cache, lazily created transcription services, gated recording-context capture, the shortcut session gate and single-item resolver checks
  - Added rule: tests share the installed app's preferences and Keychain, so they must not write `UserDefaults.standard` or construct settings-migrating singletons
@@ -2148,6 +2151,6 @@ To keep this guide maintainable and reduce drift:
 
 ---
 
-**Last Updated:** November 21, 2026
+**Last Updated:** November 22, 2026
 **Maintained By:** VoiceInk Community
 **License:** GPL v3 (same as project)
