@@ -122,7 +122,7 @@ final class ShortcutMonitor {
                 tap: .cgSessionEventTap,
                 place: .headInsertEventTap,
                 options: .defaultTap,
-                eventsOfInterest: Self.eventMask,
+                eventsOfInterest: Self.eventMask(for: shortcuts.values.map(\.shortcut)),
                 callback: callback,
                 userInfo: Unmanaged.passUnretained(self).toOpaque()
             )
@@ -519,15 +519,19 @@ final class ShortcutMonitor {
         }
     }
 
-    private static let eventMask: CGEventMask = [
-        CGEventType.keyDown,
-        CGEventType.keyUp,
-        CGEventType.flagsChanged,
-        CGEventType.otherMouseDown,
-        CGEventType.otherMouseDragged,
-        CGEventType.otherMouseUp,
-    ].reduce(CGEventMask(0)) { mask, type in
-        mask | (CGEventMask(1) << Int(type.rawValue))
+    /// The events a tap for `shortcuts` has to see: key events always, other-mouse-button events
+    /// only when one of them is a mouse-button shortcut. Without one, a mouse event cannot change
+    /// any shortcut state and is never suppressed, yet an active tap makes every such event (at
+    /// pointer rate while a middle or side button is dragged) wait for this process.
+    static func eventMask(for shortcuts: some Sequence<Shortcut>) -> CGEventMask {
+        var types: [CGEventType] = [.keyDown, .keyUp, .flagsChanged]
+        if shortcuts.contains(where: { $0.kind == .mouseButton }) {
+            types += [.otherMouseDown, .otherMouseDragged, .otherMouseUp]
+        }
+
+        return types.reduce(CGEventMask(0)) { mask, type in
+            mask | (CGEventMask(1) << Int(type.rawValue))
+        }
     }
 }
 
