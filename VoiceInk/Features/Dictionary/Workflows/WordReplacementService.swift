@@ -4,6 +4,23 @@ import SwiftData
 class WordReplacementService {
     static let shared = WordReplacementService()
 
+    // Word chars are Unicode letters/marks/digits (not just ASCII) so triggers can't match inside
+    // words like "vergrößern"; non-spaced scripts are exempt so Latin triggers flush against
+    // CJK/Thai still match (mirrors usesWordBoundaries). scx (Script_Extensions) so shared marks
+    // like the prolonged sound mark U+30FC (Script=Common, scx=Hira Kana) stay exempt too.
+    private static let wordChar =
+        "[[\\p{L}\\p{M}\\p{N}]-[\\p{scx=Han}\\p{scx=Hiragana}\\p{scx=Katakana}\\p{scx=Hangul}\\p{scx=Thai}]]"
+
+    /// Compiled boundary patterns by trigger. Compiling one takes about a millisecond on the main
+    /// actor between transcription and paste, and the same triggers are applied to every
+    /// dictation, so each is compiled once. The replacement text is not part of the pattern, so
+    /// edits to it need no invalidation.
+    private let boundaryRegexCache: NSCache<NSString, NSRegularExpression> = {
+        let cache = NSCache<NSString, NSRegularExpression>()
+        cache.countLimit = 2_000
+        return cache
+    }()
+
     private init() {}
 
     func applyReplacements(to text: String, using context: ModelContext) -> String {
@@ -38,16 +55,7 @@ class WordReplacementService {
                 let usesBoundaries = usesWordBoundaries(for: original)
 
                 if usesBoundaries {
-                    // Lookarounds instead of \b so punctuation acts as a word boundary.
-                    // Word chars are Unicode letters/marks/digits (not just ASCII) so triggers
-                    // can't match inside words like "vergrößern"; non-spaced scripts are exempt
-                    // so Latin triggers flush against CJK/Thai still match (mirrors usesWordBoundaries).
-                    let escaped = NSRegularExpression.escapedPattern(for: original)
-                    // scx (Script_Extensions) so shared marks like the prolonged sound mark
-                    // U+30FC (Script=Common, scx=Hira Kana) stay exempt too.
-                    let wordChar = "[[\\p{L}\\p{M}\\p{N}]-[\\p{scx=Han}\\p{scx=Hiragana}\\p{scx=Katakana}\\p{scx=Hangul}\\p{scx=Thai}]]"
-                    let pattern = "(?<!\(wordChar))\(escaped)(?!\(wordChar))"
-                    if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+                    if let regex = boundaryRegex(for: original) {
                         let range = NSRange(modifiedText.startIndex..., in: modifiedText)
                         modifiedText = regex.stringByReplacingMatches(
                             in: modifiedText,
@@ -65,6 +73,27 @@ class WordReplacementService {
         }
 
         return modifiedText
+    }
+
+    /// The case-insensitive pattern that matches `original` as a whole word. Lookarounds instead
+    /// of \b so punctuation acts as a word boundary.
+    func boundaryRegex(for original: String) -> NSRegularExpression? {
+        // A Foundation string compares code unit by code unit, so two triggers that are canonically
+        // equivalent but encoded differently keep separate patterns, as when each was compiled per call.
+        let key = NSString(string: original)
+        if let cached = boundaryRegexCache.object(forKey: key) {
+            return cached
+        }
+
+        let escaped = NSRegularExpression.escapedPattern(for: original)
+        let pattern = "(?<!\(Self.wordChar))\(escaped)(?!\(Self.wordChar))"
+        // A trigger whose pattern does not compile is skipped, as before. It is not cached.
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
+            return nil
+        }
+
+        boundaryRegexCache.setObject(regex, forKey: key)
+        return regex
     }
 
     private func usesWordBoundaries(for text: String) -> Bool {

@@ -340,6 +340,8 @@ The 2026-11-21 performance pass added these:
 - Recording-start context goes through `RecordingContextCaptureSession`. Selected text and the window screenshot are captured only when an enabled mode can consume them (`RecordingContextCaptureKinds`); the clipboard is always captured, and always before the selected-text Copy fallback. Every exit from a recording must call `clearActiveRecordingContext()`.
 - Global shortcut taps go through `ShortcutSessionGate`. The remembered session answer may admit only events that cannot act; a shortcut press, and every event while a shortcut is held, needs a fresh `UserSessionInputPolicy` read.
 - Single-item questions use single-item checks: `TranscriptionModelManager.hasUsableModel(selectionKey:)` and `AIService.isConnected(_:)`, not a scan of `usableModels` or `connectedProviders`.
+- `ShortcutMonitor` derives its event-tap mask from the registered shortcuts (`eventMask(for:)`). The tap is active, so every event type in the mask waits on this process: add a type only when a registered shortcut can act on it.
+- `WordReplacementService` compiles each trigger's boundary pattern once (`boundaryRegex(for:)`). Per-dictation text processing must not rebuild regexes or formatters.
 
 **Split trigger guidance:**
 - If a test file exceeds 500, split by provider/feature area when touching it next.

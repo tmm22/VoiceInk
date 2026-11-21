@@ -18,11 +18,13 @@ Dictation does less work per recording and per keystroke. Nothing you see, hear 
 - Feedback sounds load off the main thread, so the first shortcut press after launch no longer waits for them.
 - Importing an audio file converts and writes its WAV off the main thread in blocks, with fewer full-size copies. The written file is byte-identical.
 - The browser URL lookup returns as soon as its script exits instead of checking every 50 ms.
+- Word replacements compile each trigger's pattern once instead of on every dictation. Compiling took about a millisecond per trigger on the main thread between transcription and paste, so a long replacement list no longer delays the paste.
+- The global shortcut taps no longer intercept middle and side mouse-button events unless a mouse-button shortcut is set. Dragging with those buttons in other apps no longer waits on VoiceInk.
 - Fixed a small leak in Core Audio device name and UID reads.
 
 ### Verification
 
-- On Apple Silicon running macOS 27.2, 416 unit tests passed in two consecutive runs and the same two tests as before were skipped because no microphone input was available. All 293 tests that passed before the change still pass, and 123 new tests cover the changed logic. The build has no new warnings.
+- On Apple Silicon running macOS 27.2, 424 unit tests passed in two consecutive runs and the same two tests as before were skipped because no microphone input was available. All 293 tests that passed before the change still pass, and 131 new tests cover the changed logic. The build has no new warnings.
 - New tests no longer write to the installed app's preferences: the hosted test process shares them.
 
 ## 2026-11-20
