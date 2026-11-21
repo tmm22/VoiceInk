@@ -97,8 +97,10 @@ struct AudioSetupView: View {
             Text("Add microphones in the order VoiceInk should try them.")
                 .foregroundStyle(.secondary)
         } else {
+            // One resolution per build instead of one per available priority row.
+            let currentDevice = CurrentRecordingDeviceMemo(deviceManager: audioDeviceManager)
             ForEach(prioritizedDevicesInDisplayOrder) { device in
-                priorityDeviceRow(for: device)
+                priorityDeviceRow(for: device, currentDevice: currentDevice)
             }
         }
 
@@ -151,10 +153,13 @@ struct AudioSetupView: View {
         .buttonStyle(.plain)
     }
 
-    private func priorityDeviceRow(for prioritizedDevice: PrioritizedDevice) -> some View {
+    private func priorityDeviceRow(
+        for prioritizedDevice: PrioritizedDevice,
+        currentDevice: CurrentRecordingDeviceMemo
+    ) -> some View {
         let device = audioDeviceManager.availableDevices.first { $0.uid == prioritizedDevice.id }
         let isAvailable = device != nil
-        let isActive = device.map { audioDeviceManager.getCurrentDevice() == $0.id } ?? false
+        let isActive = device.map { currentDevice.deviceID == $0.id } ?? false
 
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {

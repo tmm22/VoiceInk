@@ -333,6 +333,14 @@ The 2026-07-12 resource audit established these production invariants:
 - Model prewarm must use the engine's `TranscriptionServiceRegistry`. A private registry loads a second runtime that transcription never uses. Runtimes shared by prewarm and transcription must serialize their own preparation, keep loaded models alive while an inference is using them, and verify the loaded model matches the request before inferring (see `FluidAudioTranscriptionService`).
 - Prefer notifications or state changes over recurring UI polling. Do not add permanent `TimelineView` or timer refresh loops for values that already emit changes.
 
+The 2026-11-21 performance pass added these:
+
+- ONNX sessions (FastConformer, SenseVoice) are built only through `ONNXRuntimeCache`, which is single-flight and generation-safe. The record-start warm-up calls `TranscriptionServiceRegistry.prepareONNXRuntimeIfNeeded(for:)`; a cleanup detaches in-flight builds so they are never cached. Do not build an `ORTSession` outside the cache.
+- `TranscriptionServiceRegistry` creates the FluidAudio and ONNX services on first use. `cleanup()` and `releaseONNXRuntimes()` must never construct a service.
+- Recording-start context goes through `RecordingContextCaptureSession`. Selected text and the window screenshot are captured only when an enabled mode can consume them (`RecordingContextCaptureKinds`); the clipboard is always captured, and always before the selected-text Copy fallback. Every exit from a recording must call `clearActiveRecordingContext()`.
+- Global shortcut taps go through `ShortcutSessionGate`. The remembered session answer may admit only events that cannot act; a shortcut press, and every event while a shortcut is held, needs a fresh `UserSessionInputPolicy` read.
+- Single-item questions use single-item checks: `TranscriptionModelManager.hasUsableModel(selectionKey:)` and `AIService.isConnected(_:)`, not a scan of `usableModels` or `connectedProviders`.
+
 **Split trigger guidance:**
 - If a test file exceeds 500, split by provider/feature area when touching it next.
 - If a production file approaches 500, extract subviews/services/helpers before adding new feature scope.
@@ -1375,6 +1383,16 @@ The AI enhancement engine (v2) uses a structured pipeline to gather "Maximum Con
 2.  **Unit Tests**: Required for all business logic (Services, ViewModels).
 3.  **Manual Verification**: Use only for UI interactions that XCTest cannot cover.
 
+### Tests Share the Installed App's Preferences
+
+> **Context:** The 2026-11-21 review found new tests that rewrote the real microphone selection and could trigger a settings migration.
+
+The unit tests run inside `VoiceInk.app` with the installed app's bundle identifier, so `UserDefaults.standard` and the Keychain are the developer's real app data.
+
+- ✅ Test pure logic through injected values, in-memory stores or an isolated temporary directory
+- ⛔ Never write `UserDefaults.standard` from a test, even with a restore in `tearDown` (an interrupted run leaves the change behind)
+- ⛔ Never construct a real `AIService`, or touch `CustomAIProviderManager.shared` or another singleton whose initialiser migrates or saves settings
+
 ### SwiftUI Preview Guidelines
 
 **Never use force-try (`try!`) in SwiftUI previews. Use safe fallback patterns.**
@@ -2060,6 +2078,9 @@ Task { @MainActor [weak self] in
 
 ## Version History
 
+- **v1.16** (2026-11-21) - Dictation Hot-Path Performance Pass
+ - Added runtime invariants for the ONNX runtime cache, lazily created transcription services, gated recording-context capture, the shortcut session gate and single-item resolver checks
+ - Added rule: tests share the installed app's preferences and Keychain, so they must not write `UserDefaults.standard` or construct settings-migrating singletons
 - **v1.15** (2026-09-23) - Performance Overhaul Audit
  - Replaced the stale file-size inventory with measured figures
  - Added invariants for RIFF-chunk WAV payload location and a single shared prewarm runtime
@@ -2125,6 +2146,6 @@ To keep this guide maintainable and reduce drift:
 
 ---
 
-**Last Updated:** September 23, 2026
+**Last Updated:** November 21, 2026
 **Maintained By:** VoiceInk Community
 **License:** GPL v3 (same as project)

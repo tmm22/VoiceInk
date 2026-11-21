@@ -59,12 +59,14 @@ extension AudioDeviceManager {
         let internalMicrophoneBlockedByClosedLid = isClamshellClosed
             && preferredAvailableDevice.map(isInternalMicrophone) == true
 
-        var seen = Set<AudioDeviceID>()
-        let candidates = (preferredCandidates + fallbackRecordingDeviceIDs()).filter { deviceID in
-            guard deviceID != excludedDeviceID else { return false }
-            return seen.insert(deviceID).inserted
-        }
-        let resolvedDeviceID = candidates.first(where: isDeviceUsableForRecording)
+        // Classifying the fallback inputs costs Core Audio round trips per device, so that list
+        // is only built when no preferred candidate is usable.
+        let resolvedDeviceID = RecordingDeviceCandidateResolver.firstUsableDevice(
+            preferredCandidates: preferredCandidates,
+            excluding: excludedDeviceID,
+            isUsable: isDeviceUsableForRecording,
+            fallbackCandidates: fallbackRecordingDeviceIDs
+        )
 
         return RecordingDeviceResolution(
             deviceID: resolvedDeviceID,
@@ -105,9 +107,11 @@ extension AudioDeviceManager {
     }
 
     private func fallbackRecordingDeviceIDs() -> [AudioDeviceID] {
-        let internalMicrophones = availableDevices.filter { isInternalMicrophone($0.id) }.map { $0.id }
-        let otherInputs = availableDevices.filter { !isInternalMicrophone($0.id) }.map { $0.id }
-        return isClamshellClosed ? otherInputs + internalMicrophones : internalMicrophones + otherInputs
+        RecordingDeviceCandidateResolver.fallbackOrder(
+            deviceIDs: availableDevices.map { $0.id },
+            isClamshellClosed: isClamshellClosed,
+            isInternalMicrophone: isInternalMicrophone
+        )
     }
 
     func isOperationalInputDevice(_ deviceID: AudioDeviceID) -> Bool {

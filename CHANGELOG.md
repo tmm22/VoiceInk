@@ -2,6 +2,29 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
+## 2026-11-21
+
+### Performance
+
+Dictation does less work per recording and per keystroke. Nothing you see, hear or get back is meant to change.
+
+- A recording no longer reads the selected text or screenshots and OCRs the front window when no enabled mode can use that context. Both are still captured whenever an enabled AI mode with a provider other than VoiceInk Refine uses them, selected text is also still read whenever Smart Punctuation is on, and the clipboard is captured as before.
+- FastConformer and SenseVoice build their ONNX session while you speak instead of after you stop, so the transcript starts sooner. Concurrent requests share one build, and a cleanup can never leave a stale session cached.
+- The FluidAudio and ONNX transcription services, and the ONNX Runtime environment, are created on first use instead of shortly after every launch.
+- Global shortcuts no longer ask the WindowServer about the login session on every key event. Events that match no shortcut reuse a recent "allowed" answer for at most half a second. Every shortcut press is still confirmed with a fresh check, and a lock, session switch or sleep drops the remembered answer.
+- Resolving a mode's transcription model and enhancement provider checks only that model and provider, instead of every model on disk and every provider's Keychain entry several times per dictation.
+- Cloud transcription skips loading the dictionary for providers that never receive it (Groq, OpenRouter and custom endpoints).
+- The menu-bar microphone list and the audio settings priority list resolve the current recording device once per refresh instead of once per row.
+- Feedback sounds load off the main thread, so the first shortcut press after launch no longer waits for them.
+- Importing an audio file converts and writes its WAV off the main thread in blocks, with fewer full-size copies. The written file is byte-identical.
+- The browser URL lookup returns as soon as its script exits instead of checking every 50 ms.
+- Fixed a small leak in Core Audio device name and UID reads.
+
+### Verification
+
+- On Apple Silicon running macOS 27.2, 416 unit tests passed in two consecutive runs and the same two tests as before were skipped because no microphone input was available. All 293 tests that passed before the change still pass, and 123 new tests cover the changed logic. The build has no new warnings.
+- New tests no longer write to the installed app's preferences: the hosted test process shares them.
+
 ## 2026-11-20
 
 ### Community 2.27

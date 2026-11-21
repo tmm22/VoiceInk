@@ -162,7 +162,7 @@ class AudioTranscriptionManager: ObservableObject {
             let permanentURL = recordingsDirectory.appendingPathComponent(fileName)
 
             try FileManager.default.createDirectory(at: recordingsDirectory, withIntermediateDirectories: true)
-            try audioProcessor.saveSamplesAsWav(samples: samples, to: permanentURL)
+            try await audioProcessor.saveSamplesAsWav(samples: samples, to: permanentURL)
             try Task.checkCancellation()
 
             // Phase: Transcribing

@@ -33,6 +33,8 @@ final class APIKeyManager {
 
     private let presenceLock = NSLock()
     private var providerPresence: [String: Presence] = [:]
+    /// Guarded by `presenceLock`. Same lifetime as `providerPresence`, but positive answers only.
+    private var customAIProviderKeyMemo = PositivePresenceMemo<String>(lifetime: .seconds(5))
 
     private init() {}
 
@@ -77,9 +79,28 @@ final class APIKeyManager {
     }
 
     private func secretExists(forKey identifier: String) -> Bool? {
-        let local = keychain.presence(forKey: identifier, syncable: false)
+        Self.combinedPresence(
+            local: keychain.presence(forKey: identifier, syncable: false),
+            namespaceHonorsSyncable: keychain.namespace.usesDataProtectionKeychain,
+            synced: { keychain.presence(forKey: identifier, syncable: true) }
+        )
+    }
+
+    /// Combines the device-local presence probe with the legacy iCloud-synced one. `nil` means the
+    /// Keychain could not answer; "absent" is only ever reported from a successful "not found".
+    ///
+    /// A namespace that does not use the Data Protection keychain builds the same query for both
+    /// probes (`KeychainService` reads `syncable` only for Data Protection namespaces), so once the
+    /// first has answered "not found" the second would repeat it verbatim and is skipped. A first
+    /// probe that failed still gets its second attempt.
+    static func combinedPresence(
+        local: Bool?,
+        namespaceHonorsSyncable: Bool,
+        synced: () -> Bool?
+    ) -> Bool? {
         if local == true { return true }
-        let synced = keychain.presence(forKey: identifier, syncable: true)
+        if local == false, !namespaceHonorsSyncable { return false }
+        let synced = synced()
         if synced == true { return true }
         return local == false && synced == false ? false : nil
     }
@@ -169,6 +190,7 @@ final class APIKeyManager {
     func saveCustomAIProviderAPIKey(_ key: String, forProviderId providerId: UUID) -> Bool {
         let keyIdentifier = customAIProviderKeyIdentifier(for: providerId)
         let success = saveSecret(key, forKey: keyIdentifier)
+        presenceLock.withLock { customAIProviderKeyMemo.invalidate(keyIdentifier) }
         if success {
             logger.info("Saved API key for custom AI provider: \(providerId.uuidString, privacy: .public)")
         }
@@ -180,10 +202,28 @@ final class APIKeyManager {
         return readSecret(forKey: keyIdentifier)
     }
 
+    /// Whether a non-blank API key is stored for a custom AI provider.
+    ///
+    /// One enhancement asks this several times, so a positive answer is remembered for a few
+    /// seconds instead of reading the secret each time. Absent, blank and unreadable keys are never
+    /// remembered, and saving or deleting the key drops the entry, so an in-app change is always
+    /// answered from the Keychain. Building the request still reads the key itself.
+    func hasCustomAIProviderAPIKey(forProviderId providerId: UUID) -> Bool {
+        let keyIdentifier = customAIProviderKeyIdentifier(for: providerId)
+        return presenceLock.withLock {
+            if customAIProviderKeyMemo.isFresh(keyIdentifier) { return true }
+            let key = readSecret(forKey: keyIdentifier)
+            let isUsable = key.map { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ?? false
+            customAIProviderKeyMemo.record(isUsable, for: keyIdentifier)
+            return isUsable
+        }
+    }
+
     @discardableResult
     func deleteCustomAIProviderAPIKey(forProviderId providerId: UUID) -> Bool {
         let keyIdentifier = customAIProviderKeyIdentifier(for: providerId)
         let success = deleteSecret(forKey: keyIdentifier)
+        presenceLock.withLock { customAIProviderKeyMemo.invalidate(keyIdentifier) }
         if success {
             logger.info("Deleted API key for custom AI provider: \(providerId.uuidString, privacy: .public)")
         }

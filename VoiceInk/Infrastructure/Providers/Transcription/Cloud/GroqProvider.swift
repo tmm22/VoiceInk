@@ -7,6 +7,8 @@ struct GroqProvider: CloudProvider {
     let providerKey: String = "Groq"
     let languageCodes: [String]? = nil
     let includesAutoDetect: Bool = false
+    /// `transcribe` below sends no vocabulary to Groq's Whisper endpoint.
+    let usesCustomVocabulary: Bool = false
 
     var models: [CloudModel] {
         [
