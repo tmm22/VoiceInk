@@ -4,7 +4,7 @@ All notable changes to the VoiceLink Community application are documented here.
 
 ## 2026-11-22
 
-### Interface
+### Community 2.29
 
 - The sidebar's Trash item follows your region like the rest of the app. It reads "Bin" in Australia, the UK, New Zealand and the other regions where the Trash screen already said "Bin". Since the 2.0 sidebar it had read "Trash" everywhere.
 
