@@ -59,6 +59,12 @@ strip_build_args=(
   OTHER_SWIFT_FLAGS='$(inherited) -cross-module-optimization'
   STRIPFLAGS=-x
   SWIFT_OPTIMIZATION_LEVEL=-Osize
+  # Swift packages get whole-module mode from their Release optimization level
+  # (-Owholemodule), which the -Osize override above replaces. Without this line
+  # every package compiles file by file, where -cross-module-optimization is
+  # unsupported: Swift 6.4 (Xcode 27.2) then fails to link FluidAudio with
+  # duplicate symbols.
+  SWIFT_COMPILATION_MODE=wholemodule
 )
 
 thin_arm64_unsigned_app() {

@@ -27,6 +27,10 @@ A performance release. Dictation does less work per recording and per keystroke.
 - On Apple Silicon running macOS 27.2, 424 unit tests passed in two consecutive runs and the same two tests as before were skipped because no microphone input was available. All 293 tests that passed before the change still pass, and 131 new tests cover the changed logic. The build has no new warnings.
 - New tests no longer write to the installed app's preferences: the hosted test process shares them.
 
+### Build
+
+- The release script now compiles Swift packages in whole-module mode. Its `-Osize` override had been replacing the setting that packages take that mode from, so they compiled file by file, and with Xcode 27.2 the release build failed to link FluidAudio with duplicate symbols.
+
 ## 2026-11-20
 
 ### Community 2.27

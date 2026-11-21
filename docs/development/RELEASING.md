@@ -36,7 +36,7 @@ Available scripts:
   - Creates a temporary staging copy outside Desktop/iCloud-backed locations
   - Builds the app with the unsigned local-build configuration by default
   - Uses the dedicated `VoiceInkRelease` shared scheme with Xcode `Release` so debug dylibs and test-oriented coverage settings are not shipped in the DMG
-  - Forces Release stripping, dead-code stripping, `-Osize`, ThinLTO, and cross-module optimization so manual and scripted release builds stay aligned on bundle-size optimization
+  - Forces Release stripping, dead-code stripping, `-Osize`, ThinLTO, whole-module compilation, and cross-module optimization so manual and scripted release builds stay aligned on bundle-size optimization
   - Forces `ENABLE_CODE_COVERAGE=NO` and `CLANG_COVERAGE_MAPPING=NO` so the release binary does not carry accidental LLVM coverage/profiling sections
   - Strips non-global symbols in the packaged app to reduce DMG size without changing behavior
   - For unsigned artifacts, thins universal embedded binaries to `arm64` and re-signs the app bundle ad hoc
@@ -73,6 +73,8 @@ For public GitHub/community releases, the artifact policy is:
   - `STRIPFLAGS=-x`
   - `OTHER_SWIFT_FLAGS='$(inherited) -cross-module-optimization'`
   - `SWIFT_OPTIMIZATION_LEVEL=-Osize`
+  - `SWIFT_COMPILATION_MODE=wholemodule`
+- Keep `SWIFT_COMPILATION_MODE=wholemodule` next to the `-Osize` override. Swift packages take whole-module mode from their Release optimization level (`-Owholemodule`), so overriding `SWIFT_OPTIMIZATION_LEVEL` on the command line silently compiles every package file by file. `-cross-module-optimization` is unsupported in that mode, and with Swift 6.4 (Xcode 27.2) FluidAudio then fails to link with duplicate symbols
 - Keep the release binary free of `__llvm_prf*` and `__LLVM_COV` sections; their reappearance is a release-size regression
 - For unsigned artifacts, prune bundled ESpeakNG dictionary data to the English-only Pocket TTS subset used by the current shipped voices
 - For unsigned artifacts, thin universal embedded binaries to `arm64`
