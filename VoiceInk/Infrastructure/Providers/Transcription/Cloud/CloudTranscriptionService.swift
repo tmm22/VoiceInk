@@ -54,8 +54,15 @@ class CloudTranscriptionService: TranscriptionService {
         let fileName = audioURL.lastPathComponent
         let language = selectedLanguage(from: context)
         let timeout = CloudTranscriptionSettings.timeout
-        // The dictionary lives in the main context; read it on the main actor.
-        let vocabulary = await DictionaryVocabulary.terms(from: modelContext, limit: nil, logger: AppLogger.transcription)
+        // The dictionary lives in the main context; read it on the main actor. Providers that never
+        // send it skip the fetch and get an empty list, which they ignore.
+        let vocabulary: [String]
+        if Self.needsCustomVocabulary(for: model.provider) {
+            vocabulary = await DictionaryVocabulary.terms(
+                from: modelContext, limit: nil, logger: AppLogger.transcription)
+        } else {
+            vocabulary = []
+        }
 
         do {
             if model.provider == .custom {
@@ -89,6 +96,14 @@ class CloudTranscriptionService: TranscriptionService {
     }
 
     // MARK: - Helpers
+
+    /// Whether the batch request for `provider` can carry the custom vocabulary. Custom
+    /// OpenAI-compatible models take the branch that never passes it; registered providers answer
+    /// for themselves; anything unrecognised keeps the fetch.
+    static func needsCustomVocabulary(for provider: ModelProvider) -> Bool {
+        if provider == .custom { return false }
+        return CloudProviderRegistry.provider(for: provider)?.usesCustomVocabulary ?? true
+    }
 
     private func loadAudioData(from url: URL) async throws -> Data {
         guard FileManager.default.fileExists(atPath: url.path) else {

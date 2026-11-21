@@ -59,7 +59,8 @@ extension CoreAudioRecorder {
             &property
         )
 
-        return status == noErr ? property?.takeUnretainedValue() as String? : nil
+        // Core Audio hands CFString property values to the caller at +1, so consume the reference.
+        return status == noErr ? property?.takeRetainedValue() as String? : nil
     }
 
     func getTransportType(deviceID: AudioDeviceID) -> String {

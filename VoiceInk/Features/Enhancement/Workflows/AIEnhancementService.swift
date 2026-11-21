@@ -91,7 +91,7 @@ class AIEnhancementService: ObservableObject {
 
         if provider == .custom {
             guard let modelName = configuration.modelName else { return false }
-            return CustomAIProviderManager.shared.requestConfiguration(forModel: modelName) != nil
+            return CustomAIProviderManager.shared.hasRequestConfiguration(forModel: modelName)
         }
 
         return APIKeyManager.shared.hasAPIKey(forProvider: provider.rawValue)

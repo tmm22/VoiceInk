@@ -90,9 +90,7 @@ enum ModeRuntimeResolver {
             return .modelNotFound(mode: mode)
         }
 
-        guard transcriptionModelManager.usableModels.contains(where: {
-            $0.selectionKey == model.selectionKey
-        }) else {
+        guard transcriptionModelManager.hasUsableModel(selectionKey: model.selectionKey) else {
             return .unavailable(mode: mode, model: model)
         }
 
@@ -204,7 +202,8 @@ enum ModeRuntimeResolver {
         return enhancementService.allPrompts.first { $0.id == uuid }
     }
 
-    private static func resolvedProvider(
+    /// Internal rather than private so tests can compare it with the `connectedProviders` list.
+    static func resolvedProvider(
         providerName: String?,
         aiService: AIService
     ) -> AIProvider? {
@@ -212,10 +211,10 @@ enum ModeRuntimeResolver {
             guard let provider = AIProvider(rawValue: providerName) else {
                 return nil
             }
-            return aiService.connectedProviders.contains(provider) ? provider : nil
+            return aiService.isConnected(provider) ? provider : nil
         }
 
-        return aiService.connectedProviders.first
+        return aiService.firstConnectedProvider
     }
 
     private static func resolvedEnhancementModelName(

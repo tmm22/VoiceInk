@@ -261,24 +261,33 @@ class AIService: ObservableObject {
     @Published private(set) var isOllamaRefreshing = false
 
     var connectedProviders: [AIProvider] {
-        AIProvider.allCases.filter { provider in
-            guard provider.supportsEnhancement else {
-                return false
-            }
+        AIProvider.allCases.filter { isConnected($0) }
+    }
 
-            if provider == .custom {
-                return CustomAIProviderManager.shared.hasConfiguredModels
-            } else if provider == .voiceInkRefine {
-                return voiceInkRefineService.isAvailableInModes
-            } else if provider == .ollama {
-                return ollamaService.isConnected
-            } else if provider == .localCLI {
-                return localCLIService.isConfigured
-            } else if provider.requiresAPIKey {
-                return APIKeyManager.shared.hasAPIKey(forProvider: provider.rawValue)
-            }
+    /// The per-provider predicate behind `connectedProviders`: checks this one provider only.
+    func isConnected(_ provider: AIProvider) -> Bool {
+        guard provider.supportsEnhancement else {
             return false
         }
+
+        if provider == .custom {
+            return CustomAIProviderManager.shared.hasConfiguredModels
+        } else if provider == .voiceInkRefine {
+            return voiceInkRefineService.isAvailableInModes
+        } else if provider == .ollama {
+            return ollamaService.isConnected
+        } else if provider == .localCLI {
+            return localCLIService.isConfigured
+        } else if provider.requiresAPIKey {
+            return APIKeyManager.shared.hasAPIKey(forProvider: provider.rawValue)
+        }
+        return false
+    }
+
+    /// Same element as `connectedProviders.first` (first match in `AIProvider.allCases` order),
+    /// without checking the providers that come after it.
+    var firstConnectedProvider: AIProvider? {
+        AIProvider.allCases.first { isConnected($0) }
     }
 
     var currentModel: String {

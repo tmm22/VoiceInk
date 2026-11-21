@@ -99,6 +99,9 @@ class TranscriptionPipeline {
         }
 
         do {
+            // The recording is closed before the pipeline starts and nothing below rewrites it, so
+            // its duration is read while transcription runs instead of serially after it.
+            async let recordedDuration = AudioFileMetadata.duration(for: audioURL)
             let transcriptionStart = Date()
             var text: String
             if let session {
@@ -141,7 +144,7 @@ class TranscriptionPipeline {
             text = WordReplacementService.shared.applyReplacements(to: text, using: modelContext)
             let cleanedText = text
 
-            let actualDuration = await AudioFileMetadata.duration(for: audioURL)
+            let actualDuration = await recordedDuration
 
             transcription.text = cleanedText
             transcription.duration = actualDuration

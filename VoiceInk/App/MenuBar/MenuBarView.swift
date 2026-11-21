@@ -85,11 +85,13 @@ struct MenuBarView: View {
             }
 
             Menu {
+                // One resolution per menu build instead of one per device row.
+                let currentDevice = CurrentRecordingDeviceMemo(deviceManager: audioDeviceManager)
                 ForEach(audioDeviceManager.availableDevices, id: \.id) { device in
                     Button {
                         audioDeviceManager.selectDeviceAndSwitchToCustomMode(id: device.id)
                     } label: {
-                        let isActive = audioDeviceManager.getCurrentDevice() == device.id
+                        let isActive = currentDevice.deviceID == device.id
                         Text(isActive ? "\(device.name)  ✓" : device.name)
                     }
                 }

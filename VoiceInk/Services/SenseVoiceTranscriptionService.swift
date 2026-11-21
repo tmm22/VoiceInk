@@ -4,24 +4,26 @@ import OnnxRuntimeBindings
 import os.log
 
 final class SenseVoiceTranscriptionService: TranscriptionService {
+    /// Everything `transcribe()` needs besides the audio. Built once per model and cached as a unit.
+    private struct Runtime {
+        let session: ORTSession
+        let tokenizer: SenseVoiceTokenizer
+    }
+
     private let modelsDirectory: URL
     private let featureExtractor = FastConformerFeatureExtractor()
     private let logger = Logger(subsystem: AppLogger.subsystem, category: "SenseVoice")
 
+    // The ONNX Runtime environment is created with the first session build, which runs off the main
+    // actor, so constructing this service (done on the main actor by the registry) stays cheap.
+    private let envLock = NSLock()
     private var env: ORTEnv?
-    private var sessions: [String: ORTSession] = [:]
-    private var tokenizerCache: [String: SenseVoiceTokenizer] = [:]
-    private let cacheLock = NSLock()
+    private var didAttemptEnvCreation = false
+    /// Shared single-flight, generation-safe cache; see `ONNXRuntimeCache.swift`.
+    private let runtimeCache = ONNXRuntimeCache<Runtime>()
 
     init(modelsDirectory: URL) {
         self.modelsDirectory = modelsDirectory
-        do {
-            self.env = try ORTEnv(loggingLevel: .warning)
-            logger.notice("ONNX Runtime environment initialized successfully")
-        } catch {
-            logger.error("Failed to initialize ONNX Runtime environment: \(AppLogger.errorMetadata(error), privacy: .public)")
-            self.env = nil
-        }
     }
 
     func transcribe(
@@ -46,8 +48,10 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
         
         logger.notice("SenseVoice: Feature shape after LFR: \(features.count) frames x \(features.first?.count ?? 0) dims")
 
-        let session = try ensureSession(for: model.name)
-        let tokenizer = try tokenizer(for: model.name)
+        // Normally cached by the record-start prepare; joins that build if it is still running.
+        let runtime = try await loadRuntime(forModelNamed: model.name, request: .transcribe)
+        let session = runtime.session
+        let tokenizer = runtime.tokenizer
         
         let inputNames = try session.inputNames()
         let outputNames = try session.outputNames()
@@ -96,46 +100,70 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
         return tokenizer.decode(ids: tokenIds)
     }
 
+    /// Changes whenever `cleanup()` or `invalidateSession(for:)` runs. Read it at the moment a prepare
+    /// is requested and pass it to `prepare(_:requestedAt:)`.
+    var invalidationEpoch: Int { runtimeCache.invalidationEpoch }
+
+    /// Builds the session and tokenizer for `model` ahead of `transcribe()`, which then finds them
+    /// cached. Shares a build that is already in flight. Throws without caching anything when the build
+    /// fails or is deferred, in which case `transcribe()` builds and reports errors itself.
+    ///
+    /// - Parameter epoch: `invalidationEpoch` as read when the prepare was requested. A cleanup that
+    ///   lands after that cancels the prepare instead of leaving a session cached behind it.
+    func prepare(_ model: any TranscriptionModel, requestedAt epoch: Int) async throws {
+        guard model.provider == .senseVoice else {
+            throw VoiceInkEngineError.modelLoadFailed
+        }
+        _ = try await loadRuntime(forModelNamed: model.name, request: .prepare(epoch: epoch))
+    }
+
     func invalidateSession(for modelName: String) {
-        cacheLock.lock()
-        sessions[modelName] = nil
-        tokenizerCache[modelName] = nil
-        cacheLock.unlock()
+        runtimeCache.invalidate(modelName)
     }
 
     func cleanup() {
-        cacheLock.lock()
-        sessions.removeAll()
-        tokenizerCache.removeAll()
-        cacheLock.unlock()
+        runtimeCache.invalidateAll()
     }
 
-    private func tokenizer(for modelName: String) throws -> SenseVoiceTokenizer {
-        cacheLock.lock()
-        if let cached = tokenizerCache[modelName] {
-            cacheLock.unlock()
-            return cached
+    private func loadRuntime(
+        forModelNamed modelName: String, request: ONNXRuntimeCache<Runtime>.Request
+    ) async throws -> Runtime {
+        try await runtimeCache.runtime(for: modelName, request: request) { [weak self] in
+            // The service is gone, so nobody is left to use the runtime. Callers keep it alive.
+            guard let self else { throw VoiceInkEngineError.modelLoadFailed }
+            return try self.buildRuntime(forModelNamed: modelName)
         }
-        cacheLock.unlock()
+    }
 
+    /// Same steps, in the same order, that `transcribe()` has always run: session, then tokenizer.
+    private func buildRuntime(forModelNamed modelName: String) throws -> Runtime {
+        let session = try makeSession(for: modelName)
         let tokenizerURL = modelsDirectory
             .appendingPathComponent(modelName)
             .appendingPathComponent("tokens.txt")
         let tokenizer = try SenseVoiceTokenizer(tokensFileURL: tokenizerURL)
-        cacheLock.lock()
-        tokenizerCache[modelName] = tokenizer
-        cacheLock.unlock()
-        return tokenizer
+        return Runtime(session: session, tokenizer: tokenizer)
     }
 
-    private func ensureSession(for modelName: String) throws -> ORTSession {
-        cacheLock.lock()
-        if let session = sessions[modelName] {
-            cacheLock.unlock()
-            return session
+    /// Created once, on first use. A failed attempt is remembered rather than retried, exactly as when
+    /// the environment was created in `init`.
+    private func runtimeEnvironment() -> ORTEnv? {
+        envLock.lock()
+        defer { envLock.unlock() }
+        if !didAttemptEnvCreation {
+            didAttemptEnvCreation = true
+            do {
+                env = try ORTEnv(loggingLevel: .warning)
+                logger.notice("ONNX Runtime environment initialized successfully")
+            } catch {
+                logger.error("Failed to initialize ONNX Runtime environment: \(AppLogger.errorMetadata(error), privacy: .public)")
+            }
         }
-        cacheLock.unlock()
-        guard let env = env else {
+        return env
+    }
+
+    private func makeSession(for modelName: String) throws -> ORTSession {
+        guard let env = runtimeEnvironment() else {
             logger.error("SenseVoice: ONNX environment is nil")
             throw VoiceInkEngineError.modelLoadFailed
         }
@@ -164,9 +192,6 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
             logger.error("SenseVoice: Failed to create ONNX session: \(AppLogger.errorMetadata(error), privacy: .public)")
             throw VoiceInkEngineError.modelLoadFailed
         }
-        cacheLock.lock()
-        sessions[modelName] = session
-        cacheLock.unlock()
         return session
     }
 
@@ -298,11 +323,25 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
             tensorData.getBytes(&buffer, length: tensorData.length)
             return buffer.map { Int($0) }
         default:
+            let shape = typeInfo.shape.map { $0.intValue }
+            if elementType == .float, shape.count >= 2 {
+                // `tensorData` aliases storage owned by `value`; keep both alive while it is read.
+                let inPlaceTokenIds = withExtendedLifetime((value, tensorData)) {
+                    Self.greedyDecodeInPlace(
+                        logits: UnsafeRawBufferPointer(start: tensorData.bytes, count: tensorData.length),
+                        frameCount: shape[shape.count - 2],
+                        vocabSize: shape.last ?? 1
+                    )
+                }
+                if let inPlaceTokenIds {
+                    return inPlaceTokenIds
+                }
+            }
+
             let floatCount = tensorData.length / MemoryLayout<Float>.size
             var floatBuffer = [Float](repeating: 0, count: floatCount)
             tensorData.getBytes(&floatBuffer, length: tensorData.length)
             
-            let shape = typeInfo.shape.map { $0.intValue }
             if shape.count >= 2 {
                 let vocabSize = shape.last ?? 1
                 let frameCount = shape[shape.count - 2]
@@ -323,6 +362,40 @@ final class SenseVoiceTranscriptionService: TranscriptionService {
             var maxIndex = 0
             for vocabIndex in 0..<vocabSize {
                 let value = logits[offset + vocabIndex]
+                if value > maxValue {
+                    maxValue = value
+                    maxIndex = vocabIndex
+                }
+            }
+            decoded.append(maxIndex)
+        }
+
+        return decoded
+    }
+
+    /// The same greedy argmax as `greedyDecode(_:frameCount:vocabSize:)`, read straight from the logits
+    /// tensor's own storage so the logits (frames x vocabulary floats, roughly 1.7 MB per second of
+    /// audio) are not copied a second time. Identical comparison and iteration order over the same bytes.
+    /// Returns nil when the storage cannot be read in place; the caller then takes the copying path.
+    static func greedyDecodeInPlace(logits: UnsafeRawBufferPointer, frameCount: Int, vocabSize: Int) -> [Int]? {
+        guard frameCount > 0, vocabSize > 0 else { return nil }
+        let (elementCount, overflow) = frameCount.multipliedReportingOverflow(by: vocabSize)
+        guard !overflow,
+              elementCount <= logits.count / MemoryLayout<Float>.stride,
+              let baseAddress = logits.baseAddress,
+              Int(bitPattern: baseAddress) % MemoryLayout<Float>.alignment == 0
+        else { return nil }
+
+        let values = baseAddress.assumingMemoryBound(to: Float.self)
+        var decoded: [Int] = []
+        decoded.reserveCapacity(frameCount)
+
+        for frame in 0..<frameCount {
+            let frameValues = values + frame * vocabSize
+            var maxValue: Float = -.infinity
+            var maxIndex = 0
+            for vocabIndex in 0..<vocabSize {
+                let value = frameValues[vocabIndex]
                 if value > maxValue {
                     maxValue = value
                     maxIndex = vocabIndex
