@@ -56,14 +56,24 @@ struct AppSidebar: View {
     }
 }
 
-private extension ViewType {
-    var title: LocalizedStringKey {
+extension ViewType {
+    /// String-catalogue key for this item's sidebar label.
+    /// The Trash follows the region's wording: "Bin" in Australia, the UK and similar regions.
+    var sidebarTitleKey: String {
         switch self {
         case .transcribeAudio:
             return "Transcribe"
+        case .trash:
+            return Localization.Trash.title
         default:
-            return LocalizedStringKey(rawValue)
+            return rawValue
         }
+    }
+}
+
+private extension ViewType {
+    var title: LocalizedStringKey {
+        LocalizedStringKey(sidebarTitleKey)
     }
 
     static let primaryItems: [ViewType] = [
