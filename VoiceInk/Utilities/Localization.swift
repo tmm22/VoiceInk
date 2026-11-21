@@ -11,13 +11,18 @@ struct Localization {
             ?? "VoiceInk"
     }
     
-    /// Returns true if user's region prefers "Bin" over "Trash"
-    /// Commonwealth countries typically use "Bin" while US/Canada use "Trash"
-    private static var usesBinTerminology: Bool {
-        let regionCode = Locale.current.region?.identifier ?? ""
-        // Commonwealth countries that use "Bin"
-        let binRegions = ["GB", "AU", "NZ", "IE", "ZA", "IN", "SG", "HK", "MY", "PK"]
+    /// Commonwealth regions whose English says "Bin" where US and Canadian English say "Trash".
+    private static let binRegions: Set<String> = ["GB", "AU", "NZ", "IE", "ZA", "IN", "SG", "HK", "MY", "PK"]
+
+    /// Returns true if the given region prefers "Bin" over "Trash".
+    static func usesBinTerminology(regionCode: String?) -> Bool {
+        guard let regionCode else { return false }
         return binRegions.contains(regionCode)
+    }
+
+    /// Returns true if the user's region prefers "Bin" over "Trash".
+    private static var usesBinTerminology: Bool {
+        usesBinTerminology(regionCode: Locale.current.region?.identifier)
     }
     enum General {
         static let done = NSLocalizedString("Done", comment: "General done action")
@@ -130,7 +135,8 @@ struct Localization {
     }
     
     enum Trash {
-        static var title: String { usesBinTerminology ? "Bin" : "Trash" }
+        static var title: String { title(usesBin: usesBinTerminology) }
+        static func title(usesBin: Bool) -> String { usesBin ? "Bin" : "Trash" }
         static var emptyTrash: String { usesBinTerminology ? "Empty Bin" : "Empty Trash" }
         static let restore = NSLocalizedString("Restore", comment: "Restore item from trash")
         static let deletePermanently = NSLocalizedString("Delete Permanently", comment: "Permanently delete item")
