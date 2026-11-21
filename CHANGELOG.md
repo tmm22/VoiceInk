@@ -2,11 +2,11 @@
 
 All notable changes to the VoiceLink Community application are documented here.
 
-## 2026-11-21
+## 2026-11-22
 
-### Performance
+### Community 2.28
 
-Dictation does less work per recording and per keystroke. Nothing you see, hear or get back is meant to change.
+A performance release. Dictation does less work per recording and per keystroke. Nothing you see, hear or get back is meant to change.
 
 - A recording no longer reads the selected text or screenshots and OCRs the front window when no enabled mode can use that context. Both are still captured whenever an enabled AI mode with a provider other than VoiceInk Refine uses them, selected text is also still read whenever Smart Punctuation is on, and the clipboard is captured as before.
 - FastConformer and SenseVoice build their ONNX session while you speak instead of after you stop, so the transcript starts sooner. Concurrent requests share one build, and a cleanup can never leave a stale session cached.
