@@ -216,7 +216,6 @@ final class ShortcutSessionGate {
 private final class UserSessionChangeObserver: NSObject, Sendable {
     let cache: UserSessionInputPolicyCache
 
-    private static let screenIsLockedNotification = Notification.Name("com.apple.screenIsLocked")
     private static let workspaceNotifications = [
         NSWorkspace.sessionDidResignActiveNotification,
         NSWorkspace.willSleepNotification,
@@ -232,7 +231,7 @@ private final class UserSessionChangeObserver: NSObject, Sendable {
         DistributedNotificationCenter.default().addObserver(
             self,
             selector: #selector(sessionMayHaveChanged(_:)),
-            name: Self.screenIsLockedNotification,
+            name: .screenIsLocked,
             object: nil,
             suspensionBehavior: .deliverImmediately
         )

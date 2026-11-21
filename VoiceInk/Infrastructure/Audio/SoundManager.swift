@@ -11,6 +11,8 @@ class SoundManager: ObservableObject {
     private var escSound: AVAudioPlayer?
     private let soundFileStore = SoundFileStore()
     private var loadSequencer = SoundLoadSequencer()
+    /// Queued cues that came from a settings preview, which plays even while feedback is off.
+    private var deferredPreviewCues: Set<SoundType> = []
     
     @Published var settings: AudioFeedbackSettings {
         didSet {
@@ -146,6 +148,11 @@ class SoundManager: ObservableObject {
         }
 
         for cue in completion.cuesToPlay {
+            // Settings can change while a reload is in flight, so a queued cue gets the same checks
+            // again that it got when it was requested: one queued before feedback was switched off
+            // stays silent.
+            let isPreview = deferredPreviewCues.remove(cue) != nil
+            guard settings.preset != .silent, isPreview || settings.isEnabled else { continue }
             play(cue)
         }
     }
@@ -163,29 +170,34 @@ class SoundManager: ObservableObject {
     
     func playStartSound() {
         guard settings.isEnabled, settings.preset != .silent else { return }
-        playOrDefer(.start)
+        playOrDefer(.start, isPreview: false)
     }
 
     func playStopSound() {
         guard settings.isEnabled, settings.preset != .silent else { return }
-        playOrDefer(.stop)
+        playOrDefer(.stop, isPreview: false)
     }
     
     func playEscSound() {
         guard settings.isEnabled, settings.preset != .silent else { return }
-        playOrDefer(.cancel)
+        playOrDefer(.cancel, isPreview: false)
     }
     
     func previewSound(type: SoundType) {
         guard settings.preset != .silent else { return }
-        playOrDefer(type)
+        playOrDefer(type, isPreview: true)
     }
 
     /// A cue requested while a reload is in flight plays as soon as that reload lands. When
     /// reloads ran synchronously the main actor was blocked for that window, so the cue came out
     /// of the reloaded players at the same moment.
-    private func playOrDefer(_ cue: SoundType) {
-        guard !loadSequencer.deferCueIfLoading(cue) else { return }
+    private func playOrDefer(_ cue: SoundType, isPreview: Bool) {
+        guard !loadSequencer.deferCueIfLoading(cue) else {
+            if isPreview {
+                deferredPreviewCues.insert(cue)
+            }
+            return
+        }
         play(cue)
     }
 

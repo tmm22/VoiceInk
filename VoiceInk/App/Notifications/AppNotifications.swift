@@ -22,4 +22,6 @@ extension Notification.Name {
     static let recordingDeviceChangeRequired = Notification.Name("recordingDeviceChangeRequired")
     /// Posted by AudioDeviceManager whenever the input device list or default device changes.
     static let audioDeviceChanged = Notification.Name("AudioDeviceChanged")
+    /// Posted by macOS on the distributed notification centre when the screen locks.
+    static let screenIsLocked = Notification.Name("com.apple.screenIsLocked")
 }
