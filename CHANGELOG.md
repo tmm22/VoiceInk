@@ -8,6 +8,10 @@ All notable changes to the VoiceLink Community application are documented here.
 
 - The sidebar's Trash item follows your region like the rest of the app. It reads "Bin" in Australia, the UK, New Zealand and the other regions where the Trash screen already said "Bin". Since the 2.0 sidebar it had read "Trash" everywhere.
 
+### Verification
+
+- On Apple Silicon running macOS 27.2.1, 431 unit tests passed and the same two tests as before were skipped because no microphone input was available. Seven new tests cover the region wording and the sidebar label. The build has no new warnings.
+
 ## 2026-11-22
 
 ### Community 2.28
